@@ -23,7 +23,16 @@ class Playback:
         self._task: asyncio.Task | None = None
         self._stream = None
         self._speaking = False
-        self._interrupted = False
+        # Counts interruptions. Each clip is queued with the epoch current
+        # when it was handed over, and played only if that is still the
+        # epoch now -- so "stop" discards the sentences of the turn being
+        # interrupted without touching the turn that replaces it.
+        #
+        # This used to be a boolean, and it latched: the flag was cleared
+        # only inside _play(), which the discard path skipped, so the first
+        # "never mind" left Relay mute until it was restarted. A counter
+        # cannot latch, because nothing has to remember to reset it.
+        self._epoch = 0
         self.on_start = on_start
         self.on_finish = on_finish
 
@@ -46,11 +55,11 @@ class Playback:
             self._task = None
 
     async def say(self, audio: np.ndarray, sample_rate: int) -> None:
-        await self._queue.put((audio, sample_rate))
+        await self._queue.put((self._epoch, audio, sample_rate))
 
     def interrupt(self) -> None:
         """Stop immediately and discard anything queued."""
-        self._interrupted = True
+        self._epoch += 1
         while not self._queue.empty():
             try:
                 self._queue.get_nowait()
@@ -69,9 +78,9 @@ class Playback:
 
     async def _run(self) -> None:
         while True:
-            audio, sample_rate = await self._queue.get()
+            epoch, audio, sample_rate = await self._queue.get()
             try:
-                if self._interrupted:
+                if epoch != self._epoch:
                     continue
                 await self._play(audio, sample_rate)
             except Exception as exc:  # noqa: BLE001 - a bad clip must not stop the queue
@@ -90,7 +99,6 @@ class Playback:
             samples = samples / peak
 
         self._speaking = True
-        self._interrupted = False
         if self.on_start:
             await _maybe_await(self.on_start())
         try:

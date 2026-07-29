@@ -205,6 +205,46 @@ async def test_abort_silences_subsequent_sentences():
     assert spoken == []
 
 
+async def test_announce_speaks_even_after_an_abort():
+    """Out-of-turn speech isn't part of the turn that was stopped.
+
+    `relay say` and the model manager's "I've dropped to the CPU voice"
+    notice both go through announce(). Routing them through say() meant one
+    "never mind" silenced them until the next spoken turn -- so Relay went
+    quiet about degrading at precisely the moment it degraded.
+    """
+    loop = _loop()
+    spoken = []
+
+    async def fake_synth(text):
+        spoken.append(text)
+        raise RuntimeError("stop here; synthesis is all we're checking")
+
+    loop.voices = type("V", (), {"synthesise": staticmethod(fake_synth)})()
+    loop.abort()
+    await loop.announce("Switching to the CPU voice.")
+
+    assert spoken == ["Switching to the CPU voice."]
+
+
+async def test_announce_does_not_reopen_an_aborted_reply():
+    """Clearing the flag must not resurrect the streamed reply behind it.
+
+    announce() clears _aborted so its own line is spoken; the guard that
+    matters is _ask_model's, which has already returned by then.
+    """
+    loop = _loop()
+    loop.voices = type("V", (), {"synthesise": staticmethod(
+        lambda text: (_ for _ in ()).throw(RuntimeError("no device")))})()
+    loop.abort()
+    assert loop._aborted
+    await loop.announce("something out of band")
+    # The turn stays abandoned: _offer_follow_up is what would restart it.
+    loop._aborted = True
+    loop._offer_follow_up()
+    assert loop.listener.opened == 0
+
+
 async def test_push_to_talk_interrupts_then_triggers():
     loop = _loop()
     await loop.listen_now()

@@ -162,7 +162,7 @@ class RelayDaemon:
         playback = Playback()
         self.voice = VoiceLoop(self, listener, SpeechToText(), voices, playback,
                                cooldown_ms=self.cfg.audio.post_speech_cooldown_ms)
-        self.models = ModelManager(self.cfg, voices, announce=self.voice.say)
+        self.models = ModelManager(self.cfg, voices, announce=self.voice.announce)
         # Let tools speak for themselves. Music needs it: starting Cider takes
         # several seconds, and silence during the wait reads as a failure.
         tool_base.ctx().speak = self.voice
@@ -528,7 +528,7 @@ class RelayDaemon:
         if self.voice is None:
             await emit("error", {"text": "Voice is not running (started with --no-voice?)."})
             return
-        await self.voice.say(text)
+        await self.voice.announce(text)
         await emit("info", {"text": f"said: {text}"})
 
     async def _cmd_tier(self, args, *, emit, confirm=None) -> None:

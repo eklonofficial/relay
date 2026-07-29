@@ -96,6 +96,19 @@ class VoiceLoop:
         self.abort()
         self.listener.trigger()
 
+    async def announce(self, text: str) -> None:
+        """Speak something that isn't part of a turn.
+
+        `say()` stays quiet once the turn has been aborted, which is right for
+        the sentences still streaming out of a reply the user just stopped.
+        It is wrong for anything that arrives on its own: `relay say`, and the
+        model manager reporting that it has dropped to the CPU voice. Those
+        have nothing to do with the abandoned turn, and silently swallowing
+        them means Relay stops explaining itself exactly when it degrades.
+        """
+        self._aborted = False
+        await self.say(text)
+
     async def say(self, text: str) -> None:
         """Speak a line, pausing the microphone so Relay doesn't hear itself."""
         text = text.strip()
