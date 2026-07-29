@@ -110,6 +110,21 @@ else
     say "no Relay keybindings found"
 fi
 
+# ------------------------------------------------------------------ audio
+step "3a. Echo cancellation"
+AEC_DROPIN="$HOME/.config/pipewire/pipewire.conf.d/99-relay-echo-cancel.conf"
+if [ -f "$AEC_DROPIN" ]; then
+    if [ "$DRY" -eq 1 ]; then
+        say "would remove $AEC_DROPIN and restart PipeWire"
+    else
+        rm -f "$AEC_DROPIN"
+        systemctl --user restart pipewire pipewire-pulse 2>/dev/null || true
+        say "removed the echo canceller and restarted PipeWire"
+    fi
+else
+    say "not installed"
+fi
+
 # -------------------------------------------------------------- orb rules
 step "3b. Orb layer rules"
 HYPR_RULES="$HOME/.config/hypr/custom/rules.lua"

@@ -257,6 +257,17 @@ if ! command -v qs >/dev/null 2>&1 && ! command -v quickshell >/dev/null 2>&1; t
     say "  install it, or set [overlay] enabled = false to silence the warning"
 fi
 
+# -------------------------------------------------------- echo cancellation
+step "10. Echo cancellation"
+# Not enabled automatically: it changes the machine's audio graph, and that
+# is a decision to make deliberately rather than to find having happened.
+if [ -f "$HOME/.config/pipewire/pipewire.conf.d/99-relay-echo-cancel.conf" ]; then
+    say "already enabled"
+else
+    say "optional: lets Relay hear you over music and over its own voice"
+    say "  enable with:  ./scripts/setup_aec.sh enable"
+fi
+
 # ----------------------------------------------------------------- done
 step "Done."
 say "Check it with:   relay status"

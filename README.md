@@ -47,6 +47,13 @@ fullscreen windows, never swallows a click, and is deleted by turning one
 config flag off. Hyprland blurs the desktop behind it; the shader draws the
 glass.
 
+**It hears you over the speakers.** The microphone picks up whatever is
+playing — music, a video, Relay's own voice — and none of that is
+distinguishable from a person talking. PipeWire's WebRTC echo canceller takes
+the audio being sent to the speakers as a reference and subtracts it from what
+the microphone hears, which is the same trick a smart speaker uses. Measured
+at **−17 dB** on this machine. `./scripts/setup_aec.sh enable`.
+
 **It degrades instead of dying.** The wake word runs on the CPU, so when a game
 or a Blender render needs the GPU, Relay drops its GPU models and keeps working
 rather than going deaf.
