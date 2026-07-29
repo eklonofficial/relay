@@ -7,7 +7,7 @@ cannot be rebuilt from source:
 - `relay.onnx` — the wake word, trained on Andrew's voice
 - `voice-samples/` — the recordings it was trained from
 
-Last updated: 2026-07-29 08:46
+Last updated: 2026-07-29 08:47
 
 `install.sh` restores all three, and will not overwrite an existing
 memory.db.

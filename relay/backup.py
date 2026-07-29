@@ -112,6 +112,44 @@ def verify(path: Path) -> tuple[bool, str]:
     return True, ", ".join(f"{n} {k}" for k, n in counts.items())
 
 
+def fingerprint(database: Path) -> str | None:
+    """A cheap summary of what's actually *in* the database.
+
+    Needed because two snapshots of an unchanged database are not
+    byte-identical -- SQLite's internal page state moves around -- so
+    comparing files would report a change on every single run and fill the
+    history with commits that record nothing.
+
+    Row counts plus the latest timestamp in each table is enough: adding,
+    editing or forgetting anything moves one of them.
+    """
+    if not database.exists():
+        return None
+    db = None
+    try:
+        db = sqlite3.connect(f"file:{database}?mode=ro", uri=True)
+        parts = []
+        for table, stamp in (("memories", "updated_at"),
+                             ("conversations", "started_at"),
+                             ("observations", "last_seen"),
+                             ("system_facts", "updated_at")):
+            row = db.execute(
+                f"SELECT count(*), coalesce(max({stamp}), 0) FROM {table}"
+            ).fetchone()
+            parts.append(f"{table}:{row[0]}:{row[1]:.0f}")
+        return "|".join(parts)
+    except sqlite3.Error:
+        return None
+    finally:
+        if db is not None:
+            db.close()
+
+
+def _read_manifest() -> str | None:
+    path = BACKUP_DIR / "manifest.txt"
+    return path.read_text().strip() if path.exists() else None
+
+
 def collect(*, include_voice: bool = True) -> tuple[bool, list[str]]:
     """Gather the irreplaceable files into backup/."""
     notes: list[str] = []
@@ -141,6 +179,10 @@ def collect(*, include_voice: bool = True) -> tuple[bool, list[str]]:
         count = sum(1 for _ in destination.rglob("*") if _.is_file())
         notes.append(f"voice-samples  ({count} recordings)")
 
+    current = fingerprint(PATHS.db)
+    if current:
+        (BACKUP_DIR / "manifest.txt").write_text(current + "\n")
+
     (BACKUP_DIR / "README.md").write_text(
         "# Backup\n\n"
         "Written by `relay backup`. These are the only parts of Relay that\n"
@@ -163,6 +205,12 @@ def push(*, message: str | None = None, dry_run: bool = False) -> tuple[int, lis
     if code != 0:
         return 1, [f"{REPO_ROOT} is not a git repository.",
                    "Run install.sh from a clone, or `git init` here first."]
+
+    # Check before copying: an unchanged database means there is nothing to
+    # do at all, and re-snapshotting it would produce a different file for
+    # identical contents.
+    if not dry_run and fingerprint(PATHS.db) and fingerprint(PATHS.db) == _read_manifest():
+        return 0, ["Nothing has changed since the last backup."]
 
     good, notes = collect()
     if not good:
