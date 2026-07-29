@@ -417,7 +417,13 @@ class Listener:
 
 async def build_listener(cfg) -> Listener:
     """Assemble the listener from config, loading models off the event loop."""
-    microphone = Microphone(device=_device_index(cfg.audio.input_device))
+    microphone = Microphone(
+        device=_device_index(cfg.audio.input_device),
+        # Looked up again on every reopen rather than captured once: a resume
+        # can renumber the input devices, so the index that was right at
+        # startup may point at something else by the time we need it.
+        resolve=lambda: _device_index(cfg.audio.input_device),
+    )
     detector = WakeWordDetector(cfg.audio.wake_word, cfg.audio.wake_threshold)
     vad = VoiceActivity()
     await asyncio.gather(

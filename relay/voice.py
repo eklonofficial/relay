@@ -47,6 +47,7 @@ class VoiceLoop:
         self.pause_while_speaking = pause_while_speaking
         self.cooldown_s = cooldown_ms / 1000.0
         self._task: asyncio.Task | None = None
+        self._watchdog: asyncio.Task | None = None
         # Suppresses an identical spoken message repeating. If every turn
         # fails the same way, saying so once is help; saying it on a loop
         # is not.
@@ -61,16 +62,22 @@ class VoiceLoop:
         await self.playback.start()
         await self.stt.load()
         self._task = asyncio.create_task(self._run(), name="relay-voice")
+        # Watches for the capture stream dying silently -- which is what a
+        # suspend/resume does to it -- and reopens the device.
+        self._watchdog = asyncio.create_task(
+            self.listener.microphone.watch(), name="relay-mic-watchdog")
         log.info("voice loop listening")
 
     async def stop(self) -> None:
-        if self._task is not None:
-            self._task.cancel()
+        for task in (self._task, self._watchdog):
+            if task is None:
+                continue
+            task.cancel()
             try:
-                await self._task
+                await task
             except (asyncio.CancelledError, Exception):  # noqa: BLE001
                 pass
-            self._task = None
+        self._task = self._watchdog = None
         await self.playback.stop()
         self.listener.microphone.stop()
 
