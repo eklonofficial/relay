@@ -1,0 +1,44 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.ruff_cache/
+
+# The virtualenv is ~6 GB of torch and CUDA, and is fully reproducible from
+# pyproject.toml. install.sh rebuilds it.
+.venv/
+
+# ---------------------------------------------------------------- secrets
+# The live config holds the Cider API token. config.example.toml is the
+# version that gets committed; the real one never leaves this machine.
+config.toml
+*.token
+.env
+
+# ---------------------------------------------------------- large weights
+# ~466 MB of downloadable models. install.sh refetches them.
+models/
+*.safetensors
+
+# ------------------------------------------------------------- runtime
+*.db
+*.db-wal
+*.db-shm
+*.log
+screenshots/
+sessions/
+
+# --------------------------------------------------------------- backups
+# `relay backup` writes here. Explicitly un-ignored, because the whole point
+# is that it *is* committed: the wake word was trained on Andrew's voice and
+# cannot be downloaded again, and the memory database is not reproducible at
+# all. The rules above would otherwise swallow both.
+!backup/
+!backup/**
+# ...but not SQLite's sidecars. They're empty once the snapshot closes, and
+# committing them implies the backup depends on files it doesn't.
+backup/*.db-wal
+backup/*.db-shm

@@ -1,0 +1,96 @@
+[project]
+name = "relay"
+version = "0.1.0"
+description = "Always-on voice assistant for Hyprland, powered by Claude"
+readme = "README.md"
+requires-python = "==3.12.*"
+
+# Core = the text path. Deliberately free of torch so `relay ask` works
+# without a 3GB install. Audio and model backends live in the extras below.
+dependencies = [
+    "claude-agent-sdk>=0.1.0",
+    "sqlite-vec>=0.1.6",
+    # Upper bound is numba's, reached via chatterbox -> librosa -> numba, which
+    # refuses to import against NumPy 2.5. It fails at import time with a clear
+    # message, but only once the GPU voice is loaded.
+    "numpy>=1.26,<2.5",
+    "onnxruntime>=1.18",
+    # huggingface-hub went 0.x -> 1.x, so ">=0.25" happily resolves to 0.36,
+    # which is *older* than 1.3 and missing `is_offline_mode`. transformers 5
+    # then fails to import and takes the GPU voice down with it. tokenizers
+    # must clear 0.22 too -- 0.20 caps huggingface-hub below 1.0 and drags the
+    # whole resolution back to the broken combination.
+    "tokenizers>=0.22",
+    "huggingface-hub>=1.3",
+    "tomli-w>=1.0",
+    "platformdirs>=4.0",
+]
+
+[project.optional-dependencies]
+# Wake word, VAD, capture and playback.
+#
+# openwakeword is deliberately NOT listed here. It declares tflite-runtime,
+# which publishes no cp312 wheels, so naming it makes the whole project
+# unresolvable -- `uv run` then fails on every command, not just audio ones.
+# Relay loads openWakeWord with inference_framework="onnx" and never imports
+# tflite, so the dependency is real only on paper. Install it separately:
+#
+#     uv pip install --no-deps openwakeword
+#
+# Its actual runtime needs (onnxruntime, scipy, tqdm, requests) are covered
+# here and in the core dependencies.
+audio = [
+    "sounddevice>=0.4.7",
+    "silero-vad>=5.1",
+    "soundfile>=0.12",
+    "scipy>=1.13",
+    "tqdm>=4.66",
+    "requests>=2.31",
+]
+# GPU inference tier. Heavy; only needed for FULL mode.
+gpu = [
+    "torch>=2.4",
+    "torchaudio>=2.4",
+    "chatterbox-tts>=0.1.0",
+    "nvidia-ml-py>=12.560",
+    # chatterbox pins transformers exactly, so don't constrain it here -- doing
+    # so makes the resolver walk chatterbox backwards to 0.1.3, which needs
+    # numba 0.53 and fails to build llvmlite.
+    # setuptools 81 removed pkg_resources, which chatterbox's `perth`
+    # watermarker imports. It swallows the ImportError and sets the class to
+    # None, so the failure surfaces much later as a confusing NoneType call.
+    "setuptools<81",
+]
+# CPU inference tier (LITE mode).
+cpu = [
+    "onnx-asr>=0.4.0",
+    "kokoro-onnx>=0.4.0",
+]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.24",
+    "ruff>=0.6",
+]
+
+[project.scripts]
+relay = "relay.ipc.cli:main"
+relayd = "relay.__main__:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["relay"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+ignore = ["E501"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]

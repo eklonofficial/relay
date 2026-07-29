@@ -1,0 +1,23 @@
+# Relay configuration.
+#
+# Copied to ~/.config/relay/config.toml by install.sh. Only values that differ
+# from the built-in defaults need to be here -- anything omitted keeps
+# improving as Relay is updated, so a sparse file is better than a complete
+# one. `relay settings` edits this.
+#
+# The real config on Andrew's machine also holds the Cider API token. That is
+# deliberately absent here, and config.toml is in .gitignore, so the secret
+# never reaches the repository.
+
+[audio]
+# The wake word trained on Andrew's voice. install.sh rewrites this path if it
+# finds the model in backup/. Threshold 0.85 sits in the gap between his real
+# "Relay" (0.95-1.00) and the nearest false positives ("relate" 0.80).
+# wake_word = "/home/andrewmarin/.local/share/relay/models/relay.onnx"
+# wake_threshold = 0.85
+
+[music]
+# From Cider: Settings -> Connectivity -> Manage External Application Access.
+# Without it, transport control still works over MPRIS, but playing a song by
+# name does not -- that needs an Apple Music catalogue search.
+# cider_token = ""

@@ -1,0 +1,40 @@
+[Unit]
+Description=Relay voice assistant
+Documentation=file:///home/andrewmarin/Linux-assistant/docs/guide.md
+# Wait for the graphical session: Relay needs Hyprland's socket for window
+# control and PipeWire for the microphone. Starting before either exists means
+# a daemon that runs but can't see or hear anything.
+After=graphical-session.target pipewire.service
+PartOf=graphical-session.target
+
+# Don't fight a genuinely broken config: if it dies repeatedly, stop and let
+# `journalctl --user -u relay` explain why. These two belong in [Unit], not
+# [Service] -- systemd ignores them there ("Unknown key ... ignoring") and the
+# crash-loop guard silently does nothing.
+StartLimitIntervalSec=300
+StartLimitBurst=5
+
+[Service]
+Type=simple
+ExecStart=%h/Linux-assistant/.venv/bin/python -m relay
+WorkingDirectory=%h/Linux-assistant
+
+Restart=on-failure
+RestartSec=5
+
+# HYPRLAND_INSTANCE_SIGNATURE and WAYLAND_DISPLAY are set per session and
+# cannot be hardcoded here. `relay install-service` imports them from the
+# running session; this is the fallback if the environment is already correct.
+PassEnvironment=WAYLAND_DISPLAY HYPRLAND_INSTANCE_SIGNATURE XDG_RUNTIME_DIR
+
+# The model cache is large; give it room to load without being killed.
+MemoryMax=12G
+# Speech is latency-sensitive but must never starve the desktop.
+Nice=-5
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=relay
+
+[Install]
+WantedBy=graphical-session.target
