@@ -118,6 +118,13 @@ void main() {
     // How far out the body finally sits.
     float reach = r * 1.70;
 
+    // Everything grows out of nothing at the very start of the pull, and
+    // shrinks back into nothing at the end of the retract. Without this the
+    // root is still 0.95r wide at p = 0 with its centre just inside the
+    // edge, so a slice of it stays on screen forever -- a permanent bump at
+    // the bezel that never melts away.
+    float birth = smoothstep(0.0, 0.13, a);
+
     // --- the body -------------------------------------------------------
     // Creeps out while attached, then springs the rest of the way once the
     // neck lets go.
@@ -126,7 +133,7 @@ void main() {
     // blobs simply overlap, and the whole thing reads as two circles side by
     // side instead of one stretching form.
     float travel = (p < BREAK)
-        ? reach * mix(0.20, 0.82, easeOut(a))
+        ? reach * mix(0.20, 0.82, easeOut(a)) * birth
         : reach * mix(0.82, 1.0, elasticOut(b));
     vec2  bodyC = vec2(edgeX - travel, midY);
 
@@ -136,7 +143,7 @@ void main() {
     // is why the earlier version could only ever look like a stretching
     // circle. It is also what actually happens -- the drop gathers its mass
     // as the thread feeds into it, then rounds up once it is free.
-    float rBody = r * (p < BREAK ? mix(0.16, 0.42, a)
+    float rBody = r * (p < BREAK ? mix(0.16, 0.42, a) * birth
                                  : mix(0.42, 1.0, min(1.0, pow(b, 0.55) * 1.6)));
 
     // Round while attached, deforming only once it is free.
@@ -156,11 +163,11 @@ void main() {
     // the waist, and the bulb at the tip. The waist is what pinches.
     // The root stays broad the whole way through: the filament leaves the
     // bezel wide and narrows as it goes, rather than being a second ball.
-    float rootR = r * (p < BREAK ? mix(0.95, 0.62, a)
+    float rootR = r * (p < BREAK ? mix(0.95, 0.62, a) * birth
                                  : 0.62 * (1.0 - smoothstep(0.0, 0.28, b)));
     // The thread. Thins slowly, then all at once -- the exponent is the whole
     // character of the parting: linear and it deflates, this and it snaps.
-    float waistR = r * (p < BREAK ? mix(0.30, 0.010, pow(a, 1.5)) : 0.0);
+    float waistR = r * (p < BREAK ? mix(0.30, 0.010, pow(a, 1.5)) * birth : 0.0);
 
     // The root sits mostly *inside* the bezel, so what is drawn is a broad
     // shallow swell across the edge rather than a ball beside it.
@@ -169,7 +176,23 @@ void main() {
     // short -- the shape of a filament rather than an hourglass.
     vec2 waistC = vec2(edgeX - travel * 0.74, midY);
 
-    float dBody = sdEllipse(px, bodyC, rBody, bodyScale);
+    // --- surface motion --------------------------------------------------
+    // Applied to the BODY only, never to the combined field.
+    //
+    // Subtracting the voice term from `d` after the union looks equivalent
+    // and is not: once the neck breaks the root collapses to a zero-radius
+    // point at the bezel, and subtracting from its distance carves a small
+    // disc around that point. The result was a bead at the screen edge
+    // pulsing in time with every word.
+    vec2  rel  = px - bodyC;
+    float ang  = atan(rel.y, rel.x);
+    float spin = time * (0.6 + 2.4 * thinking);
+    float wob  = (sin(ang * 3.0 + spin) + sin(ang * 5.0 - spin * 0.7)) * 0.5
+               * r * (0.006 + 0.026 * level + 0.012 * thinking) * b;
+    float voice = r * (sin(time * 1.6) * 0.012
+                     + level * (0.085 + 0.05 * speaking)) * b;
+
+    float dBody = sdEllipse(px, bodyC, rBody + voice, bodyScale) - wob;
     float d;
     if (p < BREAK) {
         // root -> waist -> bulb, each an exact tapered capsule. A small
@@ -180,20 +203,10 @@ void main() {
         d = smin(smin(dRoot, dNeck, r * 0.18), dBody, r * 0.10);
     } else {
         // Broken. The bulb is on its own; whatever is left at the root
-        // recoils through the edge and is gone.
-        float dRoot = length(px - rootC) - rootR;
-        d = min(dBody, dRoot);
+        // recoils through the edge and is gone. Once it has gone, drop it
+        // entirely rather than leaving a zero-radius point in the field.
+        d = (rootR > 0.001) ? min(dBody, length(px - rootC) - rootR) : dBody;
     }
-
-    // --- surface motion --------------------------------------------------
-    vec2  rel = px - bodyC;
-    float ang = atan(rel.y, rel.x);
-    float spin = time * (0.6 + 2.4 * thinking);
-    float wob = (sin(ang * 3.0 + spin) + sin(ang * 5.0 - spin * 0.7)) * 0.5
-              * r * (0.006 + 0.026 * level + 0.012 * thinking) * b;
-    d -= wob;
-    // Breathing, and swelling with the voice.
-    d -= r * (sin(time * 1.6) * 0.012 + level * (0.085 + 0.05 * speaking)) * b;
 
     // --- coverage --------------------------------------------------------
     float aa   = max(fwidth(d), 0.75);

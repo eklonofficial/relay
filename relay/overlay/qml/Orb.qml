@@ -28,7 +28,11 @@ Item {
     property real envelopeDuration: 0
     property real envelopeStartedAt: 0
 
-    visible: emerge > 0.001 || shader.opacity > 0.001
+    // `shader.opacity` used to be part of this test, back when the effect
+    // faded in. It is now a constant 1, so leaving it here made `visible`
+    // permanently true -- the item never unmapped, and whatever the shader
+    // still drew at emerge = 0 stayed on screen.
+    visible: emerge > 0.001
 
     function reset() {
         envelope = [];
