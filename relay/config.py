@@ -188,10 +188,11 @@ class OverlayConfig:
     """
 
     enabled: bool = True
-    # Which edge it emerges from, and how far down. 120px clears both the bar
-    # (which reserves 40) and the rounded screen corner widget.
+    # Which edge it emerges from, and where the top of the orb sits measured
+    # from the top of the screen. 72 tucks it directly under the 63px bar --
+    # as high as it goes without overlapping.
     edge: str = "right"
-    top_margin: int = 120
+    orb_top: int = 72
     size: int = 132
     # "shader"   -- the orb shades its own glass: tint, caustic, chromatic
     #               fringe and rim light, over Hyprland's own backdrop blur.

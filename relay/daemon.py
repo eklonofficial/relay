@@ -203,7 +203,7 @@ class RelayDaemon:
             self.overlay_process = OverlayProcess(env={
                 "RELAY_ORB_SOCKET": self.overlay_bus.path,
                 "RELAY_ORB_SIZE": self.cfg.overlay.size,
-                "RELAY_ORB_TOP_MARGIN": self.cfg.overlay.top_margin,
+                "RELAY_ORB_TOP": self.cfg.overlay.orb_top,
                 "RELAY_ORB_MATERIAL": self.cfg.overlay.material,
             })
             if not await self.overlay_process.start():
@@ -675,6 +675,12 @@ class RelayDaemon:
             await emit("error", {"text":
                 "The orb isn't running." if enabled
                 else "The orb is disabled ([overlay] enabled = false)."})
+            return
+
+        scrub = args.get("scrub")
+        if scrub is not None:
+            self.orb.scrub(float(scrub))
+            await emit("info", {"text": f"orb held at {float(scrub):.2f}"})
             return
 
         state = (args.get("state") or "").strip().lower()

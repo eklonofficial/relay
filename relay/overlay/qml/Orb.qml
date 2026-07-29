@@ -16,6 +16,7 @@ Item {
     // --- live state ------------------------------------------------------
     property string state_: "idle"
     property real emerge: 0       // 0 inside the bezel, 1 detached
+    property bool scrubbing: false // held at a fixed point for inspection
     property real level: 0        // 0..1 loudness
     property real thinking: 0     // blend into the thinking look
     property real speaking: 0     // blend into the speaking look
@@ -46,8 +47,19 @@ Item {
         } catch (e) {
             return;                      // a partial line is not worth a crash
         }
+        // Scrubbing: pin the pull at a fixed point instead of playing it.
+        // The whole separation lasts about half a second, which is far too
+        // short to judge by watching and impossible to screenshot reliably --
+        // a capture tool's own latency is longer than the phase you are
+        // trying to look at. `relay overlay scrub 0.35` holds it there.
+        if (msg.scrub !== undefined) {
+            root.scrubbing = true;
+            root.emerge = msg.scrub;
+            return;
+        }
         if (msg.level !== undefined) root.level = msg.level;
         if (msg.state === undefined) return;
+        root.scrubbing = false;
 
         root.state_ = msg.state;
         if (msg.state === "speaking" && msg.envelope && msg.envelope.length > 0) {
@@ -60,14 +72,24 @@ Item {
     }
 
     // --- transitions -----------------------------------------------------
-    // The pull-out overshoots slightly and settles: surface tension letting
-    // go. Retracting is quicker and does not overshoot, because being pulled
-    // back into a bezel is not elastic.
+    // Linear, deliberately. The shader owns the timing of the pull, the
+    // pinch and the settle, because they are one continuous piece of physics
+    // and splitting the easing across two files would mean neither could see
+    // the whole of it. Easing it here as well would fight that.
+    //
+    // 760ms out: long enough to read the neck thinning, short enough that it
+    // is not in the way. Retracting is quicker, because being pulled back
+    // into a bezel is not elastic.
+    // The duration keys off `state_`, never off `emerge`. Reading the
+    // property being animated inside its own Behavior gives you the *old*
+    // value at the moment the animation starts, so a test for `emerge > 0.5`
+    // is false on every outward pull -- every one of them silently ran at the
+    // retract duration.
     Behavior on emerge {
+        enabled: !root.scrubbing
         NumberAnimation {
-            duration: root.emerge > 0.5 ? 460 : 300
-            easing.type: root.emerge > 0.5 ? Easing.OutBack : Easing.InCubic
-            easing.overshoot: 1.15
+            duration: root.state_ === "idle" ? 240 : 520
+            easing.type: Easing.Linear
         }
     }
     Behavior on thinking { NumberAnimation { duration: 320; easing.type: Easing.InOutQuad } }
@@ -123,11 +145,11 @@ Item {
         id: shader
         anchors.fill: parent
 
-        // Fading the whole effect in and out on top of the shape animation
-        // hides the single frame where the neck is thinner than one pixel.
-        opacity: root.emerge > 0.001 ? 1 : 0
-        Behavior on opacity { NumberAnimation { duration: 180 } }
-
+        // No fade. The droplet has to arrive as solid black, the same black
+        // as the bezel it is being pulled out of -- fading it in would give
+        // the game away in the first frame, which is the one frame that has
+        // to be convincing.
+        opacity: 1
         blending: true
         fragmentShader: Qt.resolvedUrl("orb.frag.qsb")
 

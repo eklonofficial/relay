@@ -2,22 +2,26 @@
 
 // The orb.
 //
-// A dark glass bubble that pulls out of the right bezel, hangs there while
-// Relay listens and thinks, and pulses while it speaks.
+// A droplet is pulled out of the right bezel, stretches until it necks,
+// pinches off, and the free half rounds up into a glass bubble while the
+// other half recoils into the bezel and vanishes.
 //
-// Everything is a signed distance field. The pull-out is the whole trick: a
-// smooth minimum between a slab welded to the right edge and a free-floating
-// circle. Blend them hard and they are one blob joined by a neck; separate
-// them and the neck thins, snaps, and leaves a sphere. That is the same
-// metaball maths a dynamic island uses, and it is why this reads as liquid
-// rather than as a shape being moved.
+// Everything is a signed distance field, and the pinch-off is two metaballs
+// rather than one shape being moved. A body blob travels outward, an anchor
+// blob stays welded to the edge, and a smooth minimum joins them. While the
+// join width is wide they are one form with a neck; as it narrows the neck
+// thins on its own, exactly as surface tension does, and when it reaches zero
+// they are simply two shapes. Nothing is keyframed to "break" -- the break is
+// what the maths does.
 //
-// The surface is NOT lit as an opaque object. Hyprland blurs whatever is
-// behind this layer, and the body is left translucent so that blur shows
-// through. What is drawn here is only what glass adds on top of a blurred
-// backdrop: a dark tint, a bright caustic band low on the body, colour
-// splitting at the rim, and a fresnel edge lit from below -- matching the
-// references, where the light comes off the desktop underneath.
+// The material arrives *after* the break, which is what the reference frames
+// show: first a featureless black tab indistinguishable from the bezel, then
+// a black sphere, and only once it is round do the caustic and the dispersion
+// appear. Glass that fades in while the droplet is still forming reads as a
+// picture of a bubble; glass that arrives as it rounds up reads as one.
+//
+// The body is left translucent so Hyprland's own backdrop blur shows through.
+// What is drawn here is only what glass adds on top of a blurred backdrop.
 
 layout(location = 0) in vec2 qt_TexCoord0;
 layout(location = 0) out vec4 fragColor;
@@ -27,7 +31,7 @@ layout(std140, binding = 0) uniform buf {
     float qt_Opacity;
     vec2  size;        // item size in px
     float time;        // seconds since the orb appeared
-    float emerge;      // 0 = inside the bezel, 1 = fully detached
+    float emerge;      // 0 = inside the bezel, 1 = formed. Driven LINEARLY.
     float level;       // 0..1 loudness, drives listening and speaking
     float thinking;    // 0..1 blend into the thinking look
     float speaking;    // 0..1 blend into the speaking look
@@ -35,29 +39,60 @@ layout(std140, binding = 0) uniform buf {
     float plainBody;   // 1 when hyprglass supplies the material instead
 };
 
-const float PI = 3.14159265;
+// Where the neck lets go. Before this the droplet is one shape welded to the
+// bezel; after it, two.
+const float BREAK = 0.50;
 
-// Polynomial smooth minimum. `k` is the width of the join: large while the
-// droplet is still attached, near zero once it has pulled free.
 float smin(float a, float b, float k) {
     if (k <= 0.0001) return min(a, b);
     float h = clamp(0.5 + 0.5 * (b - a) / k, 0.0, 1.0);
     return mix(b, a, h) - k * h * (1.0 - h);
 }
 
-float sdCircle(vec2 p, vec2 c, float r) {
-    return length(p - c) - r;
+// One decaying overshoot. Not a bounce: a droplet that has just let go
+// wobbles once and settles, it does not boing.
+float elasticOut(float t) {
+    return 1.0 - exp(-6.5 * t) * cos(8.5 * t);
 }
 
-// The bezel itself: a slab hanging off the right edge, so the droplet has
-// something to be made of before it separates.
-float sdBezel(vec2 p, float edgeX, float halfHeight, float depth) {
-    vec2 d = abs(vec2(p.x - (edgeX + depth), p.y)) - vec2(depth, halfHeight);
-    return min(max(d.x, d.y), 0.0) + length(max(d, 0.0));
+float easeOut(float t) { return 1.0 - pow(1.0 - t, 2.6); }
+
+// An ellipse, as a distance. Scaling the space and rescaling the result keeps
+// the gradient near unit length, which matters because the antialiasing width
+// is derived from it.
+float sdEllipse(vec2 p, vec2 c, float r, vec2 scale) {
+    vec2 q = (p - c) / scale;
+    return (length(q) - r) * min(scale.x, scale.y);
 }
 
-// Cheap value noise, used only to keep the caustic from looking like a
-// perfectly straight line.
+// Exact distance to a tapered capsule: the segment a->b with radius r1 at one
+// end and r2 at the other. Two of these in series are what make the filament
+// read as liquid -- wide where it leaves the bezel, tapering to a thread,
+// then flaring back out into the bulb. A single blend between two circles can
+// only ever give a symmetric dumbbell, which is what "a stretching circle"
+// looks like.
+float sdRoundCone(vec2 p, vec2 a, vec2 b, float r1, float r2) {
+    vec2  ba = b - a;
+    float l2 = dot(ba, ba);
+    if (l2 < 0.0001) return length(p - a) - max(r1, r2);
+    float rr = r1 - r2;
+    float a2 = l2 - rr * rr;
+    float il2 = 1.0 / l2;
+
+    vec2  pa = p - a;
+    float y = dot(pa, ba);
+    float z = y - l2;
+    vec2  xp = pa * l2 - ba * y;
+    float x2 = dot(xp, xp);
+    float y2 = y * y * l2;
+    float z2 = z * z * l2;
+
+    float k = sign(rr) * rr * rr * x2;
+    if (sign(z) * a2 * z2 > k) return sqrt(x2 + z2) * il2 - r2;
+    if (sign(y) * a2 * y2 < k) return sqrt(x2 + y2) * il2 - r1;
+    return (sqrt(x2 * a2 * il2) + y * rr) * il2 - r1;
+}
+
 float hash(vec2 p) {
     return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
 }
@@ -70,143 +105,191 @@ float noise(vec2 p) {
 }
 
 void main() {
-    vec2 px = qt_TexCoord0 * size;
-    float edgeX = size.x;                   // the right bezel
+    vec2  px    = qt_TexCoord0 * size;
+    float edgeX = size.x;                 // the right bezel
+    float midY  = size.y * 0.5;
+    float r     = radius;
+    float p     = clamp(emerge, 0.0, 1.0);
 
-    // --- shape -----------------------------------------------------------
-    // Travel: how far the body has moved away from the edge. Eased so it
-    // leaves quickly and settles slowly, like something under tension.
-    float ease = 1.0 - pow(1.0 - clamp(emerge, 0.0, 1.0), 3.0);
-    float travel = mix(0.0, radius * 2.05, ease);
-    vec2  centre = vec2(edgeX - travel, size.y * 0.5);
+    // Two phases, each with its own 0..1 progress.
+    float a = clamp(p / BREAK, 0.0, 1.0);                  // stretching
+    float b = clamp((p - BREAK) / (1.0 - BREAK), 0.0, 1.0); // free
 
-    // Breathing. While listening the body swells with the voice; while
-    // speaking it pulses on the syllable; while thinking it just idles.
-    float idleBreath = sin(time * 1.6) * 0.012;
-    float voice = level * (0.085 + 0.05 * speaking);
-    float r = radius * (1.0 + idleBreath + voice);
+    // How far out the body finally sits.
+    float reach = r * 1.70;
 
-    // Surface tension: a few sine lobes around the rim so the body is never
-    // a perfect circle. Rotates while thinking so the orb keeps moving even
-    // when nothing is being said.
-    vec2  rel = px - centre;
+    // --- the body -------------------------------------------------------
+    // Creeps out while attached, then springs the rest of the way once the
+    // neck lets go.
+    // Travels most of the way out *while still attached*. That distance is
+    // what there is for the neck to span -- creep out slowly and the two
+    // blobs simply overlap, and the whole thing reads as two circles side by
+    // side instead of one stretching form.
+    float travel = (p < BREAK)
+        ? reach * mix(0.20, 0.82, easeOut(a))
+        : reach * mix(0.82, 1.0, elasticOut(b));
+    vec2  bodyC = vec2(edgeX - travel, midY);
+
+    // Small while attached, swelling only as it lets go. This is what leaves
+    // room for a filament at all: a bulb near full size during the stretch
+    // occupies the whole span and there is nowhere for a thread to be, which
+    // is why the earlier version could only ever look like a stretching
+    // circle. It is also what actually happens -- the drop gathers its mass
+    // as the thread feeds into it, then rounds up once it is free.
+    float rBody = r * (p < BREAK ? mix(0.16, 0.42, a)
+                                 : mix(0.42, 1.0, min(1.0, pow(b, 0.55) * 1.6)));
+
+    // Round while attached, deforming only once it is free.
+    //
+    // The elongation you see during the pull is the *neck*, not a squashed
+    // body -- which is both what actually happens to a droplet and what the
+    // maths needs: an ellipse distance is anisotropic, so blending one into
+    // the anchor gives smin two non-comparable numbers and it produces a
+    // notch where a waist should be. Deform only after the break, when there
+    // is nothing left to blend with.
+    float sx = (p < BREAK) ? 1.0
+                           : 1.0 + 0.30 * exp(-6.0 * b) * cos(10.0 * b);
+    vec2  bodyScale = vec2(sx, 1.0 / sx);
+
+    // --- the filament ---------------------------------------------------
+    // Three radii along the pull: broad where it leaves the bezel, thin at
+    // the waist, and the bulb at the tip. The waist is what pinches.
+    // The root stays broad the whole way through: the filament leaves the
+    // bezel wide and narrows as it goes, rather than being a second ball.
+    float rootR = r * (p < BREAK ? mix(0.95, 0.62, a)
+                                 : 0.62 * (1.0 - smoothstep(0.0, 0.28, b)));
+    // The thread. Thins slowly, then all at once -- the exponent is the whole
+    // character of the parting: linear and it deflates, this and it snaps.
+    float waistR = r * (p < BREAK ? mix(0.30, 0.010, pow(a, 1.5)) : 0.0);
+
+    // The root sits mostly *inside* the bezel, so what is drawn is a broad
+    // shallow swell across the edge rather than a ball beside it.
+    vec2 rootC  = vec2(edgeX + rootR * 0.55, midY);
+    // Three quarters of the way out, so the taper is long and the thread is
+    // short -- the shape of a filament rather than an hourglass.
+    vec2 waistC = vec2(edgeX - travel * 0.74, midY);
+
+    float dBody = sdEllipse(px, bodyC, rBody, bodyScale);
+    float d;
+    if (p < BREAK) {
+        // root -> waist -> bulb, each an exact tapered capsule. A small
+        // smooth minimum only rounds the two joints; the profile itself is
+        // the cones, so it stays a filament rather than becoming a blob.
+        float dRoot = sdRoundCone(px, rootC, waistC, rootR, waistR);
+        float dNeck = sdRoundCone(px, waistC, bodyC, waistR, rBody);
+        d = smin(smin(dRoot, dNeck, r * 0.18), dBody, r * 0.10);
+    } else {
+        // Broken. The bulb is on its own; whatever is left at the root
+        // recoils through the edge and is gone.
+        float dRoot = length(px - rootC) - rootR;
+        d = min(dBody, dRoot);
+    }
+
+    // --- surface motion --------------------------------------------------
+    vec2  rel = px - bodyC;
     float ang = atan(rel.y, rel.x);
     float spin = time * (0.6 + 2.4 * thinking);
-    float wobble = (sin(ang * 3.0 + spin) * 0.5 + sin(ang * 5.0 - spin * 0.7) * 0.5)
-                 * r * (0.006 + 0.026 * level + 0.012 * thinking);
-
-    float dBody  = sdCircle(px, centre, r + wobble);
-    float dBezel = sdBezel(px, edgeX, r * 0.62, r * 0.5);
-
-    // The neck. Wide while attached, gone once free -- squared so it thins
-    // fast at the end and the separation reads as a snap.
-    float k = r * 1.25 * pow(1.0 - clamp(emerge, 0.0, 1.0), 2.0);
-    float d = smin(dBody, dBezel, k);
+    float wob = (sin(ang * 3.0 + spin) + sin(ang * 5.0 - spin * 0.7)) * 0.5
+              * r * (0.006 + 0.026 * level + 0.012 * thinking) * b;
+    d -= wob;
+    // Breathing, and swelling with the voice.
+    d -= r * (sin(time * 1.6) * 0.012 + level * (0.085 + 0.05 * speaking)) * b;
 
     // --- coverage --------------------------------------------------------
-    float aa = max(fwidth(d), 0.75);
+    float aa   = max(fwidth(d), 0.75);
     float mask = 1.0 - smoothstep(-aa, aa, d);
     if (mask <= 0.001) {
         fragColor = vec4(0.0);
         return;
     }
 
-    // Normalised position within the body, for shading.
-    float rn = clamp(length(rel) / max(r, 1.0), 0.0, 1.4);
-    float rim = smoothstep(0.55, 1.0, rn);          // 0 centre -> 1 edge
-    // Down-facing weight. The references are lit from below: the desktop is
-    // bright, the bezel above is dark.
+    // How much of the glass has arrived. Zero until the neck breaks: before
+    // that this is a black tab being pulled out of a black bezel, and it
+    // should be indistinguishable from one.
+    float glass = smoothstep(0.0, 0.62, b);
+    // ...and never near the bezel, whatever the phase. Anything within about
+    // a radius of the edge stays pure black, so the root and the recoil read
+    // as screen surround rather than as a piece of glass being reabsorbed.
+    // On an OLED that black is the panel being off, which is most of why the
+    // droplet looks like it is made of the bezel.
+    glass *= smoothstep(0.0, r * 0.85, edgeX - px.x);
+
+    float rn    = clamp(length(rel) / max(r, 1.0), 0.0, 1.4);
+    float rim   = smoothstep(0.55, 1.0, rn);
     float below = clamp(rel.y / max(r, 1.0), -1.0, 1.0) * 0.5 + 0.5;
+    vec2  u     = rel / max(r, 1.0);
+    float upper = clamp(-u.y, 0.0, 1.0);
 
     // --- material --------------------------------------------------------
-    // Dark, slightly blue tint. Alpha, not colour, is what lets Hyprland's
-    // blur read through: the body is mostly transparent in the middle and
-    // densest at the edge, which is how a thick lens actually behaves.
-    vec3  tint = vec3(0.035, 0.042, 0.058);
-    // Thin in the middle, dense at the rim: the way a real lens reads, and
-    // the only reason the blurred desktop behind is visible at all. Push
-    // this up and the orb stops being glass and becomes a dark ball.
-    float density = mix(0.56, 0.90, rim) - 0.13 * below;
+    // Pure black until the glass arrives -- not a dark blue that merely looks
+    // black, because on an OLED the difference between 0 and nearly-0 is the
+    // difference between the pixel being off and being lit.
+    vec3  tint = mix(vec3(0.0), vec3(0.035, 0.042, 0.058), glass);
+    // Thin in the middle, dense at the rim, and heavier at the top than the
+    // bottom: how a real lens reads, and why the orb stays dark against a
+    // bright backdrop while the desktop still shows through the middle.
+    float density = mix(0.34, 0.74, rim) - 0.11 * below + 0.17 * upper;
+    // While still attached it is not glass at all -- it is bezel. Opaque
+    // black, so the tab that emerges looks like part of the screen surround.
+    density = mix(0.99, density, glass);
 
     vec3 col = tint;
-
-    // Position inside the body, -1..1, y down.
-    vec2 u = rel / max(r, 1.0);
-    float upper = clamp(-u.y, 0.0, 1.0);     // 1 at the top of the body
-
-    // Light comes from below, so the top of the glass is the dense, dark
-    // part and the bottom is where everything happens.
-    // Heavier at the top than the bottom. This is what keeps the orb dark
-    // against a bright backdrop -- the references sit on a white sky and are
-    // still nearly black across the top third.
-    density += 0.22 * upper;
 
     if (plainBody < 0.5) {
         // The caustic: light focused through the lens into a band low on the
         // body. It bows, because a lens is curved and a straight line across
-        // a sphere reads as a decal stuck on top of it.
+        // a sphere reads as a decal stuck on top of one.
         float bandY = mix(0.30, 0.21, level) + 0.03 * sin(time * 0.7);
         float bow   = 0.13 * u.x * u.x;
         float dy    = u.y - (bandY + bow);
         float thick = 0.085 + 0.045 * level + 0.02 * speaking;
 
-        // Fade before the rim, so the band belongs to the body rather than
-        // running off the edge of it.
         float sides = smoothstep(1.0, 0.30, abs(u.x));
         float grain = noise(vec2(rel.x * 0.05, time * 0.35)) * 0.25 + 0.75;
-        float reach = sides * grain * (0.52 + 0.70 * level + 0.30 * speaking);
+        float reachC = sides * grain * (0.52 + 0.70 * level + 0.30 * speaking);
 
-        // Dispersion. Three copies of the band at different heights is what
-        // a prism does, and it is the whole reason the references look like
-        // glass rather than like a dark circle with a highlight.
+        // Dispersion. Three copies of the band at different heights is what a
+        // prism does, and it is the whole reason this reads as glass rather
+        // than as a dark circle with a highlight on it.
         float sep = (0.098 + 0.032 * speaking) * (0.55 + 0.45 * rim);
         float cr = exp(-pow(dy + sep,       2.0) / (thick * thick));
         float cg = exp(-pow(dy,             2.0) / (thick * thick));
         float cb = exp(-pow(dy - sep * 0.8, 2.0) / (thick * thick));
 
-        // Warm above, cool below -- the order in the reference frames.
         vec3 rainbow = cr * vec3(1.00, 0.32, 0.10)
                      + cg * vec3(0.35, 1.00, 0.45)
                      + cb * vec3(0.25, 0.45, 1.00);
-        col += rainbow * reach * 0.52;
+        col += rainbow * reachC * 0.52 * glass;
 
-        // A softer, warmer white core sitting on the rainbow, which is what
-        // keeps it reading as one bright band and not as three stripes. Kept
-        // deliberately below the rainbow's brightness -- push it further and
-        // it bleaches the colour straight back out again.
         float core = exp(-(dy * dy) / (thick * thick * 2.2));
-        col += vec3(core) * vec3(1.00, 0.95, 0.88) * reach * 0.42;
+        col += vec3(core) * vec3(1.00, 0.95, 0.88) * reachC * 0.42 * glass;
 
-        // While thinking there is no voice to react to, so the orb turns
-        // over instead: a highlight travelling around the rim. Without it a
-        // long model call is indistinguishable from a frozen frame.
+        // While thinking there is no voice to react to, so the orb turns over
+        // instead: a highlight travelling around the rim. Without it a long
+        // model call is indistinguishable from a frozen frame.
         if (thinking > 0.01) {
-            float a = time * 1.5;
-            vec2  od = u - vec2(cos(a), sin(a)) * 0.72;
+            float t = time * 1.5;
+            vec2  od = u - vec2(cos(t), sin(t)) * 0.72;
             col += vec3(exp(-dot(od, od) * 11.0))
-                 * vec3(0.55, 0.74, 1.00) * 0.30 * thinking;
+                 * vec3(0.55, 0.74, 1.00) * 0.30 * thinking * glass;
         }
 
-        // Fresnel rim: bright below, almost nothing above.
         float fres = pow(rim, 3.0);
-        col += vec3(fres) * mix(0.01, 0.26, below) * vec3(0.90, 0.95, 1.00);
+        col += vec3(fres) * mix(0.01, 0.26, below) * vec3(0.90, 0.95, 1.00) * glass;
 
-        // A broad sheen high on the body. Wide and weak: a tight hot spot
-        // looks like a plastic bead.
+        // A broad, weak sheen high on the body. A tight hot spot looks like a
+        // plastic bead.
         vec2 gl = u - vec2(-0.30, -0.42);
-        col += vec3(exp(-dot(gl, gl) * 7.0) * 0.055) * vec3(0.92, 0.96, 1.00);
+        col += vec3(exp(-dot(gl, gl) * 7.0) * 0.055) * vec3(0.92, 0.96, 1.00) * glass;
 
-        density += fres * 0.10;
+        density += fres * 0.10 * glass;
     } else {
-        // hyprglass is drawing refraction, dispersion and fresnel for the
-        // whole surface. Adding our own on top would double every highlight,
-        // so the body stays plain and only the tint remains ours.
-        density = mix(0.50, 0.72, rim);
+        density = mix(0.99, mix(0.44, 0.66, rim), glass);
     }
 
-    // A thin bright lip exactly on the boundary, present in every reference
-    // frame and most of what sells the wet edge.
-    float lip = smoothstep(2.0, 0.0, abs(d)) * mix(0.03, 0.68, below);
+    // The wet lip exactly on the boundary: bright below, nothing above. Most
+    // of what sells the surface, and it appears with the rest of the glass.
+    float lip = smoothstep(2.0, 0.0, abs(d)) * mix(0.03, 0.68, below) * glass;
     col += vec3(lip) * vec3(0.95, 0.97, 1.00);
     density = min(1.0, density + lip * 0.35);
 

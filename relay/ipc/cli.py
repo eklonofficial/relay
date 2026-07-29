@@ -113,6 +113,11 @@ def build_parser() -> argparse.ArgumentParser:
         "state", nargs="?",
         choices=["waking", "listening", "thinking", "speaking", "idle", "status"],
         help="force a state, for tuning the animation without speaking")
+    overlay.add_argument(
+        "--scrub", type=float, metavar="0..1",
+        help="hold the pull-out at one point (0 = in the bezel, 1 = formed). "
+             "The whole separation lasts half a second, which is shorter than "
+             "a screenshot takes")
 
     backup = sub.add_parser(
         "backup", help="push memories and the trained wake word to GitHub")
@@ -205,6 +210,8 @@ def main(argv: list[str] | None = None) -> int:
         args["reset"] = ns.reset
     elif command == "overlay":
         args["state"] = ns.state or ""
+        if ns.scrub is not None:
+            args["scrub"] = ns.scrub
     elif command == "tier":
         args["tier"] = ns.tier or ""
     elif command == "mode":

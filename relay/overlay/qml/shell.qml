@@ -23,14 +23,18 @@ ShellRoot {
     // Config arrives as environment variables because the window geometry is
     // needed before any socket has connected.
     readonly property int orbSize: parseInt(Quickshell.env("RELAY_ORB_SIZE") || "132")
-    readonly property int topMargin: parseInt(Quickshell.env("RELAY_ORB_TOP_MARGIN") || "120")
+    // Where the TOP OF THE ORB sits, measured from the top of the screen --
+    // not the panel's margin, which would depend on the padding below and be
+    // impossible to set by eye. 72 puts it just under the 63px bar.
+    readonly property int orbTop: parseInt(Quickshell.env("RELAY_ORB_TOP") || "72")
     readonly property string socketPath: Quickshell.env("RELAY_ORB_SOCKET") || ""
     readonly property bool plainBody: (Quickshell.env("RELAY_ORB_MATERIAL") || "shader") === "hyprglass"
 
-    // Room around the orb for the neck while it is still attached, the
-    // wobble, and the soft edge. Kept small: this is the surface the
-    // compositor composites and blurs behind every frame.
-    readonly property int pad: 96
+    // Room above and below the orb for the wobble, the lip and the soft edge.
+    // Kept tight: this is the surface the compositor composites and blurs
+    // behind on every frame, and it is also what decides how far down the
+    // panel reaches for a given orbTop.
+    readonly property int vpad: 40
 
     PanelWindow {
         id: panel
@@ -52,10 +56,16 @@ ShellRoot {
             top: true
             right: true
         }
-        margins.top: root.topMargin
+        // The orb is vertically centred in the panel, so the panel starts
+        // exactly vpad above where the orb's top edge should be.
+        margins.top: Math.max(0, root.orbTop - root.vpad)
 
-        implicitWidth: root.orbSize * 2 + root.pad
-        implicitHeight: root.orbSize * 2 + root.pad
+        // Wide enough for the droplet at full travel plus its stretch; tall
+        // enough for the orb and its wobble. No taller -- a panel sized to
+        // the whole corner would have the compositor blurring a region eight
+        // times larger than anything ever drawn in it.
+        implicitWidth: root.orbSize * 2 + 60
+        implicitHeight: root.orbSize + root.vpad * 2
 
         Orb {
             id: orb

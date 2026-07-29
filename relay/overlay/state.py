@@ -144,6 +144,15 @@ class OverlayState:
     def idle(self) -> None:
         self.set(IDLE)
 
+    def scrub(self, position: float) -> None:
+        """Hold the pull-out at a fixed point instead of playing it.
+
+        The separation lasts about half a second -- shorter than a screenshot
+        tool's own latency -- so it cannot be inspected by capturing at a
+        delay, only by pinning it. Any subsequent state message releases it.
+        """
+        self._send(scrub=max(0.0, min(1.0, float(position))))
+
     # -------------------------------------------------------------- levels
     def level(self, rms: float) -> None:
         """Report how loudly the user is speaking, for the ripple.
