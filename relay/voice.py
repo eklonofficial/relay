@@ -38,8 +38,11 @@ class VoiceLoop:
         *,
         pause_while_speaking: bool = True,
         cooldown_ms: int = 600,
+        activity=None,
     ) -> None:
         self.daemon = daemon
+        # The orb, or nothing. Same duck-typed contract the listener uses.
+        self.activity = activity
         self.listener = listener
         self.stt = stt
         self.voices = voices
@@ -91,7 +94,17 @@ class VoiceLoop:
         self._aborted = True
         self.playback.interrupt()
         self.listener.close_follow_up()
+        self._show("idle")
         log.info("aborted")
+
+    def _show(self, state: str) -> None:
+        """Move the orb, if there is one. Never raises."""
+        if self.activity is None:
+            return
+        try:
+            getattr(self.activity, state)()
+        except Exception:  # noqa: BLE001
+            log.debug("overlay %s failed", state, exc_info=True)
 
     async def listen_now(self) -> None:
         """Push-to-talk: barge in and take a command immediately.
@@ -173,11 +186,16 @@ class VoiceLoop:
     async def _handle(self, utterance: Utterance) -> None:
         # A new turn clears any abort left over from the previous one.
         self._aborted = False
+        # The user has stopped talking; from here to the first spoken word is
+        # all "working", whether that's transcription, the fast path or the
+        # model. Splitting it finer would only make the orb flicker.
+        self._show("thinking")
         transcript = await self.stt.transcribe(utterance.audio)
         if transcript.is_empty:
             # Background chatter caught by the follow-up window looks exactly
             # like this. Close it rather than staying open and grabbing more.
             self.listener.close_follow_up()
+            self._show("idle")
             log.info("nothing intelligible; not treating it as a command")
             return
 
@@ -217,6 +235,9 @@ class VoiceLoop:
         """
         # An aborted turn shouldn't leave a window hanging open: either the
         # user said "stop", or push-to-talk has already started a new turn.
+        # Whatever happens to the follow-up window, the turn is over and the
+        # orb goes back into the bezel.
+        self._show("idle")
         if self._aborted or self.listener.triggered:
             return
         self.listener.open_follow_up()

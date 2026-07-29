@@ -178,6 +178,9 @@ def _loop() -> VoiceLoop:
     loop._last_spoken = None
     loop.pause_while_speaking = True
     loop.cooldown_s = 0.0
+    # No orb in these tests: abort and the follow-up window are audio
+    # behaviour and must work identically whether anything is drawing or not.
+    loop.activity = None
     return loop
 
 

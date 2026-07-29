@@ -20,6 +20,7 @@ It runs entirely on a Claude Pro subscription and adds **no API charges**.
 | **Music** | Cider (Apple Music) over its local REST API, MPRIS as a fallback. |
 | **Screen** | Screenshots, and looking at them when asked to. |
 | **Memory** | Four layers in SQLite, searched by keyword *and* meaning. |
+| **The orb** | A glass bubble that pulls out of the right bezel when it wakes. |
 
 Roughly half of everyday commands — "pause", "next", "open Discord",
 "workspace 2", "what time is it" — never reach the model at all. They're
@@ -37,6 +38,14 @@ that happens blindly every turn.
 **It learns, but it asks first.** Do the same thing three times and Relay
 notices, then asks whether to remember it. A yes stores it at 90% confidence;
 a no means it never raises it again. Nothing is inferred silently.
+
+**You can see it thinking.** A dark glass orb pulls out of the right bezel
+when Relay wakes, ripples with your voice while you talk, turns over while it
+thinks, and pulses on the syllables while it speaks. It is a click-through
+layer-shell surface in its own Quickshell instance, so it draws above
+fullscreen windows, never swallows a click, and is deleted by turning one
+config flag off. Hyprland blurs the desktop behind it; the shader draws the
+glass.
 
 **It degrades instead of dying.** The wake word runs on the CPU, so when a game
 or a Blender render needs the GPU, Relay drops its GPU models and keeps working
@@ -82,6 +91,7 @@ relay ask "what's on workspace 2?" # talk to it without the microphone
 relay profile                      # what it knows about me
 relay memory conversations         # what it has talked about
 relay mode dry-run                 # preview actions without running them
+relay overlay                      # the orb: status, or drive it by hand
 relay backup                       # push memories and wake word to GitHub
 relay docs                         # full documentation in the terminal
 relay settings                     # interactive control panel

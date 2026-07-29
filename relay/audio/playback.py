@@ -19,6 +19,9 @@ class Playback:
     """Serialised audio output with barge-in support."""
 
     def __init__(self, *, on_start=None, on_finish=None) -> None:
+        # on_start(samples, sample_rate) and on_finish(); either may be sync
+        # or async. They fire per *clip*, which is per sentence, because
+        # sentences are queued as they are synthesised rather than joined.
         self._queue: asyncio.Queue = asyncio.Queue()
         self._task: asyncio.Task | None = None
         self._stream = None
@@ -100,7 +103,10 @@ class Playback:
 
         self._speaking = True
         if self.on_start:
-            await _maybe_await(self.on_start())
+            # The clip goes with the signal. Anything drawing Relay speaking
+            # wants its shape, and this is the only place it exists alongside
+            # the moment it starts being heard.
+            await _maybe_await(self.on_start(samples, sample_rate))
         try:
             await asyncio.to_thread(_blocking_play, sd, samples, sample_rate)
         finally:

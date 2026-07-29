@@ -210,6 +210,53 @@ else
     say "no $KEYBINDS — bind 'relay listen' yourself if you want push-to-talk"
 fi
 
+# -------------------------------------------------------------- overlay
+step "9. The orb"
+RULES="$HOME/.config/hypr/custom/rules.lua"
+QML_DIR="$HERE/relay/overlay/qml"
+QML_SHADER="$QML_DIR/orb.frag.qsb"
+
+# The compiled shader is committed, because `qsb` lives in /usr/lib/qt6/bin
+# and is not on PATH, and installing should not need a shader toolchain.
+# Recompiled here only when the tool happens to be present and the source is
+# newer than the artefact.
+QSB="/usr/lib/qt6/bin/qsb"
+if [ -x "$QSB" ] && [ "$QML_DIR/orb.frag" -nt "$QML_SHADER" ]; then
+    "$QSB" --qt6 -o "$QML_SHADER" "$QML_DIR/orb.frag" && say "recompiled the shader"
+fi
+
+if [ ! -f "$QML_SHADER" ]; then
+    say "no compiled shader at $QML_SHADER — the orb will not draw"
+elif [ -f "$RULES" ] && grep -q "relay-orb" "$RULES"; then
+    say "already configured"
+elif [ -f "$RULES" ]; then
+    cat >> "$RULES" <<'EOF'
+
+-- ######## Relay ########
+-- The wake orb (relay/overlay). Deliberately NOT a "quickshell:*" namespace:
+-- hyprland/rules.lua gives those blur with ignore_alpha 0.79, and at 0.79 a
+-- translucent orb is never blurred at all, which is the whole effect gone.
+-- These are loaded after that file, so they win.
+hl.layer_rule({ match = { namespace = "relay-orb" }, blur = true })
+-- Blur even the near-transparent body, which is most of the glass.
+hl.layer_rule({ match = { namespace = "relay-orb" }, ignore_alpha = 0.02 })
+-- Overrides the global xray = true. With xray the blur samples only the
+-- wallpaper, so the orb would refract the desktop while sitting on a window.
+hl.layer_rule({ match = { namespace = "relay-orb" }, xray = false })
+-- The shader does its own entrance; Hyprland's layer animation fights it.
+hl.layer_rule({ match = { namespace = "relay-orb" }, no_anim = true })
+EOF
+    say "added the relay-orb layer rules"
+    hyprctl reload >/dev/null 2>&1 && say "reloaded Hyprland"
+else
+    say "no $RULES — the orb will draw, but without backdrop blur"
+fi
+
+if ! command -v qs >/dev/null 2>&1 && ! command -v quickshell >/dev/null 2>&1; then
+    say "quickshell is not installed; the orb stays off (Relay is unaffected)"
+    say "  install it, or set [overlay] enabled = false to silence the warning"
+fi
+
 # ----------------------------------------------------------------- done
 step "Done."
 say "Check it with:   relay status"

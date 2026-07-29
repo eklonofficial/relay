@@ -107,6 +107,13 @@ def build_parser() -> argparse.ArgumentParser:
     mic = sub.add_parser("mic", help="live microphone and wake-word diagnostics")
     mic.add_argument("--reset", action="store_true", help="reset peak counters")
 
+    overlay = sub.add_parser(
+        "overlay", help="show the orb's status, or drive it by hand")
+    overlay.add_argument(
+        "state", nargs="?",
+        choices=["waking", "listening", "thinking", "speaking", "idle", "status"],
+        help="force a state, for tuning the animation without speaking")
+
     backup = sub.add_parser(
         "backup", help="push memories and the trained wake word to GitHub")
     backup.add_argument("-m", "--message", help="commit message")
@@ -196,6 +203,8 @@ def main(argv: list[str] | None = None) -> int:
         args["text"] = " ".join(ns.text)
     elif command == "mic":
         args["reset"] = ns.reset
+    elif command == "overlay":
+        args["state"] = ns.state or ""
     elif command == "tier":
         args["tier"] = ns.tier or ""
     elif command == "mode":

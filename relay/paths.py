@@ -72,6 +72,18 @@ class Paths:
         return self.runtime / "relay.sock"
 
     @property
+    def overlay_socket(self) -> Path:
+        """Where the daemon broadcasts what it's doing, for the orb to draw.
+
+        Separate from `socket` on purpose. That one is a control channel that
+        can run shell commands and speaks request/response; this one is a
+        read-only firehose of state and audio levels with no commands on it at
+        all, so nothing that connects to draw an animation is ever in a
+        position to ask Relay to do something.
+        """
+        return self.runtime / "overlay.sock"
+
+    @property
     def log(self) -> Path:
         return self.state / "relay.log"
 

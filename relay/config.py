@@ -179,9 +179,38 @@ class MusicConfig:
 
 
 @dataclass
+class OverlayConfig:
+    """The orb: a glass bubble that pulls out of the right bezel when Relay
+    wakes, and moves differently while listening, thinking and speaking.
+
+    Entirely optional. With `enabled = false` nothing is spawned, no socket is
+    opened, and Relay behaves exactly as it did before the overlay existed.
+    """
+
+    enabled: bool = True
+    # Which edge it emerges from, and how far down. 120px clears both the bar
+    # (which reserves 40) and the rounded screen corner widget.
+    edge: str = "right"
+    top_margin: int = 120
+    size: int = 132
+    # "shader"   -- the orb shades its own glass: tint, caustic, chromatic
+    #               fringe and rim light, over Hyprland's own backdrop blur.
+    # "hyprglass" -- the hyprglass compositor plugin supplies refraction and
+    #               dispersion for the whole surface, so the orb draws a
+    #               plainer body and lets the plugin do the material. Setting
+    #               this without the plugin installed just looks flat.
+    material: str = "shader"
+    # Layer-shell overlays draw above fullscreen windows, which is the point
+    # for a wake indicator and a distraction mid-game. Off by default because
+    # confirming the wake word matters more than a clean screenshot.
+    hide_when_fullscreen: bool = False
+
+
+@dataclass
 class Config:
     agent: AgentConfig = field(default_factory=AgentConfig)
     music: MusicConfig = field(default_factory=MusicConfig)
+    overlay: OverlayConfig = field(default_factory=OverlayConfig)
     usage: UsageConfig = field(default_factory=UsageConfig)
     memory: MemoryConfig = field(default_factory=MemoryConfig)
     audio: AudioConfig = field(default_factory=AudioConfig)

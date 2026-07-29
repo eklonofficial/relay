@@ -122,6 +122,7 @@ class Listener:
         follow_up_min_speech_frames: int = 3,
         follow_up_quiet_frames: int = 13,
         on_wake: Callable[[], None] | None = None,
+        activity=None,
     ) -> None:
         self.microphone = microphone
         self.detector = detector
@@ -154,6 +155,11 @@ class Listener:
         # It has to fire from in here rather than from the voice loop: by the
         # time an utterance is yielded, the recording is already over.
         self.on_wake = on_wake
+        # Anything that wants to know what the listener is doing, as opposed
+        # to hearing it: currently the on-screen orb. Duck-typed on purpose --
+        # `wake()`, `listening()` and `level(rms)` are the whole contract, and
+        # the audio path should not have to know what is drawing them.
+        self.activity = activity
         # Diagnostics, surfaced by `relay mic`. A silent microphone and a
         # stuck pause look identical from the outside otherwise.
         self.frames_seen = 0
@@ -195,6 +201,19 @@ class Listener:
             self.on_wake()
         except Exception:  # noqa: BLE001
             log.debug("wake chime failed", exc_info=True)
+
+    def _notify(self, event: str, *args) -> None:
+        """Tell the activity watcher something, and never pay for it.
+
+        Same bargain as the chime above: whatever is drawing Relay's state is
+        decoration, and decoration must not be able to end a turn.
+        """
+        if self.activity is None:
+            return
+        try:
+            getattr(self.activity, event)(*args)
+        except Exception:  # noqa: BLE001
+            log.debug("activity %s failed", event, exc_info=True)
 
     def trigger(self) -> None:
         """Start a turn now, as if the wake word had fired.
@@ -281,6 +300,7 @@ class Listener:
                 self.vad.reset()
                 log.info("push-to-talk")
                 self._wake_signal()
+                self._notify("wake")
                 utterance = await self._record(
                     "push_to_talk", 1.0,
                     lead_in_frames=self.follow_up_min_speech_frames,
@@ -327,6 +347,12 @@ class Listener:
                         self.close_follow_up()
                         self.follow_ups += 1
                         log.info("follow-up speech detected (no wake word)")
+                        # No chime here -- a follow-up needs no confirmation
+                        # that Relay is awake, it already is. The orb still
+                        # comes out, because otherwise the one turn in a
+                        # conversation with no wake word is also the one turn
+                        # with nothing on screen.
+                        self._notify("wake")
                         # A follow-up is detected within a few frames of
                         # the speaker starting, unlike the wake word which
                         # is confirmed about a second late. Reaching as far
@@ -359,6 +385,7 @@ class Listener:
             self.close_follow_up()
             log.info("wake word '%s' (%.2f)", wake_word, confidence)
             self._wake_signal()
+            self._notify("wake")
             utterance = await self._record(wake_word, confidence)
             # Reset so the tail of this utterance can't trigger the next one.
             self.detector.reset()
@@ -386,9 +413,17 @@ class Listener:
 
         silent_run = 0
         heard_speech = False
+        self._notify("listening")
 
         async for frame in self.microphone.frames():
             collected.append(frame)
+            # Also updates `last_level`, which `relay mic` reports. It used to
+            # go stale for the whole of a recording, because this loop reads
+            # from its own frames() generator and the one that maintains the
+            # diagnostics is parked in utterances() while we run.
+            self.last_level = rms(frame)
+            self.peak_level = max(self.peak_level, self.last_level)
+            self._notify("level", self.last_level)
 
             if self.vad.is_speech(frame):
                 heard_speech = True
@@ -415,7 +450,7 @@ class Listener:
         )
 
 
-async def build_listener(cfg) -> Listener:
+async def build_listener(cfg, *, activity=None) -> Listener:
     """Assemble the listener from config, loading models off the event loop."""
     microphone = Microphone(
         device=_device_index(cfg.audio.input_device),
@@ -441,6 +476,7 @@ async def build_listener(cfg) -> Listener:
         lead_in_ms=cfg.audio.lead_in_ms,
         follow_up_seconds=cfg.audio.follow_up_seconds,
         on_wake=chime.play,
+        activity=activity,
     )
 
 

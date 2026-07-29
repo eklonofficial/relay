@@ -57,6 +57,12 @@ class RelayDaemon:
         self._tool_handlers: dict[str, Any] = {}
         self.voice: VoiceLoop | None = None
         self.models: ModelManager | None = None
+        # The orb. `orb` is what the rest of Relay talks to; the bus and the
+        # renderer process are plumbing behind it. All three are None when the
+        # overlay is disabled or failed to start, and every caller checks.
+        self.orb: Any | None = None
+        self.overlay_bus: Any | None = None
+        self.overlay_process: Any | None = None
         # What this conversation has covered so far. Only model turns land
         # here — fast-path commands return before it's touched, so "pause the
         # music" can never become a conversation by construction.
@@ -158,10 +164,19 @@ class RelayDaemon:
         audio hardware, and so a broken microphone can't stop relayd.
         """
         voices = VoiceRouter(KokoroTTS(PATHS.models), ChatterboxTTS())
-        listener = await build_listener(self.cfg)
-        playback = Playback()
+        await self._start_overlay()
+        listener = await build_listener(self.cfg, activity=self.orb)
+        # on_start/on_finish have existed on Playback since it was written and
+        # were never used. They are the exact bracket for "Relay is talking",
+        # and they carry the clip, so the orb can pulse on the syllables
+        # rather than merely being lit.
+        playback = Playback(
+            on_start=self._speaking_started,
+            on_finish=self._speaking_finished,
+        )
         self.voice = VoiceLoop(self, listener, SpeechToText(), voices, playback,
-                               cooldown_ms=self.cfg.audio.post_speech_cooldown_ms)
+                               cooldown_ms=self.cfg.audio.post_speech_cooldown_ms,
+                               activity=self.orb)
         self.models = ModelManager(self.cfg, voices, announce=self.voice.announce)
         # Let tools speak for themselves. Music needs it: starting Cider takes
         # several seconds, and silence during the wait reads as a failure.
@@ -169,11 +184,60 @@ class RelayDaemon:
         await self.voice.start()
         await self.models.start()
 
+    async def _start_overlay(self) -> None:
+        """Bring up the orb, or carry on without it.
+
+        Failing here is never fatal. An assistant that refuses to listen
+        because a decoration would not start has its priorities backwards, so
+        every path out of this leaves `self.orb` usable and Relay unaffected.
+        """
+        if not self.cfg.overlay.enabled:
+            return
+        from relay.overlay import OverlayBus, OverlayState
+        from relay.overlay.process import OverlayProcess
+
+        try:
+            self.overlay_bus = OverlayBus()
+            await self.overlay_bus.start()
+            self.orb = OverlayState(self.overlay_bus)
+            self.overlay_process = OverlayProcess(env={
+                "RELAY_ORB_SOCKET": self.overlay_bus.path,
+                "RELAY_ORB_SIZE": self.cfg.overlay.size,
+                "RELAY_ORB_TOP_MARGIN": self.cfg.overlay.top_margin,
+                "RELAY_ORB_MATERIAL": self.cfg.overlay.material,
+            })
+            if not await self.overlay_process.start():
+                self.overlay_process = None
+        except Exception:  # noqa: BLE001
+            log.exception("overlay unavailable; continuing without it")
+            self.orb = None
+            self.overlay_bus = None
+            self.overlay_process = None
+
+    async def _speaking_started(self, samples, sample_rate: int) -> None:
+        if self.orb is not None:
+            self.orb.speaking(samples, sample_rate)
+
+    async def _speaking_finished(self) -> None:
+        # Deliberately not returning to idle here. Playback fires this at the
+        # end of every *sentence*, and the next one is usually already
+        # synthesising -- retracting between them would make the orb flicker
+        # its way through a paragraph. The turn ends in _offer_follow_up().
+        if self.orb is not None:
+            self.orb.thinking()
+
     async def stop_voice(self) -> None:
         if self.models is not None:
             await self.models.stop()
         if self.voice is not None:
             await self.voice.stop()
+        if self.overlay_process is not None:
+            await self.overlay_process.stop()
+            self.overlay_process = None
+        if self.overlay_bus is not None:
+            await self.overlay_bus.stop()
+            self.overlay_bus = None
+        self.orb = None
 
     async def _maintain(self) -> None:
         """Slow background upkeep. Never on the path of a reply."""
@@ -597,6 +661,45 @@ class RelayDaemon:
 
     async def _cmd_ping(self, _args, *, emit, confirm=None) -> None:
         await emit("info", {"text": "pong"})
+
+    async def _cmd_overlay(self, args, *, emit, confirm=None) -> None:
+        """Drive the orb by hand, or report on it.
+
+        Tuning an animation by saying "Relay, what time is it" forty times is
+        no way to work, and half the states barely last long enough to see.
+        """
+        from relay.overlay.state import STATES
+
+        if self.orb is None:
+            enabled = self.cfg.overlay.enabled
+            await emit("error", {"text":
+                "The orb isn't running." if enabled
+                else "The orb is disabled ([overlay] enabled = false)."})
+            return
+
+        state = (args.get("state") or "").strip().lower()
+        if not state or state == "status":
+            lines = [f"state    : {self.orb.current}"]
+            if self.overlay_bus is not None:
+                s = self.overlay_bus.stats()
+                lines.append(f"socket   : {s['socket']}")
+                lines.append(f"watching : {s['clients']} "
+                             f"({s['sent']} sent, {s['dropped']} dropped)")
+            if self.overlay_process is not None:
+                p = self.overlay_process.stats()
+                lines.append(f"renderer : {'running' if p['running'] else 'down'} "
+                             f"({p['starts']} starts)")
+                if p["error"]:
+                    lines.append(f"last error: {p['error']}")
+            await emit("info", {"text": "\n".join(lines)})
+            return
+
+        if state not in STATES:
+            await emit("error", {"text":
+                f"Unknown state {state!r}. Try: {', '.join(STATES)}."})
+            return
+        self.orb.set(state)
+        await emit("info", {"text": f"orb: {state}"})
 
     async def _cmd_listen(self, _args, *, emit, confirm=None) -> None:
         """Push-to-talk. Bound to a key, so the reply has to be terse."""

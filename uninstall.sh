@@ -110,6 +110,28 @@ else
     say "no Relay keybindings found"
 fi
 
+# -------------------------------------------------------------- orb rules
+step "3b. Orb layer rules"
+HYPR_RULES="$HOME/.config/hypr/custom/rules.lua"
+if [ -f "$HYPR_RULES" ] && grep -q "relay-orb" "$HYPR_RULES"; then
+    if [ "$DRY" -eq 1 ]; then
+        say "would strip the relay-orb rules from $HYPR_RULES"
+        say "(a .bak copy is written first)"
+    else
+        cp "$HYPR_RULES" "$HYPR_RULES.bak-uninstall"
+        # From the Relay banner to the last of its layer rules.
+        sed -i '/^-- ######## Relay ########$/,/^hl\.layer_rule({ match = { namespace = "relay-orb" }, no_anim = true })$/d' \
+            "$HYPR_RULES"
+        # The block was appended after a blank separator line; drop the
+        # trailing blank run so the file comes back byte-identical.
+        printf '%s\n' "$(cat "$HYPR_RULES")" > "$HYPR_RULES"
+        say "stripped the orb rules (backup at $HYPR_RULES.bak-uninstall)"
+        say "run 'hyprctl reload' to apply"
+    fi
+else
+    say "no orb layer rules found"
+fi
+
 # ------------------------------------------------------------------ data
 step "4. Configuration and runtime state"
 remove "$STATE"          # logs
