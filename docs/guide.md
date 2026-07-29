@@ -35,6 +35,7 @@ relay facts                 # what it knows about this machine
 relay mode dry-run          # preview actions without doing them
 relay settings              # interactive control panel
 relay docs                  # this document, in the terminal
+relay backup                # push memories + wake word to GitHub
 relay tier sleep            # free the GPU; `relay tier auto` to restore
 ```
 
@@ -338,6 +339,72 @@ problems when they weren't:
 
   The fallback only covers play/pause/skip — never search — so a broken token
   costs you playing by name even when transport still works.
+
+---
+
+## 3f. Backup, restore and removal
+
+The repo is **github.com/eklonofficial/relay**, private.
+
+### Backing up
+
+```bash
+relay backup                    # snapshot, commit and push
+relay backup --dry-run          # update backup/ without committing
+relay backup -m "before reinstall"
+```
+
+Almost all of Relay is reproducible from the repository. Three things are not,
+and this is what it saves:
+
+| | |
+|---|---|
+| `memory.db` | everything Relay knows and remembers |
+| `relay.onnx` | the wake word, trained on your voice |
+| `voice-samples/` | the recordings it was trained from |
+
+It works even when the daemon is down — which is exactly when you want it.
+
+**The database is snapshotted, not copied.** Relay writes continuously, so a
+plain `cp` can catch a write mid-flight and produce a file that opens fine now
+and fails at restore time. It uses SQLite's backup API instead, then reopens
+the copy and runs an integrity check before committing anything.
+
+**It skips a commit when nothing changed.** Two snapshots of an unchanged
+database aren't byte-identical, so it compares *contents* — row counts and
+timestamps, recorded in `backup/manifest.txt` — rather than the file.
+
+### Restoring onto a fresh machine
+
+```bash
+git clone git@github.com:eklonofficial/relay.git
+cd relay
+./install.sh
+```
+
+It checks system packages and prints the `pacman` line rather than running
+sudo itself, builds the virtualenv, downloads the ~340 MB of speech models,
+restores the wake word and memories from `backup/`, writes a config, installs
+the systemd service, and adds the Hyprland keybindings.
+
+Safe to re-run — every step checks before acting, so it doubles as a repair
+tool. `install.sh` will **never overwrite an existing `memory.db`**; it tells
+you the copy command instead.
+
+Two things it can't do for you: the Cider API token (add it with `relay
+settings`) and the Claude login (run `claude`).
+
+### Removing it
+
+```bash
+./uninstall.sh                  # dry run — shows what would go
+./uninstall.sh --yes            # remove it, keep memories and wake word
+./uninstall.sh --yes --purge    # remove everything
+```
+
+Defaults to a dry run, needs no root, and keeps the three irreplaceable things
+unless you pass `--purge`. It strips the Hyprland keybindings (leaving a
+`.bak`) and leaves the source tree alone.
 
 ---
 

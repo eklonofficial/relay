@@ -129,16 +129,38 @@ def fingerprint(database: Path) -> str | None:
     try:
         db = sqlite3.connect(f"file:{database}?mode=ro", uri=True)
         parts = []
-        for table, stamp in (("memories", "updated_at"),
-                             ("conversations", "started_at"),
-                             ("observations", "last_seen"),
-                             ("system_facts", "updated_at")):
+        # Each table names its "last touched" column differently; getting one
+        # wrong used to fail silently and take the change detection with it,
+        # so the error is logged rather than swallowed.
+        #
+        # Several columns per table, because one isn't enough. `forget` is a
+        # soft delete: it sets deleted_at and leaves updated_at and the row
+        # count alone, so watching updated_at only would miss "Relay, forget
+        # that" entirely -- the single change most worth capturing.
+        # A row count *and* a timestamp, because neither alone is enough.
+        #
+        # `forget` is a soft delete: the row stays, so the total count doesn't
+        # move, and it sets deleted_at rather than updated_at -- often within
+        # the same millisecond as the write it undoes. Counting only the rows
+        # that are still live catches it cleanly, which timestamp precision
+        # never reliably would.
+        for table, stamps, live in (
+            ("memories", ("updated_at", "deleted_at"), "deleted_at IS NULL"),
+            ("conversations", ("started_at", "ended_at"), None),
+            ("observations", ("last_seen", "promoted_at", "dismissed_at"),
+             "promoted_at IS NULL AND dismissed_at IS NULL"),
+            ("system_facts", ("refreshed_at",), None),
+        ):
+            columns = ", ".join(f"coalesce(max({s}), 0)" for s in stamps)
+            live_count = f"count(*) FILTER (WHERE {live})" if live else "count(*)"
             row = db.execute(
-                f"SELECT count(*), coalesce(max({stamp}), 0) FROM {table}"
+                f"SELECT count(*), {live_count}, {columns} FROM {table}"
             ).fetchone()
-            parts.append(f"{table}:{row[0]}:{row[1]:.0f}")
+            parts.append(f"{table}:{row[0]}:{row[1]}:{max(row[2:]):.3f}")
         return "|".join(parts)
-    except sqlite3.Error:
+    except sqlite3.Error as exc:
+        log.warning("could not fingerprint the database (%s); "
+                    "every backup will look like a change", exc)
         return None
     finally:
         if db is not None:
