@@ -63,6 +63,8 @@ class RelayDaemon:
         self.orb: Any | None = None
         self.overlay_bus: Any | None = None
         self.overlay_process: Any | None = None
+        # Turns everything else down while Relay is being spoken to.
+        self.ducker: Any | None = None
         # What this conversation has covered so far. Only model turns land
         # here — fast-path commands return before it's touched, so "pause the
         # music" can never become a conversation by construction.
@@ -165,7 +167,19 @@ class RelayDaemon:
         """
         voices = VoiceRouter(KokoroTTS(PATHS.models), ChatterboxTTS())
         await self._start_overlay()
-        listener = await build_listener(self.cfg, activity=self.orb)
+
+        from relay.audio.ducking import Ducker
+
+        self.ducker = Ducker(level=self.cfg.audio.duck_level,
+                             enabled=self.cfg.audio.duck_others)
+        # A previous run may have died between ducking and restoring, and the
+        # volume it changed outlives the process that changed it.
+        await self.ducker.recover()
+
+        # The orb draws the state; the ducker turns the room down. Neither
+        # knows about the other, and either can be absent.
+        watchers = tuple(w for w in (self.orb, self.ducker) if w is not None)
+        listener = await build_listener(self.cfg, activity=watchers)
         # on_start/on_finish have existed on Playback since it was written and
         # were never used. They are the exact bracket for "Relay is talking",
         # and they carry the clip, so the orb can pulse on the syllables
@@ -176,7 +190,7 @@ class RelayDaemon:
         )
         self.voice = VoiceLoop(self, listener, SpeechToText(), voices, playback,
                                cooldown_ms=self.cfg.audio.post_speech_cooldown_ms,
-                               activity=self.orb)
+                               activity=watchers)
         self.models = ModelManager(self.cfg, voices, announce=self.voice.announce)
         # Let tools speak for themselves. Music needs it: starting Cider takes
         # several seconds, and silence during the wait reads as a failure.
@@ -227,6 +241,14 @@ class RelayDaemon:
             self.orb.thinking()
 
     async def stop_voice(self) -> None:
+        # Before anything else. Shutting down with the music still turned
+        # down leaves the user with quiet audio and nothing running that
+        # knows why -- the exact failure the state file exists to catch, and
+        # better not to need it.
+        if self.ducker is not None:
+            with contextlib.suppress(Exception):
+                await self.ducker.unduck()
+        self.ducker = None
         if self.models is not None:
             await self.models.stop()
         if self.voice is not None:

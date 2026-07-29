@@ -41,8 +41,8 @@ class VoiceLoop:
         activity=None,
     ) -> None:
         self.daemon = daemon
-        # The orb, or nothing. Same duck-typed contract the listener uses.
-        self.activity = activity
+        # The orb and the ducker. Same duck-typed contract the listener uses.
+        self.activity = tuple(activity or ())
         self.listener = listener
         self.stt = stt
         self.voices = voices
@@ -98,13 +98,15 @@ class VoiceLoop:
         log.info("aborted")
 
     def _show(self, state: str) -> None:
-        """Move the orb, if there is one. Never raises."""
-        if self.activity is None:
-            return
-        try:
-            getattr(self.activity, state)()
-        except Exception:  # noqa: BLE001
-            log.debug("overlay %s failed", state, exc_info=True)
+        """Tell the watchers where the turn has got to. Never raises."""
+        for watcher in self.activity:
+            handler = getattr(watcher, state, None)
+            if handler is None:
+                continue
+            try:
+                handler()
+            except Exception:  # noqa: BLE001
+                log.debug("activity %s failed", state, exc_info=True)
 
     async def listen_now(self) -> None:
         """Push-to-talk: barge in and take a command immediately.

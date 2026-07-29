@@ -58,11 +58,45 @@ class LoudnessVad(VoiceActivity):
         pass
 
 
-def _listener(mic=None) -> Listener:
+def _listener(mic=None, activity=None) -> Listener:
     return Listener(
         mic or ScriptedMic(), WakeWordDetector(), LoudnessVad(),
         silence_ms=240, max_utterance_s=5, lead_in_ms=0,
+        activity=activity,
     )
+
+
+class Watcher:
+    """Records what the listener said it was doing."""
+
+    def __init__(self):
+        self.events = []
+
+    def wake(self):      self.events.append("wake")
+    def listening(self): self.events.append("listening")
+    def idle(self):      self.events.append("idle")
+    def level(self, _):  pass
+
+
+async def test_an_empty_turn_still_reports_that_it_ended():
+    """A discarded utterance is never yielded, so the voice loop never runs
+    and nothing downstream learns the turn is over.
+
+    Found live, not here: the orb stayed out and the music stayed ducked
+    after a push-to-talk that caught nothing, until the *next* time Relay was
+    spoken to. Silence is the most likely way a turn ends by accident, so it
+    is the one that must clean up after itself.
+    """
+    watcher = Watcher()
+    listener = _listener(QuietMic(frames=40), activity=[watcher])
+    listener.trigger()
+
+    async for _ in listener.utterances():
+        break
+
+    assert "wake" in watcher.events
+    assert watcher.events[-1] == "idle", (
+        f"turn ended without saying so: {watcher.events}")
 
 
 # ------------------------------------------------------------------ listener
@@ -178,9 +212,10 @@ def _loop() -> VoiceLoop:
     loop._last_spoken = None
     loop.pause_while_speaking = True
     loop.cooldown_s = 0.0
-    # No orb in these tests: abort and the follow-up window are audio
-    # behaviour and must work identically whether anything is drawing or not.
-    loop.activity = None
+    # No watchers in these tests: abort and the follow-up window are audio
+    # behaviour and must work identically whether anything is drawing the
+    # state or turning the music down or not.
+    loop.activity = ()
     return loop
 
 

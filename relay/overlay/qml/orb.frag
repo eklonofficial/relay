@@ -252,10 +252,26 @@ void main() {
         // The caustic: light focused through the lens into a band low on the
         // body. It bows, because a lens is curved and a straight line across
         // a sphere reads as a decal stuck on top of one.
-        float bandY = mix(0.30, 0.21, level) + 0.03 * sin(time * 0.7);
-        float bow   = 0.13 * u.x * u.x;
-        float dy    = u.y - (bandY + bow);
-        float thick = 0.085 + 0.045 * level + 0.02 * speaking;
+        float bandY = mix(0.28, 0.21, level) + 0.02 * sin(time * 0.7);
+
+        // A travelling wave, not a curve. Three components at different
+        // rates and directions, so the crests drift along the line and never
+        // settle into a repeating shape -- a single sine reads as a rocking
+        // arc, and two of them beat visibly against each other.
+        float w = sin(u.x * 3.3 + time * 2.4) * 0.55
+                + sin(u.x * 6.1 - time * 1.7) * 0.30
+                + sin(u.x * 10.7 + time * 3.3) * 0.15;
+        // Always moving, and much bigger when spoken to. The floor is what
+        // keeps it alive while Relay is only waiting.
+        // The amplitude has to clear the line's own thickness or the crests
+        // fill themselves in and it reads as a straight blur that happens to
+        // wobble.
+        float amp = 0.016 + 0.115 * level + 0.030 * speaking;
+
+        // A trace of lens curvature remains, or the line stops belonging to
+        // the sphere and looks painted on the front of it.
+        float dy    = u.y - (bandY + w * amp + 0.022 * u.x * u.x);
+        float thick = 0.050 + 0.024 * level + 0.012 * speaking;
 
         float sides = smoothstep(1.0, 0.30, abs(u.x));
         float grain = noise(vec2(rel.x * 0.05, time * 0.35)) * 0.25 + 0.75;

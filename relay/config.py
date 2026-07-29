@@ -130,6 +130,17 @@ class AudioConfig:
     # Set the volume to 0, or this to false, to switch it off.
     wake_chime: bool = True
     wake_chime_volume: float = 0.10
+    # Ducking: turn everything else down while Relay has your attention, the
+    # way a smart speaker does. Echo cancellation already removes the music
+    # from what the microphone hears, but it cannot remove what the music
+    # does to *you* -- you raise your voice over it, and the room reverberates.
+    # Turning it down for the few seconds of a request is the difference
+    # between being heard and being nearly heard.
+    duck_others: bool = True
+    # A quarter of the original, not silence. Cutting music dead is startling
+    # and makes the assistant feel like it seized the machine; ducking it is
+    # the same gesture as someone turning the stereo down to listen.
+    duck_level: float = 0.25
 
 
 @dataclass

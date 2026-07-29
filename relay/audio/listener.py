@@ -156,10 +156,12 @@ class Listener:
         # time an utterance is yielded, the recording is already over.
         self.on_wake = on_wake
         # Anything that wants to know what the listener is doing, as opposed
-        # to hearing it: currently the on-screen orb. Duck-typed on purpose --
-        # `wake()`, `listening()` and `level(rms)` are the whole contract, and
-        # the audio path should not have to know what is drawing them.
-        self.activity = activity
+        # to hearing it: the on-screen orb, and the ducker that turns the
+        # music down. Duck-typed on purpose -- `wake()`, `listening()` and
+        # `level(rms)` are the whole contract, each watcher implements only
+        # the ones it cares about, and the audio path never learns what any
+        # of them do with it.
+        self.activity = tuple(activity or ())
         # Diagnostics, surfaced by `relay mic`. A silent microphone and a
         # stuck pause look identical from the outside otherwise.
         self.frames_seen = 0
@@ -203,17 +205,20 @@ class Listener:
             log.debug("wake chime failed", exc_info=True)
 
     def _notify(self, event: str, *args) -> None:
-        """Tell the activity watcher something, and never pay for it.
+        """Tell the activity watchers something, and never pay for it.
 
-        Same bargain as the chime above: whatever is drawing Relay's state is
-        decoration, and decoration must not be able to end a turn.
+        Same bargain as the chime above: none of these are the assistant, and
+        none of them may end a turn. A watcher that does not implement an
+        event simply does not hear about it.
         """
-        if self.activity is None:
-            return
-        try:
-            getattr(self.activity, event)(*args)
-        except Exception:  # noqa: BLE001
-            log.debug("activity %s failed", event, exc_info=True)
+        for watcher in self.activity:
+            handler = getattr(watcher, event, None)
+            if handler is None:
+                continue
+            try:
+                handler(*args)
+            except Exception:  # noqa: BLE001
+                log.debug("activity %s failed", event, exc_info=True)
 
     def trigger(self) -> None:
         """Start a turn now, as if the wake word had fired.
@@ -312,6 +317,7 @@ class Listener:
                 quiet_run = 0
                 if utterance.is_probably_empty:
                     log.info("push-to-talk caught nothing; ignoring")
+                    self._notify("idle")
                     continue
                 yield utterance
                 continue
@@ -369,6 +375,7 @@ class Listener:
                         speech_run = 0
                         if utterance.is_probably_empty:
                             log.info("follow-up was empty; ignoring")
+                            self._notify("idle")
                             continue
                         yield utterance
                         continue
@@ -393,6 +400,11 @@ class Listener:
 
             if utterance.is_probably_empty:
                 log.info("wake word fired but nothing was said; ignoring")
+                # The turn is over here, and it never reaches the voice loop:
+                # a discarded utterance is not yielded, so nothing downstream
+                # ever says so. Without this the orb stays out and the music
+                # stays turned down until the *next* time Relay is spoken to.
+                self._notify("idle")
                 continue
             yield utterance
 
