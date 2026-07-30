@@ -91,8 +91,10 @@ def test_save_and_reload_round_trip(tmp_path):
     assert reloaded.audio.wake_threshold == 0.72
     assert reloaded.mode == "dry_run"
     assert reloaded.fast_path_enabled is False
-    # Untouched settings still come from defaults.
-    assert reloaded.audio.vad_silence_ms == 700
+    # Untouched settings still come from defaults. Compared against the
+    # default itself rather than a copy of its value, so tuning the default
+    # doesn't fail a test that is about round-tripping.
+    assert reloaded.audio.vad_silence_ms == config_mod.AudioConfig().vad_silence_ms
 
 
 def test_saving_preserves_settings_the_editor_does_not_expose(tmp_path):

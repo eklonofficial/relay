@@ -177,6 +177,7 @@ def test_push_to_talk_count_is_reported():
 class FakePlayback:
     def __init__(self):
         self.interrupted = 0
+        self.speaking = False
 
     def interrupt(self):
         self.interrupted += 1
@@ -187,15 +188,23 @@ class FakeListener:
         self.triggered = False
         self.closed = 0
         self.opened = 0
+        # The real listener arms the window rather than opening it outright,
+        # and the voice loop reads that back to decide whether Relay is still
+        # listening or genuinely finished.
+        self.follow_up_pending = False
+        self.listening_for_follow_up = False
 
     def trigger(self):
         self.triggered = True
 
     def close_follow_up(self):
         self.closed += 1
+        self.follow_up_pending = False
+        self.listening_for_follow_up = False
 
     def open_follow_up(self):
         self.opened += 1
+        self.follow_up_pending = True
 
     def pause(self):
         pass
@@ -309,3 +318,112 @@ def test_a_normal_turn_still_opens_the_follow_up_window():
     loop = _loop()
     loop._offer_follow_up()
     assert loop.listener.opened == 1
+
+
+class OrbSpy:
+    def __init__(self):
+        self.states = []
+
+    def __getattr__(self, name):
+        if name.startswith("_"):
+            raise AttributeError(name)
+        return lambda *a: self.states.append(name)
+
+
+def test_the_orb_keeps_listening_through_the_follow_up_window():
+    """Relay carries on listening for several seconds after it answers, and
+    the orb has to say so.
+
+    Retracting the moment it stopped talking made it look like it had left --
+    so the follow-up window, the whole point of which is to let you just keep
+    talking, was invisible and nobody used it.
+    """
+    loop = _loop()
+    orb = OrbSpy()
+    loop.activity = (orb,)
+
+    loop._offer_follow_up()
+
+    assert orb.states[-1] == "listening", orb.states
+
+
+def test_the_orb_retracts_when_no_follow_up_is_offered():
+    """With the window disabled the turn really is over."""
+    loop = _loop()
+    orb = OrbSpy()
+    loop.activity = (orb,)
+    loop.listener.open_follow_up = lambda: None      # window disabled
+
+    loop._offer_follow_up()
+
+    assert orb.states[-1] == "idle", orb.states
+
+
+def test_a_new_turn_leaves_the_orb_alone():
+    """Push-to-talk during a reply: the old turn's cleanup must not retract
+    an orb that the new turn has just brought out."""
+    loop = _loop()
+    orb = OrbSpy()
+    loop.activity = (orb,)
+    loop.listener.triggered = True
+
+    loop._offer_follow_up()
+
+    assert orb.states == [], f"the new turn's orb was disturbed: {orb.states}"
+
+
+# ------------------------------------------------------------- interrupting
+def test_the_wake_word_stops_relay_mid_sentence():
+    """Talking over it has to actually stop it.
+
+    Without this, saying "Relay" over an answer starts a new turn whose
+    recording is mostly the old answer still playing, while the old one runs
+    to the end regardless.
+    """
+    loop = _loop()
+    loop.playback.speaking = True
+
+    loop.wake()
+
+    assert loop.playback.interrupted == 1
+    assert loop._aborted
+
+
+def test_the_wake_word_does_nothing_when_relay_is_silent():
+    """The ordinary case. Interrupting nothing must not abort the turn that
+    is only just beginning."""
+    loop = _loop()
+    loop.playback.speaking = False
+
+    loop.wake()
+
+    assert loop.playback.interrupted == 0
+    assert not loop._aborted
+
+
+def test_interrupting_does_not_retract_the_orb():
+    """A new turn is starting, not ending -- unlike abort(), which is a
+    dismissal and should put the orb away."""
+    loop = _loop()
+    orb = OrbSpy()
+    loop.activity = (orb,)
+    loop.playback.speaking = True
+
+    loop.wake()
+
+    assert "idle" not in orb.states
+
+
+# ---------------------------------------------------------------- dismissal
+def test_dismissal_words_are_whole_utterances_only():
+    """"stop" ends the turn; "stop the music" is a command about music.
+
+    Searching for these inside an utterance instead of matching the whole of
+    it would make a third of ordinary requests unanswerable.
+    """
+    from relay.voice import STOP_WORDS
+
+    for phrase in ("dismiss", "never mind", "that's all", "go away"):
+        assert phrase in STOP_WORDS
+    for command in ("stop the music", "cancel the timer", "no thanks i'd rather"):
+        assert command not in STOP_WORDS

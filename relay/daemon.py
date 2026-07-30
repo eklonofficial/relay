@@ -65,6 +65,9 @@ class RelayDaemon:
         self.overlay_process: Any | None = None
         # Turns everything else down while Relay is being spoken to.
         self.ducker: Any | None = None
+        # Debounces the orb's return to idle across the gaps between the
+        # sentences of one reply.
+        self._settle_task: asyncio.Task | None = None
         # What this conversation has covered so far. Only model turns land
         # here — fast-path commands return before it's touched, so "pause the
         # music" can never become a conversation by construction.
@@ -190,7 +193,17 @@ class RelayDaemon:
         )
         self.voice = VoiceLoop(self, listener, SpeechToText(), voices, playback,
                                cooldown_ms=self.cfg.audio.post_speech_cooldown_ms,
+                               # Barge-in means leaving the microphone live
+                               # while Relay talks, which is only reasonable
+                               # now that echo cancellation removes its own
+                               # voice from what it hears. `barge_in = false`
+                               # goes back to deafening itself while speaking.
+                               pause_while_speaking=not self.cfg.audio.barge_in,
                                activity=watchers)
+        # The voice loop is built from the listener, so it cannot be passed in
+        # as a watcher -- but it has to hear the wake word to stop talking
+        # when it is interrupted.
+        listener.watch(self.voice)
         self.models = ModelManager(self.cfg, voices, announce=self.voice.announce)
         # Let tools speak for themselves. Music needs it: starting Cider takes
         # several seconds, and silence during the wait reads as a failure.
@@ -229,16 +242,47 @@ class RelayDaemon:
             self.overlay_process = None
 
     async def _speaking_started(self, samples, sample_rate: int) -> None:
+        self._cancel_settle()
         if self.orb is not None:
             self.orb.speaking(samples, sample_rate)
 
     async def _speaking_finished(self) -> None:
-        # Deliberately not returning to idle here. Playback fires this at the
-        # end of every *sentence*, and the next one is usually already
-        # synthesising -- retracting between them would make the orb flicker
-        # its way through a paragraph. The turn ends in _offer_follow_up().
-        if self.orb is not None:
-            self.orb.thinking()
+        """Relay has stopped talking. Decide, shortly, whether it is done.
+
+        Not immediately: playback fires this at the end of every *sentence*
+        and the next is usually already synthesising, so retracting here
+        would flicker through a paragraph. Not never, either -- that was the
+        bug. This used to hand the orb to `thinking` and rely on the voice
+        loop to finish the job, which works for an answer and not at all for
+        speech that belongs to no turn: the model manager announcing it has
+        dropped to the CPU voice would leave the orb spinning indefinitely,
+        because nothing was ever going to come along and end a turn that had
+        not started.
+        """
+        self._cancel_settle()
+        if self.orb is None:
+            return
+        self._settle_task = asyncio.create_task(self._settle())
+
+    def _cancel_settle(self) -> None:
+        if self._settle_task is not None:
+            self._settle_task.cancel()
+            self._settle_task = None
+
+    async def _settle(self) -> None:
+        from relay.overlay.state import SPEAKING
+
+        try:
+            # Long enough to cover the gap between two sentences of one
+            # reply, short enough not to linger after the last.
+            await asyncio.sleep(1.2)
+        except asyncio.CancelledError:
+            return
+        # Only if nothing has taken over in the meantime. After a real turn
+        # the follow-up window has already moved the orb to "listening", and
+        # that owns it now.
+        if self.orb is not None and self.orb.current == SPEAKING:
+            self.orb.idle()
 
     async def stop_voice(self) -> None:
         # Before anything else. Shutting down with the music still turned

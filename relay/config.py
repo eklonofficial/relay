@@ -110,8 +110,12 @@ class AudioConfig:
     # confirmed about a second after it is spoken, so a short look-back
     # misses the command that followed it.
     lead_in_ms: int = 1200
-    # Silence that ends an utterance.
-    vad_silence_ms: int = 700
+    # Silence that ends an utterance. People pause mid-sentence to think --
+    # "Relay, open... the thing I was working on" -- and at 700ms Relay
+    # treated the pause as the end and answered the first half. A second is
+    # long enough to ride out a normal hesitation and still short enough that
+    # finishing a sentence doesn't feel like waiting.
+    vad_silence_ms: int = 1000
     max_utterance_s: float = 30.0
     # Conversation mode. After Relay answers, keep listening this long so a
     # follow-up needs no wake word -- the same idea as Alexa's Follow-Up

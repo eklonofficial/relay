@@ -24,7 +24,18 @@ log = logging.getLogger(__name__)
 
 # Said before the microphone is handed to transcription, so an interruption
 # feels immediate rather than queued behind a sentence.
-STOP_WORDS = {"stop", "cancel", "never mind", "nevermind", "shut up", "quiet"}
+# Said alone, these end the turn: stop talking, close the follow-up window,
+# put the orb away and the music back. Matched against the whole utterance
+# rather than searched for inside it, so "stop the music" is still a command
+# and only a bare "stop" is a dismissal.
+STOP_WORDS = {
+    "stop", "cancel", "quiet", "shut up",
+    "never mind", "nevermind", "forget it",
+    "dismiss", "go away", "goodbye", "bye",
+    "that's all", "thats all", "that is all",
+    "we're done", "were done", "we are done", "i'm done", "im done",
+    "nothing", "no thanks", "no thank you",
+}
 
 
 class VoiceLoop:
@@ -97,6 +108,23 @@ class VoiceLoop:
         self._show("idle")
         log.info("aborted")
 
+    def wake(self) -> None:
+        """The wake word fired. If Relay is mid-sentence, stop it.
+
+        This is what makes interrupting work. Without it, saying "Relay" over
+        the top of an answer starts a new turn whose recording is mostly the
+        old answer still playing, and the old one carries on to the end
+        regardless -- so talking over it achieved nothing.
+
+        Deliberately not `abort()`: that also retracts the orb and closes the
+        follow-up window, and here a new turn is beginning, not ending.
+        """
+        if not self.playback.speaking:
+            return
+        log.info("interrupted mid-sentence")
+        self._aborted = True          # abandon the rest of the old reply
+        self.playback.interrupt()
+
     def _show(self, state: str) -> None:
         """Tell the watchers where the turn has got to. Never raises."""
         for watcher in self.activity:
@@ -158,6 +186,11 @@ class VoiceLoop:
                 # Resetting the detector matters: without it the tail of
                 # Relay's own speech can retrigger the wake word.
                 self.listener.resume()
+            else:
+                # Barge-in never paused, so there is nothing to resume -- but
+                # the tail of Relay's own voice is still in the wake word's
+                # rolling window and has to be cleared out of it.
+                self.listener.settle()
 
     async def say_once(self, text: str, *, within_s: float = 120.0) -> None:
         """Say something, unless it was just said.
@@ -236,13 +269,21 @@ class VoiceLoop:
         window can't be triggered by Relay's own voice.
         """
         # An aborted turn shouldn't leave a window hanging open: either the
-        # user said "stop", or push-to-talk has already started a new turn.
-        # Whatever happens to the follow-up window, the turn is over and the
-        # orb goes back into the bezel.
-        self._show("idle")
+        # user said "stop", or a new turn has already started. In both cases
+        # something else owns the orb now, so don't touch it.
         if self._aborted or self.listener.triggered:
             return
+
         self.listener.open_follow_up()
+        if self.listener.follow_up_pending or self.listener.listening_for_follow_up:
+            # Relay is still listening, and the orb should say so. Dropping
+            # straight back into the bezel here is what made it look like it
+            # had left the moment it finished answering -- when in fact it
+            # was waiting several more seconds for anything else you had to
+            # say. The listener closes the window, and reports that itself.
+            self._show("listening")
+        else:
+            self._show("idle")
 
     async def _ask_model(self, text: str) -> None:
         sentences: list[str] = []

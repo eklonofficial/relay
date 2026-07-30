@@ -172,6 +172,27 @@ class Listener:
         self.detections = 0
         self.paused_since: float | None = None
 
+    def settle(self) -> None:
+        """Clear the scorers without unpausing or dropping audio.
+
+        For barge-in, where the microphone is never paused: the tail of
+        Relay's own voice is still sitting in the wake word's rolling window
+        when it stops talking, and left there it can score against itself.
+        Unlike `resume()` this does not drain the queue, because in barge-in
+        the queue may hold the user already talking over the reply.
+        """
+        self.detector.reset()
+        self.vad.reset()
+
+    def watch(self, watcher) -> None:
+        """Add a watcher after construction.
+
+        The voice loop needs this: it is built *from* the listener, so it
+        cannot be passed in as one, and it has to hear about the wake word in
+        order to interrupt itself mid-sentence.
+        """
+        self.activity = self.activity + (watcher,)
+
     def pause(self) -> None:
         """Ignore audio, e.g. while Relay itself is speaking without echo cancellation."""
         self._paused = True
@@ -347,6 +368,11 @@ class Listener:
                     self.close_follow_up()
                     speech_run = 0
                     log.info("follow-up window closed; wake word needed again")
+                    # Now the conversation is genuinely over. This is the
+                    # moment the orb should retract and the music come back,
+                    # not the moment Relay stopped talking -- it was still
+                    # listening for the whole of this window.
+                    self._notify("idle")
                 elif self.vad.is_speech(frame):
                     speech_run += 1
                     if speech_run >= self.follow_up_min_speech_frames:
