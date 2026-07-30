@@ -101,6 +101,7 @@ class SpeechToText:
         samples = _to_float32(audio)
         if sample_rate != SAMPLE_RATE:
             samples = _resample(samples, sample_rate, SAMPLE_RATE)
+        samples, gain = _normalise(samples)
         duration = len(samples) / SAMPLE_RATE
 
         started = time.time()
@@ -115,10 +116,38 @@ class SpeechToText:
             latency_s=latency,
             placement=self._loaded_placement or self.placement,
         )
-        log.info("heard %r (%.1fs audio, %.2fs, RTF %.2f, %s)",
+        log.info("heard %r (%.1fs audio, %.2fs, RTF %.2f, %s%s)",
                  transcript.text, duration, latency,
-                 transcript.real_time_factor, transcript.placement)
+                 transcript.real_time_factor, transcript.placement,
+                 f", gain x{gain:.1f}" if gain > 1.01 else "")
         return transcript
+
+
+# Quiet speech is the failure mode that looks like deafness: the wake word
+# fires, the recording runs for six seconds, and the transcript comes back
+# empty. Echo cancellation makes it likelier -- its high-pass strips the
+# rumble that was carrying most of the level, leaving the speech bands
+# untouched but the waveform about 10 dB smaller than the model expects.
+TARGET_PEAK = 0.5
+# Capped, so a recording of nothing at all is not amplified into something
+# the model feels obliged to find words in.
+MAX_GAIN = 8.0
+# Below this there is no speech to rescue, only noise to magnify.
+FLOOR = 0.004
+
+
+def _normalise(samples: np.ndarray) -> tuple[np.ndarray, float]:
+    """Lift quiet audio towards the level Parakeet was trained on.
+
+    Only ever lifts. Loud audio is left exactly as it is -- the point is to
+    rescue speech that is merely quiet, not to flatten everything to one
+    level, which would also flatten the difference between speech and a room.
+    """
+    peak = float(np.abs(samples).max() or 0.0)
+    if peak <= FLOOR or peak >= TARGET_PEAK:
+        return samples, 1.0
+    gain = min(TARGET_PEAK / peak, MAX_GAIN)
+    return samples * gain, gain
 
 
 def _to_float32(audio: np.ndarray) -> np.ndarray:

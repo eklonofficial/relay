@@ -471,7 +471,12 @@ class Listener:
         heard_speech = False
         self._notify("listening")
 
-        async for frame in self.microphone.frames():
+        # Held in a name and closed explicitly. Breaking out of an `async for`
+        # leaves the generator suspended rather than finished, so it stays
+        # registered as a consumer of the microphone until the garbage
+        # collector gets to it -- five recordings left five of them behind.
+        frames = self.microphone.frames()
+        async for frame in frames:
             collected.append(frame)
             # Also updates `last_level`, which `relay mic` reports. It used to
             # go stale for the whole of a recording, because this loop reads
@@ -496,6 +501,11 @@ class Listener:
             if len(collected) >= self.max_frames:
                 log.info("utterance hit the length limit")
                 break
+
+        # Explicit, not left to the collector: an abandoned generator stays
+        # registered against the microphone, and enough of them accumulating
+        # is a slow leak in the one component that must never wedge.
+        await frames.aclose()
 
         audio = np.concatenate(collected) if collected else np.zeros(0, dtype=np.int16)
         return Utterance(

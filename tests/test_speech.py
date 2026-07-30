@@ -148,3 +148,61 @@ async def test_loading_kokoro_without_weights_explains_where_to_get_them(tmp_pat
 )
 def test_installed_kokoro_reports_no_missing_files():
     assert KokoroTTS(PATHS.models).missing_files() == []
+
+
+# --------------------------------------------------- quiet speech reaches STT
+def test_quiet_audio_is_lifted_before_transcription():
+    """The failure that looks like deafness: the wake word fires, six seconds
+    are recorded, and the transcript comes back empty.
+
+    Echo cancellation makes it likelier -- its high-pass strips the rumble
+    carrying most of the level, leaving the speech bands untouched but the
+    waveform about 10 dB smaller than the model expects.
+    """
+    import numpy as np
+
+    from relay.stt.engine import _normalise
+
+    quiet = (np.sin(np.linspace(0, 400, 16000)) * 0.02).astype(np.float32)
+    lifted, gain = _normalise(quiet)
+
+    assert gain > 1.0
+    assert float(np.abs(lifted).max()) > float(np.abs(quiet).max())
+
+
+def test_loud_audio_is_left_alone():
+    """Only ever lifts. Flattening everything to one level would also flatten
+    the difference between speech and a room."""
+    import numpy as np
+
+    from relay.stt.engine import _normalise
+
+    loud = (np.sin(np.linspace(0, 400, 16000)) * 0.9).astype(np.float32)
+    out, gain = _normalise(loud)
+
+    assert gain == 1.0
+    assert np.array_equal(out, loud)
+
+
+def test_near_silence_is_not_amplified_into_words():
+    """A recording of nothing must not be blown up until the model feels
+    obliged to find speech in it."""
+    import numpy as np
+
+    from relay.stt.engine import _normalise
+
+    hiss = (np.random.default_rng(3).normal(0, 0.0005, 16000)).astype(np.float32)
+    _out, gain = _normalise(hiss)
+
+    assert gain == 1.0
+
+
+def test_the_lift_is_capped():
+    import numpy as np
+
+    from relay.stt.engine import MAX_GAIN, _normalise
+
+    faint = (np.sin(np.linspace(0, 400, 16000)) * 0.006).astype(np.float32)
+    _out, gain = _normalise(faint)
+
+    assert gain <= MAX_GAIN

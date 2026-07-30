@@ -16,7 +16,9 @@ import time
 
 from relay.agent.client import UsageLimitReached
 from relay.audio.listener import Listener, Utterance
+from relay.audio.missed import keep_missed
 from relay.audio.playback import Playback
+from relay.memory.signals import yes_or_no
 from relay.stt.engine import SpeechToText
 from relay.tts.engine import VoiceRouter
 
@@ -274,6 +276,7 @@ class VoiceLoop:
             self.listener.close_follow_up()
             self._show("idle")
             log.info("nothing intelligible; not treating it as a command")
+            keep_missed(utterance.audio)
             return
 
         text = transcript.text
