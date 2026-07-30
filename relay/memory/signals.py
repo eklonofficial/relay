@@ -106,9 +106,17 @@ def infer_scope(store, focused_window: str | None) -> str:
 
 
 _YES = {"yes", "yeah", "yep", "yup", "sure", "ok", "okay", "please do",
-        "go ahead", "do it", "correct", "right", "affirmative", "sounds good"}
+        "go ahead", "do it", "correct", "right", "affirmative", "sounds good",
+        # When Relay asks "should I go ahead?", the word people reach for is
+        # the one it just used. Leaving these out meant answering the
+        # question with its own vocabulary counted as no answer at all.
+        "confirm", "confirmed", "confirm it", "approve", "approved",
+        "allow", "allowed", "permission granted", "go for it", "please",
+        "yes please", "do that", "proceed"}
 _NO = {"no", "nope", "nah", "don't", "dont", "no thanks", "leave it",
-       "forget it", "negative", "never mind", "nevermind"}
+       "forget it", "negative", "never mind", "nevermind",
+       "deny", "denied", "decline", "declined", "don't do it", "dont do it",
+       "cancel it", "skip it", "no don't", "no dont"}
 
 
 def yes_or_no(text: str) -> bool | None:

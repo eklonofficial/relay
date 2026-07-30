@@ -107,6 +107,10 @@ def build_parser() -> argparse.ArgumentParser:
     mic = sub.add_parser("mic", help="live microphone and wake-word diagnostics")
     mic.add_argument("--reset", action="store_true", help="reset peak counters")
 
+    voice = sub.add_parser("voice", help="choose Relay's voice, by ear")
+    voice.add_argument("--list", action="store_true",
+                       help="print the voices instead of opening the picker")
+
     overlay = sub.add_parser(
         "overlay", help="show the orb's status, or drive it by hand")
     overlay.add_argument(
@@ -166,6 +170,22 @@ def main(argv: list[str] | None = None) -> int:
             print(settings_tui.render_plain())
             return 0
         return settings_tui.main()
+
+    # Local too. It has to load the speech model and play audio itself, and
+    # it is useful before the daemon has ever run.
+    if ns.command == "voice":
+        from relay import voice_tui, voices as voices_mod
+        from relay.paths import PATHS as _paths
+
+        if ns.list:
+            found = voices_mod.available(_paths.models)
+            if not found:
+                print("No voices are installed.", file=sys.stderr)
+                return 1
+            for v in found:
+                print(f"{v.id:<16} {v.name:<14} {v.label}")
+            return 0
+        return voice_tui.main()
 
     # Local, like settings and docs: backing up is exactly what you want to
     # still work when the daemon won't start.

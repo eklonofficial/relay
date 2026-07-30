@@ -128,7 +128,8 @@ class RelayDaemon:
             mcp_servers=mcp_servers,
             allowed_tools=allowed,
             hooks={"PreToolUse": [_matcher(make_hook(
-                self.cfg, on_dry_run=self._note_dry_run,
+                self.cfg, confirm=self._confirm_aloud,
+                on_dry_run=self._note_dry_run,
                 on_allowed=self._note_signal))]},
         )
         await self.agent.start()
@@ -168,7 +169,8 @@ class RelayDaemon:
         Separate from start() so the text path works on a machine with no
         audio hardware, and so a broken microphone can't stop relayd.
         """
-        voices = VoiceRouter(KokoroTTS(PATHS.models), ChatterboxTTS())
+        voices = VoiceRouter(KokoroTTS(PATHS.models, voice=self.cfg.audio.tts_voice),
+                             ChatterboxTTS())
         await self._start_overlay()
 
         from relay.audio.ducking import Ducker
@@ -733,6 +735,36 @@ class RelayDaemon:
 
     async def _cmd_ping(self, _args, *, emit, confirm=None) -> None:
         await emit("info", {"text": "pong"})
+
+    async def _confirm_aloud(self, description: str) -> bool:
+        """The voice path's answer to "should I?".
+
+        Wired at construction because the agent is built before the voice
+        loop exists; it resolves `self.voice` at call time instead. Without
+        it the hook has no confirmation channel and denies outright, so Relay
+        would announce that it needed permission and then refuse whatever you
+        answered -- the refusal having already happened.
+        """
+        if self.voice is None:
+            return False
+        return await self.voice.confirm(description)
+
+    async def _cmd_reload_voice(self, _args, *, emit, confirm=None) -> None:
+        """Pick up a voice chosen by `relay voice`, without a restart.
+
+        Only the voice name changes, and Kokoro takes it per call rather than
+        at load, so nothing has to be reloaded -- which is why this can be a
+        two-line command instead of a tier restart.
+        """
+        if self.voice is None:
+            await emit("error", {"text": "Voice is not running."})
+            return
+        fresh = config_mod.load()
+        self.cfg.audio.tts_voice = fresh.audio.tts_voice
+        kokoro = getattr(self.voice.voices, "kokoro", None)
+        if kokoro is not None:
+            kokoro.voice = fresh.audio.tts_voice
+        await emit("info", {"text": f"voice: {fresh.audio.tts_voice}"})
 
     async def _cmd_overlay(self, args, *, emit, confirm=None) -> None:
         """Drive the orb by hand, or report on it.

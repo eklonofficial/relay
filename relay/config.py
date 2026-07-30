@@ -134,6 +134,11 @@ class AudioConfig:
     # Set the volume to 0, or this to false, to switch it off.
     wake_chime: bool = True
     wake_chime_volume: float = 0.10
+    # Which of Kokoro's 54 presets the CPU voice uses. `relay voice` picks it
+    # by ear, which is the only sensible way to choose between fifty-four
+    # voices named things like `am_fenrir`. The GPU voice is Chatterbox and
+    # is not a preset at all -- it clones a reference clip.
+    tts_voice: str = "af_heart"
     # Ducking: turn everything else down while Relay has your attention, the
     # way a smart speaker does. Echo cancellation already removes the music
     # from what the microphone hears, but it cannot remove what the music

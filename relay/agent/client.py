@@ -47,7 +47,16 @@ AUTH_API_KEY = "api_key"
 # loaded into the cached prefix and re-read on every turn, so this list is a
 # direct, per-turn cost. Relay's own MCP servers cover apps, windows, memory
 # and speech; the model still needs a shell and a way to read and find files.
-DEFAULT_BUILTIN_TOOLS = ["Bash", "Read", "Glob", "Grep"]
+#
+# WebSearch and WebFetch are here because an assistant that cannot answer
+# "what's the weather" is not much of one. Relay was not declining to look
+# things up -- it had no way to, and said so in the only terms it had, which
+# sounded like a refusal.
+#
+# They run through the Claude subscription like every other turn and add no
+# separate billing. They are the only tools here that send anything off this
+# machine, so both need confirmation before they run.
+DEFAULT_BUILTIN_TOOLS = ["Bash", "Read", "Glob", "Grep", "WebSearch", "WebFetch"]
 
 
 class UsageLimitReached(RuntimeError):

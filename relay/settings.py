@@ -52,6 +52,11 @@ FIELDS: list[Field] = [
     Field("audio.post_speech_cooldown_ms", "Cooldown after speaking",
           "Ignore the mic briefly after Relay talks, so it doesn't hear itself.",
           "int", minimum=0, maximum=3000),
+    Field("audio.tts_voice", "Voice (CPU tier)",
+          "Which Kokoro preset Relay speaks in when the GPU is busy. "
+          "Choose it by ear with `relay voice` -- fifty-four voices named "
+          "things like am_fenrir are not choosable from a list.",
+          "str"),
     Field("audio.wake_chime", "Listening chime",
           "A short sound when Relay starts recording, so you know it heard "
           "you.", "bool"),

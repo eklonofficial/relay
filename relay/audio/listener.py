@@ -170,7 +170,25 @@ class Listener:
         self.last_score = 0.0
         self.peak_score = 0.0
         self.detections = 0
+        self.confirmations = 0
         self.paused_since: float | None = None
+
+    async def listen_for_answer(self) -> Utterance:
+        """Record one reply, with no wake word, for a spoken confirmation.
+
+        Safe to call from inside a turn, which is the only place it is used.
+        `utterances()` is parked at its yield while the turn runs, so it is
+        not pulling frames and this has the microphone to itself -- the same
+        reason `_record` can consume its own frame stream without competing
+        with the loop that called it.
+        """
+        # Relay has just asked the question, and the tail of it is still in
+        # the buffer. Without dropping that, the answer is Relay's own voice.
+        self.microphone.drain()
+        self.detector.reset()
+        self.vad.reset()
+        self.confirmations += 1
+        return await self._record("confirmation", 1.0, lead_in_frames=0)
 
     def settle(self) -> None:
         """Clear the scorers without unpausing or dropping audio.

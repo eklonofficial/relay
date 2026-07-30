@@ -113,6 +113,36 @@ class VoiceLoop:
         self._show("idle")
         log.info("aborted")
 
+    async def confirm(self, description: str) -> bool:
+        """Ask out loud whether to go ahead, and wait for the answer.
+
+        Without this the voice path had no confirmation channel at all, and
+        the permission hook denies anything needing one -- so Relay would say
+        it needed permission for a file write, and then refuse it no matter
+        what you said, because the refusal had already happened.
+
+        Only reachable from inside a turn, where the listener is parked and
+        the microphone is free.
+        """
+        await self.say(f"{description}. Should I go ahead?")
+        self._show("listening")
+        try:
+            utterance = await self.listener.listen_for_answer()
+            transcript = await self.stt.transcribe(utterance.audio)
+        except Exception:  # noqa: BLE001 - a failed listen is a "no"
+            log.exception("could not hear a confirmation")
+            return False
+
+        answer = yes_or_no(transcript.text)
+        log.info("confirmation: heard %r -> %s", transcript.text, answer)
+        self._show("thinking")
+        if answer is None:
+            # Silence, or something that was neither. Treating an unclear
+            # answer as yes is how an assistant deletes something.
+            await self.say("I'll leave it.")
+            return False
+        return answer
+
     def wake(self) -> None:
         """The wake word fired. If Relay is mid-sentence, stop it.
 

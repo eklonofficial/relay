@@ -207,6 +207,13 @@ TOOL_TIERS: dict[str, Tier] = {
     "close_window": Tier.ASK,
     # files — read-only
     "find_by_time": Tier.AUTO, "file_info": Tier.AUTO, "disk_usage": Tier.AUTO,
+    # web — a search is a lookup, and the query is the user's own words said
+    # out loud a second earlier. Confirming "shall I search for the weather?"
+    # every time would be the kind of friction that stops people asking.
+    "WebSearch": Tier.AUTO,
+    # Fetching is different: the URL is chosen by the model, not spoken by
+    # the user, and a URL is a place to put data as well as to get it from.
+    "WebFetch": Tier.ASK,
     # music — all trivially reversible, and confirming "skip this song" would
     # be worse than useless
     "music_play": Tier.AUTO, "music_pause": Tier.AUTO, "music_next": Tier.AUTO,

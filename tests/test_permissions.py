@@ -223,3 +223,80 @@ async def test_never_tier_is_not_offered_for_confirmation():
     hook = make_hook(cfg, confirm=confirm)
     assert _decision(await _run_hook(hook, "Bash", {"command": "rm -rf /"})) == "deny"
     assert asked == [], "a catastrophic command must never reach the user as a prompt"
+
+
+# --------------------------------------------------- the voice path can say yes
+async def test_a_missing_confirmation_channel_denies():
+    """The shape of the bug: the voice path's agent was built with no
+    `confirm`, so anything needing one was refused before the user could
+    answer. Relay announced that it needed permission and then declined
+    whatever was said, because the refusal had already happened."""
+    from relay.config import Config
+    from relay.permissions import make_hook
+
+    hook = make_hook(Config(), confirm=None)
+    decision = await hook({"tool_name": "Write",
+                           "tool_input": {"file_path": "/home/a/notes.md"}}, None, {})
+
+    body = decision["hookSpecificOutput"]
+    assert body["permissionDecision"] == "deny"
+    assert "confirmation" in body["permissionDecisionReason"].lower()
+
+
+async def test_a_spoken_yes_allows_the_tool():
+    from relay.config import Config
+    from relay.permissions import make_hook
+
+    asked = []
+
+    async def say_yes(description):
+        asked.append(description)
+        return True
+
+    hook = make_hook(Config(), confirm=say_yes)
+    decision = await hook({"tool_name": "Write",
+                           "tool_input": {"file_path": "/home/a/notes.md"}}, None, {})
+
+    assert decision["hookSpecificOutput"]["permissionDecision"] == "allow"
+    assert asked, "the user was never actually asked"
+
+
+async def test_a_spoken_no_denies_and_says_not_to_retry():
+    from relay.config import Config
+    from relay.permissions import make_hook
+
+    async def say_no(_description):
+        return False
+
+    hook = make_hook(Config(), confirm=say_no)
+    decision = await hook({"tool_name": "Write",
+                           "tool_input": {"file_path": "/home/a/notes.md"}}, None, {})
+
+    body = decision["hookSpecificOutput"]
+    assert body["permissionDecision"] == "deny"
+    assert "retry" in body["permissionDecisionReason"].lower()
+
+
+# ------------------------------------------------------------------- the web
+def test_searching_the_web_does_not_need_permission():
+    """"What's the weather" would otherwise mean confirming a search out loud
+    every single time, which is the friction that stops people asking."""
+    from relay.permissions import Tier, classify
+
+    assert classify("WebSearch", {"query": "weather"})[0] is Tier.AUTO
+
+
+def test_fetching_a_url_does():
+    """The URL is chosen by the model rather than spoken by the user, and a
+    URL is a place to put data as well as to get it from."""
+    from relay.permissions import Tier, classify
+
+    assert classify("WebFetch", {"url": "https://example.com"})[0] is Tier.ASK
+
+
+def test_relay_can_actually_reach_the_web():
+    """It was not declining to look things up -- it had no tool to."""
+    from relay.agent.client import DEFAULT_BUILTIN_TOOLS
+
+    assert "WebSearch" in DEFAULT_BUILTIN_TOOLS
+    assert "WebFetch" in DEFAULT_BUILTIN_TOOLS
