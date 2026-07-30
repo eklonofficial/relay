@@ -52,10 +52,10 @@ FIELDS: list[Field] = [
     Field("audio.post_speech_cooldown_ms", "Cooldown after speaking",
           "Ignore the mic briefly after Relay talks, so it doesn't hear itself.",
           "int", minimum=0, maximum=3000),
-    Field("audio.tts_voice", "Voice (CPU tier)",
-          "Which Kokoro preset Relay speaks in when the GPU is busy. "
-          "Choose it by ear with `relay voice` -- fifty-four voices named "
-          "things like am_fenrir are not choosable from a list.",
+    Field("audio.tts_voice", "Voice",
+          "Which of Kokoro's presets Relay speaks in. Choose it by ear with "
+          "`relay voice` -- fifty-four voices named things like am_fenrir are "
+          "not choosable from a list.",
           "str"),
     Field("audio.wake_chime", "Listening chime",
           "A short sound when Relay starts recording, so you know it heard "
@@ -97,12 +97,6 @@ FIELDS: list[Field] = [
           "Answer simple commands without calling Claude. Free and instant. "
           "Turn off only to debug.",
           "bool"),
-    Field("models.tier", "GPU tier",
-          "auto follows free VRAM. full = GPU voice, lite = CPU voice, "
-          "sleep = wake word only.",
-          "choice", choices=("auto", "full", "lite", "sleep")),
-    Field("models.announce_transitions", "Announce tier changes",
-          "Say something out loud when switching between GPU and CPU.", "bool"),
     # --- music ----------------------------------------------------------
     Field("music.cider_token", "Cider API token",
           "From Cider: Settings -> Connectivity -> Manage External Application "

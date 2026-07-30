@@ -160,13 +160,13 @@ def test_the_selected_row_stays_on_screen(screen):
         "the selected voice was scrolled off the screen"
 
 
-def test_the_picker_says_which_voice_this_actually_changes(screen):
-    """On this machine the GPU voice is usually the one you hear, and it is
-    not in this list. Not saying so would make the feature look broken."""
+def test_the_picker_says_how_to_use_it(screen):
+    """Fifty-four rows of unfamiliar names need one line saying that moving
+    plays them, or the whole point of the screen is invisible."""
     fake = FakeScreen()
     screen.draw(fake)
     text = " ".join(t for _r, t in fake.lines)
-    assert "CPU voice" in text and "Chatterbox" in text
+    assert "hear" in text.lower()
 
 
 def test_navigation_stays_in_range(screen):

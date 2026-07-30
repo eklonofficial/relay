@@ -213,8 +213,19 @@ def extract_features(clips: list[np.ndarray]) -> np.ndarray:
 
 
 def train(x: np.ndarray, y: np.ndarray, *, epochs: int, seed: int):
-    import torch
-    import torch.nn as nn
+    try:
+        import torch
+        import torch.nn as nn
+    except ImportError as exc:      # noqa: F841
+        raise SystemExit(
+            "Training the wake word needs PyTorch, which Relay no longer\n"
+            "installs -- it was only ever here for the GPU voice, and torch\n"
+            "plus CUDA is about four gigabytes to keep resident for a script\n"
+            "that runs once.\n\n"
+            "    uv pip install torch\n\n"
+            "Then run this again. Uninstall it afterwards if you like; the\n"
+            "trained relay.onnx is all Relay needs at runtime."
+        ) from None
 
     torch.manual_seed(seed)
     model = nn.Sequential(
@@ -275,8 +286,19 @@ def train(x: np.ndarray, y: np.ndarray, *, epochs: int, seed: int):
 
 def export_onnx(model, path: Path) -> None:
     """Export with the signature openWakeWord expects: [1,16,96] -> [1,1]."""
-    import torch
-    import torch.nn as nn
+    try:
+        import torch
+        import torch.nn as nn
+    except ImportError as exc:      # noqa: F841
+        raise SystemExit(
+            "Training the wake word needs PyTorch, which Relay no longer\n"
+            "installs -- it was only ever here for the GPU voice, and torch\n"
+            "plus CUDA is about four gigabytes to keep resident for a script\n"
+            "that runs once.\n\n"
+            "    uv pip install torch\n\n"
+            "Then run this again. Uninstall it afterwards if you like; the\n"
+            "trained relay.onnx is all Relay needs at runtime."
+        ) from None
 
     class WithSigmoid(nn.Module):
         def __init__(self, inner):

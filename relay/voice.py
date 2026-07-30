@@ -4,8 +4,9 @@
 
 Two decisions shape this. First, the fast path runs before the model, so
 "open Discord" costs nothing from the plan allowance. Second, the microphone
-is paused while Relay speaks: without echo cancellation a desktop speaker
-feeds straight back into the wake word detector, and Relay hears itself.
+keeps listening while Relay speaks, which echo cancellation makes safe --
+without it a desktop speaker feeds straight back into the wake word detector
+and Relay hears itself.
 """
 
 from __future__ import annotations
@@ -20,7 +21,7 @@ from relay.audio.missed import keep_missed
 from relay.audio.playback import Playback
 from relay.memory.signals import yes_or_no
 from relay.stt.engine import SpeechToText
-from relay.tts.engine import VoiceRouter
+from relay.tts.engine import KokoroTTS
 
 log = logging.getLogger(__name__)
 
@@ -46,7 +47,7 @@ class VoiceLoop:
         daemon,
         listener: Listener,
         stt: SpeechToText,
-        voices: VoiceRouter,
+        voices: KokoroTTS,
         playback: Playback,
         *,
         pause_while_speaking: bool = True,

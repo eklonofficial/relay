@@ -99,9 +99,6 @@ def build_parser() -> argparse.ArgumentParser:
     say = sub.add_parser("say", help="speak a line out loud")
     say.add_argument("text", nargs="+")
 
-    tier = sub.add_parser("tier", help="show or force the power tier")
-    tier.add_argument("tier", nargs="?", choices=["full", "lite", "sleep", "auto"])
-
     sub.add_parser("devices", help="list audio input devices")
 
     mic = sub.add_parser("mic", help="live microphone and wake-word diagnostics")
@@ -232,8 +229,6 @@ def main(argv: list[str] | None = None) -> int:
         args["state"] = ns.state or ""
         if ns.scrub is not None:
             args["scrub"] = ns.scrub
-    elif command == "tier":
-        args["tier"] = ns.tier or ""
     elif command == "mode":
         args["mode"] = (ns.mode or "").replace("-", "_")
     elif command == "facts":

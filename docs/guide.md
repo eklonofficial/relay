@@ -20,7 +20,6 @@ relay abort                 # stop talking:  SUPER+SHIFT+ESC
 
 relay status                # daemon, model, plan usage
 relay mic                   # is it hearing you? is it paused?
-relay tier                  # GPU/CPU tier and live VRAM
 relay usage                 # how much of your plan Relay has used
 relay ask "what's on workspace 2?"    # talk to it without the microphone
 relay say "hello"           # test the voice
@@ -36,7 +35,6 @@ relay mode dry-run          # preview actions without doing them
 relay settings              # interactive control panel
 relay docs                  # this document, in the terminal
 relay backup                # push memories + wake word to GitHub
-relay tier sleep            # free the GPU; `relay tier auto` to restore
 ```
 
 Logs: `~/.local/state/relay/relay.log`, or `journalctl --user -u relay -f`
@@ -73,7 +71,7 @@ v  no
 Claude Sonnet 5       via your subscription. ~8k tokens/turn.
    |                  Tools: memory, windows, apps, files, shell.
    v
-speech                Chatterbox (GPU) or Kokoro (CPU)
+speech                Kokoro (CPU)
 ```
 
 ### Talking again without the wake word
@@ -254,8 +252,7 @@ Both take `screen` (everything), `window` (whatever's focused), or `region`
 
 **Privacy, plainly:** `read_screen` sends whatever is on screen to Claude.
 That's the point of it, and it only happens when you ask to be looked at —
-but it does mean anything visible at that moment goes with it. `relay tier
-sleep` or stopping the service is the way to be certain it can't.
+but it does mean anything visible at that moment goes with it. Stopping the service is the way to be certain it can't.
 
 **On image size.** The monitor is 3440×1440. Sent whole that's ~4,800 tokens
 per look, and Claude's vision resizes anything over 2576px anyway — so the
@@ -447,36 +444,6 @@ pactl set-source-volume alsa_input.usb-3142_fifine_Microphone-00.analog-stereo 1
 This machine shipped at **27% / −33.69 dB**, which was quiet enough that the
 wake word never fired.
 
-### It speaks in the wrong voice, or the GPU voice never loads
-
-Relay has two voices: **Chatterbox** on the GPU (the good one) and **Kokoro**
-on the CPU (0 VRAM, instant). It starts on Kokoro and switches once Chatterbox
-finishes loading, about 8 seconds in — so anything said in that window comes
-out in the CPU voice, which is normal.
-
-If it *never* switches, check the log:
-
-```bash
-grep "TTS " ~/.local/state/relay/relay.log | tail -3
-```
-
-`TTS chatterbox ready ... (cuda)` means it worked. If instead you see only
-Kokoro, or a `falling back to kokoro` warning, the GPU voice failed to import.
-The usual cause is dependency drift — Chatterbox is fussy:
-
-| Breaks it | Symptom |
-|---|---|
-| `numpy` ≥ 2.5 | `Numba needs NumPy 2.4 or less` |
-| `huggingface-hub` < 1.3 | `cannot import name 'is_offline_mode'` |
-| `setuptools` ≥ 81 | `pkg_resources` gone; `perth` silently becomes `None` |
-| pinning `transformers` | resolver walks Chatterbox back to 0.1.3, `llvmlite` fails to build |
-
-Check them in one go:
-
-```bash
-.venv/bin/python -c "import chatterbox; print('ok')"
-```
-
 ### `uv run` fails to resolve, or silently breaks the voice
 
 Two separate traps.
@@ -491,7 +458,7 @@ uv pip install --no-deps openwakeword
 ```
 
 **Resolution succeeds and the voice degrades**: a bare `uv run` or `uv sync`
-syncs the venv down to the core dependencies and *uninstalls* the audio and GPU
+syncs the venv down to the core dependencies and *uninstalls* the audio
 backends. Relay then still starts, quietly falls back to the CPU voice, or logs
 `voice loop unavailable`. Always pass the extras:
 
@@ -553,7 +520,7 @@ look at.
 ### The voice changed
 
 That's deliberate. A different voice means Relay dropped to CPU mode because
-something wants the GPU. `relay tier` shows why.
+you changed it. `relay voice` sets it.
 
 ### It won't do something
 
@@ -571,31 +538,7 @@ relay memory reindex                  # rebuild search after a model change
 
 ---
 
-## 5. GPU and power tiers
-
-| Tier | Speech models | VRAM | When |
-|---|---|---|---|
-| `full` | Chatterbox (GPU) + Parakeet (CPU) | ~3.0 GiB | Plenty free |
-| `lite` | Kokoro (CPU) + Parakeet (CPU) | ~0 | Game/Blender running, or VRAM tight |
-| `sleep` | wake word only | ~0 | You asked |
-
-Relay loads the GPU voice when **4700 MiB** is free and releases it when free
-VRAM drops under **700 MiB**. Those two numbers answer different questions —
-one is "can I afford to load 3 GiB?", the other is "is something squeezing me
-out?" — and conflating them made Relay evict the model it had just loaded.
-
-It also watches Hyprland window events, so launching CS2 or Blender drops the
-tier *before* the game allocates rather than after.
-
-```bash
-relay tier lite     # force CPU
-relay tier auto     # hand control back
-relay tier sleep    # free everything
-```
-
----
-
-## 6. Memory
+## 5. Memory
 
 Four layers, all in one SQLite file at `~/.local/share/relay/memory.db`:
 
@@ -699,7 +642,7 @@ background, never on the path of a reply.
 
 ---
 
-## 7. Settings panel
+## 6. Settings panel
 
 ```bash
 relay settings          # interactive
@@ -713,7 +656,7 @@ improving. Restart `relayd` to apply.
 Settings the panel doesn't expose — like the wake-word model path — are
 preserved when it saves.
 
-## 8. Configuration
+## 7. Configuration
 
 `~/.config/relay/config.toml`. Everything is optional; defaults suit this
 machine.
@@ -737,15 +680,13 @@ telemetry_max_age_s = 900
 session_idle_minutes = 20    # start a fresh session after this; keeps turns cheap
 
 [models]
-tier = "auto"                # or full / lite / sleep
-heavy_apps = ["steam_app_", "cs2", "blender", "Unity", "obs"]
 
 fast_path_enabled = true
 ```
 
 ---
 
-## 9. Retraining the wake word
+## 8. Retraining the wake word
 
 If detection is unreliable, record 6–10 clips of yourself saying the word
 (1–2 seconds each, WAV), drop them in
@@ -763,7 +704,7 @@ Afterwards, re-check the threshold with `check_audio.py --listen`.
 
 ---
 
-## 10. Layout
+## 9. Layout
 
 ```
 relay/
@@ -774,9 +715,8 @@ relay/
   config.py        typed defaults + config.toml
   agent/           Claude client, prompt, sentence streaming
   audio/           capture, wake word, VAD, playback
-  stt/ tts/        Parakeet; Chatterbox + Kokoro
+  stt/ tts/        Parakeet; Kokoro
   memory/          schema, hybrid search, embeddings
-  models/          GPU tiering
   tools/           MCP tools: memory, desktop, files
 scripts/
   check_audio.py     microphone and wake word diagnostics
@@ -785,7 +725,7 @@ scripts/
   measure_turn_cost.py
 ```
 
-Run the tests with `uv run pytest -q` (250 of them).
+Run the tests with `uv run pytest -q` (734 of them).
 
 Deeper notes: `docs/cost-findings.md` (what a turn really costs),
 `docs/hyprland-dispatch.md` (the 0.55 Lua API change).

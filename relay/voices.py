@@ -6,9 +6,9 @@ The first letter is the language, the second is the gender, and the rest is a
 name. This turns that back into something readable, and puts the English
 voices first, because that is what Relay speaks.
 
-Only Kokoro is listed. Chatterbox, the GPU voice, does not have presets at
-all -- it clones from a reference clip, which is a different thing to choose
-and a different way of choosing it.
+These are every voice Relay has. There was once a second engine on the GPU
+that cloned a reference clip instead of choosing a preset; it is gone, and
+the list below is now simply the answer to "what can it sound like".
 """
 
 from __future__ import annotations

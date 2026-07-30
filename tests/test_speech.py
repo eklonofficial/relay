@@ -9,7 +9,7 @@ import pytest
 
 from relay.paths import PATHS
 from relay.stt.engine import Transcript, _resample, _to_float32
-from relay.tts.engine import CHATTERBOX, KOKORO, KokoroTTS, Speech, VoiceRouter
+from relay.tts.engine import KOKORO, KokoroTTS, Speech
 
 
 # ------------------------------------------------------------ conversions
@@ -60,76 +60,7 @@ def test_speech_duration_and_rtf():
     assert s.real_time_factor == 0.5
 
 
-# ------------------------------------------------------------------ router
-class FakeTTS:
-    def __init__(self, name, fail=False):
-        self.name = name
-        self.fail = fail
-        self.calls = 0
-        self.unloaded = False
-
-    async def synthesise(self, text):
-        self.calls += 1
-        if self.fail:
-            raise RuntimeError("CUDA out of memory")
-        return Speech(audio=np.zeros(100, dtype=np.float32), sample_rate=24_000,
-                      latency_s=0.1, engine=self.name)
-
-    async def unload(self):
-        self.unloaded = True
-
-
-async def test_router_uses_kokoro_by_default():
-    router = VoiceRouter(FakeTTS(KOKORO), FakeTTS(CHATTERBOX))
-    assert (await router.synthesise("hi")).engine == KOKORO
-
-
-async def test_router_uses_chatterbox_when_preferred():
-    router = VoiceRouter(FakeTTS(KOKORO), FakeTTS(CHATTERBOX))
-    router.prefer(CHATTERBOX)
-    assert (await router.synthesise("hi")).engine == CHATTERBOX
-
-
-async def test_losing_the_gpu_mid_sentence_changes_the_voice_not_the_answer():
-    """A CUDA OOM should degrade to CPU, not silence the assistant."""
-    kokoro, chatterbox = FakeTTS(KOKORO), FakeTTS(CHATTERBOX, fail=True)
-    router = VoiceRouter(kokoro, chatterbox)
-    router.prefer(CHATTERBOX)
-
-    speech = await router.synthesise("hi")
-
-    assert speech.engine == KOKORO
-    assert kokoro.calls == 1
-    # And it stays on CPU rather than retrying the broken engine every turn.
-    await router.synthesise("again")
-    assert chatterbox.calls == 1
-
-
-async def test_kokoro_failure_propagates_because_there_is_no_lower_tier():
-    router = VoiceRouter(FakeTTS(KOKORO, fail=True))
-    with pytest.raises(RuntimeError):
-        await router.synthesise("hi")
-
-
-async def test_unload_gpu_frees_chatterbox_and_switches_voice():
-    kokoro, chatterbox = FakeTTS(KOKORO), FakeTTS(CHATTERBOX)
-    router = VoiceRouter(kokoro, chatterbox)
-    router.prefer(CHATTERBOX)
-
-    await router.unload_gpu()
-
-    assert chatterbox.unloaded
-    assert router.active.name == KOKORO
-
-
-async def test_router_without_chatterbox_never_selects_it():
-    """A machine with no GPU should still work."""
-    router = VoiceRouter(FakeTTS(KOKORO), None)
-    router.prefer(CHATTERBOX)
-    assert (await router.synthesise("hi")).engine == KOKORO
-
-
-# ------------------------------------------------------------ model files
+# ------------------------------------------------------------------ kokoro
 def test_missing_kokoro_files_are_reported_clearly(tmp_path):
     kokoro = KokoroTTS(tmp_path)
     missing = kokoro.missing_files()

@@ -95,8 +95,9 @@ def test_an_empty_clip_produces_no_envelope():
 
 
 def test_integer_audio_is_scaled_like_float_audio():
-    """Kokoro and Chatterbox hand back different dtypes; one code path has to
-    serve both or the pulse depends on which voice is loaded."""
+    """Kokoro returns float32, but WAV capture and the wake word are int16.
+    One code path has to serve both, or the pulse depends on where the audio
+    came from."""
     tone = np.sin(np.linspace(0, 90, 24000)).astype(np.float32)
     as_int = (tone * 32767).astype(np.int16)
     assert envelope(tone) == pytest.approx(envelope(as_int), abs=0.02)

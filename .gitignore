@@ -19,8 +19,15 @@ config.toml
 .env
 
 # ---------------------------------------------------------- large weights
-# ~466 MB of downloadable models. install.sh refetches them.
-models/
+# ~466 MB of downloadable weights. install.sh refetches them.
+#
+# Anchored to the repository root. Unanchored, `models/` matched *any*
+# directory of that name at any depth -- which silently excluded the source
+# package `relay/models/` from every commit and every backup for the life of
+# this repo. A clone would have installed cleanly and then failed to start on
+# `No module named 'relay.models'`. Downloaded weights live outside the repo
+# anyway, under ~/.local/share/relay/models.
+/models/
 *.safetensors
 
 # ------------------------------------------------------------- runtime

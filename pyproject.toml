@@ -10,18 +10,19 @@ requires-python = "==3.12.*"
 dependencies = [
     "claude-agent-sdk>=0.1.0",
     "sqlite-vec>=0.1.6",
-    # Upper bound is numba's, reached via chatterbox -> librosa -> numba, which
-    # refuses to import against NumPy 2.5. It fails at import time with a clear
-    # message, but only once the GPU voice is loaded.
-    "numpy>=1.26,<2.5",
+    "numpy>=1.26",
     "onnxruntime>=1.18",
-    # huggingface-hub went 0.x -> 1.x, so ">=0.25" happily resolves to 0.36,
-    # which is *older* than 1.3 and missing `is_offline_mode`. transformers 5
-    # then fails to import and takes the GPU voice down with it. tokenizers
-    # must clear 0.22 too -- 0.20 caps huggingface-hub below 1.0 and drags the
-    # whole resolution back to the broken combination.
+    # The memory embedder tokenises with these, and onnx-asr uses
+    # hf_hub_download to fetch Parakeet. huggingface-hub went 0.x -> 1.x, so
+    # ">=0.25" resolves to 0.36 -- which is *older* than 1.3. The floors are
+    # what keep the resolver on the 1.x line; tokenizers below 0.22 caps
+    # huggingface-hub under 1.0 and drags it back.
     "tokenizers>=0.22",
     "huggingface-hub>=1.3",
+    # `relay docs` renders the guide with this. It used to arrive as a
+    # transitive dependency of the GPU voice and was never declared, so
+    # removing that stack took the styled documentation with it.
+    "rich>=13.0",
     "tomli-w>=1.0",
     "platformdirs>=4.0",
 ]
@@ -37,32 +38,27 @@ dependencies = [
 #
 #     uv pip install --no-deps openwakeword
 #
-# Its actual runtime needs (onnxruntime, scipy, tqdm, requests) are covered
-# here and in the core dependencies.
+# Its actual runtime needs are onnxruntime, scipy, scikit-learn, tqdm and
+# requests, all listed here or in the core dependencies. scikit-learn was
+# reaching the venv as a transitive dependency of the GPU voice; with that
+# gone, `openwakeword.model` failed to import on `No module named 'sklearn'`
+# -- and `import openwakeword` still succeeded, which is exactly how a
+# missing wake word hides.
 audio = [
+    "scikit-learn>=1.0",
     "sounddevice>=0.4.7",
-    "silero-vad>=5.1",
+    # No silero-vad. Nothing imports it: the VAD in use is openWakeWord's
+    # (`from openwakeword.vad import VAD`), which is ONNX with a bundled
+    # silero_vad.onnx. The package declares torch and torchaudio, so leaving
+    # it here would have kept four gigabytes installed for an import that
+    # never happens.
     "soundfile>=0.12",
     "scipy>=1.13",
     "tqdm>=4.66",
     "requests>=2.31",
 ]
-# GPU inference tier. Heavy; only needed for FULL mode.
-gpu = [
-    "torch>=2.4",
-    "torchaudio>=2.4",
-    "chatterbox-tts>=0.1.0",
-    "nvidia-ml-py>=12.560",
-    # chatterbox pins transformers exactly, so don't constrain it here -- doing
-    # so makes the resolver walk chatterbox backwards to 0.1.3, which needs
-    # numba 0.53 and fails to build llvmlite.
-    # setuptools 81 removed pkg_resources, which chatterbox's `perth`
-    # watermarker imports. It swallows the ImportError and sets the class to
-    # None, so the failure surfaces much later as a confusing NoneType call.
-    "setuptools<81",
-]
-# CPU inference tier (LITE mode).
-cpu = [
+# Speech models: transcription and the voice.
+speech = [
     "onnx-asr>=0.4.0",
     "kokoro-onnx>=0.4.0",
 ]

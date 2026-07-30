@@ -3,9 +3,8 @@
 The loop: score every frame for the wake word; on a hit, keep recording until
 the speaker stops, then hand the audio to transcription.
 
-Both models are ONNX on the CPU and total about 6MB, which is what lets Relay
-keep listening while the GPU is busy with a game — the whole point of the
-LITE tier.
+Both models are ONNX on the CPU and total about 6MB, so Relay keeps listening
+whatever the graphics card is doing.
 """
 
 from __future__ import annotations
@@ -77,7 +76,12 @@ class WakeWordDetector:
 
 
 class VoiceActivity:
-    """Silero VAD, used to decide when the speaker has finished."""
+    """Silero VAD, used to decide when the speaker has finished.
+
+    Reached through openWakeWord, which bundles `silero_vad.onnx` and runs it
+    on onnxruntime. The `silero-vad` PyPI package is deliberately not
+    installed: nothing imports it, and it declares torch.
+    """
 
     def __init__(self, threshold: float = 0.5) -> None:
         self.threshold = threshold

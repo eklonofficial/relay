@@ -24,7 +24,7 @@ from relay.agent.client import (
     UsageLimitReached,
     subscription_tier,
 )
-from relay.config import MODE_DRY_RUN, MODE_NORMAL, TIER_FULL, TIER_LITE, Config
+from relay.config import MODE_DRY_RUN, MODE_NORMAL, Config
 from relay.memory import distil, signals
 from relay.memory.embed import Embedder
 from relay.memory.store import MemoryStore
@@ -33,11 +33,10 @@ from relay.fastpath import FastPath
 from relay.permissions import make_hook
 from relay.audio.listener import build_listener
 from relay.audio.playback import Playback
-from relay.models.manager import ModelManager
 from relay.stt.engine import SpeechToText
 from relay.tools import base as tool_base
 from relay.tools import desktop, files, memory_tools, music, screen
-from relay.tts.engine import ChatterboxTTS, KokoroTTS, VoiceRouter
+from relay.tts.engine import KokoroTTS
 from relay.voice import VoiceLoop
 
 log = logging.getLogger(__name__)
@@ -56,7 +55,6 @@ class RelayDaemon:
         self.fastpath: FastPath | None = None
         self._tool_handlers: dict[str, Any] = {}
         self.voice: VoiceLoop | None = None
-        self.models: ModelManager | None = None
         # The orb. `orb` is what the rest of Relay talks to; the bus and the
         # renderer process are plumbing behind it. All three are None when the
         # overlay is disabled or failed to start, and every caller checks.
@@ -164,13 +162,12 @@ class RelayDaemon:
         return self.cfg.mode == MODE_DRY_RUN
 
     async def start_voice(self) -> None:
-        """Bring up the microphone, speech models and tier supervisor.
+        """Bring up the microphone and the speech models.
 
         Separate from start() so the text path works on a machine with no
         audio hardware, and so a broken microphone can't stop relayd.
         """
-        voices = VoiceRouter(KokoroTTS(PATHS.models, voice=self.cfg.audio.tts_voice),
-                             ChatterboxTTS())
+        voices = KokoroTTS(PATHS.models, voice=self.cfg.audio.tts_voice)
         await self._start_overlay()
 
         from relay.audio.ducking import Ducker
@@ -206,12 +203,10 @@ class RelayDaemon:
         # as a watcher -- but it has to hear the wake word to stop talking
         # when it is interrupted.
         listener.watch(self.voice)
-        self.models = ModelManager(self.cfg, voices, announce=self.voice.announce)
         # Let tools speak for themselves. Music needs it: starting Cider takes
         # several seconds, and silence during the wait reads as a failure.
         tool_base.ctx().speak = self.voice
         await self.voice.start()
-        await self.models.start()
 
     async def _start_overlay(self) -> None:
         """Bring up the orb, or carry on without it.
@@ -301,8 +296,6 @@ class RelayDaemon:
             with contextlib.suppress(Exception):
                 await self.ducker.unduck()
         self.ducker = None
-        if self.models is not None:
-            await self.models.stop()
         if self.voice is not None:
             await self.voice.stop()
         if self.overlay_process is not None:
@@ -669,34 +662,6 @@ class RelayDaemon:
         await self.voice.announce(text)
         await emit("info", {"text": f"said: {text}"})
 
-    async def _cmd_tier(self, args, *, emit, confirm=None) -> None:
-        if self.models is None:
-            await emit("error", {"text": "Voice/tier supervisor is not running."})
-            return
-        requested = (args.get("tier") or "").strip().lower()
-        if requested in ("sleep",):
-            await self.models.sleep()
-        elif requested in ("start", "wake", "auto"):
-            await self.models.wake()
-        elif requested in (TIER_FULL, TIER_LITE):
-            self.models.manual_override = requested
-            await self.models.set_tier(requested, reason="you asked")
-        elif requested:
-            await emit("error", {"text": f"Unknown tier '{requested}'."})
-            return
-        status = self.models.status()
-        lines = [
-            f"tier         : {status['tier']}" + (f" (forced)" if status["override"] else " (auto)"),
-            f"voice        : {status['voice']}",
-            f"gpu free     : {status['gpu_free_mib']} / {status['gpu_total_mib']} MiB"
-            if status["gpu_free_mib"] is not None else "gpu          : unavailable",
-            f"drop below   : {status['drop_below_mib']:.0f} MiB",
-            f"restore above: {status['restore_above_mib']:.0f} MiB",
-        ]
-        if status["heavy_app"]:
-            lines.append(f"heavy app    : {status['heavy_app']}")
-        await emit("info", {"text": "\n".join(lines)})
-
     async def _cmd_mic(self, args, *, emit, confirm=None) -> None:
         """Live microphone diagnostics — is it hearing anything, and is it paused?"""
         if self.voice is None:
@@ -761,9 +726,7 @@ class RelayDaemon:
             return
         fresh = config_mod.load()
         self.cfg.audio.tts_voice = fresh.audio.tts_voice
-        kokoro = getattr(self.voice.voices, "kokoro", None)
-        if kokoro is not None:
-            kokoro.voice = fresh.audio.tts_voice
+        self.voice.voices.voice = fresh.audio.tts_voice
         await emit("info", {"text": f"voice: {fresh.audio.tts_voice}"})
 
     async def _cmd_overlay(self, args, *, emit, confirm=None) -> None:

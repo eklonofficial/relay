@@ -70,7 +70,7 @@ if [ ! -d "$HERE/.venv" ]; then
     (cd "$HERE" && uv venv --python 3.12) || die "could not create the virtualenv"
 fi
 
-say "installing dependencies (several minutes; torch is large)"
+say "installing dependencies"
 (cd "$HERE" && uv sync --all-extras) || die "dependency install failed"
 
 # openWakeWord declares tflite-runtime, which has no Python 3.12 wheels. Relay
@@ -84,8 +84,11 @@ say "verifying every backend imports"
 "$HERE/.venv/bin/python" - <<'PY' || die "a backend failed to import; see above"
 import importlib, sys
 missing = []
-for name in ("openwakeword.model", "silero_vad", "sounddevice", "onnx_asr",
-             "kokoro_onnx", "chatterbox", "torch", "sqlite_vec",
+# openwakeword.model, not openwakeword: the top-level package imports fine
+# from a leftover directory while the model code is gone, which is exactly
+# how a sync that quietly removed it goes unnoticed.
+for name in ("openwakeword.model", "openwakeword.vad", "sounddevice",
+             "onnx_asr", "kokoro_onnx", "sklearn", "rich", "sqlite_vec",
              "claude_agent_sdk", "onnxruntime", "httpx"):
     try:
         importlib.import_module(name)

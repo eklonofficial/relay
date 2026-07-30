@@ -13,12 +13,7 @@ from typing import Any
 
 from relay.paths import PATHS
 
-# Model tiers on the power axis.
-TIER_FULL = "full"
-TIER_LITE = "lite"
-TIER_SLEEP = "sleep"
-
-# Modes on the execution axis. Orthogonal to tier: you can dry-run in CPU mode.
+# Modes on the execution axis.
 MODE_NORMAL = "normal"
 MODE_DRY_RUN = "dry_run"
 
@@ -134,10 +129,9 @@ class AudioConfig:
     # Set the volume to 0, or this to false, to switch it off.
     wake_chime: bool = True
     wake_chime_volume: float = 0.10
-    # Which of Kokoro's 54 presets the CPU voice uses. `relay voice` picks it
-    # by ear, which is the only sensible way to choose between fifty-four
-    # voices named things like `am_fenrir`. The GPU voice is Chatterbox and
-    # is not a preset at all -- it clones a reference clip.
+    # Which of Kokoro's 54 presets Relay speaks in. `relay voice` picks it by
+    # ear, which is the only sensible way to choose between fifty-four voices
+    # named things like `am_fenrir`.
     tts_voice: str = "af_heart"
     # Ducking: turn everything else down while Relay has your attention, the
     # way a smart speaker does. Echo cancellation already removes the music
@@ -150,31 +144,6 @@ class AudioConfig:
     # and makes the assistant feel like it seized the machine; ducking it is
     # the same gesture as someone turning the stereo down to listen.
     duck_level: float = 0.25
-
-
-@dataclass
-class ModelsConfig:
-    # "auto" lets the VRAM supervisor pick; force with "full"/"lite"/"sleep".
-    tier: str = "auto"
-    # Drop to LITE when free VRAM falls below this many MiB.
-    vram_floor_mib: int = 1800
-    # Return to FULL only above this, so the tier can't oscillate.
-    vram_restore_mib: int = 3200
-    # Window classes that trigger a pre-emptive drop to LITE.
-    heavy_apps: list[str] = field(
-        default_factory=lambda: [
-            "steam_app_",
-            "cs2",
-            "blender",
-            "Unity",
-            "UnityEditor",
-            "obs",
-            "resolve",
-            "davinci",
-        ]
-    )
-    idle_evict_seconds: int = 0  # 0 disables idle eviction; tier logic handles it
-    announce_transitions: bool = True
 
 
 @dataclass
@@ -235,7 +204,6 @@ class Config:
     usage: UsageConfig = field(default_factory=UsageConfig)
     memory: MemoryConfig = field(default_factory=MemoryConfig)
     audio: AudioConfig = field(default_factory=AudioConfig)
-    models: ModelsConfig = field(default_factory=ModelsConfig)
     # Execution axis. Persisted so `relay mode dry-run` survives a restart.
     mode: str = MODE_NORMAL
     # Set false to send every utterance to Claude instead of matching locally.

@@ -90,11 +90,7 @@ class VoiceScreen:
         screen.addstr(0, 0, " Relay voice ".ljust(width - 1)[: width - 1])
         screen.attroff(curses.A_REVERSE)
 
-        # Said plainly, because it is the difference between this working and
-        # appearing not to: on this machine the GPU voice is usually the one
-        # you hear, and it is not in this list.
-        note = ("This is the CPU voice. The GPU voice is Chatterbox, which "
-                "clones a reference clip.")
+        note = ("Move to hear a voice. Enter keeps it, q leaves it as it was.")
         screen.addstr(1, 0, note[: width - 1], curses.A_DIM)
 
         rows = max(1, height - 5)

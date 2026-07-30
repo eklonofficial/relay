@@ -15,7 +15,7 @@ It runs entirely on a Claude Pro subscription and adds **no API charges**.
 | **Wake word** | `relay.onnx`, trained on my own voice. ~1 MB, CPU, ~50 MB RAM. |
 | **Transcription** | Parakeet TDT 0.6B, int8 ONNX, on the CPU. ~0.2 s. |
 | **Reasoning** | Claude Sonnet 5, through the Claude Code subscription login. |
-| **Speech** | Chatterbox on the GPU, Kokoro on the CPU when the GPU is busy. |
+| **Speech** | Kokoro, ONNX, on the CPU. 54 voices; `relay voice` picks by ear. |
 | **Windows** | Full Hyprland control via the 0.55 Lua dispatch API. |
 | **Music** | Cider (Apple Music) over its local REST API, MPRIS as a fallback. |
 | **Screen** | Screenshots, and looking at them when asked to. |
@@ -54,9 +54,10 @@ the audio being sent to the speakers as a reference and subtracts it from what
 the microphone hears, which is the same trick a smart speaker uses. Measured
 at **−17 dB** on this machine. `./scripts/setup_aec.sh enable`.
 
-**It degrades instead of dying.** The wake word runs on the CPU, so when a game
-or a Blender render needs the GPU, Relay drops its GPU models and keeps working
-rather than going deaf.
+**It stays out of the way.** Everything Relay runs is ONNX on the CPU and
+adds up to a few hundred megabytes — wake word, transcription and voice. A
+game or a Blender render has the graphics card entirely to itself, and Relay
+neither slows down nor changes how it sounds while that happens.
 
 **It asks before doing anything you'd regret.** Reads, window management and app
 launching run freely; deletes, `sudo`, installs and anything that sends data to
@@ -75,7 +76,6 @@ Working and in daily use. Cursor and keyboard control is the remaining piece.
 
 - Hyprland on Wayland, PipeWire, Python 3.12
 - A Claude Pro subscription, logged in via `claude`
-- An NVIDIA GPU for the GPU voice (optional — the CPU tier needs no GPU at all)
 
 ## Install
 
