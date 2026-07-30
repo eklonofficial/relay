@@ -414,6 +414,44 @@ def test_interrupting_does_not_retract_the_orb():
     assert "idle" not in orb.states
 
 
+# ----------------------------------------------------------- turn ownership
+async def test_a_turn_says_when_it_is_running():
+    """The orb's return to idle is debounced by a timer, and that timer must
+    not fire inside a turn.
+
+    Synthesising the next sentence of a reply can easily take longer than the
+    debounce, and letting it fire there put the orb away in the middle of an
+    answer that was still being spoken, then brought it back for the next
+    sentence -- which is what made the animation stop matching the state.
+    """
+    loop = _loop()
+    seen = []
+
+    async def fake_turn(_utterance):
+        seen.append(loop.in_turn)
+
+    loop._turn = fake_turn
+    await loop._handle(object())
+
+    assert seen == [True]
+    assert loop.in_turn is False
+
+
+async def test_the_turn_flag_clears_even_when_the_turn_fails():
+    """A turn that raises must not leave the orb owned by nobody, frozen
+    wherever it happened to be."""
+    loop = _loop()
+
+    async def boom(_utterance):
+        raise RuntimeError("bad turn")
+
+    loop._turn = boom
+    with pytest.raises(RuntimeError):
+        await loop._handle(object())
+
+    assert loop.in_turn is False
+
+
 # ---------------------------------------------------------------- dismissal
 def test_dismissal_words_are_whole_utterances_only():
     """"stop" ends the turn; "stop the music" is a command about music.

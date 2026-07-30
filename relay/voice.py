@@ -62,6 +62,11 @@ class VoiceLoop:
         self.cooldown_s = cooldown_ms / 1000.0
         self._task: asyncio.Task | None = None
         self._watchdog: asyncio.Task | None = None
+        # True from the moment an utterance starts being handled until the
+        # turn is over. While it is set, the turn owns the orb: the gaps
+        # between the sentences of one reply belong to that reply, and not to
+        # whatever a timer somewhere else takes them to mean.
+        self.in_turn = False
         # Suppresses an identical spoken message repeating. If every turn
         # fails the same way, saying so once is help; saying it on a loop
         # is not.
@@ -219,6 +224,13 @@ class VoiceLoop:
                 await self.say("Something went wrong with that one.")
 
     async def _handle(self, utterance: Utterance) -> None:
+        try:
+            self.in_turn = True
+            await self._turn(utterance)
+        finally:
+            self.in_turn = False
+
+    async def _turn(self, utterance: Utterance) -> None:
         # A new turn clears any abort left over from the previous one.
         self._aborted = False
         # The user has stopped talking; from here to the first spoken word is

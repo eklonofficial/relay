@@ -262,6 +262,12 @@ class RelayDaemon:
         self._cancel_settle()
         if self.orb is None:
             return
+        # Inside a turn the turn decides. Synthesising the next sentence of a
+        # reply can easily take longer than the timer below, and letting it
+        # fire there put the orb away in the middle of an answer that was
+        # still being spoken -- then brought it back for the next sentence.
+        if self.voice is not None and self.voice.in_turn:
+            return
         self._settle_task = asyncio.create_task(self._settle())
 
     def _cancel_settle(self) -> None:
