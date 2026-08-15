@@ -65,7 +65,12 @@ def test_nothing_imports_the_tier_system():
     out = subprocess.run(
         ["git", "grep", "-l", "-E",
          r"relay\.models|ModelManager|VoiceRouter|ChatterboxTTS|TIER_(FULL|LITE|SLEEP)",
-         "--", "relay", "tests", "scripts"],
+         # Not itself: the names have to be written down somewhere to be
+         # searched for, and this file is where. It only started matching
+         # once it was committed -- `git grep` searches tracked files -- so
+         # the guard passed when it was written and failed on the next run.
+         "--", "relay", "tests", "scripts",
+         f":!{Path(__file__).relative_to(REPO)}"],
         cwd=REPO, capture_output=True, text=True, check=False)
     assert out.stdout.strip() == "", f"tier machinery still referenced in:\n{out.stdout}"
 

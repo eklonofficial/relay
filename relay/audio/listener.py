@@ -10,6 +10,8 @@ whatever the graphics card is doing.
 from __future__ import annotations
 
 import asyncio
+import contextlib
+import json
 import logging
 import time
 from collections.abc import AsyncIterator, Callable
@@ -18,8 +20,15 @@ from dataclasses import dataclass
 import numpy as np
 
 from relay.audio.capture import FRAME_MS, FRAME_SAMPLES, SAMPLE_RATE, Microphone, rms
+from relay.paths import PATHS
 
 log = logging.getLogger(__name__)
+
+# Where a shush is remembered. It has to outlive the process: `relay shush`
+# is usually said because of something happening in the room -- a call, a
+# recording, someone asleep -- and none of those end because Relay restarted
+# for an update.
+MUTE_FILE = "muted.json"
 
 
 @dataclass(slots=True)
@@ -127,6 +136,7 @@ class Listener:
         follow_up_quiet_frames: int = 13,
         on_wake: Callable[[], None] | None = None,
         activity=None,
+        mute_file=None,
     ) -> None:
         self.microphone = microphone
         self.detector = detector
@@ -135,6 +145,10 @@ class Listener:
         self.max_frames = int(max_utterance_s * 1000 // FRAME_MS)
         self.lead_in_frames = max(0, lead_in_ms // FRAME_MS)
         self._paused = False
+        # Shushed, which is a different thing from paused -- see mute().
+        self._muted = False
+        self.muted_since: float | None = None
+        self.mute_file = mute_file or (PATHS.state / MUTE_FILE)
         # Conversation mode: after Relay answers, keep listening briefly so
         # a follow-up needs no wake word. Alexa uses about five seconds and
         # ships it off by default because it misfires in noisy rooms, so
@@ -234,6 +248,78 @@ class Listener:
         if dropped:
             log.debug("dropped %d buffered frames captured while speaking", dropped)
 
+    # --------------------------------------------------------------- shushing
+    # Deliberately not built on pause(). That one is transient and owned by the
+    # speaking path -- say() calls resume() in a `finally` -- so a mute routed
+    # through it would last exactly until the first thing Relay said. This is
+    # the other kind of quiet: set by hand, cleared by hand, and outliving the
+    # process that was told to be quiet.
+
+    @property
+    def muted(self) -> bool:
+        return self._muted
+
+    def mute(self) -> None:
+        """Stop listening for the wake word until told otherwise."""
+        if self._muted:
+            return
+        self._muted = True
+        self.muted_since = time.time()
+        # A window left armed would keep reporting "LISTENING now" to
+        # `relay mic` while nothing was being scored at all.
+        self.close_follow_up()
+        # If this arrived mid-turn the orb is out and the music is down, and
+        # the events that would normally put them back are the ones that have
+        # just been switched off.
+        self._notify("idle")
+        self._write_mute()
+        log.info("muted: the wake word is off until `relay come back`")
+
+    def unmute(self) -> None:
+        """Listen for the wake word again."""
+        if not self._muted:
+            return
+        self._muted = False
+        self.muted_since = None
+        self.detector.reset()
+        self.vad.reset()
+        # Muting stops *scoring*, not capture. Whatever is sitting in the
+        # queue was recorded during the silence someone asked for, which is
+        # the last audio that should be transcribed as a command.
+        dropped = self.microphone.drain()
+        self._write_mute()
+        log.info("listening again (dropped %d buffered frames)", dropped)
+
+    def _write_mute(self) -> None:
+        """Persist the shush, or clear it. Never fatal: losing the file costs
+        the setting across a restart, and losing the listener costs Relay."""
+        with contextlib.suppress(Exception):
+            if self._muted:
+                self.mute_file.parent.mkdir(parents=True, exist_ok=True)
+                self.mute_file.write_text(json.dumps({"since": self.muted_since}))
+            else:
+                self.mute_file.unlink(missing_ok=True)
+
+    def restore_mute(self) -> bool:
+        """Pick up a shush left behind by a previous run.
+
+        The file existing is the whole signal; the timestamp is only there so
+        `relay status` can say how long it has been. A corrupt file therefore
+        still counts as muted -- of the two ways to be wrong, staying quiet is
+        the recoverable one, and speaking up in a room that asked for silence
+        is the failure this is meant to prevent.
+        """
+        if not self.mute_file.exists():
+            return False
+        since = None
+        with contextlib.suppress(Exception):
+            since = float(json.loads(self.mute_file.read_text())["since"])
+        self._muted = True
+        self.muted_since = since or time.time()
+        log.warning("starting muted: shushed by a previous run, and still is. "
+                    "`relay come back` to undo")
+        return True
+
     def _wake_signal(self) -> None:
         """Sound the listening chime, if there is one.
 
@@ -284,6 +370,11 @@ class Listener:
         speaking, so opening immediately means the first thing the window
         catches is Relay itself.
         """
+        # Shushed means nothing listens on its own. A turn can still happen
+        # while muted -- push-to-talk -- and this is what stops that one turn
+        # from leaving an open microphone behind it.
+        if self._muted:
+            return
         if self.follow_up_seconds > 0:
             self.follow_up_pending = True
             self.follow_up_until = None
@@ -302,6 +393,9 @@ class Listener:
             "paused": self._paused,
             "paused_for_s": round(time.time() - self.paused_since, 1)
             if self.paused_since else None,
+            "muted": self._muted,
+            "muted_for_s": round(time.time() - self.muted_since, 1)
+            if self.muted_since else None,
             "last_level": round(self.last_level, 1),
             "peak_level": round(self.peak_level, 1),
             "last_score": round(self.last_score, 3),
@@ -363,6 +457,14 @@ class Listener:
                     self._notify("idle")
                     continue
                 yield utterance
+                continue
+
+            # Shushed. Checked *after* push-to-talk on purpose: the key is a
+            # deliberate act, it cannot go off by itself, and leaving it live
+            # means there is always a way to say something without a trip to
+            # the terminal. What goes quiet is everything automatic -- the
+            # wake word and the follow-up window.
+            if self._muted:
                 continue
 
             if self._paused:
@@ -539,7 +641,7 @@ async def build_listener(cfg, *, activity=None) -> Listener:
 
     chime = Chime(volume=cfg.audio.wake_chime_volume,
                   enabled=cfg.audio.wake_chime)
-    return Listener(
+    listener = Listener(
         microphone, detector, vad,
         silence_ms=cfg.audio.vad_silence_ms,
         max_utterance_s=cfg.audio.max_utterance_s,
@@ -548,6 +650,10 @@ async def build_listener(cfg, *, activity=None) -> Listener:
         on_wake=chime.play,
         activity=activity,
     )
+    # A shush outlives the daemon it was said to. Restarting for an update, or
+    # rebooting, must not put Relay back in a room that asked for quiet.
+    listener.restore_mute()
+    return listener
 
 
 def _device_index(name: str | None) -> str | int | None:

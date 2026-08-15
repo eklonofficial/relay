@@ -18,6 +18,9 @@ relayd -v                   # ...with debug logging
 relay listen                # push-to-talk: SUPER+SPACE
 relay abort                 # stop talking:  SUPER+SHIFT+ESC
 
+relay shush                 # stop listening for the wake word
+relay come back             # ...and start again
+
 relay status                # daemon, model, plan usage
 relay mic                   # is it hearing you? is it paused?
 relay usage                 # how much of your plan Relay has used
@@ -232,6 +235,46 @@ relay settings          # Listening chime / Chime volume
 
 ---
 
+## 3c-3. Telling it to be quiet
+
+Sometimes the wake word should simply be off: a call, a recording, someone
+asleep in the next room, or an evening where being listened to is not wanted.
+
+```bash
+relay shush             # stop listening for the wake word
+relay come back         # ...and start again
+```
+
+Shushing is not the same as stopping Relay. What stops is Relay deciding on
+its own that it has been spoken to — the wake word, and the follow-up window
+that would otherwise re-arm the microphone after a turn. Everything you ask
+for explicitly still works:
+
+| Still works while shushed | Why |
+|---|---|
+| `SUPER+SPACE` push-to-talk | A key cannot press itself, so there is always a way to say something without a trip to the terminal. |
+| `relay ask "..."` | It never involved the microphone. |
+| `relay say`, memory, music, the orb | Nothing here is triggered by hearing you. |
+
+If Relay is talking when you shush it, it stops mid-sentence, the orb goes
+back into the bezel and the music comes back up. That is what the word means.
+
+**A shush outlives the daemon.** It is written to
+`~/.local/state/relay/muted.json` and restored at startup, so an update, a
+crash or a reboot will not put Relay back in a room that asked for quiet. The
+flip side is that a shush you forgot about is a Relay that appears broken —
+so both `relay status` and `relay mic` say so plainly, and say how long:
+
+```
+listening   : no — shushed for 3h (`relay come back`)
+```
+
+There is deliberately no way to shush it *by voice*, because there would be
+no way to undo that by voice either. Saying "stop" or "never mind" ends the
+turn you are in; it does not switch the wake word off.
+
+---
+
 ## 3d. Seeing the screen
 
 ```
@@ -420,6 +463,7 @@ paused      : no
 
 | Symptom | Meaning | Fix |
 |---|---|---|
+| `SHUSHED: yes` | You turned the wake word off — and it survives restarts, so this may have been a while ago | `relay come back` |
 | `frames seen: 0` but `dropped` climbing | Audio is arriving but the consumer is stuck | Restart `relayd`; report it, this is a bug |
 | `frames seen` not increasing at all | Microphone isn't open | `relay devices`, check `audio.input_device` |
 | `peak level` under ~100 while you talk | Mic gain too low | See below |
@@ -725,7 +769,7 @@ scripts/
   measure_turn_cost.py
 ```
 
-Run the tests with `uv run pytest -q` (734 of them).
+Run the tests with `uv run pytest -q` (753 of them).
 
 Deeper notes: `docs/cost-findings.md` (what a turn really costs),
 `docs/hyprland-dispatch.md` (the 0.55 Lua API change).

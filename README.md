@@ -94,6 +94,8 @@ user service.
 
 ```bash
 relay status                       # daemon, model, plan usage
+relay shush                        # stop listening for the wake word
+relay come back                    # ...and start again
 relay ask "what's on workspace 2?" # talk to it without the microphone
 relay profile                      # what it knows about me
 relay memory conversations         # what it has talked about

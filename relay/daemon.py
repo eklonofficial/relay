@@ -435,6 +435,13 @@ class RelayDaemon:
             f"turns (24h) : {totals['turns']}, {totals['total_tokens']:,} tokens",
         ]
         lines.append("plan usage  : " + _describe_rate_limit(rate, self.cfg))
+        # A mute outlives the daemon, so this is the one place that reliably
+        # answers "is it going to respond if I speak to it?".
+        if self.voice is not None:
+            listener = self.voice.listener
+            lines.append("listening   : " + (
+                f"no — shushed{_shushed_for(listener)} (`relay come back`)"
+                if listener.muted else "yes"))
         await emit("info", {"text": "\n".join(lines)})
 
     async def _run_tool_direct(self, tool_name: str, args: dict[str, Any]) -> dict[str, Any]:
@@ -689,6 +696,9 @@ class RelayDaemon:
                          f"<- not listening while paused")
         else:
             lines.append("paused      : no")
+        if s["muted"]:
+            lines.append(f"SHUSHED     : yes{_shushed_for(listener)} "
+                         f"<- wake word off; `relay come back` to undo")
         await emit("info", {"text": "\n".join(lines)})
 
     async def _cmd_devices(self, _args, *, emit, confirm=None) -> None:
@@ -789,6 +799,62 @@ class RelayDaemon:
             return
         self.voice.abort()
         await emit("info", {"text": "stopped"})
+
+    async def _cmd_shush(self, _args, *, emit, confirm=None) -> None:
+        """Stop listening for the wake word, until `relay come back`.
+
+        Not the same as stopping the daemon: `relay ask` still works, the
+        memory is still there, and push-to-talk still opens a turn. What goes
+        away is Relay deciding on its own that it has been spoken to.
+        """
+        if self.voice is None:
+            await emit("error", {"text": "The voice loop isn't running."})
+            return
+        listener = self.voice.listener
+        if listener.muted:
+            await emit("info", {"text": f"Already shushed{_shushed_for(listener)}."})
+            return
+        # If it is talking, "shush" means now and not at the end of the
+        # sentence. This also retracts the orb and puts the music back.
+        self.voice.abort()
+        listener.mute()
+        await emit("info", {"text":
+            "Shushed — the wake word is off. `relay come back` to undo it.\n"
+            "(SUPER+SPACE still works, and so does `relay ask`.)"})
+
+    async def _cmd_come(self, _args, *, emit, confirm=None) -> None:
+        """`relay come back` — the other half of `relay shush`."""
+        if self.voice is None:
+            await emit("error", {"text": "The voice loop isn't running."})
+            return
+        listener = self.voice.listener
+        if not listener.muted:
+            await emit("info", {"text": "Wasn't shushed — already listening."})
+            return
+        # Read before unmuting, which clears it. Phrased as the past:
+        # "listening again for 43s" reads as a countdown, and it is the
+        # opposite -- how long the silence lasted, not how long it has left.
+        was = _shushed_for(listener)
+        listener.unmute()
+        await emit("info", {"text":
+            f"Listening again — was shushed{was}." if was else "Listening again."})
+
+
+def _shushed_for(listener) -> str:
+    """How long the shush has been in force, as ` for 20m`, or "".
+
+    Worth saying rather than a bare "shushed": a mute survives a restart, so
+    the honest answer to "why is it not responding" is often "because you
+    turned it off yesterday".
+    """
+    seconds = listener.stats().get("muted_for_s")
+    if not seconds:
+        return ""
+    if seconds < 90:
+        return f" for {int(seconds)}s"
+    if seconds < 5400:
+        return f" for {int(seconds // 60)}m"
+    return f" for {seconds / 3600:.1f}h"
 
 
 def _describe_follow_up(stats: dict) -> str:

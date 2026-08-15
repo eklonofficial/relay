@@ -88,6 +88,13 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser("ping", help="check the daemon is alive")
     sub.add_parser("listen", help="push-to-talk: take a command now, no wake word")
     sub.add_parser("abort", help="stop speaking and drop the current turn")
+
+    sub.add_parser("shush", help="stop listening for the wake word")
+    # "relay come back" is two words, which a subcommand cannot be. The second
+    # one is an optional literal so both halves of the sentence parse, and the
+    # help reads the way the command is actually typed.
+    come = sub.add_parser("come", help="start listening again (`relay come back`)")
+    come.add_argument("back", nargs="?", choices=["back"], help=argparse.SUPPRESS)
     sub.add_parser("usage", help="token usage and plan utilisation")
 
     ask = sub.add_parser("ask", help="send a request, as if spoken")

@@ -149,7 +149,7 @@ fi
 
 # ------------------------------------------------------------------ data
 step "4. Configuration and runtime state"
-remove "$STATE"          # logs
+remove "$STATE"          # logs, a pending shush, unrestored volumes
 remove "$CONFIG"         # config.toml (holds the Cider token) and style.md
 
 step "5. Models and data"
