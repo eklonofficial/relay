@@ -248,6 +248,7 @@
             <button class="game-btn" onclick="switchGame('pong')">🏓 Pong</button>
             <button class="game-btn" onclick="switchGame('shellshockers')">🥚 Shell Shockers</button>
             <button class="game-btn" onclick="switchGame('g2048')">🔢 2048</button>
+            <button class="game-btn" onclick="switchGame('gladiator')">🔫 Gladiator 3D</button>
         </div>
 
         <!-- Snake -->
@@ -363,6 +364,26 @@
                 <p style="color: #666; margin-top: 10px; font-size: 0.9em;">
                     Vendored from <a href="https://github.com/gabrielecirulli/2048" target="_blank" rel="noopener">github.com/gabrielecirulli/2048</a>
                     under the MIT License (see <code>docs/games/2048/LICENSE.txt</code>). Original code, unmodified.
+                </p>
+            </div>
+        </div>
+
+        <!-- Gladiator 3D FPS (vendored, self-hosted) -->
+        <div id="gladiator" class="game-container">
+            <h2>🔫 Gladiator 3D (FPS)</h2>
+            <div class="instructions">
+                A first-person raycaster shooter (the "STFP" demo of the Gladiator 3D engine by Matthias Ladkau,
+                MIT License). Vendored into this repo and served from this site — no external calls.
+                Click the game first, then: <strong>↑/↓</strong> move, <strong>←/→</strong> turn, <strong>Space</strong> to shoot.
+                Press <strong>Space</strong> on the title screen to start.
+            </div>
+            <iframe src="games/gladiator/index.html" width="100%" height="540"
+                style="border: 2px solid #667eea; border-radius: 5px; background:#fff;"
+                title="Gladiator 3D FPS"></iframe>
+            <div style="text-align: center; margin-top: 15px;">
+                <p style="color: #666; margin-top: 10px; font-size: 0.9em;">
+                    Vendored from <a href="https://github.com/krotik/gladiator_3d" target="_blank" rel="noopener">github.com/krotik/gladiator_3d</a>
+                    under the MIT License (see <code>docs/games/gladiator/LICENSE</code> and <code>NOTICE</code>). Original code and assets, unmodified.
                 </p>
             </div>
         </div>
