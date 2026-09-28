@@ -247,9 +247,7 @@
             <button class="game-btn" onclick="switchGame('memory')">🧠 Memory</button>
             <button class="game-btn" onclick="switchGame('pong')">🏓 Pong</button>
             <button class="game-btn" onclick="switchGame('shellshockers')">🥚 Shell Shockers</button>
-            <button class="game-btn" onclick="switchGame('hexgl')">🏎️ HexGL</button>
             <button class="game-btn" onclick="switchGame('g2048')">🔢 2048</button>
-            <button class="game-btn" onclick="switchGame('hextris')">🔺 Hextris</button>
         </div>
 
         <!-- Snake -->
@@ -351,65 +349,20 @@
             </div>
         </div>
 
-        <!-- HexGL -->
-        <div id="hexgl" class="game-container">
-            <h2>🏎️ HexGL</h2>
-            <div class="instructions">
-                A futuristic 3D racing game by Thibaut Despoulain — open source under the MIT License.
-                Loads from the developer's official site. Arrow keys to steer; follow the on-screen prompts.
-            </div>
-            <iframe src="https://hexgl.bkcore.com/play/" width="100%" height="600"
-                style="border: 2px solid #667eea; border-radius: 5px;"
-                allow="fullscreen; autoplay; gamepad"></iframe>
-            <div style="text-align: center; margin-top: 15px;">
-                <a href="https://hexgl.bkcore.com/play/" target="_blank" rel="noopener">
-                    <button>Open in a new tab (best performance)</button>
-                </a>
-                <p style="color: #666; margin-top: 10px; font-size: 0.9em;">
-                    Source: <a href="https://github.com/BKcore/HexGL" target="_blank" rel="noopener">github.com/BKcore/HexGL</a> (MIT).
-                    If it doesn't appear above, the site is blocking embedding — use the button.
-                </p>
-            </div>
-        </div>
-
-        <!-- 2048 -->
+        <!-- 2048 (vendored, self-hosted) -->
         <div id="g2048" class="game-container">
             <h2>🔢 2048</h2>
             <div class="instructions">
-                The classic tile-merging puzzle by Gabriele Cirulli — open source under the MIT License.
-                Use the arrow keys to combine tiles up to 2048.
+                The classic tile-merging puzzle by Gabriele Cirulli (MIT License). Its full source is
+                vendored into this repo and served from this site — no external calls. Use the arrow keys.
             </div>
-            <iframe src="https://play2048.co/" width="100%" height="640"
+            <iframe src="games/2048/index.html" width="100%" height="660"
                 style="border: 2px solid #667eea; border-radius: 5px;"
-                allow="fullscreen"></iframe>
+                title="2048"></iframe>
             <div style="text-align: center; margin-top: 15px;">
-                <a href="https://play2048.co/" target="_blank" rel="noopener">
-                    <button>Open in a new tab</button>
-                </a>
                 <p style="color: #666; margin-top: 10px; font-size: 0.9em;">
-                    Source: <a href="https://github.com/gabrielecirulli/2048" target="_blank" rel="noopener">github.com/gabrielecirulli/2048</a> (MIT).
-                    If it doesn't appear above, use the button.
-                </p>
-            </div>
-        </div>
-
-        <!-- Hextris -->
-        <div id="hextris" class="game-container">
-            <h2>🔺 Hextris</h2>
-            <div class="instructions">
-                A fast-paced hexagonal puzzle inspired by Tetris — open source under the GPL-3.0 License.
-                Rotate the hexagon to stack matching colors.
-            </div>
-            <iframe src="https://hextris.io/" width="100%" height="640"
-                style="border: 2px solid #667eea; border-radius: 5px;"
-                allow="fullscreen"></iframe>
-            <div style="text-align: center; margin-top: 15px;">
-                <a href="https://hextris.io/" target="_blank" rel="noopener">
-                    <button>Open in a new tab</button>
-                </a>
-                <p style="color: #666; margin-top: 10px; font-size: 0.9em;">
-                    Source: <a href="https://github.com/Hextris/hextris" target="_blank" rel="noopener">github.com/Hextris/hextris</a> (GPL-3.0).
-                    If it doesn't appear above, use the button.
+                    Vendored from <a href="https://github.com/gabrielecirulli/2048" target="_blank" rel="noopener">github.com/gabrielecirulli/2048</a>
+                    under the MIT License (see <code>docs/games/2048/LICENSE.txt</code>). Original code, unmodified.
                 </p>
             </div>
         </div>
