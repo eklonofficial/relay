@@ -247,8 +247,9 @@
             <button class="game-btn" onclick="switchGame('memory')">🧠 Memory</button>
             <button class="game-btn" onclick="switchGame('pong')">🏓 Pong</button>
             <button class="game-btn" onclick="switchGame('shellshockers')">🥚 Shell Shockers</button>
-            <button class="game-btn" onclick="switchGame('racer')">🏎️ Racer</button>
-            <button class="game-btn" onclick="switchGame('fps')">🔫 FPS Arena</button>
+            <button class="game-btn" onclick="switchGame('hexgl')">🏎️ HexGL</button>
+            <button class="game-btn" onclick="switchGame('g2048')">🔢 2048</button>
+            <button class="game-btn" onclick="switchGame('hextris')">🔺 Hextris</button>
         </div>
 
         <!-- Snake -->
@@ -350,48 +351,68 @@
             </div>
         </div>
 
-        <!-- Racer (3D) -->
-        <div id="racer" class="game-container">
-            <h2>🏎️ Racer</h2>
+        <!-- HexGL -->
+        <div id="hexgl" class="game-container">
+            <h2>🏎️ HexGL</h2>
             <div class="instructions">
-                Arrow keys / WASD to drive — Up to accelerate, Down to brake/reverse, Left/Right to steer.
-                Weave through the gates and don't drift off the track.
+                A futuristic 3D racing game by Thibaut Despoulain — open source under the MIT License.
+                Loads from the developer's official site. Arrow keys to steer; follow the on-screen prompts.
             </div>
-            <div class="score-board">
-                <div class="score">Speed: <span id="racerSpeed">0</span></div>
-                <div class="score">Gates: <span id="racerGates">0</span></div>
-                <div class="score">Best: <span id="racerBest">0</span></div>
-            </div>
-            <div id="racerMount" style="position: relative; width: 100%; max-width: 640px; margin: 20px auto;"></div>
-            <div style="text-align: center;">
-                <button onclick="startRacer()">Start</button>
-                <button onclick="stopRacer()">Stop</button>
+            <iframe src="https://hexgl.bkcore.com/play/" width="100%" height="600"
+                style="border: 2px solid #667eea; border-radius: 5px;"
+                allow="fullscreen; autoplay; gamepad"></iframe>
+            <div style="text-align: center; margin-top: 15px;">
+                <a href="https://hexgl.bkcore.com/play/" target="_blank" rel="noopener">
+                    <button>Open in a new tab (best performance)</button>
+                </a>
+                <p style="color: #666; margin-top: 10px; font-size: 0.9em;">
+                    Source: <a href="https://github.com/BKcore/HexGL" target="_blank" rel="noopener">github.com/BKcore/HexGL</a> (MIT).
+                    If it doesn't appear above, the site is blocking embedding — use the button.
+                </p>
             </div>
         </div>
 
-        <!-- FPS Arena (3D) -->
-        <div id="fps" class="game-container">
-            <h2>🔫 FPS Arena</h2>
+        <!-- 2048 -->
+        <div id="g2048" class="game-container">
+            <h2>🔢 2048</h2>
             <div class="instructions">
-                Click the arena to lock the mouse and look around. WASD to move, mouse to aim,
-                left-click to shoot the targets. Press Esc to release the mouse.
+                The classic tile-merging puzzle by Gabriele Cirulli — open source under the MIT License.
+                Use the arrow keys to combine tiles up to 2048.
             </div>
-            <div class="score-board">
-                <div class="score">Hits: <span id="fpsHits">0</span></div>
-                <div class="score">Shots: <span id="fpsShots">0</span></div>
-                <div class="score">Accuracy: <span id="fpsAcc">0%</span></div>
-            </div>
-            <div id="fpsMount" style="position: relative; width: 100%; max-width: 640px; margin: 20px auto;"></div>
-            <div style="text-align: center;">
-                <button onclick="startFps()">Start</button>
-                <button onclick="stopFps()">Stop</button>
+            <iframe src="https://play2048.co/" width="100%" height="640"
+                style="border: 2px solid #667eea; border-radius: 5px;"
+                allow="fullscreen"></iframe>
+            <div style="text-align: center; margin-top: 15px;">
+                <a href="https://play2048.co/" target="_blank" rel="noopener">
+                    <button>Open in a new tab</button>
+                </a>
+                <p style="color: #666; margin-top: 10px; font-size: 0.9em;">
+                    Source: <a href="https://github.com/gabrielecirulli/2048" target="_blank" rel="noopener">github.com/gabrielecirulli/2048</a> (MIT).
+                    If it doesn't appear above, use the button.
+                </p>
             </div>
         </div>
 
-        <p style="text-align:center; color: rgba(255,255,255,0.75); font-size: 0.85em; margin-top: 30px;">
-            Racer and FPS Arena are built on <a href="https://threejs.org/" target="_blank" rel="noopener" style="color:#fff;">three.js</a>,
-            used under the MIT License. Original game code, no external assets.
-        </p>
+        <!-- Hextris -->
+        <div id="hextris" class="game-container">
+            <h2>🔺 Hextris</h2>
+            <div class="instructions">
+                A fast-paced hexagonal puzzle inspired by Tetris — open source under the GPL-3.0 License.
+                Rotate the hexagon to stack matching colors.
+            </div>
+            <iframe src="https://hextris.io/" width="100%" height="640"
+                style="border: 2px solid #667eea; border-radius: 5px;"
+                allow="fullscreen"></iframe>
+            <div style="text-align: center; margin-top: 15px;">
+                <a href="https://hextris.io/" target="_blank" rel="noopener">
+                    <button>Open in a new tab</button>
+                </a>
+                <p style="color: #666; margin-top: 10px; font-size: 0.9em;">
+                    Source: <a href="https://github.com/Hextris/hextris" target="_blank" rel="noopener">github.com/Hextris/hextris</a> (GPL-3.0).
+                    If it doesn't appear above, use the button.
+                </p>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -861,337 +882,6 @@
             memoryGame.init();
             pongGame.init();
         });
-    </script>
-
-    <script type="importmap">
-    { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js" } }
-    </script>
-    <script type="module">
-        import * as THREE from 'three';
-
-        function makeRenderer(mount) {
-            const w = mount.clientWidth || 640;
-            const h = Math.round(w * 0.625);
-            const renderer = new THREE.WebGLRenderer({ antialias: true });
-            renderer.setSize(w, h);
-            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-            renderer.domElement.style.borderRadius = '5px';
-            renderer.domElement.style.display = 'block';
-            mount.appendChild(renderer.domElement);
-            return { renderer, w, h };
-        }
-
-        // ================= RACER =================
-        const racer = { raf: null, built: false };
-
-        function buildRacer() {
-            const mount = document.getElementById('racerMount');
-            mount.innerHTML = '';
-            const { renderer, w, h } = makeRenderer(mount);
-            const scene = new THREE.Scene();
-            scene.background = new THREE.Color(0x87ceeb);
-            scene.fog = new THREE.Fog(0x87ceeb, 60, 220);
-            const camera = new THREE.PerspectiveCamera(60, w / h, 0.1, 1000);
-            scene.add(new THREE.HemisphereLight(0xffffff, 0x445544, 1.1));
-            const sun = new THREE.DirectionalLight(0xffffff, 0.6);
-            sun.position.set(10, 30, 10);
-            scene.add(sun);
-
-            const ground = new THREE.Mesh(new THREE.PlaneGeometry(400, 8000),
-                new THREE.MeshLambertMaterial({ color: 0x2e7d32 }));
-            ground.rotation.x = -Math.PI / 2;
-            scene.add(ground);
-
-            const roadW = 20;
-            const road = new THREE.Mesh(new THREE.PlaneGeometry(roadW, 8000),
-                new THREE.MeshLambertMaterial({ color: 0x444444 }));
-            road.rotation.x = -Math.PI / 2;
-            road.position.y = 0.01;
-            scene.add(road);
-
-            const stripes = [];
-            for (let i = 0; i < 40; i++) {
-                const s = new THREE.Mesh(new THREE.PlaneGeometry(0.6, 4),
-                    new THREE.MeshBasicMaterial({ color: 0xffffff }));
-                s.rotation.x = -Math.PI / 2;
-                s.position.set(0, 0.02, i * 12);
-                scene.add(s);
-                stripes.push(s);
-            }
-
-            const car = new THREE.Group();
-            const body = new THREE.Mesh(new THREE.BoxGeometry(2, 0.6, 4),
-                new THREE.MeshLambertMaterial({ color: 0xd32f2f }));
-            body.position.y = 0.5;
-            const cabin = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.6, 2),
-                new THREE.MeshLambertMaterial({ color: 0x222222 }));
-            cabin.position.set(0, 1.0, -0.2);
-            car.add(body, cabin);
-            scene.add(car);
-
-            const gates = [];
-            const gateSpacing = 40;
-            const newGateX = () => (Math.random() - 0.5) * (roadW - 6);
-            for (let i = 0; i < 8; i++) {
-                const g = new THREE.Group();
-                const mat = new THREE.MeshLambertMaterial({ color: 0xffc107 });
-                const left = new THREE.Mesh(new THREE.BoxGeometry(0.5, 4, 0.5), mat);
-                const right = new THREE.Mesh(new THREE.BoxGeometry(0.5, 4, 0.5), mat);
-                const bar = new THREE.Mesh(new THREE.BoxGeometry(6.5, 0.5, 0.5), mat);
-                left.position.set(-3, 2, 0);
-                right.position.set(3, 2, 0);
-                bar.position.set(0, 4, 0);
-                g.add(left, right, bar);
-                g.userData.x = newGateX();
-                g.userData.passed = false;
-                g.position.set(g.userData.x, 0, 40 + i * gateSpacing);
-                scene.add(g);
-                gates.push(g);
-            }
-
-            const state = {
-                speed: 0, heading: 0, pos: new THREE.Vector3(0, 0, 0),
-                gates: 0, best: parseInt(localStorage.getItem('racerBest') || '0', 10), keys: {}
-            };
-            document.getElementById('racerBest').textContent = state.best;
-
-            const onKeyDown = (e) => {
-                const key = e.key.toLowerCase();
-                state.keys[key] = true;
-                if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(key)) e.preventDefault();
-            };
-            const onKeyUp = (e) => { state.keys[e.key.toLowerCase()] = false; };
-
-            racer.ctx = { renderer, scene, camera, car, ground, road, gates, stripes, state, roadW, gateSpacing, newGateX, onKeyDown, onKeyUp };
-            racer.built = true;
-        }
-
-        function racerLoop() {
-            const c = racer.ctx;
-            const { state, car, camera, gates, stripes } = c;
-            const k = state.keys;
-            const accel = 0.012, maxF = 1.6, maxR = -0.5, steerRate = 0.03;
-
-            if (k['arrowup'] || k['w']) state.speed += accel;
-            else if (k['arrowdown'] || k['s']) state.speed -= accel * 1.4;
-            else state.speed *= 0.985;
-            state.speed = Math.max(maxR, Math.min(maxF, state.speed));
-
-            const steer = (k['arrowleft'] || k['a']) ? 1 : (k['arrowright'] || k['d']) ? -1 : 0;
-            state.heading += steer * steerRate * Math.min(1, Math.abs(state.speed) / 0.4) * (state.speed >= 0 ? 1 : -1);
-
-            const fwd = new THREE.Vector3(Math.sin(state.heading), 0, Math.cos(state.heading));
-            state.pos.addScaledVector(fwd, state.speed);
-
-            const half = c.roadW / 2;
-            if (Math.abs(state.pos.x) > half) {
-                state.pos.x = Math.max(-half - 3, Math.min(half + 3, state.pos.x));
-                state.speed *= 0.9;
-            }
-
-            car.position.copy(state.pos);
-            car.rotation.y = state.heading;
-
-            c.ground.position.z = state.pos.z;
-            c.road.position.z = state.pos.z;
-
-            const camOff = new THREE.Vector3(-Math.sin(state.heading) * 9, 5, -Math.cos(state.heading) * 9);
-            camera.position.copy(state.pos).add(camOff);
-            camera.lookAt(state.pos.x + fwd.x * 5, 1.5, state.pos.z + fwd.z * 5);
-
-            gates.forEach(g => {
-                if (!g.userData.passed && g.position.z < state.pos.z) {
-                    if (Math.abs(state.pos.x - g.userData.x) < 3) {
-                        state.gates++;
-                        if (state.gates > state.best) {
-                            state.best = state.gates;
-                            localStorage.setItem('racerBest', state.best);
-                            document.getElementById('racerBest').textContent = state.best;
-                        }
-                    }
-                    g.userData.passed = true;
-                }
-                if (g.position.z < state.pos.z - 20) {
-                    const maxZ = Math.max(...gates.map(x => x.position.z));
-                    g.userData.x = c.newGateX();
-                    g.userData.passed = false;
-                    g.position.set(g.userData.x, 0, maxZ + c.gateSpacing);
-                }
-            });
-
-            stripes.forEach(s => {
-                if (s.position.z < state.pos.z - 12) {
-                    const maxZ = Math.max(...stripes.map(x => x.position.z));
-                    s.position.z = maxZ + 12;
-                }
-            });
-
-            document.getElementById('racerSpeed').textContent = Math.round(Math.max(0, state.speed) * 120);
-            document.getElementById('racerGates').textContent = state.gates;
-
-            c.renderer.render(c.scene, c.camera);
-            racer.raf = requestAnimationFrame(racerLoop);
-        }
-
-        window.startRacer = function () {
-            if (!racer.built) buildRacer();
-            const c = racer.ctx;
-            window.removeEventListener('keydown', c.onKeyDown);
-            window.removeEventListener('keyup', c.onKeyUp);
-            window.addEventListener('keydown', c.onKeyDown);
-            window.addEventListener('keyup', c.onKeyUp);
-            if (racer.raf) cancelAnimationFrame(racer.raf);
-            racerLoop();
-        };
-
-        window.stopRacer = function () {
-            if (racer.raf) cancelAnimationFrame(racer.raf);
-            racer.raf = null;
-            if (racer.ctx) {
-                window.removeEventListener('keydown', racer.ctx.onKeyDown);
-                window.removeEventListener('keyup', racer.ctx.onKeyUp);
-            }
-        };
-
-        // ================= FPS ARENA =================
-        const fps = { raf: null, built: false };
-
-        function buildFps() {
-            const mount = document.getElementById('fpsMount');
-            mount.innerHTML = '';
-            const { renderer, w, h } = makeRenderer(mount);
-
-            const cross = document.createElement('div');
-            cross.textContent = '+';
-            cross.style.cssText = 'position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);color:#fff;font-size:26px;pointer-events:none;text-shadow:0 0 4px #000;';
-            mount.appendChild(cross);
-
-            const scene = new THREE.Scene();
-            scene.background = new THREE.Color(0x101018);
-            const camera = new THREE.PerspectiveCamera(75, w / h, 0.1, 1000);
-            camera.position.set(0, 1.6, 0);
-            camera.rotation.order = 'YXZ';
-
-            scene.add(new THREE.HemisphereLight(0xffffff, 0x222233, 1.0));
-            const pl = new THREE.PointLight(0xffffff, 0.6);
-            pl.position.set(0, 10, 0);
-            scene.add(pl);
-
-            const arena = 30;
-            const floor = new THREE.Mesh(new THREE.PlaneGeometry(arena, arena),
-                new THREE.MeshLambertMaterial({ color: 0x2b2b3a }));
-            floor.rotation.x = -Math.PI / 2;
-            scene.add(floor);
-
-            const wallMat = new THREE.MeshLambertMaterial({ color: 0x3f3f5a });
-            const wallH = 4;
-            const mk = (x, z, rot) => {
-                const wm = new THREE.Mesh(new THREE.BoxGeometry(arena, wallH, 0.5), wallMat);
-                wm.position.set(x, wallH / 2, z);
-                wm.rotation.y = rot;
-                scene.add(wm);
-            };
-            mk(0, -arena / 2, 0); mk(0, arena / 2, 0);
-            mk(-arena / 2, 0, Math.PI / 2); mk(arena / 2, 0, Math.PI / 2);
-
-            const targets = [];
-            const placeTarget = (t) => t.position.set(
-                (Math.random() - 0.5) * (arena - 4), 1 + Math.random() * 2.5, (Math.random() - 0.5) * (arena - 4));
-            for (let i = 0; i < 6; i++) {
-                const t = new THREE.Mesh(new THREE.SphereGeometry(0.6, 20, 20),
-                    new THREE.MeshStandardMaterial({ color: 0xff5252, emissive: 0x551111 }));
-                placeTarget(t);
-                scene.add(t);
-                targets.push(t);
-            }
-
-            const state = { yaw: 0, pitch: 0, keys: {}, hits: 0, shots: 0, locked: false };
-            const ray = new THREE.Raycaster();
-
-            const onKeyDown = (e) => { state.keys[e.key.toLowerCase()] = true; };
-            const onKeyUp = (e) => { state.keys[e.key.toLowerCase()] = false; };
-            const onMouseMove = (e) => {
-                if (!state.locked) return;
-                state.yaw -= e.movementX * 0.0025;
-                state.pitch -= e.movementY * 0.0025;
-                state.pitch = Math.max(-1.3, Math.min(1.3, state.pitch));
-            };
-            const onMouseDown = () => {
-                if (!state.locked) return;
-                state.shots++;
-                ray.setFromCamera({ x: 0, y: 0 }, camera);
-                const hit = ray.intersectObjects(targets)[0];
-                if (hit) { state.hits++; placeTarget(hit.object); }
-                document.getElementById('fpsHits').textContent = state.hits;
-                document.getElementById('fpsShots').textContent = state.shots;
-                document.getElementById('fpsAcc').textContent = Math.round(state.hits / state.shots * 100) + '%';
-            };
-            const onLockChange = () => { state.locked = (document.pointerLockElement === renderer.domElement); };
-            const onCanvasClick = () => { renderer.domElement.requestPointerLock(); };
-            renderer.domElement.addEventListener('click', onCanvasClick);
-
-            fps.ctx = { renderer, scene, camera, targets, state, arena, onKeyDown, onKeyUp, onMouseMove, onMouseDown, onLockChange };
-            fps.built = true;
-        }
-
-        function fpsLoop() {
-            const c = fps.ctx;
-            const { camera, state, arena } = c;
-            camera.rotation.y = state.yaw;
-            camera.rotation.x = state.pitch;
-
-            const k = state.keys;
-            const sp = 0.15;
-            const f = new THREE.Vector3(-Math.sin(state.yaw), 0, -Math.cos(state.yaw));
-            const r = new THREE.Vector3(Math.cos(state.yaw), 0, -Math.sin(state.yaw));
-            const move = new THREE.Vector3();
-            if (k['w']) move.add(f);
-            if (k['s']) move.sub(f);
-            if (k['d']) move.add(r);
-            if (k['a']) move.sub(r);
-            if (move.lengthSq() > 0) move.normalize().multiplyScalar(sp);
-            camera.position.add(move);
-            const lim = arena / 2 - 1;
-            camera.position.x = Math.max(-lim, Math.min(lim, camera.position.x));
-            camera.position.z = Math.max(-lim, Math.min(lim, camera.position.z));
-            camera.position.y = 1.6;
-
-            c.renderer.render(c.scene, c.camera);
-            fps.raf = requestAnimationFrame(fpsLoop);
-        }
-
-        window.startFps = function () {
-            if (!fps.built) buildFps();
-            const c = fps.ctx;
-            [['keydown', c.onKeyDown], ['keyup', c.onKeyUp], ['mousemove', c.onMouseMove], ['mousedown', c.onMouseDown]]
-                .forEach(([ev, fn]) => { window.removeEventListener(ev, fn); window.addEventListener(ev, fn); });
-            document.removeEventListener('pointerlockchange', c.onLockChange);
-            document.addEventListener('pointerlockchange', c.onLockChange);
-            if (fps.raf) cancelAnimationFrame(fps.raf);
-            fpsLoop();
-        };
-
-        window.stopFps = function () {
-            if (fps.raf) cancelAnimationFrame(fps.raf);
-            fps.raf = null;
-            if (fps.ctx) {
-                const c = fps.ctx;
-                window.removeEventListener('keydown', c.onKeyDown);
-                window.removeEventListener('keyup', c.onKeyUp);
-                window.removeEventListener('mousemove', c.onMouseMove);
-                window.removeEventListener('mousedown', c.onMouseDown);
-                document.removeEventListener('pointerlockchange', c.onLockChange);
-                if (document.pointerLockElement) document.exitPointerLock();
-            }
-        };
-
-        // Stop 3D loops when navigating to another tab
-        const _origSwitch = window.switchGame;
-        window.switchGame = function (game) {
-            _origSwitch(game);
-            if (game !== 'racer') window.stopRacer();
-            if (game !== 'fps') window.stopFps();
-        };
     </script>
 </body>
 </html>
