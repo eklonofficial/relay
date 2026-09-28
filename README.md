@@ -1,5 +1,7 @@
 # Relay
 
+🎮 **Arcade:** https://eklonofficial.github.io/relay/
+
 An always-on voice assistant for Hyprland, powered by Claude Sonnet 5.
 
 Say "Relay", and it listens, transcribes locally, reasons, acts on the machine,
