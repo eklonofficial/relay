@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Unblocked Games</title>
+    <title>Arcade</title>
     <style>
         * {
             margin: 0;
@@ -236,7 +236,7 @@
 <body>
     <div class="container">
         <header>
-            <h1>🎮 Unblocked Games</h1>
+            <h1>🎮 Arcade</h1>
             <p class="subtitle">Play instantly in your browser</p>
         </header>
 
@@ -244,14 +244,14 @@
             <button class="game-btn active" onclick="switchGame('snake')">🐍 Snake</button>
             <button class="game-btn" onclick="switchGame('tictactoe')">⭕ Tic Tac Toe</button>
             <button class="game-btn" onclick="switchGame('flappy')">🐦 Flappy Bird</button>
-            <button class="game-btn" onclick="switchGame('memory')">🧠 Memory Game</button>
+            <button class="game-btn" onclick="switchGame('memory')">🧠 Memory</button>
             <button class="game-btn" onclick="switchGame('pong')">🏓 Pong</button>
             <button class="game-btn" onclick="switchGame('shellshockers')">🥚 Shell Shockers</button>
         </div>
 
-        <!-- Snake Game -->
+        <!-- Snake -->
         <div id="snake" class="game-container active">
-            <h2>🐍 Snake Game</h2>
+            <h2>🐍 Snake</h2>
             <div class="instructions">
                 Use arrow keys to move. Eat food to grow. Don't hit the walls or yourself!
             </div>
@@ -261,7 +261,7 @@
             </div>
             <canvas id="snakeCanvas" width="400" height="400"></canvas>
             <div style="text-align: center;">
-                <button onclick="startSnake()">Start Game</button>
+                <button onclick="startSnake()">Start</button>
                 <button onclick="resetSnake()">Reset</button>
             </div>
         </div>
@@ -275,7 +275,7 @@
             <div id="ticStatus" style="text-align: center; font-size: 1.2em; margin: 20px 0; color: #667eea; font-weight: bold;">Your turn</div>
             <div class="tic-tac-toe-board" id="ticBoard"></div>
             <div style="text-align: center;">
-                <button onclick="resetTicTacToe()">New Game</button>
+                <button onclick="resetTicTacToe()">New</button>
             </div>
         </div>
 
@@ -291,14 +291,14 @@
             </div>
             <canvas id="flappyCanvas" width="400" height="500"></canvas>
             <div style="text-align: center;">
-                <button onclick="startFlappy()">Start Game</button>
+                <button onclick="startFlappy()">Start</button>
                 <button onclick="resetFlappy()">Reset</button>
             </div>
         </div>
 
-        <!-- Memory Game -->
+        <!-- Memory -->
         <div id="memory" class="game-container">
-            <h2>🧠 Memory Game</h2>
+            <h2>🧠 Memory</h2>
             <div class="instructions">
                 Click cards to find matching pairs. Test your memory!
             </div>
@@ -308,7 +308,7 @@
             </div>
             <div class="memory-grid" id="memoryGrid"></div>
             <div style="text-align: center;">
-                <button onclick="resetMemory()">New Game</button>
+                <button onclick="resetMemory()">New</button>
             </div>
         </div>
 
@@ -324,7 +324,7 @@
             </div>
             <canvas id="pongCanvas" width="600" height="300"></canvas>
             <div style="text-align: center;">
-                <button onclick="startPong()">Start Game</button>
+                <button onclick="startPong()">Start</button>
                 <button onclick="resetPong()">Reset</button>
             </div>
         </div>
@@ -333,7 +333,7 @@
         <div id="shellshockers" class="game-container">
             <h2>🥚 Shell Shockers</h2>
             <div class="instructions">
-                The official multiplayer egg shooter by Blue Wizard Digital. It loads directly from the game's own servers.
+                The official multiplayer egg shooter by Blue Wizard Digital. It loads directly from its own servers.
             </div>
             <iframe id="shellFrame" src="https://shellshock.io/" width="100%" height="600"
                 style="border: 2px solid #667eea; border-radius: 5px;"
@@ -343,7 +343,7 @@
                     <button>Open in a new tab (best performance)</button>
                 </a>
                 <p style="color: #666; margin-top: 10px; font-size: 0.9em;">
-                    If the game doesn't appear above, Shell Shockers blocks embedding — use the button to open it directly.
+                    If it doesn't appear above, Shell Shockers blocks embedding — use the button to open it directly.
                 </p>
             </div>
         </div>
@@ -767,7 +767,7 @@
 
                 if (this.playerScore >= 5 || this.computerScore >= 5) {
                     this.gameRunning = false;
-                    alert(`Game Over! ${this.playerScore >= 5 ? 'You Win!' : 'Computer Wins!'}`);
+                    alert(`Over! ${this.playerScore >= 5 ? 'You Win!' : 'Computer Wins!'}`);
                 }
             },
 
@@ -808,7 +808,7 @@
             pongGame.draw();
         }
 
-        // Initialize all games
+        // Initialize everything
         window.addEventListener('DOMContentLoaded', () => {
             snakeGame.init();
             ticGame.init();
