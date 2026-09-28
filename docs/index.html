@@ -132,6 +132,46 @@
             transform: scale(1.05);
         }
 
+        .fullscreen-btn {
+            background: #2e7d32;
+        }
+
+        .fullscreen-btn:hover {
+            background: #1b5e20;
+        }
+
+        /* Fullscreen: let the game fill the whole screen */
+        iframe:fullscreen {
+            width: 100vw;
+            height: 100vh;
+            border: none;
+            border-radius: 0;
+            background: #000;
+        }
+
+        canvas:fullscreen {
+            width: auto;
+            height: 100vh;
+            border-radius: 0;
+            background: #000;
+        }
+
+        .game-container:fullscreen {
+            background: #0b0b12;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            overflow: auto;
+            padding: 10px;
+        }
+
+        .game-container:fullscreen .instructions,
+        .game-container:fullscreen h2 {
+            color: #fff;
+            background: transparent;
+        }
+
         @keyframes slideDown {
             from {
                 opacity: 0;
@@ -265,6 +305,7 @@
             <div style="text-align: center;">
                 <button onclick="startSnake()">Start</button>
                 <button onclick="resetSnake()">Reset</button>
+                <button class="fullscreen-btn" onclick="goFullscreen('snakeCanvas')">⛶ Fullscreen</button>
             </div>
         </div>
 
@@ -278,6 +319,7 @@
             <div class="tic-tac-toe-board" id="ticBoard"></div>
             <div style="text-align: center;">
                 <button onclick="resetTicTacToe()">New</button>
+                <button class="fullscreen-btn" onclick="goFullscreen('tictactoe')">⛶ Fullscreen</button>
             </div>
         </div>
 
@@ -295,6 +337,7 @@
             <div style="text-align: center;">
                 <button onclick="startFlappy()">Start</button>
                 <button onclick="resetFlappy()">Reset</button>
+                <button class="fullscreen-btn" onclick="goFullscreen('flappyCanvas')">⛶ Fullscreen</button>
             </div>
         </div>
 
@@ -311,6 +354,7 @@
             <div class="memory-grid" id="memoryGrid"></div>
             <div style="text-align: center;">
                 <button onclick="resetMemory()">New</button>
+                <button class="fullscreen-btn" onclick="goFullscreen('memory')">⛶ Fullscreen</button>
             </div>
         </div>
 
@@ -328,6 +372,7 @@
             <div style="text-align: center;">
                 <button onclick="startPong()">Start</button>
                 <button onclick="resetPong()">Reset</button>
+                <button class="fullscreen-btn" onclick="goFullscreen('pongCanvas')">⛶ Fullscreen</button>
             </div>
         </div>
 
@@ -344,6 +389,7 @@
                 <a href="https://shellshock.io/" target="_blank" rel="noopener">
                     <button>Open in a new tab (best performance)</button>
                 </a>
+                <button class="fullscreen-btn" onclick="goFullscreen('shellFrame')">⛶ Fullscreen</button>
                 <p style="color: #666; margin-top: 10px; font-size: 0.9em;">
                     If it doesn't appear above, Shell Shockers blocks embedding — use the button to open it directly.
                 </p>
@@ -357,10 +403,11 @@
                 The classic tile-merging puzzle by Gabriele Cirulli (MIT License). Its full source is
                 vendored into this repo and served from this site — no external calls. Use the arrow keys.
             </div>
-            <iframe src="games/2048/index.html" width="100%" height="660"
+            <iframe id="frame2048" src="games/2048/index.html" width="100%" height="660"
                 style="border: 2px solid #667eea; border-radius: 5px;"
-                title="2048"></iframe>
+                allow="fullscreen" title="2048"></iframe>
             <div style="text-align: center; margin-top: 15px;">
+                <button class="fullscreen-btn" onclick="goFullscreen('frame2048')">⛶ Fullscreen</button>
                 <p style="color: #666; margin-top: 10px; font-size: 0.9em;">
                     Vendored from <a href="https://github.com/gabrielecirulli/2048" target="_blank" rel="noopener">github.com/gabrielecirulli/2048</a>
                     under the MIT License (see <code>docs/games/2048/LICENSE.txt</code>). Original code, unmodified.
@@ -377,10 +424,11 @@
                 Click the game first, then: <strong>↑/↓</strong> move, <strong>←/→</strong> turn, <strong>Space</strong> to shoot.
                 Press <strong>Space</strong> on the title screen to start.
             </div>
-            <iframe src="games/gladiator/index.html" width="100%" height="540"
+            <iframe id="frameGladiator" src="games/gladiator/index.html" width="100%" height="600"
                 style="border: 2px solid #667eea; border-radius: 5px; background:#fff;"
-                title="Gladiator 3D FPS"></iframe>
+                allow="fullscreen" title="Gladiator 3D FPS"></iframe>
             <div style="text-align: center; margin-top: 15px;">
+                <button class="fullscreen-btn" onclick="goFullscreen('frameGladiator')">⛶ Fullscreen</button>
                 <p style="color: #666; margin-top: 10px; font-size: 0.9em;">
                     Vendored from <a href="https://github.com/krotik/gladiator_3d" target="_blank" rel="noopener">github.com/krotik/gladiator_3d</a>
                     under the MIT License (see <code>docs/games/gladiator/LICENSE</code> and <code>NOTICE</code>). Original code and assets, unmodified.
@@ -396,6 +444,17 @@
             document.querySelectorAll('.game-btn').forEach(el => el.classList.remove('active'));
             document.getElementById(game).classList.add('active');
             event.target.classList.add('active');
+        }
+
+        function goFullscreen(id) {
+            const el = document.getElementById(id);
+            if (!el) return;
+            const req = el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen;
+            if (req) {
+                req.call(el).catch(() => {});
+            } else {
+                alert('Fullscreen is not supported by this browser.');
+            }
         }
 
         // ============= SNAKE GAME =============
