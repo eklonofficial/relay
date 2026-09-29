@@ -177,6 +177,7 @@ export class Renderer {
     if (!c.gpu) c.gpu = { opaque: null, trans: null };
     c.gpu.opaque = this.makeMesh(r.opaque, r.opaqueQuads, c.gpu.opaque);
     c.gpu.trans = this.makeMesh(r.trans, r.transQuads, c.gpu.trans);
+    c.gpu.secO = r.secO; c.gpu.secT = r.secT;
   }
   freeChunk(c) {
     if (!c.gpu) return;
@@ -211,6 +212,23 @@ export class Renderer {
     if (u.uTime) gl.uniform1f(u.uTime, s.time);
     if (u.uWind) gl.uniform1f(u.uWind, s.wind || 0);
     if (u.uFlicker) gl.uniform1f(u.uFlicker, Math.sin(s.time * 11) * 0.5 + Math.sin(s.time * 7.3) * 0.5);
+  }
+
+  // Draws only the 16-tall sections of a chunk mesh that are inside the frustum.
+  drawSections(m, sec, c, planes) {
+    const gl = this.gl;
+    if (!sec) { gl.drawElements(gl.TRIANGLES, m.quads * 6, gl.UNSIGNED_INT, 0); return m.quads; }
+    const x0 = c.cx * CHUNK, z0 = c.cz * CHUNK;
+    let start = -1, end = -1, n = 0;
+    const flush = () => { if (start >= 0 && end > start) { gl.drawElements(gl.TRIANGLES, (end - start) * 6, gl.UNSIGNED_INT, start * 24); n += end - start; } start = -1; };
+    for (let s = 0; s < 16; s++) {
+      const a = sec[s], b = Math.min(sec[s + 1], m.quads);
+      if (b <= a) continue;
+      if (boxVisible(planes, x0, s * 16 - 1, z0, x0 + CHUNK, s * 16 + 17, z0 + CHUNK)) { if (start < 0) start = a; end = b; }
+      else flush();
+    }
+    flush();
+    return n;
   }
 
   drawBatch(batch, tex, alphaTest, blend) {
@@ -287,8 +305,7 @@ export class Renderer {
       if (!m) continue;
       gl.uniform3f(t.u.uChunk, c.cx * CHUNK, 0, c.cz * CHUNK);
       gl.bindVertexArray(m.vao);
-      gl.drawElements(gl.TRIANGLES, m.quads * 6, gl.UNSIGNED_INT, 0);
-      quads += m.quads;
+      quads += this.drawSections(m, c.gpu.secO, c, planes);
     }
 
     // Dropped/falling blocks and other block models (lit via sky-light uniform scaling).
@@ -337,8 +354,7 @@ export class Renderer {
       if (!m) continue;
       gl.uniform3f(l.u.uChunk, c.cx * CHUNK, 0, c.cz * CHUNK);
       gl.bindVertexArray(m.vao);
-      gl.drawElements(gl.TRIANGLES, m.quads * 6, gl.UNSIGNED_INT, 0);
-      quads += m.quads;
+      quads += this.drawSections(m, c.gpu.secT, c, planes);
     }
     // Translucent effects: weather, smoke, glints.
     gl.useProgram(e.p);

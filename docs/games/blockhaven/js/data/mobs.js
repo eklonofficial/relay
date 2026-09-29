@@ -390,5 +390,17 @@ mob('ender_dragon', {
   },
 });
 
+MOBS.villager.professionModel = prof => villagerModel(PROFESSION_COLORS[prof] || '#6a4a3a', prof === 'librarian' ? { all: D.band(0.1, 0.25, '#8a3a2a') } : prof === 'cleric' ? { all: D.band(0.3, 0.4, '#e0c040') } : prof === 'farmer' ? { all: D.band(0.0, 0.15, '#e8d890') } : null)();
+
+// The player's own model (first-person arm and third-person view).
+export function playerModel() {
+  const skin = '#c8926a';
+  const m = humanoid({
+    head: S(skin, 'noise', { front: D.all(D.band(0, 0.25, '#3a2412'), eyes({ c: '#ffffff', pupil: '#3a4ab8', y: 0.45, sep: 0.2 }), D.rect(0.35, 0.72, 0.3, 0.1, '#8a4a3a')), top: D.rect(0, 0, 1, 1, '#3a2412'), right: D.band(0, 0.35, '#3a2412'), left: D.band(0, 0.35, '#3a2412'), back: D.band(0, 0.7, '#3a2412') }, 0.06),
+    body: S('#2aa8a8', 'noise', null, 0.07), arm: S(skin, 'noise', { all: D.band(0, 0.3, '#2aa8a8') }, 0.06), leg: S('#3a3aa8', 'noise', { all: D.band(0.85, 1, '#5a5a5a') }, 0.07),
+  });
+  return m;
+}
+
 // Which mobs get spawn eggs.
 export const EGG_MOBS = Object.values(MOBS).filter(m => !m.noEgg);

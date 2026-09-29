@@ -577,7 +577,10 @@ export function meshChunk(job) {
   computeLight(maxY, job.sky !== false);
 
   const opaque = new VB(4096), trans = new VB(1024);
+  // Quads come out bottom-up, so 16-tall sections are contiguous ranges (drawn with per-section culling).
+  const secO = new Int32Array(17), secT = new Int32Array(17);
   for (let y = 1; y <= maxY; y++) {
+    if ((y - 1) % 16 === 0) { const s = (y - 1) >> 4; secO[s] = opaque.quads; secT[s] = trans.quads; }
     for (let z = PAD; z < PAD + CHUNK; z++) {
       for (let x = PAD; x < PAD + CHUNK; x++) {
         const i = x + z * S + y * SS, id = vol[i];
@@ -595,6 +598,9 @@ export function meshChunk(job) {
     }
   }
 
+  for (let sct = (maxY >> 4) + 1; sct <= 16; sct++) { secO[sct] = opaque.quads; secT[sct] = trans.quads; }
+  for (let sct = 1; sct < 17; sct++) { if (secO[sct] < secO[sct - 1]) secO[sct] = secO[sct - 1]; if (secT[sct] < secT[sct - 1]) secT[sct] = secT[sct - 1]; }
+
   // Light for the chunk's own columns, for entities and particles on the main thread.
   const light = new Uint8Array(CHUNK * CHUNK * HEIGHT);
   for (let y = 0; y < HEIGHT; y++) for (let z = 0; z < CHUNK; z++) {
@@ -605,7 +611,7 @@ export function meshChunk(job) {
   return {
     opaque: opaque.result(), opaqueQuads: opaque.quads,
     trans: trans.result(), transQuads: trans.quads,
-    maxY: maxY - 1, light: light.buffer,
+    maxY: maxY - 1, light: light.buffer, secO, secT,
   };
 }
 

@@ -1,5 +1,6 @@
 // Item registry: every block item plus tools, weapons, armor, food and materials.
 import { BLOCK_ITEMS, BLOCKS, COLORS, SHAPE, st } from './blocks.js';
+import { EGG_MOBS } from './mobs.js';
 
 export const ITEMS = [];
 export const I = {};          // key -> item
@@ -121,6 +122,8 @@ for (const c of COLORS) add(`${c}_dye`, { tab: 'ingredients', dye: c });
 export function addSpawnEgg(mob, name, colors) {
   return add(`${mob}_spawn_egg`, { name: `${name} Spawn Egg`, tab: 'spawn_eggs', kind: 'use', use: 'spawn_egg', mob, eggColors: colors });
 }
+
+for (const m of EGG_MOBS) addSpawnEgg(m.key, m.name, m.egg);
 
 export const TABS = [
   ['building', 'Building Blocks'], ['colored', 'Colored Blocks'], ['natural', 'Natural Blocks'], ['functional', 'Functional Blocks'],
