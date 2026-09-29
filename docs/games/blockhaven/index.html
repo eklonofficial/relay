@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Blockhaven</title>
+<link rel="icon" href="data:,">
+<style>
+  :root {
+    --ui-font: "Trebuchet MS", "Segoe UI", system-ui, sans-serif;
+    --pixel-shadow: 2px 2px 0 #2b2b2b;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #0b0f18; color: #fff; font-family: var(--ui-font); user-select: none; }
+  canvas#game { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+  .hidden { display: none !important; }
+  .screen { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; }
+  .dim { background: rgba(8, 10, 16, 0.55); backdrop-filter: blur(6px); }
+
+  button {
+    font: 700 17px var(--ui-font); letter-spacing: 0.04em; color: #f2f2f2; text-shadow: var(--pixel-shadow);
+    width: 320px; max-width: 80vw; padding: 11px 16px; cursor: pointer;
+    background: linear-gradient(180deg, #7b7b7b 0%, #666 48%, #5a5a5a 52%, #525252 100%);
+    border: 2px solid #111; border-radius: 3px;
+    box-shadow: inset 0 2px 0 rgba(255,255,255,0.28), inset 0 -3px 0 rgba(0,0,0,0.35), 0 4px 14px rgba(0,0,0,0.35);
+    transition: transform 0.08s, filter 0.12s;
+  }
+  button:hover { background: linear-gradient(180deg, #8a9bd6 0%, #6f82c4 48%, #6477b8 52%, #5a6cab 100%); color: #ffffa0; }
+  button:active { transform: translateY(1px); }
+  button.small { width: auto; font-size: 14px; padding: 8px 14px; }
+
+  #title { background: radial-gradient(ellipse at center, rgba(0,0,0,0) 35%, rgba(0,0,0,0.45) 100%); }
+  .logo { position: relative; margin-bottom: 34px; text-align: center; }
+  .logo h1 {
+    margin: 0; font: 900 clamp(46px, 9vw, 112px) / 1 "Arial Black", Impact, var(--ui-font); letter-spacing: 0.06em; color: #e9e9e9;
+    text-shadow: 0 1px 0 #b3b3b3, 0 2px 0 #a3a3a3, 0 3px 0 #939393, 0 4px 0 #838383, 0 5px 0 #737373, 0 6px 0 #636363,
+      0 7px 0 #535353, 0 8px 0 #434343, 0 12px 18px rgba(0,0,0,0.6);
+    animation: float 6s ease-in-out infinite;
+  }
+  .logo h1 span { color: #8fd16a; text-shadow: 0 1px 0 #6aa84a, 0 2px 0 #5f9a42, 0 3px 0 #548c3a, 0 4px 0 #497e32, 0 5px 0 #3e702a, 0 6px 0 #336222, 0 7px 0 #28541a, 0 8px 0 #1d4612, 0 12px 18px rgba(0,0,0,0.6); }
+  .splash {
+    position: absolute; right: -10px; bottom: -18px; color: #ffff55; font: 700 clamp(15px, 1.8vw, 22px) var(--ui-font);
+    text-shadow: 2px 2px 0 #3f3f15; transform: rotate(-16deg); white-space: nowrap; animation: pulse 0.6s ease-in-out infinite alternate;
+  }
+  @keyframes pulse { from { transform: rotate(-16deg) scale(1); } to { transform: rotate(-16deg) scale(1.08); } }
+  @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+  .menu { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+  .row { display: flex; gap: 10px; }
+  .row button { width: 155px; }
+  .seed-row { display: flex; gap: 8px; align-items: center; background: rgba(0,0,0,0.5); padding: 10px; border: 2px solid #111; }
+  .seed-row input { width: 190px; padding: 9px; font: 15px var(--ui-font); background: #000; color: #fff; border: 2px solid #a0a0a0; }
+  .seed-row button { width: 110px; }
+  .footer { position: fixed; bottom: 14px; left: 0; right: 0; text-align: center; color: rgba(255,255,255,0.75); font-size: 13px; text-shadow: var(--pixel-shadow); }
+  .save-note { color: rgba(255,255,255,0.75); font-size: 12px; text-shadow: var(--pixel-shadow); }
+
+  #loading .label { font-size: 22px; text-shadow: var(--pixel-shadow); }
+  #loading .bar { width: 320px; height: 10px; background: rgba(0,0,0,0.6); border: 2px solid #111; }
+  #load-bar { height: 100%; width: 0; background: linear-gradient(90deg, #6fcf4a, #9be36b); transition: width 0.2s; }
+
+  #hud { position: fixed; inset: 0; pointer-events: none; }
+  #crosshair { position: absolute; left: 50%; top: 50%; width: 22px; height: 22px; transform: translate(-50%, -50%); mix-blend-mode: difference; }
+  #crosshair::before, #crosshair::after { content: ""; position: absolute; background: #fff; }
+  #crosshair::before { left: 10px; top: 0; width: 2px; height: 22px; }
+  #crosshair::after { left: 0; top: 10px; width: 22px; height: 2px; }
+  #hotbar { position: absolute; bottom: 14px; left: 50%; transform: translateX(-50%); display: flex; gap: 2px; padding: 3px; background: rgba(0,0,0,0.45); border: 2px solid rgba(0,0,0,0.8); border-radius: 3px; }
+  .slot { position: relative; width: 54px; height: 54px; display: flex; align-items: center; justify-content: center; border: 2px solid rgba(255,255,255,0.12); background: rgba(139,139,139,0.25); transition: transform 0.1s; }
+  .slot img { width: 42px; height: 42px; image-rendering: pixelated; filter: drop-shadow(0 2px 2px rgba(0,0,0,0.5)); }
+  .slot.selected { border: 3px solid #fff; transform: scale(1.1); box-shadow: 0 0 12px rgba(255,255,255,0.35); z-index: 1; }
+  .slot .num { position: absolute; top: 1px; left: 4px; font-size: 11px; color: rgba(255,255,255,0.7); text-shadow: 1px 1px 0 #000; }
+  #item-name { position: absolute; bottom: 88px; left: 0; right: 0; text-align: center; font-size: 17px; font-weight: 700; text-shadow: var(--pixel-shadow); opacity: 0; transition: opacity 0.5s; }
+  #debug { position: absolute; top: 8px; left: 8px; font: 13px/1.45 ui-monospace, Menlo, Consolas, monospace; background: rgba(0,0,0,0.45); padding: 6px 9px; white-space: pre; text-shadow: 1px 1px 0 #000; }
+  #hint { position: absolute; top: 16px; left: 50%; transform: translateX(-50%); max-width: 92vw; text-align: center; font-size: 13px; line-height: 1.6; background: rgba(0,0,0,0.5); padding: 8px 14px; border-radius: 4px; transition: opacity 1.2s; text-shadow: 1px 1px 0 #000; }
+
+  #pause h2, .panel h3 { margin: 0 0 10px; font-size: 26px; text-shadow: var(--pixel-shadow); letter-spacing: 0.04em; }
+  .panel { background: rgba(20, 22, 30, 0.82); border: 2px solid #000; box-shadow: inset 0 0 0 2px rgba(255,255,255,0.08), 0 20px 50px rgba(0,0,0,0.5); padding: 22px 26px; border-radius: 4px; display: flex; flex-direction: column; gap: 12px; align-items: center; max-width: 94vw; }
+  .settings-panel label { display: flex; flex-direction: column; gap: 4px; width: 320px; font-size: 14px; text-shadow: 1px 1px 0 #000; }
+  .settings-panel label.check { flex-direction: row; align-items: center; gap: 10px; }
+  .settings-panel input[type=range] { width: 100%; accent-color: #8fd16a; }
+  .controls-table { border-collapse: collapse; font-size: 14px; }
+  .controls-table td { padding: 5px 12px; border-bottom: 1px solid rgba(255,255,255,0.1); }
+  .controls-table td:first-child { color: #ffffa0; font-weight: 700; white-space: nowrap; }
+
+  #inv-grid { display: grid; grid-template-columns: repeat(9, 58px); gap: 4px; max-height: 60vh; overflow: auto; padding: 4px; }
+  .inv-item { width: 58px; height: 58px; padding: 0; display: flex; align-items: center; justify-content: center; background: rgba(139,139,139,0.3); border: 2px solid rgba(0,0,0,0.6); box-shadow: inset 0 2px 0 rgba(255,255,255,0.15); }
+  .inv-item:hover { background: rgba(160,180,255,0.45); }
+  .inv-item img { width: 44px; height: 44px; image-rendering: pixelated; pointer-events: none; }
+  .inv-help { margin: 0; font-size: 13px; color: rgba(255,255,255,0.75); }
+  #error { background: #10131c; padding: 30px; text-align: center; font-size: 16px; }
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+
+<div id="title" class="screen">
+  <div class="logo">
+    <h1>BLOCK<span>HAVEN</span></h1>
+    <div class="splash" id="splash"></div>
+  </div>
+  <div class="menu">
+    <button id="btn-continue">Continue</button>
+    <button id="btn-new">New World</button>
+    <div id="new-world" class="seed-row hidden">
+      <input id="seed-input" placeholder="Seed (blank = random)" maxlength="32" spellcheck="false">
+      <button id="btn-create">Create</button>
+    </div>
+    <div id="save-note" class="save-note hidden">Creating a new world replaces your saved one.</div>
+    <div class="row"><button id="btn-settings">Settings</button><button id="btn-controls">Controls</button></div>
+  </div>
+  <div class="footer">An original voxel sandbox · every texture, sound and shader is generated in code</div>
+</div>
+
+<div id="loading" class="screen dim hidden">
+  <div class="label">Generating terrain…</div>
+  <div class="bar"><div id="load-bar"></div></div>
+</div>
+
+<div id="hud" class="hidden">
+  <div id="crosshair"></div>
+  <div id="item-name"></div>
+  <div id="hotbar"></div>
+  <div id="debug" class="hidden"></div>
+  <div id="hint">WASD move · Space jump (double-tap to fly) · Ctrl sprint · Shift sneak · Left-click break · Right-click place · Middle-click pick block · 1–9 / scroll select · E blocks · hold T to fast-forward time · F3 debug · Esc pause</div>
+</div>
+
+<div id="pause" class="screen dim hidden">
+  <h2>Game Paused</h2>
+  <button id="btn-resume">Back to Game</button>
+  <button id="btn-settings2">Settings</button>
+  <button id="btn-quit">Save &amp; Quit to Title</button>
+</div>
+
+<div id="inventory" class="screen dim hidden">
+  <div class="panel">
+    <h3>Blocks</h3>
+    <div id="inv-grid"></div>
+    <p class="inv-help">Click a block to put it in the selected hotbar slot · number keys change slot · E to close</p>
+  </div>
+</div>
+
+<div id="settings" class="screen dim hidden">
+  <div class="panel settings-panel">
+    <h3>Settings</h3>
+    <label>Render distance: <span id="rd-val"></span> chunks<input type="range" id="set-rd" min="3" max="12"></label>
+    <label>Field of view: <span id="fov-val"></span>°<input type="range" id="set-fov" min="60" max="110"></label>
+    <label>Mouse sensitivity: <span id="sens-val"></span>%<input type="range" id="set-sens" min="10" max="250"></label>
+    <label>Volume: <span id="vol-val"></span>%<input type="range" id="set-vol" min="0" max="100"></label>
+    <label class="check"><input type="checkbox" id="set-bob"> View bobbing</label>
+    <label class="check"><input type="checkbox" id="set-clouds"> Clouds</label>
+    <label class="check"><input type="checkbox" id="set-autojump"> Auto-jump up single blocks</label>
+    <button id="btn-settings-done">Done</button>
+  </div>
+</div>
+
+<div id="controls" class="screen dim hidden">
+  <div class="panel">
+    <h3>Controls</h3>
+    <table class="controls-table">
+      <tr><td>W A S D</td><td>Walk</td></tr>
+      <tr><td>Mouse</td><td>Look around</td></tr>
+      <tr><td>Space</td><td>Jump · swim up · double-tap to fly</td></tr>
+      <tr><td>Shift</td><td>Sneak · fly down</td></tr>
+      <tr><td>Ctrl</td><td>Sprint</td></tr>
+      <tr><td>Left click (hold)</td><td>Break block</td></tr>
+      <tr><td>Right click</td><td>Place block</td></tr>
+      <tr><td>Middle click</td><td>Pick block</td></tr>
+      <tr><td>1–9 / scroll</td><td>Choose hotbar slot</td></tr>
+      <tr><td>E</td><td>Block menu</td></tr>
+      <tr><td>T (hold)</td><td>Fast-forward time</td></tr>
+      <tr><td>F1 / F3</td><td>Hide HUD / debug info</td></tr>
+      <tr><td>Esc</td><td>Pause</td></tr>
+    </table>
+    <button id="btn-controls-done">Done</button>
+  </div>
+</div>
+
+<div id="error" class="screen hidden"></div>
+
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
