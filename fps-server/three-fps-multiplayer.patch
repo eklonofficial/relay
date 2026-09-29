@@ -1,0 +1,899 @@
+diff --git a/package.json b/package.json
+index c67a23e..92f6368 100644
+--- a/package.json
++++ b/package.json
+@@ -15,14 +15,14 @@
+     "build": "webpack --mode production"
+   },
+   "dependencies": {
+-    "@types/ammo.js": "github:osman-turan/ammo.js-typings",
+-    "ammo.js": "kripken/ammo.js",
++    "ammo.js": "file:../ammojs",
+     "three": "^0.127.0",
+     "three-pathfinding": "^0.14.1",
+     "webpack-cli": "^4.3.1"
+   },
+   "devDependencies": {
+     "@babel/core": "^7.12.10",
++    "@babel/plugin-proposal-class-properties": "^7.18.6",
+     "@babel/preset-env": "^7.12.11",
+     "babel-loader": "^8.2.2",
+     "file-loader": "^6.2.0",
+diff --git a/src/EntityManager.js b/src/EntityManager.js
+index b0d0e63..314292d 100644
+--- a/src/EntityManager.js
++++ b/src/EntityManager.js
+@@ -18,6 +18,13 @@ export default class EntityManager{
+         this.entities.push(entity);
+     }
+ 
++    Remove(entity){
++        const i = this.entities.indexOf(entity);
++        if(i !== -1){
++            this.entities.splice(i, 1);
++        }
++    }
++
+     EndSetup(){
+         for(const ent of this.entities){
+             for(const key in ent.components){
+diff --git a/src/entities/NPC/CharacterCollision.js b/src/entities/NPC/CharacterCollision.js
+index cc46bd1..28c9ce6 100644
+--- a/src/entities/NPC/CharacterCollision.js
++++ b/src/entities/NPC/CharacterCollision.js
+@@ -69,7 +69,7 @@ export default class CharacterCollision extends Component{
+     }
+ 
+     Initialize(){
+-        this.controller = this.GetComponent('CharacterController');
++        this.controller = this.GetComponent('CharacterController') || this.GetComponent('RemotePlayer');
+ 
+         this.controller.model.traverse(child =>{
+             if ( !child.isSkinnedMesh  ) {
+@@ -100,6 +100,10 @@ export default class CharacterCollision extends Component{
+ 
+     }
+ 
++    Destroy(){
++        Object.values(this.collisions).forEach(collision => this.world.removeCollisionObject(collision.object));
++    }
++
+     Update(t){
+         Object.keys(this.collisions).forEach(key=>{
+             const collision = this.collisions[key];
+diff --git a/src/entities/Player/PlayerControls.js b/src/entities/Player/PlayerControls.js
+index 41b7878..2e587ad 100644
+--- a/src/entities/Player/PlayerControls.js
++++ b/src/entities/Player/PlayerControls.js
+@@ -99,13 +99,14 @@ export default class PlayerControls extends Component{
+     }
+ 
+     Update(t){
+-        const forwardFactor = Input.GetKeyDown("KeyS") - Input.GetKeyDown("KeyW");
+-        const rightFactor = Input.GetKeyDown("KeyD") - Input.GetKeyDown("KeyA");
++        const alive = !this.parent.dead;
++        const forwardFactor = alive ? Input.GetKeyDown("KeyS") - Input.GetKeyDown("KeyW") : 0;
++        const rightFactor = alive ? Input.GetKeyDown("KeyD") - Input.GetKeyDown("KeyA") : 0;
+         const direction = this.moveDir.set(rightFactor, 0.0, forwardFactor).normalize();
+ 
+         const velocity = this.physicsBody.getLinearVelocity();
+ 
+-        if(Input.GetKeyDown('Space') && this.physicsComponent.canJump){
++        if(alive && Input.GetKeyDown('Space') && this.physicsComponent.canJump){
+             velocity.setY(this.jumpVelocity);
+             this.physicsComponent.canJump = false;
+         }
+diff --git a/src/entities/Player/PlayerHealth.js b/src/entities/Player/PlayerHealth.js
+index 8f7665a..4c65181 100644
+--- a/src/entities/Player/PlayerHealth.js
++++ b/src/entities/Player/PlayerHealth.js
+@@ -3,6 +3,7 @@ import Component from "../../Component";
+ export default class PlayerHealth extends Component{
+     constructor(){
+         super();
++        this.name = 'PlayerHealth';
+ 
+         this.health = 100;
+     }
+diff --git a/src/entities/Player/Weapon.js b/src/entities/Player/Weapon.js
+index 84e77bc..913c2b2 100644
+--- a/src/entities/Player/Weapon.js
++++ b/src/entities/Player/Weapon.js
+@@ -158,7 +158,7 @@ export default class Weapon extends Component{
+     }
+ 
+     Shoot(t){
+-        if(!this.shoot){
++        if(!this.shoot || this.parent.dead){
+             return;
+         }
+ 
+diff --git a/src/entities/RemotePlayer/RemotePlayer.js b/src/entities/RemotePlayer/RemotePlayer.js
+new file mode 100644
+index 0000000..f69eebb
+--- /dev/null
++++ b/src/entities/RemotePlayer/RemotePlayer.js
+@@ -0,0 +1,152 @@
++import * as THREE from 'three'
++import Component from '../../Component'
++
++// Another online player, drawn with the mutant model. Hitboxes come from CharacterCollision,
++// so the local Weapon's raycast reports hits on it like it does for the AI mutant.
++export default class RemotePlayer extends Component{
++    constructor({id, playerName, model, clips, scene, shotBuffer, listener, network}){
++        super();
++        this.name = 'RemotePlayer';
++        this.remoteId = id;
++        this.playerName = playerName;
++        this.model = model;
++        this.clips = clips;
++        this.scene = scene;
++        this.shotBuffer = shotBuffer;
++        this.listener = listener;
++        this.network = network;
++
++        this.targetPos = new THREE.Vector3();
++        this.targetRot = new THREE.Quaternion();
++        this.yAxis = new THREE.Vector3(0, 1, 0);
++        this.anim = 0;
++        this.dead = false;
++        this.hasTarget = false;
++        this.actions = {};
++        this.current = null;
++    }
++
++    Initialize(){
++        const model = this.model;
++        model.scale.setScalar(0.01);
++        model.position.copy(this.parent.Position);
++
++        this.mixer = new THREE.AnimationMixer(model);
++        ['idle', 'run', 'die'].forEach(key => {
++            this.actions[key] = this.mixer.clipAction(this.clips[key]);
++        });
++        this.actions.die.setLoop(THREE.LoopOnce);
++        this.actions.die.clampWhenFinished = true;
++
++        model.traverse(child => {
++            if(!child.isSkinnedMesh){
++                return;
++            }
++            child.frustumCulled = false;
++            child.castShadow = true;
++            child.receiveShadow = true;
++            this.rootBone = child.skeleton.bones.find(bone => bone.name == 'MutantHips');
++            this.rootBone.refPos = this.rootBone.position.clone();
++        });
++
++        this.tag = this.CreateNameTag(this.playerName);
++        this.scene.add(this.tag);
++
++        this.sound = new THREE.PositionalAudio(this.listener);
++        this.sound.setBuffer(this.shotBuffer);
++        this.sound.setRefDistance(4);
++        model.add(this.sound);
++
++        this.scene.add(model);
++        this.Play('idle');
++
++        this.parent.RegisterEventHandler(this.TakeHit, 'hit');
++    }
++
++    CreateNameTag(text){
++        const canvas = document.createElement('canvas');
++        canvas.width = 256;
++        canvas.height = 64;
++        const ctx = canvas.getContext('2d');
++        ctx.font = 'bold 32px sans-serif';
++        ctx.textAlign = 'center';
++        ctx.textBaseline = 'middle';
++        ctx.fillStyle = 'rgba(0,0,0,0.5)';
++        const w = Math.min(250, ctx.measureText(text).width + 24);
++        ctx.fillRect((256 - w) / 2, 8, w, 48);
++        ctx.fillStyle = '#ffffff';
++        ctx.fillText(text, 128, 32);
++        const material = new THREE.SpriteMaterial({map: new THREE.CanvasTexture(canvas), depthTest: true, transparent: true});
++        const sprite = new THREE.Sprite(material);
++        sprite.scale.set(1.2, 0.3, 1);
++        return sprite;
++    }
++
++    SetTarget(x, y, z, yaw, anim, dead){
++        this.targetPos.set(x, y, z);
++        // The model faces +Z; the player's camera faces -Z at yaw 0.
++        this.targetRot.setFromAxisAngle(this.yAxis, yaw + Math.PI);
++        // First sighting or a respawn across the map: jump there instead of sliding.
++        if(!this.hasTarget || this.model.position.distanceToSquared(this.targetPos) > 25.0){
++            this.model.position.copy(this.targetPos);
++            this.model.quaternion.copy(this.targetRot);
++            this.hasTarget = true;
++        }
++        this.anim = anim;
++        this.dead = dead;
++    }
++
++    Play(name){
++        if(this.current === name){
++            return;
++        }
++        const next = this.actions[name];
++        next.reset().play();
++        if(this.current){
++            next.crossFadeFrom(this.actions[this.current], 0.2, true);
++        }
++        this.current = name;
++    }
++
++    PlayShot(){
++        if(this.dead){
++            return;
++        }
++        this.sound.isPlaying && this.sound.stop();
++        this.sound.play();
++    }
++
++    TakeHit = () => {
++        if(!this.dead){
++            this.network.SendHit(this.remoteId);
++        }
++    }
++
++    Update(t){
++        this.mixer.update(t);
++        // The run clip has root motion; position comes from the network instead.
++        this.rootBone.position.x = this.rootBone.refPos.x;
++        this.rootBone.position.z = this.rootBone.refPos.z;
++
++        const k = 1.0 - Math.exp(-12.0 * t);
++        this.model.position.lerp(this.targetPos, k);
++        this.model.quaternion.slerp(this.targetRot, k);
++
++        this.Play(this.dead ? 'die' : (this.anim === 1 ? 'run' : 'idle'));
++
++        this.tag.position.copy(this.model.position);
++        this.tag.position.y += 2.2;
++        this.tag.visible = !this.dead;
++
++        this.parent.SetPosition(this.model.position);
++        this.parent.SetRotation(this.model.quaternion);
++    }
++
++    Destroy(){
++        this.sound.isPlaying && this.sound.stop();
++        this.scene.remove(this.model);
++        this.scene.remove(this.tag);
++        this.tag.material.map.dispose();
++        this.tag.material.dispose();
++    }
++}
+diff --git a/src/entry.js b/src/entry.js
+index 957db5d..008e1ee 100644
+--- a/src/entry.js
++++ b/src/entry.js
+@@ -28,7 +28,7 @@ import navmesh from './assets/navmesh.obj'
+ 
+ import mutant from './assets/animations/mutant.fbx'
+ import idleAnim from './assets/animations/mutant breathing idle.fbx'
+-import attackAnim from './assets/animations/Mutant Punch.fbx'
++import attackAnim from './assets/animations/mutant punch.fbx'
+ import walkAnim from './assets/animations/mutant walking.fbx'
+ import runAnim from './assets/animations/mutant run.fbx'
+ import dieAnim from './assets/animations/mutant dying.fbx'
+@@ -65,6 +65,10 @@ import UIManager from './entities/UI/UIManager'
+ import AmmoBox from './entities/AmmoBox/AmmoBox'
+ import LevelBulletDecals from './entities/Level/BulletDecals'
+ import PlayerHealth from './entities/Player/PlayerHealth'
++import Network from './net/Network'
++
++// Online play needs a server address: set window.FPS_SERVER_URL in config.js, or add ?server=wss://... to the URL.
++const SERVER_URL = new URLSearchParams(location.search).get('server') || window.FPS_SERVER_URL || '';
+ 
+ class FPSGameApp{
+ 
+@@ -162,7 +166,41 @@ class FPSGameApp{
+   }
+ 
+   SetupStartButton(){
+-    document.getElementById('start_game').addEventListener('click', this.StartGame);
++    document.getElementById('start_game').addEventListener('click', () => this.StartGame(false));
++
++    const onlineBtn = document.getElementById('start_online');
++    const status = document.getElementById('server_status');
++    const nameInput = document.getElementById('player_name');
++    try{
++      nameInput.value = localStorage.getItem('fpsPlayerName') || '';
++    }catch(e){}
++
++    if(!SERVER_URL){
++      onlineBtn.disabled = true;
++      status.textContent = 'Online play isn\'t set up yet (no server address in config.js).';
++      return;
++    }
++
++    onlineBtn.addEventListener('click', () => this.StartGame(true));
++    this.WakeServer(status);
++  }
++
++  // Free hosting sleeps when idle; ping it from the menu so it's awake by the time you press play.
++  async WakeServer(status){
++    const healthUrl = SERVER_URL.replace(/^ws/, 'http').replace(/\/+$/, '') + '/health';
++    status.textContent = 'Server: waking up…';
++    for(let i = 0; i < 20; i++){
++      try{
++        const res = await fetch(healthUrl, {cache: 'no-store'});
++        if(res.ok){
++          const info = await res.json();
++          status.textContent = `Server online — ${info.players} / ${info.max} playing`;
++          return;
++        }
++      }catch(e){}
++      await new Promise(r => setTimeout(r, 5000));
++    }
++    status.textContent = 'Server not responding right now.';
+   }
+ 
+   ShowMenu(visible=true){
+@@ -244,7 +282,7 @@ class FPSGameApp{
+     this.ShowMenu();
+   }
+ 
+-  EntitySetup(){
++  EntitySetup(online){
+     this.entityManager = new EntityManager();
+ 
+     const levelEntity = new Entity();
+@@ -265,11 +303,24 @@ class FPSGameApp{
+     playerEntity.AddComponent(new PlayerControls(this.camera, this.scene));
+     playerEntity.AddComponent(new Weapon(this.camera, this.assets['ak47'].scene, this.assets['muzzleFlash'], this.physicsWorld, this.assets['ak47Shot'], this.listener ));
+     playerEntity.AddComponent(new PlayerHealth());
++    if(online){
++      playerEntity.AddComponent(new Network({
++        url: SERVER_URL,
++        playerName: this.playerName,
++        scene: this.scene,
++        physicsWorld: this.physicsWorld,
++        mutant: this.assets['mutant'],
++        clips: this.mutantAnims,
++        shotBuffer: this.assets['ak47Shot'],
++        listener: this.listener,
++      }));
++    }
+     playerEntity.SetPosition(new THREE.Vector3(2.14, 1.48, -1.36));
+     playerEntity.SetRotation(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0,1,0), -Math.PI * 0.5));
+     this.entityManager.Add(playerEntity);
+ 
+-    const npcLocations = [
++    // The AI mutant only exists in single-player; online, the other players are the opponents.
++    const npcLocations = online ? [] : [
+       [10.8, 0.0, 22.0],
+     ];
+ 
+@@ -308,14 +359,21 @@ class FPSGameApp{
+     this.animFrameId = window.requestAnimationFrame(this.OnAnimationFrameHandler);
+   }
+ 
+-  StartGame = ()=>{
++  StartGame(online){
++    const nameInput = document.getElementById('player_name');
++    this.playerName = nameInput.value.trim().slice(0, 16);
++    nameInput.blur();
++    try{
++      localStorage.setItem('fpsPlayerName', this.playerName);
++    }catch(e){}
++
+     window.cancelAnimationFrame(this.animFrameId);
+     Input.ClearEventListners();
+ 
+     //Create entities and physics
+     this.scene.clear();
+     this.SetupPhysics();
+-    this.EntitySetup();
++    this.EntitySetup(online);
+     this.ShowMenu(false);
+   }
+ 
+diff --git a/src/fonts/OFL.txt b/src/fonts/OFL.txt
+new file mode 100644
+index 0000000..54028f3
+--- /dev/null
++++ b/src/fonts/OFL.txt
+@@ -0,0 +1,93 @@
++Copyright 2017-2019 The Libre Barcode Project Authors (https://github.com/graphicore/librebarcode)
++
++This Font Software is licensed under the SIL Open Font License, Version 1.1.
++This license is copied below, and is also available with a FAQ at:
++https://scripts.sil.org/OFL
++
++
++-----------------------------------------------------------
++SIL OPEN FONT LICENSE Version 1.1 - 26 February 2007
++-----------------------------------------------------------
++
++PREAMBLE
++The goals of the Open Font License (OFL) are to stimulate worldwide
++development of collaborative font projects, to support the font creation
++efforts of academic and linguistic communities, and to provide a free and
++open framework in which fonts may be shared and improved in partnership
++with others.
++
++The OFL allows the licensed fonts to be used, studied, modified and
++redistributed freely as long as they are not sold by themselves. The
++fonts, including any derivative works, can be bundled, embedded,
++redistributed and/or sold with any software provided that any reserved
++names are not used by derivative works. The fonts and derivatives,
++however, cannot be released under any other type of license. The
++requirement for fonts to remain under this license does not apply
++to any document created using the fonts or their derivatives.
++
++DEFINITIONS
++"Font Software" refers to the set of files released by the Copyright
++Holder(s) under this license and clearly marked as such. This may
++include source files, build scripts and documentation.
++
++"Reserved Font Name" refers to any names specified as such after the
++copyright statement(s).
++
++"Original Version" refers to the collection of Font Software components as
++distributed by the Copyright Holder(s).
++
++"Modified Version" refers to any derivative made by adding to, deleting,
++or substituting -- in part or in whole -- any of the components of the
++Original Version, by changing formats or by porting the Font Software to a
++new environment.
++
++"Author" refers to any designer, engineer, programmer, technical
++writer or other person who contributed to the Font Software.
++
++PERMISSION & CONDITIONS
++Permission is hereby granted, free of charge, to any person obtaining
++a copy of the Font Software, to use, study, copy, merge, embed, modify,
++redistribute, and sell modified and unmodified copies of the Font
++Software, subject to the following conditions:
++
++1) Neither the Font Software nor any of its individual components,
++in Original or Modified Versions, may be sold by itself.
++
++2) Original or Modified Versions of the Font Software may be bundled,
++redistributed and/or sold with any software, provided that each copy
++contains the above copyright notice and this license. These can be
++included either as stand-alone text files, human-readable headers or
++in the appropriate machine-readable metadata fields within text or
++binary files as long as those fields can be easily viewed by the user.
++
++3) No Modified Version of the Font Software may use the Reserved Font
++Name(s) unless explicit written permission is granted by the corresponding
++Copyright Holder. This restriction only applies to the primary font name as
++presented to the users.
++
++4) The name(s) of the Copyright Holder(s) or the Author(s) of the Font
++Software shall not be used to promote, endorse or advertise any
++Modified Version, except to acknowledge the contribution(s) of the
++Copyright Holder(s) and the Author(s) or with their explicit written
++permission.
++
++5) The Font Software, modified or unmodified, in part or in whole,
++must be distributed entirely under this license, and must not be
++distributed under any other license. The requirement for fonts to
++remain under this license does not apply to any document created
++using the Font Software.
++
++TERMINATION
++This license becomes null and void if any of the above conditions are
++not met.
++
++DISCLAIMER
++THE FONT SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
++EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO ANY WARRANTIES OF
++MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT
++OF COPYRIGHT, PATENT, TRADEMARK, OR OTHER RIGHT. IN NO EVENT SHALL THE
++COPYRIGHT HOLDER BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
++INCLUDING ANY GENERAL, SPECIAL, INDIRECT, INCIDENTAL, OR CONSEQUENTIAL
++DAMAGES, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
++FROM, OUT OF THE USE OR INABILITY TO USE THE FONT SOFTWARE OR FROM
++OTHER DEALINGS IN THE FONT SOFTWARE.
+diff --git a/src/index.html b/src/index.html
+index 8138180..aae8d82 100644
+--- a/src/index.html
++++ b/src/index.html
+@@ -3,10 +3,8 @@
+   <head>
+     <meta charset="UTF-8">
+     <title><%= htmlWebpackPlugin.options.title %></title>
+-    <link rel="preconnect" href="https://fonts.gstatic.com">
+-    <link rel="preconnect" href="https://fonts.gstatic.com">
+-    <link href="https://fonts.googleapis.com/css2?family=Libre+Barcode+39+Text&family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+     <style>
++      @font-face{font-family:'Libre Barcode 39 Text';src:url('fonts/LibreBarcode39Text-Regular.ttf') format('truetype');}
+       body{
+         margin: 0;
+         font-family: 'Roboto', sans-serif;
+@@ -72,22 +70,48 @@
+         font-size: 1.5em;
+         border: none;
+         cursor: pointer;
+-        margin-top: 10%;
++        margin-top: 3%;
+         font-weight: 700;
+       }
++      button:hover{
++        color: #ffffff;
++      }
++      button:disabled{
++        color: #555555;
++        cursor: default;
++      }
++      #player_name{
++        margin-top: 4%;
++        background: transparent;
++        border: 1px solid #777777;
++        color: #ffffff;
++        font-size: 1.1em;
++        padding: 8px 12px;
++        text-align: center;
++        width: 220px;
++      }
++      #server_status{
++        margin-top: 3%;
++        color: #9e9e9e;
++        font-size: 0.95em;
++      }
+       #debug{
+         position: absolute;
+         right: 5%;
+         top: 5%;
+       }
+     </style>
++    <script src="config.js"></script>
+   </head>
+ 
+   <body>
+     <div id="debug"></div>
+     <div id="menu">
+       <h1>Shooter Game Demo</h1>
+-      <button id="start_game">NEW GAME</button>
++      <input id="player_name" maxlength="16" placeholder="Your name" autocomplete="off" spellcheck="false">
++      <button id="start_online">PLAY ONLINE</button>
++      <button id="start_game">PLAY VS AI</button>
++      <div id="server_status"></div>
+     </div>
+     <div id="game_hud">
+       <img id="crosshair" src="<%=require('./ui/crosshair.png')%>" />
+diff --git a/src/net/Network.js b/src/net/Network.js
+new file mode 100644
+index 0000000..a98e7f3
+--- /dev/null
++++ b/src/net/Network.js
+@@ -0,0 +1,333 @@
++import * as THREE from 'three'
++import Component from '../Component'
++import Entity from '../Entity'
++import {Ammo} from '../AmmoLib'
++import { SkeletonUtils } from 'three/examples/jsm/utils/SkeletonUtils'
++import RemotePlayer from '../entities/RemotePlayer/RemotePlayer'
++import CharacterCollision from '../entities/NPC/CharacterCollision'
++
++const SEND_INTERVAL = 0.05;
++// Camera sits 0.5 above the capsule centre, which is 0.95 above the feet.
++const EYE_HEIGHT = 1.45;
++const SPAWN_SEARCH_ORIGIN = new THREE.Vector3(10.8, 0.0, 22.0);
++
++export default class Network extends Component{
++    constructor({url, playerName, scene, physicsWorld, mutant, clips, shotBuffer, listener}){
++        super();
++        this.name = 'Network';
++        this.url = url;
++        this.playerName = playerName;
++        this.scene = scene;
++        this.physicsWorld = physicsWorld;
++        this.mutant = mutant;
++        this.clips = clips;
++        this.shotBuffer = shotBuffer;
++        this.listener = listener;
++
++        this.ws = null;
++        this.id = null;
++        this.remotes = new Map();
++        this.names = new Map();
++        this.scores = new Map();
++        this.sendTimer = 0;
++        this.retryDelay = 1000;
++        this.attempts = 0;
++        this.scoreboardDirty = true;
++    }
++
++    Initialize(){
++        this.entityManager = this.parent.parent;
++        this.controls = this.GetComponent('PlayerControls');
++        this.body = this.GetComponent('PlayerPhysics').body;
++        this.health = this.GetComponent('PlayerHealth');
++        this.uimanager = this.FindEntity('UIManager').GetComponent('UIManager');
++        this.navmesh = this.FindEntity('Level').GetComponent('Navmesh');
++
++        this.parent.RegisterEventHandler(this.OnLocalShot, 'ak47_shot');
++        this.CreateHud();
++        this.TeleportToRandomSpawn();
++        this.Connect();
++    }
++
++    // ---------- connection ----------
++
++    Connect(){
++        this.SetStatus(this.attempts === 0 ? 'Connecting to server…' : 'Waking up the server — free servers can take up to a minute…');
++        let ws;
++        try{
++            ws = new WebSocket(this.url);
++        }catch(e){
++            this.SetStatus('Bad server address in config.js');
++            return;
++        }
++        this.ws = ws;
++
++        ws.onopen = () => {
++            this.attempts = 0;
++            this.retryDelay = 1000;
++            this.Send({t: 'hello', name: this.playerName});
++        };
++
++        ws.onmessage = e => {
++            let msg;
++            try{
++                msg = JSON.parse(e.data);
++            }catch(err){
++                return;
++            }
++            this.Handle(msg);
++        };
++
++        ws.onclose = e => {
++            this.id = null;
++            this.ClearRemotes();
++            if(e.code === 4000){
++                this.SetStatus('Server is full — try again later');
++                return;
++            }
++            this.attempts++;
++            this.SetStatus(this.attempts < 3 ? 'Waking up the server — free servers can take up to a minute…' : 'Can\'t reach the server — retrying…');
++            setTimeout(() => this.Connect(), this.retryDelay);
++            this.retryDelay = Math.min(this.retryDelay * 2, 10000);
++        };
++    }
++
++    Send(msg){
++        if(this.ws && this.ws.readyState === WebSocket.OPEN){
++            this.ws.send(JSON.stringify(msg));
++        }
++    }
++
++    SendHit(targetId){
++        if(this.parent.dead){
++            return;
++        }
++        this.Send({t: 'hit', target: targetId});
++        this.FlashHitmarker();
++    }
++
++    OnLocalShot = () => {
++        this.Send({t: 'shot'});
++    }
++
++    Handle(msg){
++        switch(msg.t){
++            case 'welcome':
++                this.id = msg.id;
++                this.names.set(msg.id, this.playerName);
++                this.scores.set(msg.id, [0, 0]);
++                msg.players.forEach(p => this.AddRemote(p));
++                this.SetStatus('');
++                this.AddFeed('You joined the match');
++                break;
++            case 'join':
++                this.AddRemote(msg.player);
++                this.AddFeed(`${msg.player.name} joined`);
++                break;
++            case 'leave':
++                this.AddFeed(`${this.names.get(msg.id) || 'A player'} left`);
++                this.RemoveRemote(msg.id);
++                break;
++            case 'snap':
++                for(const [id, x, y, z, yaw, anim, dead, kills, deaths] of msg.s){
++                    const prev = this.scores.get(id);
++                    if(!prev || prev[0] !== kills || prev[1] !== deaths){
++                        this.scores.set(id, [kills, deaths]);
++                        this.scoreboardDirty = true;
++                    }
++                    const remote = this.remotes.get(id);
++                    remote && remote.controller.SetTarget(x, y, z, yaw, anim, dead === 1);
++                }
++                break;
++            case 'shot': {
++                const remote = this.remotes.get(msg.id);
++                remote && remote.controller.PlayShot();
++                break;
++            }
++            case 'hp':
++                this.health.health = msg.hp;
++                this.uimanager.SetHealth(msg.hp);
++                this.FlashDamage();
++                break;
++            case 'kill': {
++                const killer = msg.killer === this.id ? 'You' : (this.names.get(msg.killer) || '?');
++                const victim = msg.victim === this.id ? 'you' : (this.names.get(msg.victim) || '?');
++                this.AddFeed(`${killer} eliminated ${victim}`);
++                if(msg.victim === this.id){
++                    this.Die(this.names.get(msg.killer) || 'another player');
++                }
++                break;
++            }
++            case 'respawn':
++                this.Respawn(msg.hp);
++                break;
++        }
++    }
++
++    // ---------- remote players ----------
++
++    AddRemote(info){
++        if(info.id === this.id || this.remotes.has(info.id)){
++            return;
++        }
++        this.names.set(info.id, info.name);
++        this.scores.set(info.id, [info.kills, info.deaths]);
++        this.scoreboardDirty = true;
++
++        const entity = new Entity();
++        entity.SetName(`Remote${info.id}`);
++        entity.SetPosition(new THREE.Vector3(0, -100, 0));
++        const controller = new RemotePlayer({
++            id: info.id,
++            playerName: info.name,
++            model: SkeletonUtils.clone(this.mutant),
++            clips: this.clips,
++            scene: this.scene,
++            shotBuffer: this.shotBuffer,
++            listener: this.listener,
++            network: this,
++        });
++        const collision = new CharacterCollision(this.physicsWorld);
++        entity.AddComponent(controller);
++        entity.AddComponent(collision);
++        this.entityManager.Add(entity);
++        controller.Initialize();
++        collision.Initialize();
++
++        this.remotes.set(info.id, {entity, controller, collision});
++    }
++
++    RemoveRemote(id){
++        const remote = this.remotes.get(id);
++        if(remote){
++            remote.collision.Destroy();
++            remote.controller.Destroy();
++            this.entityManager.Remove(remote.entity);
++            this.remotes.delete(id);
++        }
++        this.names.delete(id);
++        this.scores.delete(id);
++        this.scoreboardDirty = true;
++    }
++
++    ClearRemotes(){
++        [...this.remotes.keys()].forEach(id => this.RemoveRemote(id));
++        this.scores.clear();
++        this.scoreboardDirty = true;
++    }
++
++    // ---------- local player ----------
++
++    TeleportToRandomSpawn(){
++        const node = this.navmesh.GetRandomNode(SPAWN_SEARCH_ORIGIN, 80) || SPAWN_SEARCH_ORIGIN;
++        const transform = new Ammo.btTransform();
++        transform.setIdentity();
++        transform.setOrigin(new Ammo.btVector3(node.x, node.y + 1.0, node.z));
++        this.body.setWorldTransform(transform);
++        this.body.getMotionState().setWorldTransform(transform);
++        this.body.setLinearVelocity(new Ammo.btVector3(0, 0, 0));
++        Ammo.destroy(transform);
++    }
++
++    Die(killerName){
++        this.parent.dead = true;
++        this.deathOverlay.textContent = `Eliminated by ${killerName} — respawning…`;
++        this.deathOverlay.style.display = 'flex';
++    }
++
++    Respawn(hp){
++        this.TeleportToRandomSpawn();
++        this.health.health = hp;
++        this.uimanager.SetHealth(hp);
++        this.parent.dead = false;
++        this.deathOverlay.style.display = 'none';
++    }
++
++    Update(t){
++        if(this.scoreboardDirty){
++            this.RenderScoreboard();
++            this.scoreboardDirty = false;
++        }
++
++        this.sendTimer += t;
++        if(this.id === null || this.sendTimer < SEND_INTERVAL){
++            return;
++        }
++        this.sendTimer = 0;
++
++        const pos = this.parent.Position;
++        const moving = this.controls.speed.length() > 0.5;
++        this.Send({
++            t: 'state',
++            p: [+pos.x.toFixed(2), +(pos.y - EYE_HEIGHT).toFixed(2), +pos.z.toFixed(2)],
++            y: +this.controls.angles.y.toFixed(3),
++            a: moving && !this.parent.dead ? 1 : 0,
++        });
++    }
++
++    // ---------- HUD ----------
++
++    CreateHud(){
++        const make = (css) => {
++            const el = document.createElement('div');
++            el.style.cssText = 'position:absolute;pointer-events:none;font-family:Roboto,Arial,sans-serif;' + css;
++            document.body.appendChild(el);
++            return el;
++        };
++        this.statusEl = make('top:12px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.55);padding:6px 14px;border-radius:6px;font-size:14px;display:none;');
++        this.scoreboardEl = make('top:12px;right:12px;background:rgba(0,0,0,0.45);padding:8px 12px;border-radius:6px;font-size:13px;min-width:150px;');
++        this.feedEl = make('top:12px;left:100px;font-size:13px;line-height:1.6;text-shadow:0 0 3px #000;');
++        this.deathOverlay = make('inset:0;display:none;align-items:center;justify-content:center;background:rgba(120,0,0,0.35);font-size:28px;font-weight:700;text-shadow:0 0 6px #000;');
++        this.damageEl = make('inset:0;box-shadow:inset 0 0 120px rgba(255,0,0,0.8);opacity:0;transition:opacity 0.4s;');
++        this.hitmarkerEl = make('top:50%;left:50%;transform:translate(-50%,-50%);font-size:34px;color:#ff4d4d;opacity:0;transition:opacity 0.15s;');
++        this.hitmarkerEl.textContent = '✕';
++    }
++
++    SetStatus(text){
++        this.statusEl.textContent = text;
++        this.statusEl.style.display = text ? 'block' : 'none';
++    }
++
++    AddFeed(text){
++        const line = document.createElement('div');
++        line.textContent = text;
++        this.feedEl.appendChild(line);
++        while(this.feedEl.childNodes.length > 5){
++            this.feedEl.removeChild(this.feedEl.firstChild);
++        }
++        setTimeout(() => line.remove(), 6000);
++    }
++
++    RenderScoreboard(){
++        const rows = [...this.scores.entries()]
++            .filter(([id]) => this.names.has(id))
++            .sort((a, b) => b[1][0] - a[1][0]);
++        this.scoreboardEl.textContent = '';
++        const title = document.createElement('div');
++        title.style.cssText = 'font-weight:700;margin-bottom:4px;';
++        title.textContent = `Online — ${rows.length} player${rows.length === 1 ? '' : 's'}`;
++        this.scoreboardEl.appendChild(title);
++        rows.forEach(([id, [kills, deaths]]) => {
++            const row = document.createElement('div');
++            row.style.cssText = 'display:flex;justify-content:space-between;gap:16px;' + (id === this.id ? 'color:#ffd54f;' : '');
++            const name = document.createElement('span');
++            name.textContent = this.names.get(id);
++            const kd = document.createElement('span');
++            kd.textContent = `${kills} / ${deaths}`;
++            row.append(name, kd);
++            this.scoreboardEl.appendChild(row);
++        });
++    }
++
++    FlashHitmarker(){
++        this.hitmarkerEl.style.opacity = 1;
++        clearTimeout(this.hitmarkerTimer);
++        this.hitmarkerTimer = setTimeout(() => { this.hitmarkerEl.style.opacity = 0; }, 120);
++    }
++
++    FlashDamage(){
++        this.damageEl.style.opacity = 1;
++        clearTimeout(this.damageTimer);
++        this.damageTimer = setTimeout(() => { this.damageEl.style.opacity = 0; }, 150);
++    }
++}
