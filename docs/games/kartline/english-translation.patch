@@ -1,0 +1,1685 @@
+diff --git a/index.html b/index.html
+index 27eebf3..3d473ba 100644
+--- a/index.html
++++ b/index.html
+@@ -1,5 +1,5 @@
+ <!doctype html>
+-<html lang="ja">
++<html lang="en">
+   <head>
+     <meta charset="UTF-8" />
+     <meta
+@@ -9,10 +9,10 @@
+     <meta name="theme-color" content="#f6f7f2" />
+     <meta
+       name="description"
+-      content="KARTLINE — 3つの世界を駆け抜ける3Dカートレース。ひとりでも、友だちとも。スマホ・PCのブラウザーで今すぐスタート。"
++      content="KARTLINE — a 3D kart racer across three worlds. Solo or with friends, right in your phone or PC browser."
+     />
+     <link rel="icon" type="image/svg+xml" href="./icon.svg" />
+-    <title>KARTLINE — 小さなカートで、大きな冒険へ。</title>
++    <title>KARTLINE — Small karts, big adventures.</title>
+   </head>
+   <body>
+     <div id="root"></div>
+diff --git a/src/App.tsx b/src/App.tsx
+index 148c22f..7ed7961 100644
+--- a/src/App.tsx
++++ b/src/App.tsx
+@@ -64,30 +64,30 @@ const MODES: {
+ }[] = [
+   {
+     id: 'race',
+-    label: 'クイックレース',
++    label: 'Quick Race',
+     en: 'QUICK RACE',
+-    description: '好きなコースで、8台の真剣勝負。',
++    description: 'Eight karts, any course, all-out racing.',
+     icon: Flag,
+   },
+   {
+     id: 'cup',
+-    label: 'グランプリ',
++    label: 'Grand Prix',
+     en: 'GRAND PRIX',
+-    description: '3つの世界を走り、カップをつかもう。',
++    description: 'Race all three worlds and take the cup.',
+     icon: Trophy,
+   },
+   {
+     id: 'time',
+-    label: 'タイムアタック',
++    label: 'Time Attack',
+     en: 'TIME ATTACK',
+-    description: '昨日の自分を、追い越していこう。',
++    description: 'Beat yesterday’s you.',
+     icon: Clock3,
+   },
+   {
+     id: 'online',
+-    label: 'フレンドレース',
++    label: 'Friend Race',
+     en: 'PLAY WITH FRIENDS',
+-    description: 'ルームをつくって、離れた友だちと。',
++    description: 'Make a room and race friends anywhere.',
+     icon: Users,
+   },
+ ];
+@@ -171,7 +171,7 @@ export function App() {
+       setCopied(label);
+       setTimeout(() => setCopied(''), 2200);
+     } catch {
+-      setCopied('コピーできません。リンクを選択してコピーしてください。');
++      setCopied('Couldn’t copy. Please select the link and copy it.');
+     }
+   };
+   const start = () => {
+@@ -198,7 +198,7 @@ export function App() {
+       if (document.fullscreenElement) await document.exitFullscreen();
+       else await document.documentElement.requestFullscreen();
+     } catch {
+-      setFullscreenError('このブラウザーでは全画面表示を利用できません。');
++      setFullscreenError('Fullscreen isn’t available in this browser.');
+       setTimeout(() => setFullscreenError(''), 4000);
+     }
+   };
+@@ -246,18 +246,18 @@ export function App() {
+       </div>
+       {!racing && !results && (
+         <header className="site-header">
+-          <button className="brand" onClick={home} aria-label="KARTLINE ホーム">
++          <button className="brand" onClick={home} aria-label="KARTLINE home">
+             <span className="brand-mark">
+               <Flag size={24} strokeWidth={2.6} />
+             </span>
+             KARTLINE<span className="brand-dot">✳</span>
+           </button>
+-          <nav aria-label="メインナビゲーション">
++          <nav aria-label="Main navigation">
+             <button className={!lobby ? 'nav-active' : ''} onClick={home}>
+-              プレイ
++              Play
+             </button>
+-            <button onClick={() => setDialog('help')}>遊び方</button>
+-            <button onClick={() => setDialog('records')}>レコード</button>
++            <button onClick={() => setDialog('help')}>How to play</button>
++            <button onClick={() => setDialog('records')}>Records</button>
+           </nav>
+           <div className="header-actions">
+             <span className="header-tag">
+@@ -266,7 +266,7 @@ export function App() {
+             </span>
+             <button
+               className="icon-button"
+-              aria-label="設定"
++              aria-label="Settings"
+               onClick={() => setDialog('settings')}
+             >
+               <Settings2 size={20} />
+@@ -276,7 +276,7 @@ export function App() {
+       )}
+       {renderError && (
+         <div role="alert" className="render-error">
+-          <strong>3Dレンダラー</strong>
++          <strong>3D renderer</strong>
+           <p>{renderError}</p>
+           <button
+             className="secondary"
+@@ -285,7 +285,7 @@ export function App() {
+               location.reload();
+             }}
+           >
+-            軽量設定で再読み込み
++            Reload in light mode
+           </button>
+         </div>
+       )}
+@@ -297,14 +297,14 @@ export function App() {
+                 <span className="tiny-flag">▧</span> THE EVERYDAY RACING CLUB
+               </div>
+               <h1 id="hero-title">
+-                小さなカートで、
++                Small karts,
+                 <br />
+-                <span>大きな冒険へ。</span>
++                <span>big adventures.</span>
+               </h1>
+               <p>
+-                アクセルひとつで、日常を飛び出そう。
++                One press of the gas and you’re off.
+                 <br />
+-                ひとりでも、友だちとも。ここが君のスタートライン。
++                Solo or with friends — this is your starting line.
+               </p>
+               <div className="hero-actions">
+                 <a
+@@ -312,7 +312,7 @@ export function App() {
+                   href="#race-setup"
+                   onClick={() => audio.unlock()}
+                 >
+-                  さっそく走る <ArrowUpRight size={20} />
++                  Race now <ArrowUpRight size={20} />
+                 </a>
+                 <button
+                   className="text-button"
+@@ -321,21 +321,21 @@ export function App() {
+                   <span className="play-circle">
+                     <Play size={12} fill="currentColor" />
+                   </span>
+-                  遊び方を見る
++                  How to play
+                 </button>
+               </div>
+               <div className="hero-features">
+                 <span>
+                   <Globe2 size={15} />
+-                  ブラウザーで遊べる
++                  Plays in your browser
+                 </span>
+                 <span>
+                   <Gamepad2 size={16} />
+-                  スマホ・PC対応
++                  Phone & PC
+                 </span>
+                 <span>
+                   <Users size={15} />
+-                  最大8人
++                  Up to 8 players
+                 </span>
+               </div>
+             </div>
+@@ -360,7 +360,7 @@ export function App() {
+             <div className="section-heading">
+               <div>
+                 <span className="eyebrow">01 — PICK YOUR PLAY</span>
+-                <h2 id="play-heading">今日は、どう走る？</h2>
++                <h2 id="play-heading">How do you want to race today?</h2>
+               </div>
+               <span className="section-aside">YOUR NEXT LITTLE ADVENTURE</span>
+             </div>
+@@ -390,7 +390,7 @@ export function App() {
+             <div className="local-mode">
+               <span>
+                 <Monitor size={16} />
+-                同じ画面で、となりのライバルと。
++                Same screen, rival right beside you.
+               </span>
+               <button
+                 className={mode === 'local' ? 'local-selected' : ''}
+@@ -398,7 +398,7 @@ export function App() {
+                 aria-pressed={mode === 'local'}
+               >
+                 {mode === 'local' ? <Check size={15} /> : <Plus size={15} />}
+-                画面分割で2人プレイ
++                2-player split screen
+                 <ChevronRight size={15} />
+               </button>
+             </div>
+@@ -411,7 +411,7 @@ export function App() {
+               <div className="section-heading">
+                 <div>
+                   <span className="eyebrow">02 — CHOOSE YOUR WORLD</span>
+-                  <h2 id="course-heading">どこへ行こう。</h2>
++                  <h2 id="course-heading">Where to?</h2>
+                 </div>
+                 <span className="small-badge">3 COURSES</span>
+               </div>
+@@ -455,13 +455,13 @@ export function App() {
+               {mode === 'cup' && (
+                 <p className="inline-note">
+                   <Trophy size={15} />
+-                  グランプリは全3コースを順番に走ります。
++                  The Grand Prix runs all three courses in order.
+                 </p>
+               )}
+               {mode === 'time' && (
+                 <p className="inline-note">
+                   <Clock3 size={15} />
+-                  3周のタイムを計測。ベスト記録のゴーストと勝負できます。
++                  Three timed laps. Race the ghost of your best run.
+                 </p>
+               )}
+             </section>
+@@ -469,7 +469,7 @@ export function App() {
+               <div className="garage-heading">
+                 <div>
+                   <span className="eyebrow">03 — MEET YOUR RIDE</span>
+-                  <h2 id="garage-heading">君の相棒。</h2>
++                  <h2 id="garage-heading">Your ride.</h2>
+                 </div>
+                 <span className="garage-number">
+                   0{settings.kart + 1}
+@@ -492,7 +492,7 @@ export function App() {
+                 <strong>{selectedKart.label}</strong>
+                 <span>{selectedKart.tagline}</span>
+               </div>
+-              <div className="kart-picker" aria-label="カートを選択">
++              <div className="kart-picker" aria-label="Choose a kart">
+                 {KARTS.map((k, i) => (
+                   <button
+                     key={k.name}
+@@ -522,7 +522,7 @@ export function App() {
+                 ))}
+               </div>
+               <label className="name-field">
+-                ドライバー名
++                Driver name
+                 <input
+                   value={settings.name}
+                   maxLength={16}
+@@ -535,25 +535,25 @@ export function App() {
+               </label>
+             </section>
+           </div>
+-          <section className="start-bar" aria-label="レース設定">
++          <section className="start-bar" aria-label="Race settings">
+             <div className="start-options">
+               <label>
+-                CPUの強さ
++                CPU difficulty
+                 <select
+-                  aria-label="CPUの強さ"
++                  aria-label="CPU difficulty"
+                   value={difficulty}
+                   onChange={(e) => setDifficulty(Number(e.target.value))}
+                   disabled={mode === 'time'}
+                 >
+-                  <option value={0}>やさしい · 50 cc</option>
+-                  <option value={1}>ふつう · 100 cc</option>
+-                  <option value={2}>むずかしい · 150 cc</option>
++                  <option value={0}>Easy · 50 cc</option>
++                  <option value={1}>Normal · 100 cc</option>
++                  <option value={2}>Hard · 150 cc</option>
+                 </select>
+               </label>
+               <label>
+-                周回数
++                Laps
+                 <select
+-                  aria-label="周回数"
++                  aria-label="Laps"
+                   value={mode === 'time' ? 3 : laps}
+                   onChange={(e) => setLaps(Number(e.target.value))}
+                   disabled={mode === 'time'}
+@@ -566,10 +566,10 @@ export function App() {
+               <span className="start-mode-note">
+                 <ShieldCheck size={18} />
+                 {settings.assist
+-                  ? 'ステアリングアシスト ON'
+-                  : 'ステアリングアシスト OFF'}
++                  ? 'Steering assist ON'
++                  : 'Steering assist OFF'}
+                 <small>
+-                  {settings.autoAccelerate ? '自動アクセル ON' : '手動アクセル'}
++                  {settings.autoAccelerate ? 'Auto accelerate ON' : 'Manual accelerate'}
+                 </small>
+               </span>
+             </div>
+@@ -579,10 +579,10 @@ export function App() {
+               disabled={!!renderError}
+             >
+               {mode === 'online'
+-                ? '友だちと走る'
++                ? 'Race with friends'
+                 : mode === 'local'
+-                  ? '2人でレースをはじめる'
+-                  : 'レースをはじめる'}
++                  ? 'Start 2-player race'
++                  : 'Start race'}
+               <ArrowRight size={21} />
+             </button>
+           </section>
+@@ -592,22 +592,22 @@ export function App() {
+                 <kbd>←</kbd>
+                 <kbd>→</kbd>
+               </span>
+-              <span>ハンドル</span>
++              <span>Steer</span>
+             </div>
+             <div>
+               <kbd>SHIFT</kbd>
+-              <span>ドリフト</span>
++              <span>Drift</span>
+             </div>
+             <div>
+               <kbd>SPACE</kbd>
+-              <span>アイテム</span>
++              <span>Item</span>
+             </div>
+             <div className="touch-hint">
+               <Gamepad2 size={17} />
+-              <span>スマホは画面のボタンで操作</span>
++              <span>On phones, use the on-screen buttons</span>
+             </div>
+             <button className="text-button" onClick={() => setDialog('help')}>
+-              すべての操作
++              All controls
+               <ArrowUpRight size={15} />
+             </button>
+           </section>
+@@ -631,31 +631,31 @@ export function App() {
+               <Wifi size={15} /> FRIENDS ON THE GRID
+             </span>
+             <h1>
+-              集合したら、
++              Everyone here?
+               <br />
+-              スタート。
++              Go.
+             </h1>
+             <p>
+-              ルーム番号やリンクを友だちに送って、
++              Send the room code or link to your friends
+               <br />
+-              同じコースで競い合おう。
++              and race on the same course.
+             </p>
+             <button className="text-button" onClick={home}>
+               <ArrowLeft size={16} />
+-              ルームを退出
++              Leave room
+             </button>
+           </div>
+-          <section className="lobby-panel" aria-label="オンラインルーム">
++          <section className="lobby-panel" aria-label="Online room">
+             <div className="lobby-title">
+-              <h2>フレンドルーム</h2>
++              <h2>Friend room</h2>
+               <span
+                 className={`connection-badge ${room?.status === 'error' ? 'is-error' : ''}`}
+               >
+                 <span />
+                 {room?.status === 'connecting'
+-                  ? '接続中'
++                  ? 'Connecting'
+                   : room?.status === 'error'
+-                    ? '接続エラー'
++                    ? 'Connection error'
+                     : 'ONLINE'}
+               </span>
+             </div>
+@@ -668,8 +668,8 @@ export function App() {
+                   </div>
+                   <button
+                     className="icon-button"
+-                    aria-label="ルーム番号をコピー"
+-                    onClick={() => copy(room.code, '番号をコピーしました')}
++                    aria-label="Copy room code"
++                    onClick={() => copy(room.code, 'Code copied')}
+                   >
+                     <Copy size={19} />
+                   </button>
+@@ -678,19 +678,19 @@ export function App() {
+                   <button
+                     className="secondary"
+                     onClick={() =>
+-                      copy(roomLink(room.code), '招待リンクをコピーしました')
++                      copy(roomLink(room.code), 'Invite link copied')
+                     }
+                   >
+                     <Link size={16} />
+-                    招待リンクをコピー
++                    Copy invite link
+                   </button>
+                   <input
+-                    aria-label="招待リンク"
++                    aria-label="Invite link"
+                     readOnly
+                     value={roomLink(room.code)}
+                     onFocus={(event) => event.currentTarget.select()}
+                   />
+-                  <span>{copied || '2〜8人 / 空いた席にはCPUが参加'}</span>
++                  <span>{copied || '2–8 players / CPUs fill empty seats'}</span>
+                 </div>
+                 <div className="lobby-members">
+                   {room.members.map((m, i) => (
+@@ -704,7 +704,7 @@ export function App() {
+                       <div>
+                         <strong>
+                           {m.name}
+-                          {m.id === runtime.network?.id && '（あなた）'}
++                          {m.id === runtime.network?.id && ' (you)'}
+                         </strong>
+                         <small>{i === 0 ? 'HOST' : `PLAYER 0${i + 1}`}</small>
+                       </div>
+@@ -712,14 +712,14 @@ export function App() {
+                         className={`member-status ${m.ready ? 'ready' : ''}`}
+                       >
+                         {!m.connected ? (
+-                          '再接続待ち'
++                          'Reconnecting'
+                         ) : m.ready ? (
+                           <>
+                             <Check size={14} />
+-                            準備OK
++                            Ready
+                           </>
+                         ) : (
+-                          '準備中'
++                          'Not ready'
+                         )}
+                       </span>
+                     </div>
+@@ -732,7 +732,7 @@ export function App() {
+                           <Plus size={20} />
+                         </span>
+                         <div>
+-                          <strong>友だちを待っています</strong>
++                          <strong>Waiting for friends</strong>
+                           <small>SHARE YOUR ROOM CODE</small>
+                         </div>
+                       </div>
+@@ -741,7 +741,7 @@ export function App() {
+                 </div>
+                 <div className="lobby-config">
+                   <label>
+-                    コース
++                    Course
+                     <select
+                       value={room.config.track}
+                       disabled={!room.host || room.status !== 'lobby'}
+@@ -760,9 +760,9 @@ export function App() {
+                     </select>
+                   </label>
+                   <label>
+-                    周回数
++                    Laps
+                     <select
+-                      aria-label="周回数"
++                      aria-label="Laps"
+                       value={room.config.laps}
+                       disabled={!room.host || room.status !== 'lobby'}
+                       onChange={(e) =>
+@@ -772,9 +772,9 @@ export function App() {
+                         })
+                       }
+                     >
+-                      <option value={1}>1周</option>
+-                      <option value={3}>3周</option>
+-                      <option value={5}>5周</option>
++                      <option value={1}>1 lap</option>
++                      <option value={3}>3 laps</option>
++                      <option value={5}>5 laps</option>
+                     </select>
+                   </label>
+                 </div>
+@@ -783,18 +783,18 @@ export function App() {
+                     {qr && (
+                       <img
+                         src={qr}
+-                        alt="ルーム招待用QRコード"
++                        alt="Room invite QR code"
+                         width="86"
+                         height="86"
+                       />
+                     )}
+                     <span>
+-                      スマホで読み取って参加
++                      Scan with a phone to join
+                       <br />
+                       <small>
+                         {room.host
+-                          ? 'ホストがコースを選びます'
+-                          : 'ホストの設定が適用されます'}
++                          ? 'The host chooses the course'
++                          : 'The host’s settings apply'}
+                       </small>
+                     </span>
+                   </div>
+@@ -809,7 +809,7 @@ export function App() {
+                         setDialog('online');
+                       }}
+                     >
+-                      接続をやり直す
++                      Retry connection
+                       <RotateCcw size={18} />
+                     </button>
+                   ) : room.host ? (
+@@ -822,7 +822,7 @@ export function App() {
+                       }
+                       onClick={() => runtime.network?.start()}
+                     >
+-                      みんなでスタート
++                      Start for everyone
+                       <ArrowRight size={18} />
+                     </button>
+                   ) : (
+@@ -831,7 +831,7 @@ export function App() {
+                       disabled={room.status !== 'lobby'}
+                       onClick={() => runtime.network?.ready(!self?.ready)}
+                     >
+-                      {self?.ready ? '準備を取り消す' : '準備OK'}
++                      {self?.ready ? 'Cancel ready' : 'Ready'}
+                       <Check size={19} />
+                     </button>
+                   )}
+@@ -844,7 +844,7 @@ export function App() {
+       {racing && race && player && (
+         <main
+           className={`race-ui ${race.config.mode === 'local' ? 'split-ui' : ''}`}
+-          aria-label="レース画面"
++          aria-label="Race screen"
+         >
+           <div className="race-top">
+             <div className="position-badge">
+@@ -880,14 +880,14 @@ export function App() {
+               <button
+                 className="race-icon"
+                 onClick={requestFullscreen}
+-                aria-label="全画面表示"
++                aria-label="Fullscreen"
+               >
+                 <Maximize size={18} />
+               </button>
+               <button
+                 className="race-icon"
+                 onClick={() => runtime.togglePause()}
+-                aria-label="一時停止"
++                aria-label="Pause"
+               >
+                 <Pause size={20} />
+               </button>
+@@ -895,7 +895,7 @@ export function App() {
+                 <button
+                   className="race-icon"
+                   onClick={() => setDialog('settings')}
+-                  aria-label="設定"
++                  aria-label="Settings"
+                 >
+                   <Settings2 size={18} />
+                 </button>
+@@ -926,20 +926,20 @@ export function App() {
+               <div>
+                 <strong data-testid="held-item">
+                   {player.roulette > 0
+-                    ? 'アイテム抽選中'
++                    ? 'Rolling item'
+                     : item
+                       ? `${item.name}${player.itemCharges > 1 ? ` ×${player.itemCharges}` : ''}`
+-                      : 'アイテム'}
++                      : 'Item'}
+                 </strong>
+                 <small>
+                   {player.defending
+-                    ? 'ガード中 · 離すと発射'
++                    ? 'Guarding · release to fire'
+                     : item
+                       ? player.item &&
+                         ['mine', 'green', 'rocket'].includes(player.item)
+-                        ? 'SPACE / E · 長押しでガード'
+-                        : 'SPACE / E で使う'
+-                      : 'ボックスを通過してゲット'}
++                        ? 'SPACE / E · hold to guard'
++                        : 'SPACE / E to use'
++                      : 'Drive through a box to get one'}
+                 </small>
+               </div>
+             </div>
+@@ -974,9 +974,12 @@ export function App() {
+             <>
+               <div className="split-divider" />
+               <div className="player-label p1">P1 · WASD / Q / E</div>
+-              <div className="player-label p2">P2 · 矢印 / 右SHIFT / ENTER</div>
++              <div className="player-label p2">P2 · ARROWS / R-SHIFT / ENTER</div>
+               <div className="second-rank">
+-                {race.racers.find((r) => r.id === view.localIds[1])?.rank}位{' '}
++                {(() => {
++                  const rank = race.racers.find((r) => r.id === view.localIds[1])?.rank ?? 0;
++                  return `${rank}${['st', 'nd', 'rd'][rank - 1] || 'th'}`;
++                })()}{' '}
+                 <small>
+                   LAP {race.racers.find((r) => r.id === view.localIds[1])?.lap}/
+                   {race.config.laps}
+@@ -999,11 +1002,11 @@ export function App() {
+           </div>
+           <div className="race-bottom">
+             <span>
+-              {settings.autoAccelerate ? 'AUTO ACCEL' : '↑ / W  アクセル'}
++              {settings.autoAccelerate ? 'AUTO ACCEL' : '↑ / W  GAS'}
+             </span>
+-            <span>← → ハンドル</span>
+-            <span>SHIFT ドリフト</span>
+-            <span>SPACE アイテム</span>
++            <span>← → STEER</span>
++            <span>SHIFT DRIFT</span>
++            <span>SPACE ITEM</span>
+           </div>
+           {player.driftCharge > 0.15 && (
+             <div
+@@ -1055,8 +1058,8 @@ export function App() {
+               </strong>
+               <small>
+                 {settings.autoAccelerate
+-                  ? 'スタートと同時に自動で加速します'
+-                  : '↑ / W またはアクセルボタンで加速'}
++                  ? 'You’ll accelerate automatically at the start'
++                  : 'Accelerate with ↑ / W or the gas button'}
+               </small>
+             </div>
+           )}
+@@ -1070,8 +1073,8 @@ export function App() {
+               <Flag size={25} />
+               <strong>FINISH!</strong>
+               <span>
+-                ほかのプレイヤーを待っています ·{' '}
+-                {Math.ceil(Math.max(0, 30 - race.endTimer))}秒
++                Waiting for other players ·{' '}
++                {Math.ceil(Math.max(0, 30 - race.endTimer))}s
+               </span>
+             </div>
+           )}
+@@ -1093,17 +1096,17 @@ export function App() {
+                 <span className="eyebrow">TAKE A BREATHER</span>
+                 <h1>
+                   {room?.status === 'error'
+-                    ? '接続が切れました'
++                    ? 'Disconnected'
+                     : room && !room.host
+-                      ? 'ホストを待っています'
+-                      : 'ひとやすみ。'}
++                      ? 'Waiting for the host'
++                      : 'Paused.'}
+                 </h1>
+                 <p>
+                   {room?.status === 'error'
+                     ? room.message
+                     : room && !room.host
+-                      ? 'ホストがレースを再開するまでお待ちください。'
+-                      : '準備ができたら、またコースへ。'}
++                      ? 'Please wait for the host to resume the race.'
++                      : 'Back to the track when you’re ready.'}
+                 </p>
+                 {(!room || room.host) && room?.status !== 'error' && (
+                   <button
+@@ -1111,7 +1114,7 @@ export function App() {
+                     onClick={() => runtime.togglePause()}
+                   >
+                     <Play size={18} />
+-                    レースに戻る
++                    Resume race
+                   </button>
+                 )}
+                 <button
+@@ -1119,10 +1122,10 @@ export function App() {
+                   onClick={() => setDialog('settings')}
+                 >
+                   <Settings2 size={17} />
+-                  設定を変える
++                  Settings
+                 </button>
+                 <button className="text-button" onClick={home}>
+-                  レースを終了してホームへ
++                  Quit to home
+                 </button>
+               </section>
+             </div>
+@@ -1145,16 +1148,16 @@ export function App() {
+               </div>
+               <h1>
+                 {view.newRecord
+-                  ? '自己ベスト更新！'
++                  ? 'New personal best!'
+                   : cupFinal
+-                    ? 'カップの行方は。'
++                    ? 'And the cup goes to…'
+                     : player.rank === 1
+-                      ? 'いちばんの景色。'
+-                      : 'ナイスラン。次は、もっと。'}
++                      ? 'The view from the top.'
++                      : 'Nice run. Next time, even better.'}
+               </h1>
+               <p>
+                 {cupFinal
+-                  ? '3レースの総合結果'
++                  ? 'Overall results from 3 races'
+                   : TRACKS[race.config.track].name}
+                 {race.config.mode === 'cup' &&
+                   !cupFinal &&
+@@ -1163,7 +1166,7 @@ export function App() {
+             </div>
+             <div className="result-summary">
+               <div>
+-                <span>{cupFinal ? '総合順位' : 'あなたの順位'}</span>
++                <span>{cupFinal ? 'Overall place' : 'Your place'}</span>
+                 <strong>
+                   {cupFinal
+                     ? resultRacers.findIndex((r) => r.id === player.id) + 1
+@@ -1172,13 +1175,13 @@ export function App() {
+                 </strong>
+               </div>
+               <div>
+-                <span>レースタイム</span>
++                <span>Race time</span>
+                 <strong className="time-result">
+                   {player.finishTime ? formatTime(player.finishTime) : 'DNF'}
+                 </strong>
+               </div>
+               <div>
+-                <span>{cupFinal ? '獲得ポイント' : 'ベストラップ'}</span>
++                <span>{cupFinal ? 'Points' : 'Best lap'}</span>
+                 <strong className="time-result">
+                   {cupFinal
+                     ? `${view.points[player.id]} pts`
+@@ -1218,7 +1221,7 @@ export function App() {
+                       ? `${view.points[r.id]} pts`
+                       : r.finishTime
+                         ? formatTime(r.finishTime)
+-                        : '未完走'}
++                        : 'DNF'}
+                   </span>
+                 </li>
+               ))}
+@@ -1236,21 +1239,21 @@ export function App() {
+             <div className="result-actions">
+               <button className="secondary" onClick={home}>
+                 <ArrowLeft size={17} />
+-                ホームへ
++                Home
+               </button>
+               {(!room || room.host) && (
+                 <button className="primary" onClick={() => runtime.next()}>
+                   {room
+-                    ? 'ルームに戻る'
++                    ? 'Back to room'
+                     : race.config.mode === 'cup' && !cupFinal
+-                      ? '次のコースへ'
+-                      : 'もう一度走る'}
++                      ? 'Next course'
++                      : 'Race again'}
+                   <ArrowRight size={19} />
+                 </button>
+               )}
+               {room && !room.host && (
+                 <span className="inline-note">
+-                  ホストが次のレースを準備しています
++                  The host is setting up the next race
+                 </span>
+               )}
+             </div>
+@@ -1262,7 +1265,7 @@ export function App() {
+           <span>{view.notice}</span>
+           <button
+             className="icon-button"
+-            aria-label="通知を閉じる"
++            aria-label="Dismiss notice"
+             onClick={() => runtime.clearNotice()}
+           >
+             <X size={16} />
+@@ -1270,12 +1273,12 @@ export function App() {
+         </div>
+       )}
+       {dialog === 'settings' && (
+-        <Modal title="ドライブを、自分好みに。" onClose={closeDialog}>
++        <Modal title="Make it yours." onClose={closeDialog}>
+           <div className="settings-grid">
+             <label className="toggle-row">
+               <span>
+                 <Volume2 size={18} />
+-                サウンド<small>エンジン音と効果音</small>
++                Sound<small>Engine and effects</small>
+               </span>
+               <input
+                 type="checkbox"
+@@ -1287,7 +1290,7 @@ export function App() {
+               />
+             </label>
+             <label className="range-row">
+-              音量
++              Volume
+               <input
+                 type="range"
+                 min="0"
+@@ -1301,7 +1304,7 @@ export function App() {
+             <label className="toggle-row">
+               <span>
+                 <Zap size={18} />
+-                自動アクセル<small>ハンドルとドリフトに集中</small>
++                Auto accelerate<small>Focus on steering and drifting</small>
+               </span>
+               <input
+                 type="checkbox"
+@@ -1312,8 +1315,8 @@ export function App() {
+             <label className="toggle-row">
+               <span>
+                 <ShieldCheck size={18} />
+-                ステアリングアシスト
+-                <small>コースへの復帰とカーブを補助 · 次のレースから適用</small>
++                Steering assist
++                <small>Helps with corners and getting back on track · applies next race</small>
+               </span>
+               <input
+                 type="checkbox"
+@@ -1323,7 +1326,7 @@ export function App() {
+             </label>
+             <label className="toggle-row">
+               <span>
+-                バイブレーション<small>対応端末で衝突をお知らせ</small>
++                Vibration<small>Feel collisions on supported devices</small>
+               </span>
+               <input
+                 type="checkbox"
+@@ -1332,21 +1335,21 @@ export function App() {
+               />
+             </label>
+             <label className="select-row">
+-              グラフィック
++              Graphics
+               <select
+                 value={settings.quality}
+                 onChange={(e) =>
+                   update({ quality: e.target.value as Settings['quality'] })
+                 }
+               >
+-                <option value="auto">自動</option>
+-                <option value="high">高画質</option>
+-                <option value="low">軽量 · バッテリー優先</option>
++                <option value="auto">Auto</option>
++                <option value="high">High</option>
++                <option value="low">Light · saves battery</option>
+               </select>
+             </label>
+           </div>
+           <p className="modal-note">
+-            設定と自己ベストは、このブラウザーに保存されます。
++            Settings and personal bests are saved in this browser.
+           </p>
+           {room && !room.host && racing && (
+             <button
+@@ -1356,59 +1359,59 @@ export function App() {
+                 home();
+               }}
+             >
+-              レースを退出してホームへ
++              Leave race and go home
+             </button>
+           )}
+         </Modal>
+       )}
+       {dialog === 'help' && (
+-        <Modal title="最初のコーナーへ。" onClose={closeDialog} wide>
++        <Modal title="Into the first corner." onClose={closeDialog} wide>
+           <p className="help-intro">
+-            ゴールまでの速さを競う、8台のカートレース。
++            Eight karts racing to the finish line.
+             <br />
+-            まずは自動アクセルとアシストをONにして走ってみよう。
++            Start with auto accelerate and steering assist ON.
+           </p>
+           <div className="help-cards">
+             <article>
+               <span>01</span>
+-              <h3>曲がって、ためて、加速。</h3>
++              <h3>Turn, charge, boost.</h3>
+               <p>
+-                ハンドルを切りながらドリフトを長押し。ゲージがたまったら離してミニターボ。長くためるほど加速が続きます。
++                Hold drift while steering. When the meter charges, release for a mini-turbo — the longer you charge, the longer the boost.
+               </p>
+             </article>
+             <article>
+               <span>02</span>
+-              <h3>アイテムで、逆転しよう。</h3>
++              <h3>Turn it around with items.</h3>
+               <p>
+-                緑の「?」ボックスを通るとアイテムを獲得。コインを集めると最高速度が上がり、黄色いパネルで加速できます。
++                Drive through green "?" boxes to get items. Coins raise your top speed, and yellow pads give a boost.
+               </p>
+             </article>
+             <article>
+               <span>03</span>
+-              <h3>友だちが、ライバルに。</h3>
++              <h3>Friends become rivals.</h3>
+               <p>
+-                フレンドレースからルームを作成。番号・リンク・QRで招待し、全員が準備OKになったらホストがスタート。
++                Create a room from Friend Race, invite people by code, link or QR, and the host starts once everyone is ready.
+               </p>
+             </article>
+           </div>
+           <div className="controls-table">
+             <table>
+-              <caption>キーボード操作</caption>
++              <caption>Keyboard controls</caption>
+               <thead>
+                 <tr>
+-                  <th>操作</th>
+-                  <th>ひとり / オンライン</th>
+-                  <th>画面分割 P1</th>
+-                  <th>画面分割 P2</th>
++                  <th>Action</th>
++                  <th>Solo / online</th>
++                  <th>Split screen P1</th>
++                  <th>Split screen P2</th>
+                 </tr>
+               </thead>
+               <tbody>
+                 {[
+-                  ['ハンドル', '← → / A D', 'A D', '← →'],
+-                  ['アクセル / ブレーキ', '↑ ↓ / W S', 'W S', '↑ ↓'],
+-                  ['ドリフト', 'SHIFT / Q', '左SHIFT / Q', '右SHIFT'],
+-                  ['アイテム', 'SPACE / E', 'SPACE / E', 'ENTER / /'],
+-                  ['一時停止', 'ESC / P', 'ESC / P', 'ESC / P'],
++                  ['Steer', '← → / A D', 'A D', '← →'],
++                  ['Accelerate / brake', '↑ ↓ / W S', 'W S', '↑ ↓'],
++                  ['Drift', 'SHIFT / Q', 'Left SHIFT / Q', 'Right SHIFT'],
++                  ['Item', 'SPACE / E', 'SPACE / E', 'ENTER / /'],
++                  ['Pause', 'ESC / P', 'ESC / P', 'ESC / P'],
+                 ].map((row) => (
+                   <tr key={row[0]}>
+                     {row.map((cell, i) =>
+@@ -1424,13 +1427,13 @@ export function App() {
+             </table>
+           </div>
+           <p className="modal-note">
+-            スマホは左右のボタンとDRIFT・ITEMを同時にタッチ。横向きで広く遊べます。ゲームパッドは左スティックでハンドル、Aでドリフト、Bでアイテム、RTでアクセル、LTでブレーキ。
++            On phones, press the left/right buttons together with DRIFT and ITEM; landscape gives more room. On a gamepad: left stick steers, A drifts, B uses items, RT accelerates, LT brakes.
+           </p>
+           <p className="modal-note">
+-            曲がりながらDRIFTを押すとホップしてドリフト開始。反対方向のハンドルで曲がり幅を調整し、青→オレンジ→紫の火花を溜めて離すと3段階のミニターボ。ジャンプ台で飛び出す瞬間か空中でDRIFTを押すとトリック、着地で加速します。
++            Press DRIFT while turning to hop into a drift. Countersteer to widen the line; charge blue → orange → purple sparks and release for a three-level mini-turbo. Press DRIFT at a ramp takeoff or in the air to do a trick and boost on landing.
+           </p>
+           <p className="modal-note">
+-            アイテムは順位に応じて抽選。こうら・バナナはITEMを長押しすると後方を守り、離すと発射。ブレーキを押しながら使うと後ろに投げられます。スター・ロケットは攻撃を防ぎ、スーパーホーンはトゲこうらも破壊します。
++            Items depend on your position. Hold ITEM with a shell or banana to guard your back, release to throw; hold brake to throw backwards. Stars and rockets block attacks, and the Super Horn even destroys Spiny Shells.
+           </p>
+           <div className="item-guide">
+             {Object.entries(ITEMS).map(([key, value]) => (
+@@ -1446,12 +1449,12 @@ export function App() {
+             ))}
+           </div>
+           <p className="modal-note">
+-            タイムアタックはアイテム・コインなしの3周勝負。グランプリは順位に応じて15・12・10・8・6・4・2・1ポイントを獲得します。オンラインではホストが一時停止でき、切断された参加者はCPUが代走します。
++            Time Attack is three laps with no items or coins. In the Grand Prix, places earn 15, 12, 10, 8, 6, 4, 2 and 1 points. Online, the host can pause, and a CPU drives for anyone who disconnects.
+           </p>
+         </Modal>
+       )}
+       {dialog === 'records' && (
+-        <Modal title="君が残した、スタートライン。" onClose={closeDialog}>
++        <Modal title="Your best runs." onClose={closeDialog}>
+           <span className="eyebrow">TIME ATTACK RECORDS · 3 LAPS</span>
+           <div className="records-list">
+             {TRACKS.map((t) => {
+@@ -1464,18 +1467,18 @@ export function App() {
+                     <strong>
+                       {record
+                         ? formatTime(record.time)
+-                        : 'まだ記録がありません'}
++                        : 'No record yet'}
+                     </strong>
+                     <small>
+                       {record
+-                        ? new Date(record.date).toLocaleDateString('ja-JP')
+-                        : 'タイムアタックで記録を残そう'}
++                        ? new Date(record.date).toLocaleDateString()
++                        : 'Set one in Time Attack'}
+                     </small>
+                   </div>
+                   {view.screen === 'home' && (
+                     <button
+                       className="icon-button"
+-                      aria-label={`${t.name}に挑戦`}
++                      aria-label={`${t.name} — challenge`}
+                       onClick={() => {
+                         closeDialog();
+                         runtime.start('time', t.id, difficulty, 3);
+@@ -1489,17 +1492,17 @@ export function App() {
+             })}
+           </div>
+           <p className="modal-note">
+-            自己ベストを更新するとゴーストを保存。次の挑戦で、前回の走りと競えます。
++            Beat your best to save a ghost, then race it next time.
+           </p>
+         </Modal>
+       )}
+       {dialog === 'online' && (
+-        <Modal title="友だちを、スタートラインへ。" onClose={closeDialog}>
++        <Modal title="Bring your friends to the line." onClose={closeDialog}>
+           <p className="modal-note">
+-            最大8人でオンライン対戦。空いた席にはCPUが参加します。
++            Race online with up to 8 people. CPUs fill empty seats.
+           </p>
+           <label className="field-label">
+-            ドライバー名
++            Driver name
+             <input
+               value={settings.name}
+               maxLength={16}
+@@ -1509,9 +1512,9 @@ export function App() {
+           </label>
+           <button className="primary full-width" onClick={() => connect(true)}>
+             <Plus size={19} />
+-            ルームをつくる
++            Create room
+           </button>
+-          <div className="or-divider">または番号で参加</div>
++          <div className="or-divider">or join with a code</div>
+           <form
+             className="join-form"
+             onSubmit={(e) => {
+@@ -1520,7 +1523,7 @@ export function App() {
+             }}
+           >
+             <label className="sr-only" htmlFor="room-code-input">
+-              ルーム番号
++              Room code
+             </label>
+             <input
+               id="room-code-input"
+@@ -1536,7 +1539,7 @@ export function App() {
+               type="submit"
+               disabled={code.length !== 6}
+             >
+-              参加する
++              Join
+               <ArrowRight size={18} />
+             </button>
+           </form>
+@@ -1546,16 +1549,16 @@ export function App() {
+               onClick={() => connect(false, true)}
+             >
+               <RotateCcw size={15} />
+-              前のルームに再接続
++              Reconnect to previous room
+             </button>
+           )}
+           <details className="network-settings">
+             <summary>
+-              接続設定
++              Connection settings
+               <Settings2 size={15} />
+             </summary>
+             <p>
+-              通常は設定不要です。接続できないネットワークでは、利用できるTURNサーバーを指定してください。
++              Usually not needed. On networks where connecting fails, enter a TURN server you can use.
+             </p>
+             <label className="field-label">
+               TURN URL
+@@ -1569,7 +1572,7 @@ export function App() {
+             </label>
+             <div className="field-pair">
+               <label className="field-label">
+-                ユーザー名
++                Username
+                 <input
+                   autoComplete="off"
+                   value={connection.turnUser}
+@@ -1579,7 +1582,7 @@ export function App() {
+                 />
+               </label>
+               <label className="field-label">
+-                パスワード
++                Password
+                 <input
+                   type="password"
+                   autoComplete="off"
+@@ -1594,7 +1597,7 @@ export function App() {
+               </label>
+             </div>
+             <label className="field-label">
+-              PeerServerホスト（任意）
++              PeerServer host (optional)
+               <input
+                 placeholder="peer.example.com"
+                 value={connection.server}
+@@ -1605,7 +1608,7 @@ export function App() {
+             </label>
+             <div className="field-pair">
+               <label className="field-label">
+-                ポート
++                Port
+                 <input
+                   inputMode="numeric"
+                   value={connection.port}
+@@ -1615,7 +1618,7 @@ export function App() {
+                 />
+               </label>
+               <label className="field-label">
+-                パス
++                Path
+                 <input
+                   value={connection.path}
+                   onChange={(e) =>
+@@ -1632,9 +1635,9 @@ export function App() {
+                   setConnection((c) => ({ ...c, secure: e.target.checked }))
+                 }
+               />
+-              TLSを使用
++              Use TLS
+             </label>
+-            <p>認証情報は保存・共有されません。</p>
++            <p>Credentials are never saved or shared.</p>
+           </details>
+         </Modal>
+       )}
+diff --git a/src/components/KartArt.tsx b/src/components/KartArt.tsx
+index 3ed6c26..45d3d85 100644
+--- a/src/components/KartArt.tsx
++++ b/src/components/KartArt.tsx
+@@ -54,7 +54,7 @@ export function KartArt({ kart = 0 }: { kart?: number }) {
+       className="kart-art"
+       width="480"
+       height="320"
+-      alt={`${KARTS[kart].label}の3Dカート`}
++      alt={`${KARTS[kart].label} 3D kart`}
+     />
+   ) : (
+     <span className="kart-art">{KARTS[kart].name}</span>
+diff --git a/src/components/Modal.tsx b/src/components/Modal.tsx
+index 4de213c..250df65 100644
+--- a/src/components/Modal.tsx
++++ b/src/components/Modal.tsx
+@@ -45,7 +45,7 @@ export function Modal({
+     >
+       <div className="modal-heading">
+         <h2 id="modal-title">{title}</h2>
+-        <button className="icon-button" aria-label="閉じる" onClick={onClose}>
++        <button className="icon-button" aria-label="Close" onClick={onClose}>
+           <X size={20} />
+         </button>
+       </div>
+diff --git a/src/components/SceneCanvas.tsx b/src/components/SceneCanvas.tsx
+index c30fda9..42f2699 100644
+--- a/src/components/SceneCanvas.tsx
++++ b/src/components/SceneCanvas.tsx
+@@ -37,7 +37,7 @@ export function SceneCanvas({
+       };
+     } catch {
+       onError(
+-        '3D描画を開始できませんでした。WebGL 2対応ブラウザーで開いてください。',
++        'Couldn’t start 3D rendering. Please open this in a browser that supports WebGL 2.',
+       );
+     }
+   }, [runtime, quality, onError]);
+diff --git a/src/components/TouchControls.tsx b/src/components/TouchControls.tsx
+index 162fb03..a228ae0 100644
+--- a/src/components/TouchControls.tsx
++++ b/src/components/TouchControls.tsx
+@@ -34,12 +34,12 @@ export function TouchControls({
+     },
+   });
+   return (
+-    <div className="touch-controls" aria-label="タッチ操作">
++    <div className="touch-controls" aria-label="Touch controls">
+       <div className="touch-steer">
+-        <button aria-label="左に曲がる" {...bindings('left')}>
++        <button aria-label="Steer left" {...bindings('left')}>
+           <ArrowLeft />
+         </button>
+-        <button aria-label="右に曲がる" {...bindings('right')}>
++        <button aria-label="Steer right" {...bindings('right')}>
+           <ArrowRight />
+         </button>
+       </div>
+@@ -48,7 +48,7 @@ export function TouchControls({
+           BRAKE
+         </button>
+         {!input.autoAccelerate && (
+-          <button aria-label="アクセル" {...bindings('throttle')}>
++          <button aria-label="Accelerate" {...bindings('throttle')}>
+             <ArrowUp />
+           </button>
+         )}
+@@ -57,7 +57,7 @@ export function TouchControls({
+         </button>
+         <button
+           className="touch-item"
+-          aria-label="アイテムを使う"
++          aria-label="Use item"
+           disabled={disabled}
+           {...bindings('item')}
+         >
+diff --git a/src/components/TrackMap.tsx b/src/components/TrackMap.tsx
+index 4c29b58..69400b1 100644
+--- a/src/components/TrackMap.tsx
++++ b/src/components/TrackMap.tsx
+@@ -30,7 +30,7 @@ export function TrackMap({
+     <svg
+       viewBox="0 0 220 220"
+       className={className}
+-      aria-label={`${t.definition.name}のコース図`}
++      aria-label={`${t.definition.name} course map`}
+       role="img"
+     >
+       <polyline
+diff --git a/src/game/catalog.ts b/src/game/catalog.ts
+index 9a916bb..6011fc1 100644
+--- a/src/game/catalog.ts
++++ b/src/game/catalog.ts
+@@ -1,118 +1,118 @@
+ export const KARTS = [
+   {
+     name: 'POPPY',
+-    label: 'ポピー',
++    label: 'Poppy',
+     color: '#f36d49',
+     secondary: '#ffe1a1',
+     speed: 0.96,
+     acceleration: 1.12,
+     handling: 1.08,
+-    tagline: 'どんな道でも、自分のペース。',
++    tagline: 'Any road, your own pace.',
+     role: 'BALANCED',
+   },
+   {
+     name: 'MINT',
+-    label: 'ミント',
++    label: 'Mint',
+     color: '#35bba3',
+     secondary: '#d8ffd8',
+     speed: 0.94,
+     acceleration: 1.2,
+     handling: 1.16,
+-    tagline: 'カーブを味方につけよう。',
++    tagline: 'Make every corner your friend.',
+     role: 'HANDLING',
+   },
+   {
+     name: 'BOLT',
+-    label: 'ボルト',
++    label: 'Bolt',
+     color: '#f6c547',
+     secondary: '#fff4d0',
+     speed: 1.12,
+     acceleration: 0.85,
+     handling: 0.89,
+-    tagline: 'ストレートで、風になる。',
++    tagline: 'Become the wind on the straights.',
+     role: 'SPEED',
+   },
+   {
+     name: 'NOVA',
+-    label: 'ノヴァ',
++    label: 'Nova',
+     color: '#8b80de',
+     secondary: '#eee5ff',
+     speed: 1.03,
+     acceleration: 1,
+     handling: 1,
+-    tagline: '最後の一周で、星になれ。',
++    tagline: 'Shine on the final lap.',
+     role: 'ALL-ROUNDER',
+   },
+   {
+     name: 'SKY',
+-    label: 'スカイ',
++    label: 'Sky',
+     color: '#59abe5',
+     secondary: '#e3f4ff',
+     speed: 0.98,
+     acceleration: 1.16,
+     handling: 1.04,
+-    tagline: '軽やかに、飛び出そう。',
++    tagline: 'Light on its wheels, quick off the line.',
+     role: 'ACCELERATION',
+   },
+   {
+     name: 'INK',
+-    label: 'インク',
++    label: 'Ink',
+     color: '#414b58',
+     secondary: '#f7afc6',
+     speed: 1.08,
+     acceleration: 0.94,
+     handling: 0.94,
+-    tagline: '静かに燃える、挑戦者。',
++    tagline: 'The quiet challenger.',
+     role: 'POWER',
+   },
+ ];
+ export const ITEMS = {
+-  boost: { name: 'キノコ', icon: '🍄', description: '加速して悪路も突っ切る' },
++  boost: { name: 'Mushroom', icon: '🍄', description: 'Speed boost that powers through rough ground' },
+   triple: {
+-    name: 'トリプルキノコ',
++    name: 'Triple Mushroom',
+     icon: '🍄',
+-    description: '好きなタイミングで3回加速',
++    description: 'Three boosts, whenever you like',
+   },
+   rocket: {
+-    name: 'アカこうら',
++    name: 'Red Shell',
+     icon: '🔴',
+-    description: '前の相手を追尾。長押しで後方をガード',
++    description: 'Homes in on the racer ahead. Hold to guard your back',
+   },
+   green: {
+-    name: 'ミドリこうら',
++    name: 'Green Shell',
+     icon: '🟢',
+-    description: '壁で反射する直進弾。長押しでガード',
++    description: 'Fires straight and bounces off walls. Hold to guard',
+   },
+   mine: {
+-    name: 'バナナ',
++    name: 'Banana',
+     icon: '🍌',
+-    description: '後ろに設置。長押しで後方をガード',
++    description: 'Drop it behind you. Hold to guard your back',
+   },
+-  shield: { name: 'シールド', icon: '◈', description: '8秒間攻撃をガード' },
++  shield: { name: 'Shield', icon: '◈', description: 'Blocks attacks for 8 seconds' },
+   pulse: {
+-    name: 'スーパーホーン',
++    name: 'Super Horn',
+     icon: '📣',
+-    description: '周囲の相手・こうらを吹き飛ばす',
++    description: 'Blasts away nearby racers and shells',
+   },
+   star: {
+-    name: 'スター',
++    name: 'Star',
+     icon: '⭐',
+-    description: '7秒間無敵・加速。体当たりで攻撃',
++    description: 'Invincible and faster for 7 seconds. Ram into rivals',
+   },
+   lightning: {
+-    name: 'サンダー',
++    name: 'Lightning',
+     icon: '⚡',
+-    description: '相手全員を小さくしてスピードダウン',
++    description: 'Shrinks and slows every opponent',
+   },
+   blue: {
+-    name: 'トゲこうら',
++    name: 'Spiny Shell',
+     icon: '🔵',
+-    description: '1位を追いかけて周囲ごと爆発',
++    description: 'Chases down the leader and explodes',
+   },
+   bullet: {
+-    name: 'ロケット',
++    name: 'Rocket',
+     icon: '🚀',
+-    description: '5秒間、無敵で自動走行して追い上げる',
++    description: 'Autopilots you forward, invincible, for 5 seconds',
+   },
+ };
+ export const CPU_NAMES = [
+diff --git a/src/game/tracks.ts b/src/game/tracks.ts
+index c2b54a6..4865e86 100644
+--- a/src/game/tracks.ts
++++ b/src/game/tracks.ts
+@@ -47,10 +47,10 @@ export interface TrackDefinition {
+ export const TRACKS: TrackDefinition[] = [
+   {
+     id: 0,
+-    name: 'サンシャイン・コースト',
++    name: 'Sunshine Coast',
+     subtitle: 'SUNSHINE COAST',
+     tag: '01 / COAST',
+-    description: '港のS字、灯台ヘアピン、桟橋からの大ジャンプ。',
++    description: 'Harbor S-bends, a lighthouse hairpin and a big jump off the pier.',
+     color: '#3eae9f',
+     sky: '#b9e6e8',
+     ground: '#80bd8a',
+@@ -87,19 +87,19 @@ export const TRACKS: TrackDefinition[] = [
+       { at: 0.92, offset: 0, width: 6 },
+     ],
+     sections: [
+-      { from: 0, to: 0.14, name: 'マリーナ・ストレート', kind: 'road' },
+-      { from: 0.14, to: 0.26, name: 'ハーバーS字', kind: 'road' },
++      { from: 0, to: 0.14, name: 'Marina Straight', kind: 'road' },
++      { from: 0.14, to: 0.26, name: 'Harbor Esses', kind: 'road' },
+       {
+         from: 0.26,
+         to: 0.35,
+-        name: 'ピア・ジャンプ',
++        name: 'Pier Jump',
+         kind: 'boardwalk',
+         width: 12,
+       },
+-      { from: 0.35, to: 0.48, name: 'シーブリーズ', kind: 'road' },
+-      { from: 0.48, to: 0.7, name: '灯台ヘアピン', kind: 'road' },
+-      { from: 0.7, to: 0.87, name: 'ビーチサイド', kind: 'road', width: 17 },
+-      { from: 0.87, to: 1, name: 'フィニッシュ・カーブ', kind: 'road' },
++      { from: 0.35, to: 0.48, name: 'Sea Breeze', kind: 'road' },
++      { from: 0.48, to: 0.7, name: 'Lighthouse Hairpin', kind: 'road' },
++      { from: 0.7, to: 0.87, name: 'Beachside', kind: 'road', width: 17 },
++      { from: 0.87, to: 1, name: 'Finish Curve', kind: 'road' },
+     ],
+     jumps: [{ at: 0.29, length: 12, height: 2.2, offset: -2, width: 7 }],
+     obstacles: [
+@@ -109,10 +109,10 @@ export const TRACKS: TrackDefinition[] = [
+   },
+   {
+     id: 1,
+-    name: 'メープル・ハイランド',
++    name: 'Maple Highland',
+     subtitle: 'MAPLE HIGHLAND',
+     tag: '02 / HIGHLAND',
+-    description: '連続つづら折り。渓谷の吊り橋と岩山トンネルへ。',
++    description: 'Winding switchbacks up to a canyon suspension bridge and a rock tunnel.',
+     color: '#c7804b',
+     sky: '#f4dbb9',
+     ground: '#b2b075',
+@@ -150,19 +150,19 @@ export const TRACKS: TrackDefinition[] = [
+       { at: 0.82, offset: 0, width: 6 },
+     ],
+     sections: [
+-      { from: 0, to: 0.18, name: 'リッジ・クライム', kind: 'road' },
+-      { from: 0.18, to: 0.3, name: '天空ヘアピン', kind: 'road' },
++      { from: 0, to: 0.18, name: 'Ridge Climb', kind: 'road' },
++      { from: 0.18, to: 0.3, name: 'Sky Hairpin', kind: 'road' },
+       {
+         from: 0.3,
+         to: 0.36,
+-        name: 'メープル吊り橋',
++        name: 'Maple Suspension Bridge',
+         kind: 'bridge',
+         width: 10.5,
+       },
+-      { from: 0.36, to: 0.47, name: 'サミット・ターン', kind: 'road' },
+-      { from: 0.47, to: 0.56, name: 'ロックトンネル', kind: 'tunnel' },
+-      { from: 0.56, to: 0.79, name: 'ダブル・スイッチバック', kind: 'road' },
+-      { from: 0.79, to: 1, name: 'フォレスト・ダウンヒル', kind: 'road' },
++      { from: 0.36, to: 0.47, name: 'Summit Turn', kind: 'road' },
++      { from: 0.47, to: 0.56, name: 'Rock Tunnel', kind: 'tunnel' },
++      { from: 0.56, to: 0.79, name: 'Double Switchback', kind: 'road' },
++      { from: 0.79, to: 1, name: 'Forest Downhill', kind: 'road' },
+     ],
+     jumps: [{ at: 0.84, length: 10, height: 2.6, offset: 0, width: 8 }],
+     obstacles: [
+@@ -172,10 +172,10 @@ export const TRACKS: TrackDefinition[] = [
+   },
+   {
+     id: 2,
+-    name: 'スターライト・シティ',
++    name: 'Starlight City',
+     subtitle: 'STARLIGHT CITY',
+     tag: '03 / NIGHT',
+-    description: '立体交差の8の字。ネオンの高速橋から市街地へ。',
++    description: 'A figure eight over and under itself, from a neon expressway into downtown.',
+     color: '#8f84d4',
+     sky: '#192c49',
+     ground: '#34485c',
+@@ -212,15 +212,15 @@ export const TRACKS: TrackDefinition[] = [
+       {
+         from: 0,
+         to: 0.16,
+-        name: 'ネオン・ブールバード',
++        name: 'Neon Boulevard',
+         kind: 'road',
+         width: 17,
+       },
+-      { from: 0.16, to: 0.24, name: 'ライト・トンネル', kind: 'tunnel' },
+-      { from: 0.24, to: 0.43, name: 'スカイライン立体交差', kind: 'bridge' },
+-      { from: 0.43, to: 0.6, name: 'ミッドナイト・ループ', kind: 'road' },
+-      { from: 0.6, to: 0.79, name: 'アンダーパス', kind: 'road' },
+-      { from: 0.79, to: 1, name: 'ダウンタウン・シケイン', kind: 'road' },
++      { from: 0.16, to: 0.24, name: 'Light Tunnel', kind: 'tunnel' },
++      { from: 0.24, to: 0.43, name: 'Skyline Overpass', kind: 'bridge' },
++      { from: 0.43, to: 0.6, name: 'Midnight Loop', kind: 'road' },
++      { from: 0.6, to: 0.79, name: 'Underpass', kind: 'road' },
++      { from: 0.79, to: 1, name: 'Downtown Chicane', kind: 'road' },
+     ],
+     jumps: [{ at: 0.72, length: 11, height: 2, offset: 0, width: 7 }],
+     obstacles: [
+diff --git a/src/lib/network.ts b/src/lib/network.ts
+index d896812..3618150 100644
+--- a/src/lib/network.ts
++++ b/src/lib/network.ts
+@@ -190,7 +190,7 @@ export class NetworkRoom {
+       host,
+       status: 'connecting',
+       members: [],
+-      message: 'ルームに接続しています…',
++      message: 'Connecting to the room…',
+       latency: 0,
+       paused: false,
+       config: { ...config, mode: 'online' },
+@@ -234,7 +234,7 @@ export class NetworkRoom {
+       if (this.disposed) return;
+       if (host) {
+         this.view.status = 'lobby';
+-        this.view.message = '友だちを招待して、レースを始めよう。';
++        this.view.message = 'Invite your friends and start racing.';
+         this.emit();
+       } else this.connectHost(own);
+       try {
+@@ -256,22 +256,22 @@ export class NetworkRoom {
+     this.peer.on('error', (error) => {
+       const type = (error as { type?: string }).type;
+       if (type === 'peer-unavailable' && !host && this.joinAttempts < 4) {
+-        this.view.message = 'ホストを探しています。再接続中…';
++        this.view.message = 'Looking for the host. Reconnecting…';
+         this.emit();
+         return;
+       }
+       this.view.status = 'error';
+       this.view.message =
+         type === 'unavailable-id'
+-          ? 'このルーム番号は使用中です。新しいルームを作成してください。'
++          ? 'That room code is already in use. Please create a new room.'
+           : type === 'peer-unavailable'
+-            ? 'ルームが見つかりません。番号とホストの接続を確認してください。'
+-            : '接続できませんでした。回線または接続設定を確認してください。';
++            ? 'Room not found. Check the code and that the host is connected.'
++            : 'Couldn’t connect. Check your network or connection settings.';
+       this.emit();
+     });
+     this.peer.on('disconnected', () => {
+       if (!this.disposed) {
+-        this.view.message = '接続サービスに再接続しています…';
++        this.view.message = 'Reconnecting to the connection service…';
+         this.emit();
+         try {
+           this.peer.reconnect();
+@@ -288,7 +288,7 @@ export class NetworkRoom {
+           this.send(link, { type: 'ping', time: Date.now() });
+           if (Date.now() - this.lastSeen > 8000) {
+             this.view.paused = true;
+-            this.view.message = 'ホストからの応答を待っています…';
++            this.view.message = 'Waiting for the host to respond…';
+             this.emit();
+           }
+         } else if (
+@@ -347,7 +347,7 @@ export class NetworkRoom {
+         if (this.joinAttempts >= 4) {
+           this.view.status = 'error';
+           this.view.message =
+-            '接続がタイムアウトしました。ルーム番号・回線・TURN設定を確認してください。';
++            'Connection timed out. Check the room code, your network and TURN settings.';
+           this.emit();
+         }
+       }
+@@ -390,7 +390,7 @@ export class NetworkRoom {
+       } else if (this.links.get('host') === link) {
+         this.links.delete('host');
+         this.view.paused = true;
+-        this.view.message = '接続が切れました。再接続しています…';
++        this.view.message = 'Disconnected. Reconnecting…';
+         this.reconnecting = false;
+         this.emit();
+       }
+@@ -424,7 +424,7 @@ export class NetworkRoom {
+       if (existing && this.memberTokens.get(m.id) !== msg.token) {
+         this.send(link, {
+           type: 'reject',
+-          message: 'プレイヤーの認証に失敗しました。',
++          message: 'Player authentication failed.',
+         });
+         link.close();
+         return;
+@@ -437,8 +437,8 @@ export class NetworkRoom {
+           type: 'reject',
+           message:
+             this.view.status === 'racing'
+-              ? 'レース中です。終了後に参加してください。'
+-              : 'ルームは満員です。',
++              ? 'A race is in progress. Join after it finishes.'
++              : 'The room is full.',
+         });
+         return;
+       }
+@@ -546,8 +546,8 @@ export class NetworkRoom {
+       this.view.status = msg.status === 'racing' ? 'racing' : 'lobby';
+       this.view.paused = msg.paused === true;
+       this.view.message = this.view.paused
+-        ? 'ホストが戻るまで待機しています。'
+-        : '接続しました';
++        ? 'Waiting for the host to return.'
++        : 'Connected';
+       this.emit();
+     }
+     if (msg.type === 'snapshot' && isSnapshot(msg.state)) {
+@@ -561,7 +561,7 @@ export class NetworkRoom {
+     }
+     if (msg.type === 'closed') {
+       this.view.status = 'error';
+-      this.view.message = 'ホストがルームを終了しました。';
++      this.view.message = 'The host closed the room.';
+       this.emit();
+       link.close();
+       this.joinAttempts = 4;
+diff --git a/src/lib/runtime.ts b/src/lib/runtime.ts
+index 1d744b3..015e77f 100644
+--- a/src/lib/runtime.ts
++++ b/src/lib/runtime.ts
+@@ -220,7 +220,7 @@ export class Runtime {
+   togglePause() {
+     if (this.view.screen !== 'race') return;
+     if (this.network && !this.network.view.host) {
+-      this.view.notice = 'オンラインの一時停止はホストが操作します。';
++      this.view.notice = 'Only the host can pause an online race.';
+       this.emit();
+       return;
+     }
+diff --git a/src/main.tsx b/src/main.tsx
+index 8c6f647..fe0bea2 100644
+--- a/src/main.tsx
++++ b/src/main.tsx
+@@ -20,10 +20,10 @@ class ErrorBoundary extends React.Component<
+   render() {
+     return this.state.failed ? (
+       <main className="fatal">
+-        <h1>読み込みをやり直してください</h1>
+-        <p>画面の処理で問題が発生しました。</p>
++        <h1>Please reload</h1>
++        <p>Something went wrong while drawing the screen.</p>
+         <button className="primary" onClick={() => location.reload()}>
+-          再読み込み
++          Reload
+         </button>
+       </main>
+     ) : (
+diff --git a/src/render/scene.ts b/src/render/scene.ts
+index 953556e..d4777a2 100644
+--- a/src/render/scene.ts
++++ b/src/render/scene.ts
+@@ -113,7 +113,7 @@ export class RaceScene {
+     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
+     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+     this.renderer.toneMappingExposure = 1;
+-    this.renderer.domElement.setAttribute('aria-label', '3Dカートレース');
++    this.renderer.domElement.setAttribute('aria-label', '3D kart race');
+     this.renderer.domElement.setAttribute('role', 'img');
+     this.renderer.domElement.dataset.renderer = 'three';
+     container.appendChild(this.renderer.domElement);
+@@ -143,7 +143,7 @@ export class RaceScene {
+       e.preventDefault();
+       this.lost = true;
+       this.onError(
+-        '3D描画が中断されました。再開できない場合は画質を「軽量」にして再読み込みしてください。',
++        'Rendering was interrupted. If it doesn’t recover, set graphics to "Light" and reload.',
+       );
+     };
+     this.onRestored = () => {

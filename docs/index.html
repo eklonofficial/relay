@@ -288,6 +288,7 @@
             <button class="game-btn" onclick="switchGame('pong')">🏓 Pong</button>
             <button class="game-btn" onclick="switchGame('shellshockers')">🥚 Shell Shockers</button>
             <button class="game-btn" onclick="switchGame('g2048')">🔢 2048</button>
+            <button class="game-btn" onclick="switchGame('kartline')">🏁 KARTLINE (2P Karts)</button>
             <button class="game-btn" onclick="switchGame('hexgl')">🏎️ HexGL (3D Racing)</button>
             <button class="game-btn" onclick="switchGame('threefps')">🎯 Shooter (3D FPS)</button>
             <button class="game-btn" onclick="switchGame('gladiator')">🔫 Gladiator 3D</button>
@@ -413,6 +414,30 @@
                 <p style="color: #666; margin-top: 10px; font-size: 0.9em;">
                     Vendored from <a href="https://github.com/gabrielecirulli/2048" target="_blank" rel="noopener">github.com/gabrielecirulli/2048</a>
                     under the MIT License (see <code>docs/games/2048/LICENSE.txt</code>). Original code, unmodified.
+                </p>
+            </div>
+        </div>
+
+        <!-- KARTLINE kart racing with split screen (vendored, self-hosted) -->
+        <div id="kartline" class="game-container">
+            <h2>🏁 KARTLINE (Kart Racing)</h2>
+            <div class="instructions">
+                A 3D kart racer with drifting, mini-turbos, items and CPU rivals, by th2ch-g (MIT License).
+                For <strong>2 players on one keyboard</strong>, click <strong>2-player split screen</strong> under
+                "How do you want to race today?", then <strong>Start 2-player race</strong>.
+                <strong>Player 1:</strong> W/S gas &amp; brake, A/D steer, Q or Left Shift drift, E or Space item.
+                <strong>Player 2:</strong> ↑/↓ gas &amp; brake, ←/→ steer, Right Shift drift, Enter or / item.
+                Click the game first so it gets your keyboard; Fullscreen gives each player a bigger half.
+            </div>
+            <iframe id="frameKartline" data-src="games/kartline/index.html" width="100%" height="660"
+                style="border: 2px solid #667eea; border-radius: 5px; background:#f3f1ea;"
+                allow="fullscreen; autoplay; gamepad" title="KARTLINE"></iframe>
+            <div style="text-align: center; margin-top: 15px;">
+                <button class="fullscreen-btn" onclick="goFullscreen('frameKartline')">⛶ Fullscreen</button>
+                <a href="games/kartline/index.html" target="_blank" rel="noopener"><button>Open in its own tab</button></a>
+                <p style="color: #666; margin-top: 10px; font-size: 0.9em;">
+                    Built from <a href="https://github.com/th2ch-g/game-mario-kart" target="_blank" rel="noopener">github.com/th2ch-g/game-mario-kart</a>
+                    (MIT), translated to English — see <code>docs/games/kartline/CREDITS.md</code>.
                 </p>
             </div>
         </div>
