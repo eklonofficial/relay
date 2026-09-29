@@ -810,14 +810,17 @@ export function createOverworld(seed, type = 'default') {
 
   function findSpawn() {
     if (flat) return { x: 0.5, y: 4, z: 0.5 };
-    for (let r = 0; r < 2000; r += 8) {
-      for (let a = 0; a < 16; a++) {
-        const x = Math.round(Math.cos(a / 16 * Math.PI * 2) * r), z = Math.round(Math.sin(a / 16 * Math.PI * 2) * r);
-        const c = column(x, z);
-        if (OCEANS.has(c.biome) || COLD.has(c.biome) || c.biome === BI.RIVER || c.biome === BI.BEACH || c.biome === BI.SWAMP) continue;
-        if (c.t.mtn > 0.35) continue;
-        const y = surfaceY(x, z);
-        if (y > SEA + 1 && y < SEA + 40 && !noiseCave(x, y, z, y)) return { x: x + 0.5, y: y + 1, z: z + 0.5 };
+    const nice = new Set([BI.PLAINS, BI.SUNFLOWER_PLAINS, BI.FOREST, BI.FLOWER_FOREST, BI.BIRCH_FOREST, BI.MEADOW, BI.SAVANNA, BI.CHERRY_GROVE, BI.TAIGA]);
+    for (const strict of [true, false]) {
+      for (let r = 0; r < 2500; r += 8) {
+        for (let a = 0; a < 16; a++) {
+          const x = Math.round(Math.cos(a / 16 * Math.PI * 2) * r), z = Math.round(Math.sin(a / 16 * Math.PI * 2) * r);
+          const c = column(x, z);
+          if (strict ? !nice.has(c.biome) : (OCEANS.has(c.biome) || COLD.has(c.biome) || c.biome === BI.RIVER || c.biome === BI.BEACH || c.biome === BI.SWAMP)) continue;
+          if (c.t.mtn > 0.35) continue;
+          const y = surfaceY(x, z);
+          if (y > SEA + 1 && y < SEA + 40 && !noiseCave(x, y, z, y) && hash2(x, z, seed ^ 0x7ee5) > 0.15) return { x: x + 0.5, y: y + 1, z: z + 0.5 };
+        }
       }
     }
     return { x: 0.5, y: surfaceY(0, 0) + 2, z: 0.5 };

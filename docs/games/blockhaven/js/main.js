@@ -113,7 +113,7 @@ class App {
     this.panorama = { seed: 1337, yaw: 0 };
     const gen = createGenerator(1337, 0, 'default');
     const s = gen.findSpawn();
-    this.panorama.pos = [s.x, s.y + 18, s.z];
+    this.panorama.pos = [s.x, Math.max(s.y + 28, 104), s.z];
     this.panoWorld = new World({ seed: 1337, dim: 0, worldType: 'default', callbacks: { onMesh: (c, m) => this.renderer.uploadChunk(c, m), onUnload: c => this.renderer.freeChunk(c) } });
   }
   stopPanorama() { if (this.panoWorld) { this.panoWorld.dispose(); this.panoWorld = null; } }

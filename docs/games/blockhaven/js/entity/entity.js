@@ -167,6 +167,7 @@ export function drawModel(batch, model, layer, root, poses, light, hurt = 0, alp
     }
   }
   return mats;
+}
 
 // World matrix for a model: feet at pos, facing yaw (model -Z = forward), 1/16 scale.
 export function rootMatrix(pos, yaw, scale = 1, extra = null) {
