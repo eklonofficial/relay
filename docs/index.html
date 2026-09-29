@@ -288,6 +288,8 @@
             <button class="game-btn" onclick="switchGame('pong')">🏓 Pong</button>
             <button class="game-btn" onclick="switchGame('shellshockers')">🥚 Shell Shockers</button>
             <button class="game-btn" onclick="switchGame('g2048')">🔢 2048</button>
+            <button class="game-btn" onclick="switchGame('hexgl')">🏎️ HexGL (3D Racing)</button>
+            <button class="game-btn" onclick="switchGame('threefps')">🎯 Shooter (3D FPS)</button>
             <button class="game-btn" onclick="switchGame('gladiator')">🔫 Gladiator 3D</button>
         </div>
 
@@ -382,7 +384,7 @@
             <div class="instructions">
                 The official multiplayer egg shooter by Blue Wizard Digital. It loads directly from its own servers.
             </div>
-            <iframe id="shellFrame" src="https://shellshock.io/" width="100%" height="600"
+            <iframe id="shellFrame" data-src="https://shellshock.io/" width="100%" height="600"
                 style="border: 2px solid #667eea; border-radius: 5px;"
                 allow="fullscreen; autoplay; gamepad"></iframe>
             <div style="text-align: center; margin-top: 15px;">
@@ -403,7 +405,7 @@
                 The classic tile-merging puzzle by Gabriele Cirulli (MIT License). Its full source is
                 vendored into this repo and served from this site — no external calls. Use the arrow keys.
             </div>
-            <iframe id="frame2048" src="games/2048/index.html" width="100%" height="660"
+            <iframe id="frame2048" data-src="games/2048/index.html" width="100%" height="660"
                 style="border: 2px solid #667eea; border-radius: 5px;"
                 allow="fullscreen" title="2048"></iframe>
             <div style="text-align: center; margin-top: 15px;">
@@ -411,6 +413,51 @@
                 <p style="color: #666; margin-top: 10px; font-size: 0.9em;">
                     Vendored from <a href="https://github.com/gabrielecirulli/2048" target="_blank" rel="noopener">github.com/gabrielecirulli/2048</a>
                     under the MIT License (see <code>docs/games/2048/LICENSE.txt</code>). Original code, unmodified.
+                </p>
+            </div>
+        </div>
+
+        <!-- HexGL 3D racing (vendored, self-hosted) -->
+        <div id="hexgl" class="game-container">
+            <h2>🏎️ HexGL (3D Racing)</h2>
+            <div class="instructions">
+                A futuristic anti-gravity racer in the style of WipEout, by Thibaut Despoulain (MIT License).
+                Click <strong>Start</strong>, then click again to begin. <strong>↑</strong> accelerate,
+                <strong>←/→</strong> steer, <strong>A/D</strong> airbrakes. Three laps — beat your time.
+                Loads about 18&nbsp;MB the first time you open it.
+            </div>
+            <iframe id="frameHexgl" data-src="games/hexgl/index.html" width="100%" height="620"
+                style="border: 2px solid #667eea; border-radius: 5px; background:#000;"
+                allow="fullscreen; autoplay; gamepad" title="HexGL"></iframe>
+            <div style="text-align: center; margin-top: 15px;">
+                <button class="fullscreen-btn" onclick="goFullscreen('frameHexgl')">⛶ Fullscreen</button>
+                <a href="games/hexgl/index.html" target="_blank" rel="noopener"><button>Open in its own tab</button></a>
+                <p style="color: #666; margin-top: 10px; font-size: 0.9em;">
+                    Vendored from <a href="https://github.com/BKcore/HexGL" target="_blank" rel="noopener">github.com/BKcore/HexGL</a>
+                    (MIT). Analytics removed — see <code>docs/games/hexgl/CREDITS.md</code>.
+                </p>
+            </div>
+        </div>
+
+        <!-- three-fps 3D shooter (vendored, self-hosted) -->
+        <div id="threefps" class="game-container">
+            <h2>🎯 Shooter (3D FPS)</h2>
+            <div class="instructions">
+                A modern three.js first-person shooter with Bullet physics and AI enemies, by Mohsen Heydari (MIT License).
+                Click <strong>NEW GAME</strong>, then click the view to capture the mouse.
+                <strong>WASD</strong> move, <strong>mouse</strong> aim, <strong>left-click</strong> shoot,
+                <strong>R</strong> reload, <strong>Space</strong> jump, <strong>Esc</strong> releases the mouse.
+                Loads about 46&nbsp;MB the first time you open it.
+            </div>
+            <iframe id="frameThreefps" data-src="games/three-fps/index.html" width="100%" height="620"
+                style="border: 2px solid #667eea; border-radius: 5px; background:#000;"
+                allow="fullscreen; autoplay; pointer-lock" title="3D Shooter"></iframe>
+            <div style="text-align: center; margin-top: 15px;">
+                <button class="fullscreen-btn" onclick="goFullscreen('frameThreefps')">⛶ Fullscreen</button>
+                <a href="games/three-fps/index.html" target="_blank" rel="noopener"><button>Open in its own tab</button></a>
+                <p style="color: #666; margin-top: 10px; font-size: 0.9em;">
+                    Built from <a href="https://github.com/mohsenheydari/three-fps" target="_blank" rel="noopener">github.com/mohsenheydari/three-fps</a>
+                    (MIT). Asset credits and changes in <code>docs/games/three-fps/CREDITS.md</code>.
                 </p>
             </div>
         </div>
@@ -424,7 +471,7 @@
                 Click the game first, then: <strong>↑/↓</strong> move, <strong>←/→</strong> turn, <strong>Space</strong> to shoot.
                 Press <strong>Space</strong> on the title screen to start.
             </div>
-            <iframe id="frameGladiator" src="games/gladiator/index.html" width="100%" height="600"
+            <iframe id="frameGladiator" data-src="games/gladiator/index.html" width="100%" height="600"
                 style="border: 2px solid #667eea; border-radius: 5px; background:#fff;"
                 allow="fullscreen" title="Gladiator 3D FPS"></iframe>
             <div style="text-align: center; margin-top: 15px;">
@@ -444,6 +491,14 @@
             document.querySelectorAll('.game-btn').forEach(el => el.classList.remove('active'));
             document.getElementById(game).classList.add('active');
             event.target.classList.add('active');
+
+            // Embedded games load only while their tab is open, so hidden 3D games don't download or keep running.
+            document.querySelectorAll('iframe[data-src]').forEach(frame => {
+                const open = frame.closest('.game-container').id === game;
+                const loaded = frame.src && frame.src !== 'about:blank';
+                if (open && !loaded) frame.src = frame.dataset.src;
+                if (!open && loaded) frame.src = 'about:blank';
+            });
         }
 
         function goFullscreen(id) {
