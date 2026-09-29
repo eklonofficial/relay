@@ -4,6 +4,14 @@ import * as S from './shaders.js';
 import { uploadArray } from './atlas.js';
 import { mat4, perspective, multiply, invert, viewMatrix, frustumPlanes, boxVisible } from '../core/math.js';
 
+// Graphics presets: 0 Disabled, 1 Regular, 2 High, 3 PC.
+export const QUALITY = [
+  { name: 'Disabled', shadow: 0, god: 0, bloom: 0, ssr: 0 },
+  { name: 'Regular', shadow: 0, god: 0, bloom: 0, ssr: 0 },
+  { name: 'High', shadow: 2048, shadowR: 72, pcf: 1, god: 40, bloom: 0.55, ssr: 24 },
+  { name: 'PC', shadow: 4096, shadowR: 112, pcf: 2, god: 80, bloom: 0.7, ssr: 56 },
+];
+
 const MAX_QUADS = 1 << 18;
 const IDENTITY = mat4();
 
@@ -52,6 +60,11 @@ export class Renderer {
     this.entity = this.program(S.ENTITY_VS, S.ENTITY_FS);
     this.line = this.program(S.LINE_VS, S.LINE_FS);
     this.post = this.program(S.POST_VS, S.POST_FS);
+    this.shadowProg = this.program(S.TERRAIN_VS, S.SHADOW_FS);
+    this.bloomProg = this.program(S.POST_VS, S.BLOOM_FS);
+    this.quality = 1;
+    // 1x1 compare-mode depth texture so the shadow sampler is always valid.
+    this.dummyShadow = this.depthTexture(1, 1, true);
 
     const idx = new Uint32Array(MAX_QUADS * 6);
     for (let q = 0, i = 0; q < MAX_QUADS; q++) {
@@ -80,7 +93,7 @@ export class Renderer {
     gl.bindVertexArray(null);
 
     this.models = new Map();
-    this.samples = Math.min(4, gl.getParameter(gl.MAX_SAMPLES) || 0);
+    this.samples = 0;
     this.width = this.height = 0;
     this.scale = 1;
   }
@@ -113,46 +126,133 @@ export class Renderer {
   setItemTextures(chain, count) { this.itemTex = uploadArray(this.gl, chain, count); }
   texFor(kind) { return kind === 'block' ? this.blockTex : kind === 'item' ? this.itemTex : this.entityTex; }
 
-  resize(w, h) {
-    if (w === this.width && h === this.height) return;
-    const gl = this.gl;
-    this.width = w; this.height = h;
-    this.canvas.width = w; this.canvas.height = h;
-    for (const o of [this.msFbo, this.resolveFbo]) if (o) gl.deleteFramebuffer(o);
-    for (const o of [this.msColor, this.msDepth, this.depthRb]) if (o) gl.deleteRenderbuffer(o);
-    if (this.sceneTex) gl.deleteTexture(this.sceneTex);
-    this.sceneTex = gl.createTexture();
-    gl.bindTexture(gl.TEXTURE_2D, this.sceneTex);
+  depthTexture(w, h, compare) {
+    const gl = this.gl, t = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, t);
+    gl.texStorage2D(gl.TEXTURE_2D, 1, gl.DEPTH_COMPONENT24, w, h);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, compare ? gl.LINEAR : gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, compare ? gl.LINEAR : gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    if (compare) { gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_COMPARE_MODE, gl.COMPARE_REF_TO_TEXTURE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_COMPARE_FUNC, gl.LEQUAL); }
+    return t;
+  }
+  colorTexture(w, h) {
+    const gl = this.gl, t = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, t);
     gl.texStorage2D(gl.TEXTURE_2D, 1, gl.RGBA8, w, h);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-    this.resolveFbo = gl.createFramebuffer();
-    gl.bindFramebuffer(gl.FRAMEBUFFER, this.resolveFbo);
-    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.sceneTex, 0);
-    this.msFbo = null; this.depthRb = null;
-    if (this.samples > 1) {
-      this.msColor = gl.createRenderbuffer();
-      gl.bindRenderbuffer(gl.RENDERBUFFER, this.msColor);
-      gl.renderbufferStorageMultisample(gl.RENDERBUFFER, this.samples, gl.RGBA8, w, h);
-      this.msDepth = gl.createRenderbuffer();
-      gl.bindRenderbuffer(gl.RENDERBUFFER, this.msDepth);
-      gl.renderbufferStorageMultisample(gl.RENDERBUFFER, this.samples, gl.DEPTH_COMPONENT24, w, h);
-      this.msFbo = gl.createFramebuffer();
-      gl.bindFramebuffer(gl.FRAMEBUFFER, this.msFbo);
-      gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.RENDERBUFFER, this.msColor);
-      gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, this.msDepth);
-      if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE) { this.samples = 0; this.msFbo = null; }
-    }
-    if (!this.msFbo) {
-      this.depthRb = gl.createRenderbuffer();
-      gl.bindRenderbuffer(gl.RENDERBUFFER, this.depthRb);
-      gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT24, w, h);
-      gl.bindFramebuffer(gl.FRAMEBUFFER, this.resolveFbo);
-      gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, this.depthRb);
+    return t;
+  }
+  fbo(color, depth) {
+    const gl = this.gl, f = gl.createFramebuffer();
+    gl.bindFramebuffer(gl.FRAMEBUFFER, f);
+    if (color) gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, color, 0);
+    if (depth) gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.TEXTURE_2D, depth, 0);
+    if (!color) { gl.drawBuffers([gl.NONE]); gl.readBuffer(gl.NONE); }
+    return f;
+  }
+  setQuality(q) {
+    const gl = this.gl;
+    this.quality = q;
+    const Q = QUALITY[q];
+    if (this.shadowFbo) { gl.deleteFramebuffer(this.shadowFbo); gl.deleteTexture(this.shadowTex); this.shadowFbo = null; }
+    if (Q.shadow) {
+      const size = Math.min(Q.shadow, gl.getParameter(gl.MAX_TEXTURE_SIZE));
+      this.shadowSize = size;
+      this.shadowTex = this.depthTexture(size, size, true);
+      this.shadowFbo = this.fbo(null, this.shadowTex);
     }
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    this.width = 0; // force target rebuild
+  }
+
+  resize(w, h) {
+    if (w === this.width && h === this.height) return;
+    const gl = this.gl;
+    this.width = w; this.height = h;
+    this.canvas.width = w; this.canvas.height = h;
+    for (const f of [this.sceneFbo, this.copyFbo, this.bloomFboA, this.bloomFboB]) if (f) gl.deleteFramebuffer(f);
+    for (const t of [this.sceneTex, this.sceneDepth, this.copyTex, this.copyDepth, this.bloomA, this.bloomB]) if (t) gl.deleteTexture(t);
+    this.sceneTex = this.colorTexture(w, h);
+    this.sceneDepth = this.depthTexture(w, h, false);
+    this.sceneFbo = this.fbo(this.sceneTex, this.sceneDepth);
+    this.copyTex = this.colorTexture(w, h);
+    this.copyDepth = this.depthTexture(w, h, false);
+    this.copyFbo = this.fbo(this.copyTex, this.copyDepth);
+    const bw = Math.max(1, w >> 2), bh = Math.max(1, h >> 2);
+    this.bloomSize = [bw, bh];
+    this.bloomA = this.colorTexture(bw, bh); this.bloomB = this.colorTexture(bw, bh);
+    this.bloomFboA = this.fbo(this.bloomA, null); this.bloomFboB = this.fbo(this.bloomB, null);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  }
+
+  // Renders opaque terrain depth from the sun for shadow mapping. Returns the shadow matrix.
+  shadowPass(s, visibleChunks) {
+    const gl = this.gl, Q = QUALITY[this.quality];
+    const sd = s.env.sunDir;
+    const R = Q.shadowR;
+    // Light basis.
+    const f = [-sd[0], -sd[1], -sd[2]];
+    let up = Math.abs(f[1]) > 0.95 ? [0, 0, 1] : [0, 1, 0];
+    let r = [f[1] * up[2] - f[2] * up[1], f[2] * up[0] - f[0] * up[2], f[0] * up[1] - f[1] * up[0]];
+    const rl = Math.hypot(...r); r = r.map(v => v / rl);
+    up = [r[1] * f[2] - r[2] * f[1], r[2] * f[0] - r[0] * f[2], r[0] * f[1] - r[1] * f[0]];
+    // Snap the centre to shadow texels so shadows don't shimmer while moving.
+    const texel = (2 * R) / this.shadowSize;
+    const c = s.camPos;
+    const cr = Math.round((c[0] * r[0] + c[1] * r[1] + c[2] * r[2]) / texel) * texel;
+    const cu = Math.round((c[0] * up[0] + c[1] * up[1] + c[2] * up[2]) / texel) * texel;
+    const cf = c[0] * f[0] + c[1] * f[1] + c[2] * f[2];
+    const D = 260;
+    // view: rows r, up, -f ; ortho
+    const view = new Float32Array([r[0], up[0], -f[0], 0, r[1], up[1], -f[1], 0, r[2], up[2], -f[2], 0, -cr, -cu, cf - D, 1]);
+    // Orthographic projection: x,y in [-R,R], z from near 1 to far 2D.
+    const n = 1, fa = D * 1.5;
+    const proj = new Float32Array([1 / R, 0, 0, 0, 0, 1 / R, 0, 0, 0, 0, -2 / (fa - n), 0, 0, 0, -(fa + n) / (fa - n), 1]);
+    const vp = multiply(mat4(), proj, view);
+    const planes = frustumPlanes(vp);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this.shadowFbo);
+    gl.viewport(0, 0, this.shadowSize, this.shadowSize);
+    gl.clear(gl.DEPTH_BUFFER_BIT);
+    gl.enable(gl.DEPTH_TEST); gl.depthMask(true); gl.disable(gl.CULL_FACE);
+    gl.enable(gl.POLYGON_OFFSET_FILL); gl.polygonOffset(1.5, 3);
+    const p = this.shadowProg;
+    gl.useProgram(p.p);
+    gl.uniformMatrix4fv(p.u.uViewProj, false, vp);
+    gl.uniformMatrix4fv(p.u.uModel, false, IDENTITY);
+    if (p.u.uTime) gl.uniform1f(p.u.uTime, s.time);
+    if (p.u.uWind) gl.uniform1f(p.u.uWind, s.wind || 0);
+    gl.uniform1i(p.u.uTex, 0);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D_ARRAY, this.blockTex);
+    for (const c2 of visibleChunks) {
+      const m = c2.gpu && c2.gpu.opaque;
+      if (!m) continue;
+      const x0 = c2.cx * CHUNK, z0 = c2.cz * CHUNK;
+      if (Math.abs(x0 + 8 - c[0]) > R + 24 || Math.abs(z0 + 8 - c[2]) > R + 24) continue;
+      if (!boxVisible(planes, x0, -1, z0, x0 + CHUNK, c2.maxY + 2, z0 + CHUNK)) continue;
+      gl.uniform3f(p.u.uChunk, x0, 0, z0);
+      gl.bindVertexArray(m.vao);
+      this.drawSections(m, c2.gpu.secO, c2, planes);
+    }
+    gl.disable(gl.POLYGON_OFFSET_FILL);
+    gl.enable(gl.CULL_FACE);
+    return vp;
+  }
+  bindShadow(u, on, mat, strength) {
+    const gl = this.gl;
+    gl.activeTexture(gl.TEXTURE3);
+    gl.bindTexture(gl.TEXTURE_2D, on ? this.shadowTex : this.dummyShadow);
+    gl.activeTexture(gl.TEXTURE0);
+    if (u.uShadowMap) gl.uniform1i(u.uShadowMap, 3);
+    if (u.uShadowOn !== undefined && u.uShadowOn) gl.uniform1f(u.uShadowOn, on ? QUALITY[this.quality].pcf : 0);
+    if (u.uShadowMat && mat) gl.uniformMatrix4fv(u.uShadowMat, false, mat);
+    if (u.uShadowTexel) gl.uniform1f(u.uShadowTexel, on ? 1 / this.shadowSize : 0);
+    if (u.uShadowStrength) gl.uniform1f(u.uShadowStrength, on ? strength : 0);
   }
 
   // ---- chunk-format meshes ----
@@ -255,8 +355,14 @@ export class Renderer {
     const fogFar = s.dim === DIM.NETHER ? Math.min(s.renderDistance * CHUNK - 4, 90) : s.renderDistance * CHUNK - 4;
     const fogNear = s.dim === DIM.NETHER ? 10 : fogFar * (s.rain ? 0.3 : 0.55);
     const env = s.env;
+    const Q = QUALITY[this.quality];
+    const allChunks = [...s.chunks];
+    const sunUp = s.dim === DIM.OVERWORLD ? Math.max(0, Math.min(1, (env.sunDir[1] - 0.04) * 5)) * (1 - (s.rain || 0) * 0.7) : 0;
+    let shadowMat = null;
+    if (Q.shadow && this.shadowFbo && sunUp > 0) shadowMat = this.shadowPass(s, allChunks);
+    this.shadowStrength = shadowMat ? 0.42 * sunUp : 0;
 
-    gl.bindFramebuffer(gl.FRAMEBUFFER, this.msFbo || this.resolveFbo);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this.sceneFbo);
     gl.viewport(0, 0, w, h);
     gl.clearColor(env.fogColor[0], env.fogColor[1], env.fogColor[2], 1);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
@@ -283,7 +389,7 @@ export class Renderer {
     gl.bindTexture(gl.TEXTURE_2D_ARRAY, this.blockTex);
 
     const visible = [];
-    for (const c of s.chunks) {
+    for (const c of allChunks) {
       if (!c.gpu) continue;
       const x0 = c.cx * CHUNK, z0 = c.cz * CHUNK;
       if (!boxVisible(planes, x0, -1, z0, x0 + CHUNK, c.maxY + 2, z0 + CHUNK)) continue;
@@ -299,6 +405,7 @@ export class Renderer {
     gl.uniformMatrix4fv(t.u.uModel, false, IDENTITY);
     gl.uniform1i(t.u.uTex, 0);
     gl.uniform1f(t.u.uAlpha, 1);
+    this.bindShadow(t.u, !!shadowMat, shadowMat, this.shadowStrength);
     let quads = 0;
     for (const [c] of visible) {
       const m = c.gpu.opaque;
@@ -337,6 +444,14 @@ export class Renderer {
     if (s.crack) this.drawCrack(s.crack, viewProj);
     if (s.target) this.drawOutline(s.target, viewProj);
 
+    // Snapshot the opaque scene for water reflections/refraction.
+    const ssr = Q.ssr > 0 && s.medium === 0;
+    if (ssr) {
+      gl.bindFramebuffer(gl.READ_FRAMEBUFFER, this.sceneFbo);
+      gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, this.copyFbo);
+      gl.blitFramebuffer(0, 0, w, h, 0, 0, w, h, gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT, gl.NEAREST);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, this.sceneFbo);
+    }
     // Translucent terrain, back to front.
     gl.useProgram(e.p);
     gl.enable(gl.BLEND);
@@ -348,6 +463,13 @@ export class Renderer {
     gl.uniformMatrix4fv(l.u.uViewProj, false, viewProj);
     gl.uniformMatrix4fv(l.u.uModel, false, IDENTITY);
     gl.uniform1i(l.u.uTex, 0);
+    gl.uniform1f(l.u.uSSR, ssr ? Q.ssr : 0);
+    gl.uniform2f(l.u.uNearFar, 0.05, 1200);
+    gl.uniform2f(l.u.uScreen, w, h);
+    gl.activeTexture(gl.TEXTURE4); gl.bindTexture(gl.TEXTURE_2D, this.copyTex);
+    gl.activeTexture(gl.TEXTURE5); gl.bindTexture(gl.TEXTURE_2D, this.copyDepth);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.uniform1i(l.u.uOpaque, 4); gl.uniform1i(l.u.uOpaqueDepth, 5);
     gl.bindTexture(gl.TEXTURE_2D_ARRAY, this.blockTex);
     for (let i = visible.length - 1; i >= 0; i--) {
       const c = visible[i][0], m = c.gpu.trans;
@@ -378,6 +500,7 @@ export class Renderer {
           gl.uniform3f(t.u.uChunk, 0, 0, 0);
           const L = s.hand.light;
           gl.uniform3f(t.u.uSkyLight, L, L, L);
+          this.bindShadow(t.u, false, null, 0);
           gl.disable(gl.CULL_FACE);
           gl.bindTexture(gl.TEXTURE_2D_ARRAY, this.blockTex);
           gl.bindVertexArray(m.vao);
@@ -395,20 +518,48 @@ export class Renderer {
       }
     }
 
-    // Resolve + post.
+    // Bloom (High/PC): bright pass at quarter resolution, then a separable blur.
     gl.bindVertexArray(this.emptyVao);
-    if (this.msFbo) {
-      gl.bindFramebuffer(gl.READ_FRAMEBUFFER, this.msFbo);
-      gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, this.resolveFbo);
-      gl.blitFramebuffer(0, 0, w, h, 0, 0, w, h, gl.COLOR_BUFFER_BIT, gl.NEAREST);
+    gl.disable(gl.DEPTH_TEST);
+    gl.disable(gl.BLEND);
+    if (Q.bloom) {
+      const bp = this.bloomProg, [bw, bh] = this.bloomSize;
+      gl.useProgram(bp.p);
+      gl.viewport(0, 0, bw, bh);
+      gl.activeTexture(gl.TEXTURE1);
+      const pass = (src, dst, mode, tw, th) => { gl.bindFramebuffer(gl.FRAMEBUFFER, dst); gl.bindTexture(gl.TEXTURE_2D, src); gl.uniform1i(bp.u.uSrc, 1); gl.uniform1i(bp.u.uMode, mode); gl.uniform2f(bp.u.uTexel, 1 / tw, 1 / th); gl.drawArrays(gl.TRIANGLES, 0, 3); };
+      pass(this.sceneTex, this.bloomFboA, 0, w, h);
+      for (let k = 0; k < (this.quality >= 3 ? 2 : 1); k++) { pass(this.bloomA, this.bloomFboB, 1, bw, bh); pass(this.bloomB, this.bloomFboA, 2, bw, bh); }
+      gl.activeTexture(gl.TEXTURE0);
     }
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-    gl.disable(gl.DEPTH_TEST);
+    gl.viewport(0, 0, w, h);
     const p = this.post, fx = s.post || {};
     gl.useProgram(p.p);
-    gl.activeTexture(gl.TEXTURE1);
-    gl.bindTexture(gl.TEXTURE_2D, this.sceneTex);
-    gl.uniform1i(p.u.uScene, 1);
+    gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, this.sceneTex);
+    gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, this.sceneDepth);
+    gl.activeTexture(gl.TEXTURE6); gl.bindTexture(gl.TEXTURE_2D, this.bloomA);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.uniform1i(p.u.uScene, 1); gl.uniform1i(p.u.uDepth, 2); gl.uniform1i(p.u.uBloom, 6);
+    gl.uniform1i(p.u.uQuality, this.quality);
+    gl.uniform2f(p.u.uTexel, 1 / w, 1 / h);
+    // Sun position on screen for god rays.
+    let sun = [0, 0, 0];
+    if (Q.god && s.dim === DIM.OVERWORLD && s.medium === 0) {
+      const d = env.sunDir, sp = [s.camPos[0] + d[0] * 500, s.camPos[1] + d[1] * 500, s.camPos[2] + d[2] * 500];
+      const m = viewProj;
+      const cx = m[0] * sp[0] + m[4] * sp[1] + m[8] * sp[2] + m[12], cy = m[1] * sp[0] + m[5] * sp[1] + m[9] * sp[2] + m[13], cw = m[3] * sp[0] + m[7] * sp[1] + m[11] * sp[2] + m[15];
+      if (cw > 0) {
+        const u = cx / cw * 0.5 + 0.5, v = cy / cw * 0.5 + 0.5;
+        const onScreen = 1 - Math.min(1, Math.max(0, Math.max(Math.abs(u - 0.5), Math.abs(v - 0.5)) * 2 - 1) * 1.5);
+        const strength = (this.quality >= 3 ? 0.55 : 0.4) * onScreen * Math.max(0, Math.min(1, d[1] * 4 + 0.2)) * (1 - (s.rain || 0));
+        sun = [u, v, strength];
+      }
+    }
+    gl.uniform3f(p.u.uSun, sun[0], sun[1], sun[2]);
+    gl.uniform3fv(p.u.uSunColor, env.sunColor);
+    gl.uniform1f(p.u.uGodSamples, Q.god || 1);
+    gl.uniform1f(p.u.uBloomStrength, Q.bloom || 0);
     gl.uniform1f(p.u.uMedium, s.medium);
     gl.uniform1f(p.u.uTime, s.time);
     gl.uniform1f(p.u.uFlash, fx.flash || 0);
@@ -417,7 +568,6 @@ export class Renderer {
     gl.uniform1f(p.u.uDark, fx.dark || 0);
     gl.uniform1f(p.u.uSaturation, fx.saturation ?? 1.1);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
-    gl.activeTexture(gl.TEXTURE0);
 
     this.stats.chunks = visible.length;
     this.stats.quads = quads;

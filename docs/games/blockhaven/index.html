@@ -178,6 +178,22 @@
   .controls-table { border-collapse: collapse; font-size: 14px; }
   .controls-table td { padding: 4px 12px; border-bottom: 1px solid rgba(255,255,255,0.1); }
   .controls-table td:first-child { color: #ffffa0; font-weight: 700; white-space: nowrap; }
+  .guide-panel { width: min(900px, 94vw); height: min(86vh, 760px); }
+  .guide-tabs { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
+  .guide-tabs button { width: auto; font-size: 13px; padding: 7px 12px; }
+  .guide-tabs button.on { background: linear-gradient(180deg, #7aa35a, #5a8a3a); color: #fff; }
+  .guide-body { flex: 1; overflow-y: auto; width: 100%; background: rgba(0,0,0,0.4); border: 2px solid #000; padding: 14px 18px; font-size: 14px; line-height: 1.6; user-select: text; }
+  .guide-body h4 { margin: 14px 0 6px; color: #ffff80; font-size: 16px; }
+  .guide-body h4:first-child { margin-top: 0; }
+  .guide-body code { background: rgba(255,255,255,0.1); padding: 1px 5px; border-radius: 3px; color: #9fe8ff; font-size: 13px; }
+  .guide-body table { border-collapse: collapse; width: 100%; margin: 6px 0; }
+  .guide-body td { padding: 4px 8px; border-bottom: 1px solid rgba(255,255,255,0.08); vertical-align: top; }
+  .guide-body td:first-child { white-space: nowrap; color: #9fe8ff; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 13px; }
+  .stats-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; margin: 8px 0 12px; }
+  .stat-card { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12); border-radius: 4px; padding: 8px 10px; text-align: center; }
+  .stat-card b { display: block; font-size: 26px; color: #8fd16a; }
+  .icon-strip { display: flex; flex-wrap: wrap; gap: 2px; margin: 6px 0; }
+  .icon-strip img { width: 28px; height: 28px; }
   #error { background: #10131c; padding: 30px; text-align: center; font-size: 16px; }
 </style>
 </head>
@@ -188,6 +204,7 @@
   <div class="logo"><h1>BLOCK<span>HAVEN</span></h1><div class="splash" id="splash"></div></div>
   <div class="menu">
     <button id="btn-play">Singleplayer</button>
+    <button id="btn-guide">Guide &amp; Features</button>
     <div class="row"><button class="half" id="btn-settings">Settings</button><button class="half" id="btn-controls">Controls</button></div>
   </div>
   <div class="footer">An original voxel sandbox · every texture, sound, model and shader is generated in code</div>
@@ -239,7 +256,7 @@
     <div style="position:relative"><div id="hotbar"></div><div id="offhand-slot" class="slot hidden"></div></div>
   </div>
   <div id="debug" class="hidden"></div>
-  <div id="hint">WASD move · Space jump · Ctrl sprint · Shift sneak · Mouse break / place / use · E inventory · Q drop · T or / chat &amp; commands · F5 camera · F3 debug · Esc pause</div>
+  <div id="hint" style="opacity:0">WASD move · Space jump · Ctrl sprint · Shift sneak · Mouse break / place / use · E inventory · Q drop · T or / chat &amp; commands · F5 camera · F3 debug · Esc pause</div>
   <div id="toast"><img alt=""><div><div class="t1"></div><div class="t2"></div></div></div>
 </div>
 
@@ -253,6 +270,7 @@
   <h2>Game Menu</h2>
   <button id="btn-resume">Back to Game</button>
   <div class="row"><button class="half" id="btn-settings2">Settings</button><button class="half" id="btn-controls2">Controls</button></div>
+  <button id="btn-guide2">Guide &amp; Commands</button>
   <button id="btn-quit">Save and Quit to Title</button>
 </div>
 
@@ -267,6 +285,7 @@
 <div id="settings" class="screen dim hidden">
   <div class="panel settings-panel">
     <h3>Settings</h3>
+    <label>Graphics preset<select id="set-gfx"><option value="0">Disabled — fastest</option><option value="1">Regular — made for Chromebooks</option><option value="2">High — stronger laptops (shadows, god rays, bloom)</option><option value="3">PC — gaming PCs (everything + reflections)</option></select></label>
     <label>Render distance: <span id="rd-val"></span> chunks<input type="range" id="set-rd" min="3" max="14"></label>
     <label>Field of view: <span id="fov-val"></span>°<input type="range" id="set-fov" min="50" max="110"></label>
     <label>Mouse sensitivity: <span id="sens-val"></span>%<input type="range" id="set-sens" min="10" max="250"></label>
@@ -277,7 +296,7 @@
     <label class="check"><input type="checkbox" id="set-clouds"> Clouds</label>
     <label class="check"><input type="checkbox" id="set-autojump"> Auto-jump</label>
     <label class="check"><input type="checkbox" id="set-particles"> Particles</label>
-    <label class="check"><input type="checkbox" id="set-msaa"> Anti-aliasing (reload)</label>
+    <label class="check"><input type="checkbox" id="set-dynres"> Dynamic resolution (keeps FPS smooth)</label>
     <button id="btn-settings-done">Done</button>
   </div>
 </div>
@@ -302,6 +321,15 @@
       <tr><td>Inventory</td><td>Click pick up/place · right click split/one · shift-click move · 1–9 swap · Q drop</td></tr>
     </table>
     <button id="btn-controls-done">Done</button>
+  </div>
+</div>
+
+<div id="guide" class="screen dim hidden">
+  <div class="panel guide-panel">
+    <h3>Blockhaven Guide</h3>
+    <div class="guide-tabs" id="guide-tabs"></div>
+    <div class="guide-body" id="guide-body"></div>
+    <button id="btn-guide-done">Done</button>
   </div>
 </div>
 

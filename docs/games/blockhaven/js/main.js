@@ -17,6 +17,7 @@ import { GUI, HUD } from './game/ui.js';
 import { buildIcons, hudSprites } from './game/icons.js';
 import { Sound } from './game/audio.js';
 import { computeEnv } from './game/env.js';
+import { guideSections } from './game/guide.js';
 import { listWorlds, loadWorld, saveWorld, deleteWorld } from './game/storage.js';
 import { drawModel, rootMatrix, M } from './entity/entity.js';
 import { itemMesh, emitItemMesh } from './entity/itemmesh.js';
@@ -31,7 +32,7 @@ const store = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } ca
 const LOW_END = /CrOS/.test(navigator.userAgent) || (navigator.deviceMemory && navigator.deviceMemory <= 4) || (navigator.hardwareConcurrency || 8) <= 4;
 const settings = Object.assign({
   renderDistance: LOW_END ? 6 : 8, fov: 75, sensitivity: 100, brightness: 50, volume: 60, music: 40,
-  bobbing: true, clouds: true, autoJump: true, particles: true, msaa: !LOW_END, dynamicRes: true,
+  bobbing: true, clouds: true, autoJump: true, particles: true, dynamicRes: true, graphics: LOW_END ? 1 : 2,
 }, load(SETTINGS_KEY) || {});
 const SPLASHES = ['Now with the Nether!', 'Also try the End!', 'Creepers included!', '60 mobs!', 'Villagers will trade!', 'Wild worlds are wild!', 'Every pixel procedural!', 'Craft everything!', 'Spectator mode!', 'Runs on Chromebooks!', 'Mind the lava!', 'Floating islands!'];
 
@@ -62,8 +63,8 @@ class App {
   }
 
   init() {
-    try { this.renderer = new Renderer($('game')); } catch (e) { this.fatal(`Blockhaven needs WebGL 2, which this browser or device doesn't provide. (${e.message})`); return false; }
-    if (!settings.msaa) this.renderer.samples = 0;
+    try { this.renderer = new Renderer($('game')); } catch (e) { this.fatal(/WebGL 2 is not available/.test(e.message) ? 'Blockhaven needs WebGL 2, which this browser or device does not provide.' : `Graphics startup failed: ${e.message.split('\n')[0]}`); return false; }
+    this.applyGraphics();
     // Textures.
     this.blockTex = generateBlockTextures();
     this.renderer.setBlockTextures(buildMipChain(this.blockTex), TEXTURES.length);
@@ -88,6 +89,19 @@ class App {
     this.startPanorama();
     requestAnimationFrame(t => this.frame(t));
     return true;
+  }
+  // Graphics presets: 0 Disabled, 1 Regular, 2 High, 3 PC.
+  applyGraphics() {
+    const q = Number(settings.graphics);
+    this.renderer.setQuality(q);
+  }
+  openGuide() {
+    this.openPanel('guide');
+    const secs = guideSections(this.icons), tabs = $('guide-tabs'), body = $('guide-body');
+    tabs.textContent = '';
+    const show = name => { body.innerHTML = secs[name]; body.scrollTop = 0; tabs.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.textContent === name)); };
+    for (const name of Object.keys(secs)) { const b = document.createElement('button'); b.textContent = name; b.addEventListener('click', () => { this.sound.click(); show(name); }); tabs.appendChild(b); }
+    show(Object.keys(secs)[0]);
   }
   fatal(msg) { $('title').classList.add('hidden'); $('error').classList.remove('hidden'); $('error').textContent = msg; }
 
@@ -180,7 +194,9 @@ class App {
     this.requestLock();
     this.chat(`Welcome to ${meta.name}! Press T or / for chat and commands (try /help).`, '#aaaaaa');
     this.saveT = 0;
-    $('hint').style.opacity = 1; this.hintT = 12;
+    // The controls hint only appears briefly in brand-new worlds.
+    this.hintT = meta.dims ? 0 : 8;
+    $('hint').style.opacity = meta.dims ? 0 : 1;
   }
   onWorldOpened() {}
   onDimensionChange(dim) {
@@ -271,7 +287,9 @@ class App {
     bind('set-bright', 'brightness', 'bright-val');
     bind('set-vol', 'volume', 'vol-val', () => this.sound.setVolume(settings.volume / 100));
     bind('set-music', 'music', 'music-val', () => this.sound.setMusic(settings.music / 100));
-    for (const [id, k] of [['set-bob', 'bobbing'], ['set-clouds', 'clouds'], ['set-autojump', 'autoJump'], ['set-particles', 'particles'], ['set-msaa', 'msaa']]) {
+    $('set-gfx').value = settings.graphics;
+    $('set-gfx').addEventListener('change', () => { settings.graphics = Number($('set-gfx').value); this.applyGraphics(); store(SETTINGS_KEY, settings); });
+    for (const [id, k] of [['set-bob', 'bobbing'], ['set-clouds', 'clouds'], ['set-autojump', 'autoJump'], ['set-particles', 'particles'], ['set-dynres', 'dynamicRes']]) {
       $(id).checked = settings[k];
       $(id).addEventListener('change', () => { settings[k] = $(id).checked; if (this.game) this.game.player.autoJump = settings.autoJump; });
     }
@@ -297,6 +315,9 @@ class App {
     click('btn-settings', () => this.openPanel('settings'));
     click('btn-settings2', () => this.openPanel('settings'));
     click('btn-settings-done', () => { $('settings').classList.add('hidden'); store(SETTINGS_KEY, settings); });
+    click('btn-guide', () => this.openGuide());
+    click('btn-guide2', () => this.openGuide());
+    click('btn-guide-done', () => $('guide').classList.add('hidden'));
     click('btn-controls', () => this.openPanel('controls'));
     click('btn-controls2', () => this.openPanel('controls'));
     click('btn-controls-done', () => $('controls').classList.add('hidden'));

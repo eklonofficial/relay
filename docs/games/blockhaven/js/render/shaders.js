@@ -39,6 +39,7 @@ vec3 skyColor(vec3 d) {
 `;
 
 const LIGHTING = `
+vec3 applyLightS(vec3 col, vec2 light, float ao, float shade, float vis, float ndl);
 uniform vec3 uFogColor;
 uniform float uFogNear;
 uniform float uFogFar;
@@ -47,11 +48,19 @@ uniform vec3 uAmbient;
 uniform vec3 uCamPos;
 uniform float uMedium; // 0 air, 1 water, 2 lava, 3 powder snow
 uniform float uFlicker;
+uniform float uShadowStrength;
 
 vec3 applyLight(vec3 col, vec2 light, float ao, float shade) {
+  return applyLightS(col, light, ao, shade, 1.0, 0.0);
+}
+
+
+vec3 applyLightS(vec3 col, vec2 light, float ao, float shade, float vis, float ndl) {
   float sky = pow(0.8, 15.0 * (1.0 - light.x));
   float blk = pow(0.82, 15.0 * (1.0 - light.y));
-  vec3 L = max(uSkyLight * sky, vec3(1.0, 0.76, 0.5) * blk * (1.12 + uFlicker * 0.06));
+  // Sun shadows darken the sky-light part only; lit faces get a little direct warmth.
+  float sun = 1.0 - uShadowStrength * (1.0 - vis) + uShadowStrength * 0.45 * vis * ndl;
+  vec3 L = max(uSkyLight * sky * sun, vec3(1.0, 0.76, 0.5) * blk * (1.12 + uFlicker * 0.06));
   L = max(L, uAmbient);
   return col * L * mix(0.4, 1.0, ao / 3.0) * shade;
 }
@@ -120,7 +129,33 @@ void main() {
 }
 `;
 
-export const TERRAIN_FS = HEADER + FLAGS + NOISE + LIGHTING + `
+const SHADOW = `
+uniform vec3 uSunDir;
+uniform highp sampler2DShadow uShadowMap;
+uniform mat4 uShadowMat;
+uniform float uShadowOn;
+uniform float uShadowTexel;
+const vec3 FACE_N[7] = vec3[7](vec3(1, 0, 0), vec3(-1, 0, 0), vec3(0, 1, 0), vec3(0, -1, 0), vec3(0, 0, 1), vec3(0, 0, -1), vec3(0, 1, 0));
+float shadowVis(vec3 world, vec3 N) {
+  if (uShadowOn < 0.5) return 1.0;
+  vec4 sc = uShadowMat * vec4(world + N * 0.04, 1.0);
+  vec3 p = sc.xyz / sc.w * 0.5 + 0.5;
+  if (p.x <= 0.0 || p.x >= 1.0 || p.y <= 0.0 || p.y >= 1.0 || p.z >= 1.0) return 1.0;
+  p.z -= 0.0006;
+  float sum = 0.0;
+  if (uShadowOn > 1.5) {
+    for (int y = 0; y < 4; y++) for (int x = 0; x < 4; x++) sum += texture(uShadowMap, vec3(p.xy + (vec2(x, y) - 1.5) * uShadowTexel * 1.2, p.z));
+    sum /= 16.0;
+  } else {
+    for (int y = -1; y <= 1; y++) for (int x = -1; x <= 1; x++) sum += texture(uShadowMap, vec3(p.xy + vec2(x, y) * uShadowTexel, p.z));
+    sum /= 9.0;
+  }
+  float edge = smoothstep(0.0, 0.06, min(min(p.x, p.y), min(1.0 - p.x, 1.0 - p.y)));
+  return mix(1.0, sum, edge);
+}
+`;
+
+export const TERRAIN_FS = HEADER + FLAGS + NOISE + LIGHTING + SHADOW + `
 uniform sampler2DArray uTex;
 uniform float uTime;
 uniform float uAlpha;
@@ -163,7 +198,12 @@ void main() {
   vec3 col = t.rgb;
   if (t.a < 0.998) col *= vTint;
   if (vFlags == F_EMISSIVE || vFlags == F_FIRE) col = col * 1.1;
-  else col = applyLight(col, vLight, vAO, vShade);
+  else {
+    vec3 N = FACE_N[vNormal];
+    float ndl = vNormal == 6 ? 0.6 : dot(N, uSunDir);
+    float vis = uShadowOn > 0.5 ? (ndl <= 0.0 ? 0.0 : shadowVis(vWorld, N)) : 1.0;
+    col = applyLightS(col, vLight, vAO, vShade, vis, max(ndl, 0.0));
+  }
   outColor = vec4(applyFog(col, vWorld), uAlpha);
 }
 `;
@@ -171,6 +211,35 @@ void main() {
 export const LIQUID_FS = HEADER + FLAGS + NOISE + SKY + LIGHTING + `
 uniform sampler2DArray uTex;
 uniform float uTime;
+uniform float uSSR;
+uniform sampler2D uOpaque;
+uniform sampler2D uOpaqueDepth;
+uniform mat4 uViewProj;
+uniform vec2 uNearFar;
+uniform vec2 uScreen;
+float linDepth(float d) { float z = d * 2.0 - 1.0; return 2.0 * uNearFar.x * uNearFar.y / (uNearFar.y + uNearFar.x - z * (uNearFar.y - uNearFar.x)); }
+vec3 traceSSR(vec3 P, vec3 R, out float hit) {
+  hit = 0.0;
+  float t = 0.4;
+  for (int i = 0; i < 64; i++) {
+    if (float(i) >= uSSR) break;
+    vec3 q = P + R * t;
+    vec4 c = uViewProj * vec4(q, 1.0);
+    if (c.w <= 0.0) break;
+    vec3 ndc = c.xyz / c.w;
+    vec2 uv = ndc.xy * 0.5 + 0.5;
+    if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) break;
+    float sd = texture(uOpaqueDepth, uv).r;
+    float rd = linDepth(ndc.z * 0.5 + 0.5), sdl = linDepth(sd);
+    if (rd > sdl && rd - sdl < 1.2 + t * 0.12 && sd < 0.99999) {
+      vec2 e = abs(uv - 0.5) * 2.0;
+      hit = 1.0 - smoothstep(0.75, 1.0, max(e.x, e.y));
+      return texture(uOpaque, uv).rgb;
+    }
+    t = t * 1.16 + 0.25;
+  }
+  return vec3(0.0);
+}
 in vec3 vUV;
 in vec3 vWorld;
 in float vShade;
@@ -217,10 +286,22 @@ void main() {
   float skyVis = pow(0.8, 15.0 * (1.0 - vLight.x));
   vec3 base = applyLight(t.rgb * vTint * 1.25, vLight, 3.0, vShade);
   vec3 refl = skyColor(reflect(-V, N)) * mix(0.2, 1.0, skyVis);
-  vec3 col = mix(base, refl * vec3(0.8, 0.9, 1.0), clamp(fres, 0.0, 0.6));
+  float alpha = uMedium > 0.5 ? 0.55 : mix(0.66, 0.94, fres);
+  if (uSSR > 0.5 && vFlags == F_WATER_TOP && uMedium < 0.5) {
+    float hit;
+    vec3 sr = traceSSR(vWorld, reflect(-V, N), hit);
+    refl = mix(refl, sr, hit);
+    // Refraction: see the bottom through the water, bent by the waves.
+    vec2 suv = gl_FragCoord.xy / uScreen + N.xz * 0.03;
+    float depthBelow = linDepth(texture(uOpaqueDepth, suv).r) - length(uCamPos - vWorld);
+    vec3 under = texture(uOpaque, suv).rgb;
+    float clarity = exp(-max(depthBelow, 0.0) * 0.18);
+    base = mix(base, under * vTint * 1.6, clarity * 0.75);
+    alpha = mix(0.75, 1.0, fres);
+  }
+  vec3 col = mix(base, refl * vec3(0.8, 0.9, 1.0), clamp(fres * (uSSR > 0.5 ? 1.3 : 1.0), 0.0, uSSR > 0.5 ? 0.85 : 0.6));
   vec3 H = normalize(uSunDir + V);
   col += uSunColor * pow(max(dot(N, H), 0.0), 240.0) * 3.0 * skyVis;
-  float alpha = uMedium > 0.5 ? 0.55 : mix(0.66, 0.94, fres);
   outColor = vec4(applyFog(col, vWorld), alpha);
 }
 `;
@@ -364,8 +445,47 @@ void main() {
   gl_Position = vec4(p * 2.0 - 1.0, 0.0, 1.0);
 }
 `;
+export const SHADOW_FS = HEADER + `
+uniform sampler2DArray uTex;
+in vec3 vUV;
+flat in int vFlags;
+out vec4 outColor;
+void main() { if (texture(uTex, vUV).a < 0.5) discard; outColor = vec4(1.0); }
+`;
+
+export const BLOOM_FS = HEADER + `
+uniform sampler2D uSrc;
+uniform vec2 uTexel;
+uniform int uMode;
+in vec2 vUV;
+out vec4 outColor;
+void main() {
+  if (uMode == 0) {
+    vec3 c = vec3(0.0);
+    for (int y = 0; y < 2; y++) for (int x = 0; x < 2; x++) c += texture(uSrc, vUV + (vec2(x, y) - 0.5) * uTexel).rgb;
+    c *= 0.25;
+    float l = dot(c, vec3(0.299, 0.587, 0.114));
+    outColor = vec4(c * smoothstep(0.62, 1.0, l), 1.0);
+    return;
+  }
+  vec2 d = uMode == 1 ? vec2(uTexel.x, 0.0) : vec2(0.0, uTexel.y);
+  const float W[5] = float[5](0.227, 0.194, 0.122, 0.054, 0.016);
+  vec3 c = texture(uSrc, vUV).rgb * W[0];
+  for (int i = 1; i < 5; i++) c += (texture(uSrc, vUV + d * float(i) * 1.5).rgb + texture(uSrc, vUV - d * float(i) * 1.5).rgb) * W[i];
+  outColor = vec4(c, 1.0);
+}
+`;
+
 export const POST_FS = HEADER + `
 uniform sampler2D uScene;
+uniform sampler2D uDepth;
+uniform sampler2D uBloom;
+uniform int uQuality;
+uniform vec2 uTexel;
+uniform vec3 uSun;
+uniform vec3 uSunColor;
+uniform float uGodSamples;
+uniform float uBloomStrength;
 uniform float uMedium;
 uniform float uTime;
 uniform float uFlash;
@@ -375,6 +495,27 @@ uniform float uDark;
 uniform float uSaturation;
 in vec2 vUV;
 out vec4 outColor;
+
+float luma(vec3 c) { return dot(c, vec3(0.299, 0.587, 0.114)); }
+// Compact FXAA: smooths edges for a fraction of MSAA's cost.
+vec3 fxaa(vec2 uv) {
+  vec3 m = texture(uScene, uv).rgb;
+  float lM = luma(m);
+  float lN = luma(texture(uScene, uv + vec2(0.0, uTexel.y)).rgb), lS = luma(texture(uScene, uv - vec2(0.0, uTexel.y)).rgb);
+  float lE = luma(texture(uScene, uv + vec2(uTexel.x, 0.0)).rgb), lW = luma(texture(uScene, uv - vec2(uTexel.x, 0.0)).rgb);
+  float lo = min(lM, min(min(lN, lS), min(lE, lW))), hi = max(lM, max(max(lN, lS), max(lE, lW)));
+  if (hi - lo < max(0.04, hi * 0.12)) return m;
+  vec2 dir = vec2(-((lN + lS) - (lE + lW)) * 0.5, (lN + lS) * 0.0 + (lE + lW) * 0.0 + ((lN - lS)) * 0.0);
+  dir = vec2((lS - lN), (lE - lW));
+  float scale = 1.0 / (min(abs(dir.x), abs(dir.y)) + 0.03);
+  dir = clamp(dir * scale, -4.0, 4.0) * uTexel;
+  vec3 a = 0.5 * (texture(uScene, uv + dir * (1.0 / 3.0 - 0.5)).rgb + texture(uScene, uv + dir * (2.0 / 3.0 - 0.5)).rgb);
+  vec3 b = a * 0.5 + 0.25 * (texture(uScene, uv - dir * 0.5).rgb + texture(uScene, uv + dir * 0.5).rgb);
+  float lb = luma(b);
+  return (lb < lo || lb > hi) ? a : b;
+}
+vec3 aces(vec3 x) { return clamp((x * (2.51 * x + 0.03)) / (x * (2.43 * x + 0.59) + 0.14), 0.0, 1.0); }
+
 void main() {
   vec2 uv = vUV;
   if (uMedium > 0.5 && uMedium < 1.5) uv += vec2(sin(uv.y * 22.0 + uTime * 2.2), cos(uv.x * 17.0 + uTime * 1.8)) * 0.0035;
@@ -383,17 +524,33 @@ void main() {
     float a = uPortal * 0.6 * sin(uTime * 1.3);
     uv = 0.5 + mat2(cos(a), -sin(a), sin(a), cos(a)) * c * (1.0 - uPortal * 0.08);
   }
-  vec3 c = texture(uScene, uv).rgb;
+  vec3 c = uQuality >= 1 ? fxaa(uv) : texture(uScene, uv).rgb;
+  if (uQuality == 0) { outColor = vec4(c * (1.0 - uDark) + uFlash, 1.0); return; }
+  // God rays: march towards the sun through sky pixels.
+  if (uQuality >= 2 && uSun.z > 0.001) {
+    vec2 d = (uv - uSun.xy) / uGodSamples * 0.95;
+    vec2 p = uv;
+    float illum = 0.0, decay = 1.0;
+    for (int i = 0; i < 96; i++) {
+      if (float(i) >= uGodSamples) break;
+      p -= d;
+      float sky = texture(uDepth, clamp(p, 0.001, 0.999)).r >= 0.99999 ? 1.0 : 0.0;
+      illum += sky * decay;
+      decay *= 0.972;
+    }
+    c += uSunColor * (illum / uGodSamples) * uSun.z;
+  }
+  if (uQuality >= 2) c += texture(uBloom, uv).rgb * uBloomStrength;
   if (uMedium > 0.5 && uMedium < 1.5) c = mix(c, c * vec3(0.4, 0.62, 1.0), 0.55);
-  float l = dot(c, vec3(0.299, 0.587, 0.114));
+  float l = luma(c);
   c = mix(vec3(l), c, uSaturation);
-  c = (c - 0.5) * 1.05 + 0.5;
+  if (uQuality >= 2) c = aces(c * 1.35);
+  else c = (c - 0.5) * 1.05 + 0.5;
   if (uPortal > 0.0) c = mix(c, vec3(0.55, 0.2, 0.8), uPortal * 0.45);
   c += uFlash;
-  vec2 d = vUV - 0.5;
-  float vig = mix(0.68, 1.0, smoothstep(0.85, 0.25, length(d) * 1.15));
-  c *= vig;
-  c = mix(c, vec3(0.7, 0.0, 0.0), uHurt * smoothstep(0.2, 0.75, length(d)) * 0.8);
+  vec2 dd = vUV - 0.5;
+  c *= mix(0.68, 1.0, smoothstep(0.85, 0.25, length(dd) * 1.15));
+  c = mix(c, vec3(0.7, 0.0, 0.0), uHurt * smoothstep(0.2, 0.75, length(dd)) * 0.8);
   c *= 1.0 - uDark;
   outColor = vec4(clamp(c, 0.0, 1.0), 1.0);
 }
