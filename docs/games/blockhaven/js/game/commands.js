@@ -34,7 +34,6 @@ export const COMMANDS = {
   say: { args: '<message>', desc: 'Broadcast a message' },
   me: { args: '<action>', desc: 'Describe an action' },
   list: { args: '', desc: 'List players' },
-  enchant: { args: '', desc: '(not available)' },
 };
 
 export class Commands {

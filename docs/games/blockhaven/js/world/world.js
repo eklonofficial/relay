@@ -26,6 +26,9 @@ export class World {
     this.cb = opts.callbacks;
     this.nextJob = 1;
     this.pendingLocates = new Map();
+    this.uploads = new Map();
+    // Per-frame time budget for GPU mesh uploads so streaming chunks never causes hitches.
+    this.uploadBudget = /CrOS/.test(navigator.userAgent) || (navigator.hardwareConcurrency || 8) <= 4 ? 2.5 : 5;
     const count = Math.max(1, Math.min(4, (navigator.hardwareConcurrency || 4) - 1));
     this.workers = [];
     for (let i = 0; i < count; i++) {
@@ -76,12 +79,23 @@ export class World {
       if (m.version !== c.version) return;
       c.meshedVersion = m.version;
       c.maxY = m.maxY;
-      this.cb.onMesh(c, m);
+      if (c.urgentVersion === m.version) { this.uploads.delete(c.key); this.cb.onMesh(c, m); }
+      else this.uploads.set(c.key, [c, m]);
     }
   }
 
   update(px, pz, radius) {
     const pcx = Math.floor(px / CHUNK), pcz = Math.floor(pz / CHUNK);
+    if (this.uploads.size) {
+      const t0 = performance.now();
+      // Nearest first.
+      const list = [...this.uploads.values()].sort((a, b) => Math.hypot(a[0].cx - pcx, a[0].cz - pcz) - Math.hypot(b[0].cx - pcx, b[0].cz - pcz));
+      for (const [c, m] of list) {
+        this.uploads.delete(c.key);
+        if (this.chunks.get(c.key) === c) this.cb.onMesh(c, m);
+        if (performance.now() - t0 > this.uploadBudget) break;
+      }
+    }
     for (const c of this.chunks.values()) {
       if (Math.max(Math.abs(c.cx - pcx), Math.abs(c.cz - pcz)) > radius + 3) {
         this.cb.onUnload(c);
@@ -121,6 +135,7 @@ export class World {
       const w = this.pickWorker(c.priority ? 3 : 2);
       if (!w) break;
       c.meshPending = true;
+      if (c.priority) c.urgentVersion = c.version;
       c.priority = 0;
       w.busy++;
       const job = this.buildVolume(c.cx, c.cz);

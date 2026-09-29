@@ -59,15 +59,30 @@ export class Entity {
 }
 
 export class EntityManager {
-  constructor(game) { this.game = game; this.list = []; }
-  add(e) { this.list.push(e); if (e.onAdd) e.onAdd(); return e; }
+  constructor(game) { this.game = game; this.list = []; this.frame = 0; }
+  add(e) { e.lodPhase = (Math.random() * 8) | 0; this.list.push(e); if (e.onAdd) e.onAdd(); return e; }
   update(dt) {
-    const g = this.game;
+    const g = this.game, p = g.player && g.player.pos;
+    this.frame = (this.frame + 1) | 0;
     for (const e of this.list) {
       if (e.dead) continue;
       if (!g.world.isLoaded(e.pos[0], e.pos[2])) { e.frozen = true; continue; }
       e.frozen = false;
       e.age += dt;
+      // Distant mobs think less often (their skipped time is carried over), which keeps
+      // big villages and mob farms cheap on low-end machines.
+      if (p && e.isLiving && e.mobType !== 'ender_dragon' && !e.target) {
+        const dx = e.pos[0] - p[0], dz = e.pos[2] - p[2], d2 = dx * dx + dz * dz;
+        const n = d2 > 9216 ? 8 : d2 > 1600 ? 3 : 1;
+        if (n > 1) {
+          e.lodAcc = (e.lodAcc || 0) + dt;
+          if ((this.frame + e.lodPhase) % n) continue;
+          const adt = Math.min(e.lodAcc, 0.1);
+          e.lodAcc = 0;
+          e.update(adt);
+          continue;
+        }
+      }
       e.update(dt);
     }
     if (this.list.some(e => e.dead)) this.list = this.list.filter(e => { if (e.dead && e.onRemove) e.onRemove(); return !e.dead; });

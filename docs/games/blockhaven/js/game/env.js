@@ -9,7 +9,7 @@ export function computeEnv(dim, dayTime, camFwd, rain = 0, thunder = 0, brightne
   if (dim === DIM.NETHER) {
     return {
       sunDir: [0, 1, 0], zenith: [0.2, 0.03, 0.02], horizon: [0.25, 0.05, 0.03], sunColor: [0, 0, 0],
-      skyLight: [0, 0, 0], night: 0, fogColor: [0.24, 0.04, 0.025], day: 0, ambient: [0.3 + lift, 0.2 + lift, 0.17 + lift], sky: 0,
+      skyLight: [0, 0, 0], night: 0, fogColor: [0.24, 0.04, 0.025], day: 0, ambient: [0.52 + lift, 0.4 + lift, 0.35 + lift], sky: 0,
     };
   }
   if (dim === DIM.END) {
