@@ -1,16 +1,28 @@
-import { createGenerator } from './worldgen.js';
-import { meshChunk } from './mesher.js';
+import { createGenerator } from './gen/index.js';
+import { meshChunk } from './mesh/mesher.js';
 
-let generator = null, generatorSeed = null;
+let generator = null, genKey = '';
 
 self.onmessage = e => {
   const m = e.data;
-  if (m.type === 'gen') {
-    if (generatorSeed !== m.seed) { generator = createGenerator(m.seed); generatorSeed = m.seed; }
-    const blocks = generator.generateChunk(m.cx, m.cz);
-    self.postMessage({ type: 'gen', job: m.job, cx: m.cx, cz: m.cz, blocks }, [blocks.buffer]);
-  } else if (m.type === 'mesh') {
-    const r = meshChunk(m.vol);
-    self.postMessage({ type: 'mesh', job: m.job, cx: m.cx, cz: m.cz, version: m.version, ...r }, [r.opaque, r.trans]);
+  try {
+    if (m.type === 'gen') {
+      const key = `${m.seed}|${m.dim}|${m.worldType}`;
+      if (key !== genKey) { generator = createGenerator(m.seed, m.dim, m.worldType); genKey = key; }
+      const w = generator.generateChunk(m.cx, m.cz);
+      self.postMessage({
+        type: 'gen', job: m.job, cx: m.cx, cz: m.cz, dim: m.dim,
+        ids: w.ids, meta: w.meta, biomes: w.biomes, heights: w.heights, entities: w.entities, blockEntities: w.blockEntities,
+      }, [w.ids.buffer, w.meta.buffer, w.biomes.buffer, w.heights.buffer]);
+    } else if (m.type === 'mesh') {
+      const r = meshChunk(m);
+      self.postMessage({ type: 'mesh', job: m.job, cx: m.cx, cz: m.cz, dim: m.dim, version: m.version, ...r }, [r.opaque, r.trans, r.light]);
+    } else if (m.type === 'locate') {
+      const key = `${m.seed}|${m.dim}|${m.worldType}`;
+      if (key !== genKey) { generator = createGenerator(m.seed, m.dim, m.worldType); genKey = key; }
+      self.postMessage({ type: 'locate', job: m.job, result: generator.locate(m.kind, m.x, m.z) });
+    }
+  } catch (err) {
+    self.postMessage({ type: 'error', job: m.job, cx: m.cx, cz: m.cz, kind: m.type, message: String(err && err.stack || err) });
   }
 };

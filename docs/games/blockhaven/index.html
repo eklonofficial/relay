@@ -9,13 +9,15 @@
   :root {
     --ui-font: "Trebuchet MS", "Segoe UI", system-ui, sans-serif;
     --pixel-shadow: 2px 2px 0 #2b2b2b;
+    --panel: #c6c6c6; --panel-light: #ffffff; --panel-dark: #555555; --slot: #8b8b8b;
   }
   * { box-sizing: border-box; }
-  html, body { margin: 0; height: 100%; overflow: hidden; background: #0b0f18; color: #fff; font-family: var(--ui-font); user-select: none; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #0b0f18; color: #fff; font-family: var(--ui-font); user-select: none; -webkit-user-select: none; }
   canvas#game { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
   .hidden { display: none !important; }
   .screen { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; }
-  .dim { background: rgba(8, 10, 16, 0.55); backdrop-filter: blur(6px); }
+  .dim { background: rgba(8, 10, 16, 0.55); backdrop-filter: blur(5px); }
+  img { image-rendering: pixelated; }
 
   button {
     font: 700 17px var(--ui-font); letter-spacing: 0.04em; color: #f2f2f2; text-shadow: var(--pixel-shadow);
@@ -25,66 +27,157 @@
     box-shadow: inset 0 2px 0 rgba(255,255,255,0.28), inset 0 -3px 0 rgba(0,0,0,0.35), 0 4px 14px rgba(0,0,0,0.35);
     transition: transform 0.08s, filter 0.12s;
   }
-  button:hover { background: linear-gradient(180deg, #8a9bd6 0%, #6f82c4 48%, #6477b8 52%, #5a6cab 100%); color: #ffffa0; }
-  button:active { transform: translateY(1px); }
+  button:hover:not(:disabled) { background: linear-gradient(180deg, #8a9bd6 0%, #6f82c4 48%, #6477b8 52%, #5a6cab 100%); color: #ffffa0; }
+  button:active:not(:disabled) { transform: translateY(1px); }
+  button:disabled { filter: grayscale(1) brightness(0.6); cursor: default; }
   button.small { width: auto; font-size: 14px; padding: 8px 14px; }
+  button.half { width: 155px; }
+  input[type=text], select { padding: 9px; font: 15px var(--ui-font); background: #000; color: #fff; border: 2px solid #a0a0a0; outline: none; }
+  input[type=text]:focus { border-color: #fff; }
 
   #title { background: radial-gradient(ellipse at center, rgba(0,0,0,0) 35%, rgba(0,0,0,0.45) 100%); }
-  .logo { position: relative; margin-bottom: 34px; text-align: center; }
+  .logo { position: relative; margin-bottom: 30px; text-align: center; }
   .logo h1 {
     margin: 0; font: 900 clamp(46px, 9vw, 112px) / 1 "Arial Black", Impact, var(--ui-font); letter-spacing: 0.06em; color: #e9e9e9;
-    text-shadow: 0 1px 0 #b3b3b3, 0 2px 0 #a3a3a3, 0 3px 0 #939393, 0 4px 0 #838383, 0 5px 0 #737373, 0 6px 0 #636363,
-      0 7px 0 #535353, 0 8px 0 #434343, 0 12px 18px rgba(0,0,0,0.6);
+    text-shadow: 0 1px 0 #b3b3b3, 0 2px 0 #a3a3a3, 0 3px 0 #939393, 0 4px 0 #838383, 0 5px 0 #737373, 0 6px 0 #636363, 0 7px 0 #535353, 0 8px 0 #434343, 0 12px 18px rgba(0,0,0,0.6);
     animation: float 6s ease-in-out infinite;
   }
   .logo h1 span { color: #8fd16a; text-shadow: 0 1px 0 #6aa84a, 0 2px 0 #5f9a42, 0 3px 0 #548c3a, 0 4px 0 #497e32, 0 5px 0 #3e702a, 0 6px 0 #336222, 0 7px 0 #28541a, 0 8px 0 #1d4612, 0 12px 18px rgba(0,0,0,0.6); }
-  .splash {
-    position: absolute; right: -10px; bottom: -18px; color: #ffff55; font: 700 clamp(15px, 1.8vw, 22px) var(--ui-font);
-    text-shadow: 2px 2px 0 #3f3f15; transform: rotate(-16deg); white-space: nowrap; animation: pulse 0.6s ease-in-out infinite alternate;
-  }
+  .splash { position: absolute; right: -10px; bottom: -18px; color: #ffff55; font: 700 clamp(15px, 1.8vw, 22px) var(--ui-font); text-shadow: 2px 2px 0 #3f3f15; transform: rotate(-16deg); white-space: nowrap; animation: pulse 0.6s ease-in-out infinite alternate; }
   @keyframes pulse { from { transform: rotate(-16deg) scale(1); } to { transform: rotate(-16deg) scale(1.08); } }
   @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
   .menu { display: flex; flex-direction: column; align-items: center; gap: 10px; }
-  .row { display: flex; gap: 10px; }
-  .row button { width: 155px; }
-  .seed-row { display: flex; gap: 8px; align-items: center; background: rgba(0,0,0,0.5); padding: 10px; border: 2px solid #111; }
-  .seed-row input { width: 190px; padding: 9px; font: 15px var(--ui-font); background: #000; color: #fff; border: 2px solid #a0a0a0; }
-  .seed-row button { width: 110px; }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
   .footer { position: fixed; bottom: 14px; left: 0; right: 0; text-align: center; color: rgba(255,255,255,0.75); font-size: 13px; text-shadow: var(--pixel-shadow); }
-  .save-note { color: rgba(255,255,255,0.75); font-size: 12px; text-shadow: var(--pixel-shadow); }
+
+  .panel { background: rgba(20, 22, 30, 0.85); border: 2px solid #000; box-shadow: inset 0 0 0 2px rgba(255,255,255,0.08), 0 20px 50px rgba(0,0,0,0.5); padding: 22px 26px; border-radius: 4px; display: flex; flex-direction: column; gap: 12px; align-items: center; max-width: 94vw; max-height: 94vh; }
+  .panel h3, #pause h2 { margin: 0 0 6px; font-size: 26px; text-shadow: var(--pixel-shadow); letter-spacing: 0.04em; }
+  #world-list { width: min(560px, 90vw); height: min(46vh, 380px); overflow: auto; background: rgba(0,0,0,0.55); border: 2px solid #000; }
+  .world-entry { display: flex; gap: 12px; align-items: center; padding: 10px 12px; border: 2px solid transparent; cursor: pointer; }
+  .world-entry:hover { background: rgba(255,255,255,0.06); }
+  .world-entry.sel { border-color: #fff; background: rgba(255,255,255,0.1); }
+  .world-entry .thumb { width: 52px; height: 52px; background: #333 center/cover; image-rendering: pixelated; border: 2px solid #000; flex: none; }
+  .world-entry .name { font-weight: 700; font-size: 16px; }
+  .world-entry .info { font-size: 12px; color: #bbb; margin-top: 3px; }
+  .empty-note { color: #aaa; padding: 24px; text-align: center; }
+  .form { display: grid; grid-template-columns: 150px 260px; gap: 10px 12px; align-items: center; font-size: 14px; }
+  .form label { text-align: right; text-shadow: 1px 1px 0 #000; }
+  .form .opt { display: flex; gap: 6px; flex-wrap: wrap; }
+  .form .opt button { width: auto; flex: 1; font-size: 13px; padding: 7px 8px; }
+  .form .opt button.on { background: linear-gradient(180deg, #7aa35a, #5a8a3a); color: #fff; }
+  .hint-text { font-size: 12px; color: #bbb; max-width: 440px; text-align: center; line-height: 1.5; }
 
   #loading .label { font-size: 22px; text-shadow: var(--pixel-shadow); }
   #loading .bar { width: 320px; height: 10px; background: rgba(0,0,0,0.6); border: 2px solid #111; }
   #load-bar { height: 100%; width: 0; background: linear-gradient(90deg, #6fcf4a, #9be36b); transition: width 0.2s; }
 
+  /* ---------- HUD ---------- */
   #hud { position: fixed; inset: 0; pointer-events: none; }
   #crosshair { position: absolute; left: 50%; top: 50%; width: 22px; height: 22px; transform: translate(-50%, -50%); mix-blend-mode: difference; }
   #crosshair::before, #crosshair::after { content: ""; position: absolute; background: #fff; }
   #crosshair::before { left: 10px; top: 0; width: 2px; height: 22px; }
   #crosshair::after { left: 0; top: 10px; width: 22px; height: 2px; }
-  #hotbar { position: absolute; bottom: 14px; left: 50%; transform: translateX(-50%); display: flex; gap: 2px; padding: 3px; background: rgba(0,0,0,0.45); border: 2px solid rgba(0,0,0,0.8); border-radius: 3px; }
-  .slot { position: relative; width: 54px; height: 54px; display: flex; align-items: center; justify-content: center; border: 2px solid rgba(255,255,255,0.12); background: rgba(139,139,139,0.25); transition: transform 0.1s; }
-  .slot img { width: 42px; height: 42px; image-rendering: pixelated; filter: drop-shadow(0 2px 2px rgba(0,0,0,0.5)); }
-  .slot.selected { border: 3px solid #fff; transform: scale(1.1); box-shadow: 0 0 12px rgba(255,255,255,0.35); z-index: 1; }
-  .slot .num { position: absolute; top: 1px; left: 4px; font-size: 11px; color: rgba(255,255,255,0.7); text-shadow: 1px 1px 0 #000; }
-  #item-name { position: absolute; bottom: 88px; left: 0; right: 0; text-align: center; font-size: 17px; font-weight: 700; text-shadow: var(--pixel-shadow); opacity: 0; transition: opacity 0.5s; }
+  #attack-ind { position: absolute; left: 50%; top: calc(50% + 16px); width: 20px; height: 4px; transform: translateX(-50%); background: rgba(0,0,0,0.4); }
+  #attack-ind div { height: 100%; background: #fff; width: 0; }
+  #bottom { position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; }
+  #stats { width: 546px; display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 2px; }
+  .statcol { display: flex; flex-direction: column; gap: 2px; }
+  .statrow { display: flex; height: 18px; }
+  .statrow img { width: 18px; height: 18px; margin-right: 1px; }
+  .statrow.right { flex-direction: row-reverse; }
+  .statrow.right img { margin: 0 0 0 1px; }
+  .statrow img.shake { transform: translateY(-2px); }
+  #xp { width: 546px; height: 8px; background: #1a1a1a; border: 2px solid #000; position: relative; margin-bottom: 3px; }
+  #xp-fill { height: 100%; background: linear-gradient(180deg, #a8f060, #6ad82a 60%, #3a8a1a); width: 0; }
+  #xp-level { position: absolute; left: 50%; top: -20px; transform: translateX(-50%); color: #80ff20; font: 700 16px var(--ui-font); text-shadow: 1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000; }
+  #hotbar { display: flex; gap: 0; padding: 3px; background: rgba(0,0,0,0.5); border: 2px solid rgba(0,0,0,0.85); border-radius: 3px; }
+  .slot { position: relative; width: 60px; height: 60px; display: flex; align-items: center; justify-content: center; border: 2px solid rgba(255,255,255,0.12); background: rgba(139,139,139,0.28); }
+  .slot img { width: 44px; height: 44px; filter: drop-shadow(0 2px 1px rgba(0,0,0,0.45)); pointer-events: none; }
+  .slot.selected { border: 3px solid #fff; box-shadow: 0 0 12px rgba(255,255,255,0.35); z-index: 1; }
+  .count { position: absolute; right: 3px; bottom: 0; font: 700 16px var(--ui-font); color: #fff; text-shadow: 2px 2px 0 #3f3f3f; pointer-events: none; }
+  .dur { position: absolute; left: 6px; right: 6px; bottom: 5px; height: 3px; background: #000; pointer-events: none; }
+  .dur div { height: 100%; }
+  #offhand-slot { position: absolute; left: -76px; bottom: 0; }
+  #item-name { position: absolute; bottom: 150px; left: 0; right: 0; text-align: center; font-size: 17px; font-weight: 700; text-shadow: var(--pixel-shadow); opacity: 0; transition: opacity 0.5s; }
+  #action { position: absolute; bottom: 175px; left: 0; right: 0; text-align: center; font-size: 16px; text-shadow: var(--pixel-shadow); opacity: 0; transition: opacity 0.4s; }
   #debug { position: absolute; top: 8px; left: 8px; font: 13px/1.45 ui-monospace, Menlo, Consolas, monospace; background: rgba(0,0,0,0.45); padding: 6px 9px; white-space: pre; text-shadow: 1px 1px 0 #000; }
+  #boss { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); width: 420px; text-align: center; }
+  #boss .n { font-size: 15px; text-shadow: var(--pixel-shadow); margin-bottom: 3px; }
+  #boss .b { height: 8px; border: 2px solid #000; background: #3a0a3a; }
+  #boss .b div { height: 100%; background: linear-gradient(180deg, #f070f0, #b030b0); }
+  #chat { position: absolute; left: 8px; bottom: 170px; width: min(560px, 60vw); display: flex; flex-direction: column; gap: 2px; font-size: 15px; }
+  .msg { background: rgba(0,0,0,0.45); padding: 2px 6px; text-shadow: 1px 1px 0 #000; transition: opacity 1s; white-space: pre-wrap; word-break: break-word; }
+  #chat.open .msg { opacity: 1 !important; }
+  #chat-input-row { position: fixed; left: 8px; right: 8px; bottom: 8px; pointer-events: auto; }
+  #chat-input { width: 100%; background: rgba(0,0,0,0.6); border: none; font-size: 16px; padding: 8px; }
+  #chat-suggest { position: fixed; left: 8px; bottom: 44px; background: rgba(0,0,0,0.8); font-size: 14px; padding: 4px 8px; pointer-events: none; white-space: pre; color: #ddd; }
   #hint { position: absolute; top: 16px; left: 50%; transform: translateX(-50%); max-width: 92vw; text-align: center; font-size: 13px; line-height: 1.6; background: rgba(0,0,0,0.5); padding: 8px 14px; border-radius: 4px; transition: opacity 1.2s; text-shadow: 1px 1px 0 #000; }
+  #toast { position: absolute; top: 14px; right: 14px; width: 300px; background: #212121; border: 2px solid #000; box-shadow: inset 0 0 0 2px #555; padding: 10px 12px; display: flex; gap: 10px; align-items: center; transform: translateX(340px); transition: transform 0.5s; }
+  #toast.show { transform: translateX(0); }
+  #toast img { width: 36px; height: 36px; }
+  #toast .t1 { color: #ffff55; font-size: 14px; } #toast .t2 { font-size: 14px; }
+  #vignette-portal { position: absolute; inset: 0; pointer-events: none; }
 
-  #pause h2, .panel h3 { margin: 0 0 10px; font-size: 26px; text-shadow: var(--pixel-shadow); letter-spacing: 0.04em; }
-  .panel { background: rgba(20, 22, 30, 0.82); border: 2px solid #000; box-shadow: inset 0 0 0 2px rgba(255,255,255,0.08), 0 20px 50px rgba(0,0,0,0.5); padding: 22px 26px; border-radius: 4px; display: flex; flex-direction: column; gap: 12px; align-items: center; max-width: 94vw; }
+  /* ---------- container GUI ---------- */
+  #gui { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.45); }
+  .win { background: var(--panel); border: 3px solid #000; border-radius: 6px; box-shadow: inset 3px 3px 0 var(--panel-light), inset -3px -3px 0 var(--panel-dark), 0 20px 60px rgba(0,0,0,0.6); padding: 14px; color: #3f3f3f; font-size: 15px; position: relative; }
+  .win .title { font-weight: 700; margin: 0 0 6px 2px; }
+  .grid { display: grid; gap: 0; }
+  .gs { width: 40px; height: 40px; background: var(--slot); box-shadow: inset 2px 2px 0 #373737, inset -2px -2px 0 #fff; position: relative; display: flex; align-items: center; justify-content: center; }
+  .gs:hover::after { content: ""; position: absolute; inset: 2px; background: rgba(255,255,255,0.45); pointer-events: none; }
+  .gs img { width: 32px; height: 32px; pointer-events: none; }
+  .gs .count { font-size: 14px; right: 1px; bottom: -1px; }
+  .gs .dur { left: 4px; right: 4px; bottom: 3px; height: 2px; }
+  .gs.big { width: 52px; height: 52px; } .gs.big img { width: 40px; height: 40px; }
+  .gs .ghost { opacity: 0.35; }
+  .gs.armor-empty::before { content: attr(data-ph); position: absolute; font-size: 10px; color: #666; text-align: center; }
+  .inv-sep { height: 8px; }
+  .arrow-r { width: 44px; height: 30px; display: flex; align-items: center; justify-content: center; font-size: 28px; color: #8b8b8b; }
+  .flex { display: flex; gap: 12px; align-items: center; }
+  .col { display: flex; flex-direction: column; gap: 4px; }
+  #cursor-item { position: fixed; pointer-events: none; z-index: 50; width: 32px; height: 32px; transform: translate(-50%, -50%); }
+  #cursor-item img { width: 32px; height: 32px; }
+  #cursor-item .count { font-size: 14px; right: -4px; bottom: -6px; }
+  #tooltip { position: fixed; z-index: 60; pointer-events: none; background: rgba(16,0,16,0.94); border: 2px solid #28016b; border-radius: 3px; padding: 5px 8px; color: #fff; font-size: 14px; white-space: pre; box-shadow: 0 0 0 1px #000; }
+  #tooltip .sub { color: #aaa; font-size: 12px; }
+  #tooltip .blue { color: #5555ff; }
+  .player-view { width: 110px; height: 150px; background: #000; box-shadow: inset 2px 2px 0 #373737, inset -2px -2px 0 #fff; display: flex; align-items: flex-end; justify-content: center; overflow: hidden; }
+  .player-view canvas { width: 110px; height: 150px; image-rendering: pixelated; }
+  .tabs { display: flex; gap: 2px; margin-bottom: -3px; position: relative; z-index: 1; }
+  .tab { width: 52px; height: 46px; background: #a9a9a9; border: 3px solid #000; border-bottom: none; border-radius: 6px 6px 0 0; display: flex; align-items: center; justify-content: center; cursor: pointer; pointer-events: auto; }
+  .tab img { width: 30px; height: 30px; }
+  .tab.on { background: var(--panel); height: 50px; margin-top: -4px; }
+  .creative-grid { height: 260px; overflow-y: auto; overflow-x: hidden; }
+  .search { width: 100%; margin-bottom: 6px; background: #000; color: #fff; }
+  .trade-list { width: 190px; height: 280px; overflow-y: auto; background: #8b8b8b; box-shadow: inset 2px 2px 0 #373737, inset -2px -2px 0 #fff; padding: 3px; }
+  .trade { display: flex; align-items: center; gap: 2px; padding: 3px; background: #c6c6c6; margin-bottom: 3px; cursor: pointer; border: 2px solid transparent; }
+  .trade:hover { border-color: #fff; } .trade.sel { border-color: #ffff55; } .trade.out { filter: grayscale(1) opacity(0.6); }
+  .trade .ti { width: 28px; height: 28px; position: relative; } .trade .ti img { width: 28px; height: 28px; } .trade .ti .count { font-size: 12px; right: -2px; bottom: -4px; }
+  .xpbar { height: 6px; width: 200px; background: #3a3a3a; border: 1px solid #000; } .xpbar div { height: 100%; background: #6ad82a; }
+  .progress-arrow { width: 44px; height: 30px; position: relative; }
+  .progress-arrow .bg, .progress-arrow .fg { position: absolute; inset: 0; font-size: 30px; line-height: 30px; text-align: center; }
+  .progress-arrow .bg { color: #8b8b8b; } .progress-arrow .fg { color: #fff; overflow: hidden; width: 0; white-space: nowrap; text-align: left; padding-left: 7px; }
+  .flame-ind { width: 28px; height: 28px; position: relative; }
+  .flame-ind .fg { position: absolute; bottom: 0; left: 0; right: 0; background: linear-gradient(0deg, #f8801a, #ffc040); clip-path: polygon(50% 0, 80% 40%, 90% 75%, 50% 100%, 10% 75%, 20% 40%); }
+  .recipe-book { width: 240px; height: 330px; display: flex; flex-direction: column; margin-right: 8px; }
+  .recipe-book .grid { overflow-y: auto; flex: 1; align-content: start; }
+  .rb-slot { background: #8b8b8b; }
+  .rb-slot.missing { background: #a86a6a; }
+  .rb-toggle { position: absolute; left: -46px; top: 60px; width: 40px; height: 40px; background: var(--panel); border: 3px solid #000; border-radius: 6px 0 0 6px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+  .rb-toggle img { width: 30px; height: 30px; }
+  .trash { background: #6a3a3a !important; }
+
+  #pause h2 { margin-bottom: 10px; }
+  #death { background: rgba(120, 0, 0, 0.45); }
+  #death h1 { font-size: 64px; margin: 0; text-shadow: 4px 4px 0 #3a0000; }
+  #death .score { color: #ffff55; text-shadow: var(--pixel-shadow); margin-bottom: 20px; }
+  .settings-panel { max-height: 90vh; overflow: auto; }
   .settings-panel label { display: flex; flex-direction: column; gap: 4px; width: 320px; font-size: 14px; text-shadow: 1px 1px 0 #000; }
   .settings-panel label.check { flex-direction: row; align-items: center; gap: 10px; }
   .settings-panel input[type=range] { width: 100%; accent-color: #8fd16a; }
   .controls-table { border-collapse: collapse; font-size: 14px; }
-  .controls-table td { padding: 5px 12px; border-bottom: 1px solid rgba(255,255,255,0.1); }
+  .controls-table td { padding: 4px 12px; border-bottom: 1px solid rgba(255,255,255,0.1); }
   .controls-table td:first-child { color: #ffffa0; font-weight: 700; white-space: nowrap; }
-
-  #inv-grid { display: grid; grid-template-columns: repeat(9, 58px); gap: 4px; max-height: 60vh; overflow: auto; padding: 4px; }
-  .inv-item { width: 58px; height: 58px; padding: 0; display: flex; align-items: center; justify-content: center; background: rgba(139,139,139,0.3); border: 2px solid rgba(0,0,0,0.6); box-shadow: inset 0 2px 0 rgba(255,255,255,0.15); }
-  .inv-item:hover { background: rgba(160,180,255,0.45); }
-  .inv-item img { width: 44px; height: 44px; image-rendering: pixelated; pointer-events: none; }
-  .inv-help { margin: 0; font-size: 13px; color: rgba(255,255,255,0.75); }
   #error { background: #10131c; padding: 30px; text-align: center; font-size: 16px; }
 </style>
 </head>
@@ -92,89 +185,127 @@
 <canvas id="game"></canvas>
 
 <div id="title" class="screen">
-  <div class="logo">
-    <h1>BLOCK<span>HAVEN</span></h1>
-    <div class="splash" id="splash"></div>
-  </div>
+  <div class="logo"><h1>BLOCK<span>HAVEN</span></h1><div class="splash" id="splash"></div></div>
   <div class="menu">
-    <button id="btn-continue">Continue</button>
-    <button id="btn-new">New World</button>
-    <div id="new-world" class="seed-row hidden">
-      <input id="seed-input" placeholder="Seed (blank = random)" maxlength="32" spellcheck="false">
-      <button id="btn-create">Create</button>
-    </div>
-    <div id="save-note" class="save-note hidden">Creating a new world replaces your saved one.</div>
-    <div class="row"><button id="btn-settings">Settings</button><button id="btn-controls">Controls</button></div>
+    <button id="btn-play">Singleplayer</button>
+    <div class="row"><button class="half" id="btn-settings">Settings</button><button class="half" id="btn-controls">Controls</button></div>
   </div>
-  <div class="footer">An original voxel sandbox · every texture, sound and shader is generated in code</div>
+  <div class="footer">An original voxel sandbox · every texture, sound, model and shader is generated in code</div>
+</div>
+
+<div id="worlds" class="screen dim hidden">
+  <div class="panel">
+    <h3>Select World</h3>
+    <div id="world-list"></div>
+    <div class="row"><button class="half" id="btn-world-play" disabled>Play Selected World</button><button class="half" id="btn-world-new">Create New World</button></div>
+    <div class="row"><button class="half" id="btn-world-delete" disabled>Delete</button><button class="half" id="btn-world-back">Back</button></div>
+  </div>
+</div>
+
+<div id="create" class="screen dim hidden">
+  <div class="panel">
+    <h3>Create New World</h3>
+    <div class="form">
+      <label for="cw-name">World Name</label><input id="cw-name" type="text" maxlength="32" spellcheck="false" value="New World">
+      <label for="cw-seed">Seed</label><input id="cw-seed" type="text" maxlength="32" spellcheck="false" placeholder="Leave blank for a random seed">
+      <label>Game Mode</label><div class="opt" data-opt="mode"><button data-v="survival" class="on">Survival</button><button data-v="creative">Creative</button><button data-v="hardcore">Hardcore</button></div>
+      <label>World Type</label><div class="opt" data-opt="type"><button data-v="default" class="on">Default</button><button data-v="wild">Wild</button><button data-v="flat">Superflat</button></div>
+      <label>Difficulty</label><div class="opt" data-opt="difficulty"><button data-v="peaceful">Peaceful</button><button data-v="easy">Easy</button><button data-v="normal" class="on">Normal</button><button data-v="hard">Hard</button></div>
+      <label>Allow Cheats</label><div class="opt" data-opt="cheats"><button data-v="on" class="on">On</button><button data-v="off">Off</button></div>
+    </div>
+    <div class="hint-text" id="cw-hint"></div>
+    <div class="row"><button class="half" id="btn-create">Create World</button><button class="half" id="btn-create-cancel">Cancel</button></div>
+  </div>
 </div>
 
 <div id="loading" class="screen dim hidden">
-  <div class="label">Generating terrain…</div>
+  <div class="label" id="loading-label">Generating terrain…</div>
   <div class="bar"><div id="load-bar"></div></div>
 </div>
 
 <div id="hud" class="hidden">
   <div id="crosshair"></div>
+  <div id="attack-ind" class="hidden"><div></div></div>
+  <div id="boss" class="hidden"><div class="n"></div><div class="b"><div></div></div></div>
   <div id="item-name"></div>
-  <div id="hotbar"></div>
+  <div id="action"></div>
+  <div id="chat"></div>
+  <div id="bottom">
+    <div id="stats">
+      <div class="statcol"><div class="statrow" id="armor-row"></div><div class="statrow" id="hearts-row2"></div><div class="statrow" id="hearts-row"></div></div>
+      <div class="statcol"><div class="statrow right" id="air-row"></div><div class="statrow right" id="food-row"></div></div>
+    </div>
+    <div id="xp"><div id="xp-fill"></div><div id="xp-level"></div></div>
+    <div style="position:relative"><div id="hotbar"></div><div id="offhand-slot" class="slot hidden"></div></div>
+  </div>
   <div id="debug" class="hidden"></div>
-  <div id="hint">WASD move · Space jump (double-tap to fly) · Ctrl sprint · Shift sneak · Left-click break · Right-click place · Middle-click pick block · 1–9 / scroll select · E blocks · hold T to fast-forward time · F3 debug · Esc pause</div>
+  <div id="hint">WASD move · Space jump · Ctrl sprint · Shift sneak · Mouse break / place / use · E inventory · Q drop · T or / chat &amp; commands · F5 camera · F3 debug · Esc pause</div>
+  <div id="toast"><img alt=""><div><div class="t1"></div><div class="t2"></div></div></div>
 </div>
+
+<div id="chat-input-row" class="hidden"><div id="chat-suggest" class="hidden"></div><input id="chat-input" type="text" maxlength="256" spellcheck="false" autocomplete="off"></div>
+
+<div id="gui" class="hidden"></div>
+<div id="cursor-item" class="hidden"></div>
+<div id="tooltip" class="hidden"></div>
 
 <div id="pause" class="screen dim hidden">
-  <h2>Game Paused</h2>
+  <h2>Game Menu</h2>
   <button id="btn-resume">Back to Game</button>
-  <button id="btn-settings2">Settings</button>
-  <button id="btn-quit">Save &amp; Quit to Title</button>
+  <div class="row"><button class="half" id="btn-settings2">Settings</button><button class="half" id="btn-controls2">Controls</button></div>
+  <button id="btn-quit">Save and Quit to Title</button>
 </div>
 
-<div id="inventory" class="screen dim hidden">
-  <div class="panel">
-    <h3>Blocks</h3>
-    <div id="inv-grid"></div>
-    <p class="inv-help">Click a block to put it in the selected hotbar slot · number keys change slot · E to close</p>
-  </div>
+<div id="death" class="screen hidden">
+  <h1>You Died!</h1>
+  <div class="death-msg" id="death-msg"></div>
+  <div class="score" id="death-score"></div>
+  <button id="btn-respawn">Respawn</button>
+  <button id="btn-death-title">Title Screen</button>
 </div>
 
 <div id="settings" class="screen dim hidden">
   <div class="panel settings-panel">
     <h3>Settings</h3>
-    <label>Render distance: <span id="rd-val"></span> chunks<input type="range" id="set-rd" min="3" max="12"></label>
-    <label>Field of view: <span id="fov-val"></span>°<input type="range" id="set-fov" min="60" max="110"></label>
+    <label>Render distance: <span id="rd-val"></span> chunks<input type="range" id="set-rd" min="3" max="14"></label>
+    <label>Field of view: <span id="fov-val"></span>°<input type="range" id="set-fov" min="50" max="110"></label>
     <label>Mouse sensitivity: <span id="sens-val"></span>%<input type="range" id="set-sens" min="10" max="250"></label>
-    <label>Volume: <span id="vol-val"></span>%<input type="range" id="set-vol" min="0" max="100"></label>
+    <label>Brightness: <span id="bright-val"></span>%<input type="range" id="set-bright" min="0" max="100"></label>
+    <label>Master volume: <span id="vol-val"></span>%<input type="range" id="set-vol" min="0" max="100"></label>
+    <label>Music: <span id="music-val"></span>%<input type="range" id="set-music" min="0" max="100"></label>
     <label class="check"><input type="checkbox" id="set-bob"> View bobbing</label>
     <label class="check"><input type="checkbox" id="set-clouds"> Clouds</label>
-    <label class="check"><input type="checkbox" id="set-autojump"> Auto-jump up single blocks</label>
+    <label class="check"><input type="checkbox" id="set-autojump"> Auto-jump</label>
+    <label class="check"><input type="checkbox" id="set-particles"> Particles</label>
+    <label class="check"><input type="checkbox" id="set-msaa"> Anti-aliasing (reload)</label>
     <button id="btn-settings-done">Done</button>
   </div>
 </div>
 
 <div id="controls" class="screen dim hidden">
-  <div class="panel">
+  <div class="panel" style="overflow:auto">
     <h3>Controls</h3>
     <table class="controls-table">
       <tr><td>W A S D</td><td>Walk</td></tr>
-      <tr><td>Mouse</td><td>Look around</td></tr>
-      <tr><td>Space</td><td>Jump · swim up · double-tap to fly</td></tr>
-      <tr><td>Shift</td><td>Sneak · fly down</td></tr>
-      <tr><td>Ctrl</td><td>Sprint</td></tr>
-      <tr><td>Left click (hold)</td><td>Break block</td></tr>
-      <tr><td>Right click</td><td>Place block</td></tr>
+      <tr><td>Space</td><td>Jump · swim up · double-tap to fly (creative)</td></tr>
+      <tr><td>Shift / Ctrl</td><td>Sneak · Sprint</td></tr>
+      <tr><td>Left click</td><td>Break blocks · attack</td></tr>
+      <tr><td>Right click</td><td>Place · use item · eat · draw bow · open doors, chests, furnaces · trade</td></tr>
       <tr><td>Middle click</td><td>Pick block</td></tr>
-      <tr><td>1–9 / scroll</td><td>Choose hotbar slot</td></tr>
-      <tr><td>E</td><td>Block menu</td></tr>
-      <tr><td>T (hold)</td><td>Fast-forward time</td></tr>
+      <tr><td>1–9 / scroll</td><td>Select hotbar slot</td></tr>
+      <tr><td>E</td><td>Inventory (creative item menu in creative)</td></tr>
+      <tr><td>Q / Ctrl+Q</td><td>Drop item / whole stack</td></tr>
+      <tr><td>F</td><td>Swap with off-hand</td></tr>
+      <tr><td>T or /</td><td>Chat and commands (try /help)</td></tr>
+      <tr><td>F5</td><td>Cycle first / third person</td></tr>
       <tr><td>F1 / F3</td><td>Hide HUD / debug info</td></tr>
-      <tr><td>Esc</td><td>Pause</td></tr>
+      <tr><td>Inventory</td><td>Click pick up/place · right click split/one · shift-click move · 1–9 swap · Q drop</td></tr>
     </table>
     <button id="btn-controls-done">Done</button>
   </div>
 </div>
 
 <div id="error" class="screen hidden"></div>
-
 <script type="module" src="js/main.js"></script>
 </body>
 </html>
