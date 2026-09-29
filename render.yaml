@@ -1,0 +1,16 @@
+# Render Blueprint for the arcade's multiplayer FPS server (fps-server/).
+# Render serves it over HTTPS, so the game connects with wss:// on port 443.
+services:
+  - type: web
+    name: arcade-fps-server
+    runtime: node
+    plan: free
+    rootDir: fps-server
+    buildCommand: npm ci
+    startCommand: node server.js
+    healthCheckPath: /health
+    envVars:
+      - key: ALLOWED_ORIGINS
+        value: https://eklonofficial.github.io
+      - key: MAX_PLAYERS
+        value: "16"

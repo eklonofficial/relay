@@ -5,6 +5,9 @@ Production build of [three-fps](https://github.com/mohsenheydari/three-fps) by M
 ## Changes from upstream
 - Fixed an import path whose letter case didn't match the file on disk (`Mutant Punch.fbx` → `mutant punch.fbx`) so it builds on case-sensitive systems.
 - Replaced the Google Fonts `<link>` with a locally bundled copy of Libre Barcode 39 Text so the game makes no external requests.
+- Added online multiplayer: other players appear as the mutant with name tags, hits are reported to
+  the server in `fps-server/`, plus a scoreboard, kill feed and respawns. The menu has **Play online**
+  and **Play vs AI**; the server address lives in `config.js`. Full diff: `fps-server/three-fps-multiplayer.patch`.
 - Built with webpack in production mode; source maps omitted.
 
 ## Third-party code

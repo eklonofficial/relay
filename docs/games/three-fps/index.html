@@ -64,11 +64,33 @@
         font-size: 1.5em;
         border: none;
         cursor: pointer;
-        margin-top: 10%;
+        margin-top: 3%;
         font-weight: 700;
+      }
+      button:hover{
+        color: #ffffff;
+      }
+      button:disabled{
+        color: #555555;
+        cursor: default;
+      }
+      #player_name{
+        margin-top: 4%;
+        background: transparent;
+        border: 1px solid #777777;
+        color: #ffffff;
+        font-size: 1.1em;
+        padding: 8px 12px;
+        text-align: center;
+        width: 220px;
+      }
+      #server_status{
+        margin-top: 3%;
+        color: #9e9e9e;
+        font-size: 0.95em;
       }
       #debug{
         position: absolute;
         right: 5%;
         top: 5%;
-      }</style></head><body><div id="debug"></div><div id="menu"><h1>Shooter Game Demo</h1><button id="start_game">NEW GAME</button></div><div id="game_hud"><img id="crosshair" src="90bb20fb10e73ac2d4cc27b781cf59cc.png"/><div id="ammo_container"><span id="current_ammo">0</span> <span>|</span> <span id="max_ammo">0</span></div><div id="health_container"><div id="health_progress"></div></div></div><div id="progress"></div><my-app></my-app><script src="main.0558e04ff5c2b9af1eba.js"></script></body></html>
+      }</style><script src="config.js"></script></head><body><div id="debug"></div><div id="menu"><h1>Shooter Game Demo</h1><input id="player_name" maxlength="16" placeholder="Your name" autocomplete="off" spellcheck="false"> <button id="start_online">PLAY ONLINE</button> <button id="start_game">PLAY VS AI</button><div id="server_status"></div></div><div id="game_hud"><img id="crosshair" src="90bb20fb10e73ac2d4cc27b781cf59cc.png"/><div id="ammo_container"><span id="current_ammo">0</span> <span>|</span> <span id="max_ammo">0</span></div><div id="health_container"><div id="health_progress"></div></div></div><div id="progress"></div><my-app></my-app><script src="main.0c21cd1a0748cbd6e496.js"></script></body></html>
