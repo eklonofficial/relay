@@ -514,7 +514,6 @@ vec3 fxaa(vec2 uv) {
   float lb = luma(b);
   return (lb < lo || lb > hi) ? a : b;
 }
-vec3 aces(vec3 x) { return clamp((x * (2.51 * x + 0.03)) / (x * (2.43 * x + 0.59) + 0.14), 0.0, 1.0); }
 
 void main() {
   vec2 uv = vUV;
@@ -526,26 +525,32 @@ void main() {
   }
   vec3 c = uQuality >= 1 ? fxaa(uv) : texture(uScene, uv).rgb;
   if (uQuality == 0) { outColor = vec4(c * (1.0 - uDark) + uFlash, 1.0); return; }
-  // God rays: march towards the sun through sky pixels.
+  // God rays: march towards the sun through sky pixels, fading with distance from the sun.
   if (uQuality >= 2 && uSun.z > 0.001) {
-    vec2 d = (uv - uSun.xy) / uGodSamples * 0.95;
-    vec2 p = uv;
-    float illum = 0.0, decay = 1.0;
-    for (int i = 0; i < 96; i++) {
-      if (float(i) >= uGodSamples) break;
-      p -= d;
-      float sky = texture(uDepth, clamp(p, 0.001, 0.999)).r >= 0.99999 ? 1.0 : 0.0;
-      illum += sky * decay;
-      decay *= 0.972;
+    vec2 toSun = uv - uSun.xy;
+    vec2 asp = vec2(uTexel.y / uTexel.x, 1.0);
+    float fall = pow(max(0.0, 1.0 - length(toSun * asp) * 0.9), 2.2);
+    if (fall > 0.0) {
+      vec2 d = toSun / uGodSamples * 0.95;
+      vec2 p = uv;
+      float illum = 0.0, decay = 1.0, wsum = 0.0;
+      for (int i = 0; i < 96; i++) {
+        if (float(i) >= uGodSamples) break;
+        p -= d;
+        float sky = texture(uDepth, clamp(p, 0.001, 0.999)).r >= 0.99999 ? 1.0 : 0.0;
+        illum += sky * decay; wsum += decay;
+        decay *= 0.97;
+      }
+      c += uSunColor * (illum / wsum) * fall * uSun.z * 0.55;
     }
-    c += uSunColor * (illum / uGodSamples) * uSun.z;
   }
   if (uQuality >= 2) c += texture(uBloom, uv).rgb * uBloomStrength;
   if (uMedium > 0.5 && uMedium < 1.5) c = mix(c, c * vec3(0.4, 0.62, 1.0), 0.55);
   float l = luma(c);
-  c = mix(vec3(l), c, uSaturation);
-  if (uQuality >= 2) c = aces(c * 1.35);
-  else c = (c - 0.5) * 1.05 + 0.5;
+  c = mix(vec3(l), c, uSaturation * (uQuality >= 2 ? 1.08 : 1.0));
+  c = (c - 0.5) * (uQuality >= 2 ? 1.08 : 1.05) + 0.5;
+  // Soft shoulder so bloom and rays roll off instead of clipping.
+  if (uQuality >= 2) c = mix(c, 0.82 + (1.0 - exp(-(c - 0.82) * 5.5)) * 0.18, step(0.82, c));
   if (uPortal > 0.0) c = mix(c, vec3(0.55, 0.2, 0.8), uPortal * 0.45);
   c += uFlash;
   vec2 dd = vUV - 0.5;

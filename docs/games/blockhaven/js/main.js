@@ -195,7 +195,7 @@ class App {
     this.chat(`Welcome to ${meta.name}! Press T or / for chat and commands (try /help).`, '#aaaaaa');
     this.saveT = 0;
     // The controls hint only appears briefly in brand-new worlds.
-    this.hintT = meta.dims ? 0 : 8;
+    this.hintUntil = meta.dims ? 0 : performance.now() + 10000;
     $('hint').style.opacity = meta.dims ? 0 : 1;
   }
   onWorldOpened() {}
@@ -673,7 +673,7 @@ class App {
     this.hud.update(dt);
     for (const c of this.chatLines) { c.t -= dt; c.el.style.opacity = Math.min(1, Math.max(0, c.t)); }
     if (this.nameT > 0) { this.nameT -= dt; if (this.nameT <= 0) $('item-name').style.opacity = 0; }
-    if (this.hintT > 0) { this.hintT -= dt; if (this.hintT <= 0) $('hint').style.opacity = 0; }
+    if (this.hintUntil && performance.now() > this.hintUntil) { this.hintUntil = 0; $('hint').style.opacity = 0; }
     const boss = $('boss');
     boss.classList.toggle('hidden', !g.bossBar);
     if (g.bossBar) { boss.querySelector('.n').textContent = g.bossBar.name; boss.querySelector('.b div').style.width = `${g.bossBar.frac * 100}%`; }
