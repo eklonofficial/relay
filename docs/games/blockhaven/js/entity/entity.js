@@ -149,7 +149,8 @@ export function drawModel(batch, model, layer, root, poses, light, hurt = 0, alp
     const p = model.parts[name];
     const base = p.parent ? partMatrix(p.parent) : root;
     const r = poses[name] || p.rot || null;
-    let m = M.mul(base, M.t(p.pivot[0], p.pivot[1], p.pivot[2]));
+    const pv = (poses.pivots && poses.pivots[name]) || p.pivot;
+    let m = M.mul(base, M.t(pv[0], pv[1], pv[2]));
     if (r) { if (r[2]) m = M.mul(m, M.rz(r[2])); if (r[1]) m = M.mul(m, M.ry(r[1])); if (r[0]) m = M.mul(m, M.rx(r[0])); }
     if (p.scale) m = M.mul(m, M.s(p.scale));
     mats[name] = m;
@@ -160,9 +161,12 @@ export function drawModel(batch, model, layer, root, poses, light, hurt = 0, alp
     const p = model.parts[name];
     if (p.hidden || (poses.hide && poses.hide[name])) continue;
     const m = partMatrix(name);
-    for (const b of p.boxes) emitBox(batch, m, b, layer, tw, th, light, a);
+    for (const b of p.boxes) {
+      if (b.wool && poses.sheared) continue;
+      emitBox(batch, m, b, layer, tw, th, b.wool && poses.woolColor ? [light[0] * poses.woolColor[0], light[1] * poses.woolColor[1], light[2] * poses.woolColor[2]] : light, a);
+    }
   }
-}
+  return mats;
 
 // World matrix for a model: feet at pos, facing yaw (model -Z = forward), 1/16 scale.
 export function rootMatrix(pos, yaw, scale = 1, extra = null) {
