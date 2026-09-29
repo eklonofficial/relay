@@ -288,6 +288,7 @@
             <button class="game-btn" onclick="switchGame('pong')">🏓 Pong</button>
             <button class="game-btn" onclick="switchGame('shellshockers')">🥚 Shell Shockers</button>
             <button class="game-btn" onclick="switchGame('g2048')">🔢 2048</button>
+            <button class="game-btn" onclick="switchGame('blockhaven')">⛏️ Blockhaven (Voxel Sandbox)</button>
             <button class="game-btn" onclick="switchGame('kartline')">🏁 KARTLINE (2P Karts)</button>
             <button class="game-btn" onclick="switchGame('hexgl')">🏎️ HexGL (3D Racing)</button>
             <button class="game-btn" onclick="switchGame('threefps')">🎯 Shooter (3D FPS)</button>
@@ -415,6 +416,26 @@
                     Vendored from <a href="https://github.com/gabrielecirulli/2048" target="_blank" rel="noopener">github.com/gabrielecirulli/2048</a>
                     under the MIT License (see <code>docs/games/2048/LICENSE.txt</code>). Original code, unmodified.
                 </p>
+            </div>
+        </div>
+
+        <!-- Blockhaven voxel sandbox (original) -->
+        <div id="blockhaven" class="game-container">
+            <h2>⛏️ Blockhaven</h2>
+            <div class="instructions">
+                An original Minecraft-style voxel sandbox written for this site: infinite procedural worlds with biomes, caves,
+                lava lakes and ores; a day/night sky with clouds, stars and a square sun and moon; reflective water; torch lighting;
+                block breaking and building. Every texture, sound and shader is generated in code.
+                <strong>WASD</strong> move, <strong>mouse</strong> look, <strong>left-click</strong> break, <strong>right-click</strong> place,
+                <strong>E</strong> block menu, <strong>double-tap Space</strong> to fly, <strong>hold T</strong> to fast-forward time.
+                Your world saves automatically in this browser.
+            </div>
+            <iframe id="frameBlockhaven" data-src="games/blockhaven/index.html" width="100%" height="620"
+                style="border: 2px solid #667eea; border-radius: 5px; background:#0b0f18;"
+                allow="fullscreen" title="Blockhaven"></iframe>
+            <div style="text-align: center; margin-top: 15px;">
+                <button class="fullscreen-btn" onclick="goFullscreen('frameBlockhaven')">⛶ Fullscreen</button>
+                <a href="games/blockhaven/index.html" target="_blank" rel="noopener"><button>Open in its own tab</button></a>
             </div>
         </div>
 
