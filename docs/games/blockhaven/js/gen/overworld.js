@@ -1,11 +1,11 @@
 // Overworld generator: climate-driven biomes, 3D density terrain, noise + worm caves, underground
 // biomes, ores, surface rules, trees and vegetation. World types: 'default', 'wild' (amplified,
 // floating islands, stone pillars and arches) and 'flat'.
-import { Simplex, hash2, hash3, mulberry32 } from '../core/noise.js?v=muo1whx0';
-import { B, st, CHUNK, HEIGHT, SEA, COLORS } from '../data/blocks.js?v=muo1whx0';
-import { BI, OCEANS, COLD } from './biomes.js?v=muo1whx0';
-import { ChunkBuilder, CI } from './chunk.js?v=muo1whx0';
-import * as T from './trees.js?v=muo1whx0';
+import { Simplex, hash2, hash3, mulberry32 } from '../core/noise.js?v=muo1ytra';
+import { B, st, CHUNK, HEIGHT, SEA, COLORS } from '../data/blocks.js?v=muo1ytra';
+import { BI, OCEANS, COLD } from './biomes.js?v=muo1ytra';
+import { ChunkBuilder, CI } from './chunk.js?v=muo1ytra';
+import * as T from './trees.js?v=muo1ytra';
 
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
@@ -789,6 +789,9 @@ export function createOverworld(seed, type = 'default') {
     [BI.OCEAN]: ['squid', 'cod', 'dolphin'], [BI.DEEP_OCEAN]: ['squid', 'cod', 'glow_squid'], [BI.WARM_OCEAN]: ['tropical_fish', 'tropical_fish', 'dolphin', 'pufferfish'],
     [BI.COLD_OCEAN]: ['cod', 'salmon', 'squid'], [BI.FROZEN_OCEAN]: ['salmon', 'polar_bear'], [BI.RIVER]: ['salmon', 'squid'],
   };
+  const CANOPY = new Set([B.LEAVES, B.LOG, B.AIR, B.PLANT, B.VINE, B.SNOW]);
+  const CLEAR = new Set([B.AIR, B.PLANT, B.SNOW, B.MOSS_CARPET]);
+  const GROUND = new Set([B.GRASS_BLOCK, B.DIRT, B.SAND, B.SNOW_BLOCK, B.MOSS_BLOCK, B.GRAVEL, B.STONE, B.DIRT_PATH, B.TERRACOTTA, B.TERRACOTTA_COLORED, B.SANDSTONE, B.PACKED_ICE]);
   function animals(w, r, cols) {
     if (r() > (cols ? 0.22 : 0.12)) return;
     const x = Math.floor(r() * 16), z = Math.floor(r() * 16);
@@ -799,10 +802,13 @@ export function createOverworld(seed, type = 'default') {
     const n = 1 + Math.floor(r() * 3);
     for (let k = 0; k < n; k++) {
       const px = Math.min(15, Math.max(0, x + Math.floor(r() * 5) - 2)), pz = Math.min(15, Math.max(0, z + Math.floor(r() * 5) - 2));
-      const top = w.heights[px + pz * 16];
-      const ground = w.ids[CI(px, top, pz)];
+      let top = w.heights[px + pz * 16];
       const aquatic = ['squid', 'cod', 'dolphin', 'glow_squid', 'tropical_fish', 'pufferfish', 'salmon'].includes(type);
+      // Land animals stand on the ground under any tree canopy, never on leaves or logs.
+      if (!aquatic) while (top > 1 && CANOPY.has(w.ids[CI(px, top, pz)])) top--;
+      const ground = w.ids[CI(px, top, pz)];
       if (aquatic !== (ground === B.WATER)) continue;
+      if (!aquatic && (!GROUND.has(ground) || !CLEAR.has(w.ids[CI(px, top + 1, pz)]) || !CLEAR.has(w.ids[CI(px, top + 2, pz)]))) continue;
       const y = aquatic ? top - 2 : top + 1;
       w.entities.push({ type, x: w.ox + px + 0.5, y, z: w.oz + pz + 0.5 });
     }
