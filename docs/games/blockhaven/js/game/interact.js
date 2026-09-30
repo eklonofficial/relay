@@ -1,10 +1,10 @@
 // Player actions: mining, placing, using items and blocks, attacking.
-import { meleeDamage, isCrit, knockStrength, isSword, SWEEP_DAMAGE, SHIELD_DELAY, SHIELD_DISABLE } from './combat.js?v=muo2aap4';
-import { B, BLOCKS, SOLID, OPAQUE, SHAPE_OF, SHAPE, props, st, DIM, FACING_SHIFT, AXIS_SHIFT, VARIANT_MASK } from '../data/blocks.js?v=muo2aap4';
-import { I, breakTime } from '../data/items.js?v=muo2aap4';
-import { collisionBoxes, selectionBoxes } from '../data/shapes.js?v=muo2aap4';
-import { UNLOADED, posKey } from '../world/world.js?v=muo2aap4';
-import { forward } from '../core/math.js?v=muo2aap4';
+import { meleeDamage, isCrit, knockStrength, isSword, SWEEP_DAMAGE, SHIELD_DELAY, SHIELD_DISABLE } from './combat.js?v=muo2mobr';
+import { B, BLOCKS, SOLID, OPAQUE, SHAPE_OF, SHAPE, props, st, DIM, FACING_SHIFT, AXIS_SHIFT, VARIANT_MASK } from '../data/blocks.js?v=muo2mobr';
+import { I, breakTime } from '../data/items.js?v=muo2mobr';
+import { collisionBoxes, selectionBoxes } from '../data/shapes.js?v=muo2mobr';
+import { UNLOADED, posKey } from '../world/world.js?v=muo2mobr';
+import { forward } from '../core/math.js?v=muo2mobr';
 
 const DIRS = [[0, 1], [-1, 0], [0, -1], [1, 0]];
 export const dirIndex = (x, z) => (Math.abs(x) > Math.abs(z) ? (x > 0 ? 3 : 1) : (z > 0 ? 0 : 2));
@@ -81,7 +81,8 @@ export class Interact {
       this.breakAt(t); this.cooldown = 0.2; if (this.swing < 0.5) this.swing = 1;
       return;
     }
-    const time = breakTime(p, it, { onGround: g.player.onGround || g.player.flying, inWater: g.player.headInWater });
+    // Mining Fatigue (from Elder Guardians) makes digging roughly ten times slower.
+    const time = breakTime(p, it, { onGround: g.player.onGround || g.player.flying, inWater: g.player.headInWater }) * (g.stats.effects.mining_fatigue ? 10 : 1);
     if (time === Infinity) return;
     this.hitT -= dt;
     if (this.swing <= 0) this.swing = 1; // keep the arm swinging in a smooth loop while digging

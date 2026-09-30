@@ -4,11 +4,11 @@
 // written into every chunk it overlaps (ChunkBuilder clips writes), so they span chunk borders
 // seamlessly. Planning must never read the chunk, only the terrain functions, so every chunk
 // sees the same plan.
-import { hash2, hash3, mulberry32 } from '../core/noise.js?v=muo2aap4';
-import { B, st, DIM, SEA, CHUNK, COLORS, CROP_AGE_SHIFT } from '../data/blocks.js?v=muo2aap4';
-import { BI } from './biomes.js?v=muo2aap4';
-import { NETHER_LAVA } from './nether.js?v=muo2aap4';
-import { END_OUTER_R } from './end.js?v=muo2aap4';
+import { hash2, hash3, mulberry32 } from '../core/noise.js?v=muo2mobr';
+import { B, st, DIM, SEA, CHUNK, COLORS, CROP_AGE_SHIFT } from '../data/blocks.js?v=muo2mobr';
+import { BI, OCEANS } from './biomes.js?v=muo2mobr';
+import { NETHER_LAVA } from './nether.js?v=muo2mobr';
+import { END_OUTER_R } from './end.js?v=muo2mobr';
 
 const DIRS = [[0, 1], [-1, 0], [0, -1], [1, 0]]; // +z, -x, -z, +x (same as placement code)
 const S = k => st(k);
@@ -32,6 +32,11 @@ const LOOT = {
   ruined_portal: [3, 7, [['obsidian', 1, 2, 40], ['flint_and_steel', 1, 1, 40], ['gold_nugget', 4, 24, 15], ['golden_apple', 1, 1, 15], ['golden_sword', 1, 1, 15], ['golden_helmet', 1, 1, 15], ['golden_carrot', 4, 12, 15], ['clock', 1, 1, 5], ['gold_ingot', 2, 8, 5], ['enchanted_golden_apple', 1, 1, 1]]],
   igloo: [2, 6, [['apple', 1, 3, 15], ['coal', 1, 4, 15], ['gold_nugget', 1, 3, 10], ['stone_axe', 1, 1, 2], ['rotten_flesh', 1, 1, 10], ['emerald', 1, 1, 1], ['wheat', 2, 3, 10], ['golden_apple', 1, 1, 1]]],
   outpost: [2, 6, [['arrow', 2, 7, 10], ['crossbow', 1, 1, 3], ['wheat', 3, 5, 7], ['potato', 2, 5, 5], ['carrot', 3, 5, 5], ['dark_oak_log', 2, 3, 10], ['iron_ingot', 1, 3, 5], ['string', 1, 6, 5], ['experience_bottle', 1, 1, 3]]],
+  shipwreck_supply: [3, 10, [['paper', 1, 12, 8], ['potato', 2, 6, 7], ['carrot', 4, 8, 7], ['poisonous_potato', 2, 6, 7], ['wheat', 8, 21, 7], ['coal', 2, 8, 6], ['rotten_flesh', 5, 24, 5], ['gunpowder', 1, 5, 3], ['pumpkin', 1, 3, 2], ['leather_helmet', 1, 1, 3], ['leather_chestplate', 1, 1, 3], ['leather_leggings', 1, 1, 3], ['leather_boots', 1, 1, 3], ['tnt', 1, 2, 1], ['bamboo', 1, 3, 2], ['moss_block', 1, 5, 2]]],
+  shipwreck_treasure: [3, 6, [['iron_ingot', 1, 5, 90], ['gold_ingot', 1, 5, 10], ['emerald', 1, 5, 40], ['diamond', 1, 1, 5], ['experience_bottle', 1, 1, 5], ['iron_nugget', 1, 10, 50], ['gold_nugget', 1, 10, 10], ['lapis_lazuli', 1, 10, 20]]],
+  shipwreck_map: [2, 4, [['paper', 1, 10, 20], ['feather', 1, 5, 10], ['book', 1, 5, 5], ['clock', 1, 1, 1], ['compass', 1, 1, 1], ['emerald', 1, 3, 3]]],
+  ocean_ruin: [2, 5, [['coal', 1, 4, 10], ['stone_axe', 1, 1, 2], ['rotten_flesh', 1, 3, 5], ['emerald', 1, 1, 5], ['wheat', 2, 3, 10], ['golden_helmet', 1, 1, 1], ['fishing_rod', 1, 1, 5], ['gold_nugget', 1, 3, 5], ['iron_ingot', 1, 2, 3], ['diamond', 1, 1, 1]]],
+  buried_treasure: [5, 9, [['iron_ingot', 1, 4, 20], ['gold_ingot', 1, 4, 10], ['tnt', 1, 2, 5], ['emerald', 4, 8, 5], ['diamond', 1, 2, 5], ['prismarine_crystals', 1, 5, 5], ['cooked_cod', 2, 4, 5], ['cooked_salmon', 2, 4, 5], ['iron_sword', 1, 1, 5], ['leather_chestplate', 1, 1, 5], ['golden_apple', 1, 1, 2]]],
   swamp_hut: [1, 3, [['glowstone_dust', 1, 4, 10], ['string', 1, 4, 10], ['spider_eye', 1, 2, 10], ['redstone', 1, 4, 8], ['gunpowder', 1, 2, 8]]],
 };
 function lootItems(r, table) {
@@ -63,7 +68,13 @@ const logAxis = (key, axis) => { const s = S(key); return [s[0], s[1] | (axis <<
 const wallTorch = (wallDir, soul = false) => { const s = S(soul ? 'soul_torch' : 'torch'); return [s[0], s[1] | ((wallDir + 1) << 1)]; };
 function door(w, x, y, z, key, facing) { const s = S(key); w.set(x, y, z, s[0], s[1] | (facing << 3)); w.set(x, y + 1, z, s[0], s[1] | (facing << 3) | 64); }
 function bed(w, x, y, z, dir) { const [dx, dz] = DIRS[dir]; w.set(x, y, z, B.BED, dir); w.set(x + dx, y, z + dz, B.BED, dir | 4); }
-function chest(w, x, y, z, facing, r, table) { w.set(x, y, z, B.CHEST, facing); w.addBlockEntity({ type: 'chest', x, y, z, items: lootItems(r, table) }); }
+function chest(w, x, y, z, facing, r, table, extra = null) {
+  const items = lootItems(r, table);
+  if (extra) { let slot = Math.floor(r() * 27); while (items[slot]) slot = (slot + 1) % 27; items[slot] = extra; }
+  w.set(x, y, z, B.CHEST, facing); w.addBlockEntity({ type: 'chest', x, y, z, items });
+}
+const WATER = [B.WATER, 0];
+const wet = y => (y <= SEA ? WATER : AIR); // "empty" inside a structure: water below sea level
 function spawner(w, x, y, z, mob) { w.set(x, y, z, B.SPAWNER, 0); w.addBlockEntity({ type: 'spawner', x, y, z, mob }); }
 // Fills downward from y-1 until solid ground (for foundations and stilts).
 function foundation(w, x, y, z, s, max = 12) {
@@ -147,6 +158,10 @@ export function createStructures(seed, dim, terrain) {
     fortress: { dim: DIM.NETHER, spacing: 352, reach: 96, salt: 0x2a11 },
     bastion: { dim: DIM.NETHER, spacing: 352, reach: 24, salt: 0x2a12 },
     end_city: { dim: DIM.END, spacing: 320, reach: 28, salt: 0x3a11 },
+    shipwreck: { dim: DIM.OVERWORLD, spacing: 288, reach: 16, salt: 0x1a21 },
+    ocean_ruin: { dim: DIM.OVERWORLD, spacing: 224, reach: 20, salt: 0x1a22 },
+    ocean_monument: { dim: DIM.OVERWORLD, spacing: 448, reach: 30, salt: 0x1a23 },
+    buried_treasure: { dim: DIM.OVERWORLD, spacing: 192, reach: 1, salt: 0x1a24 },
   };
 
   // Stronghold positions: 3 in a ring at 560-880 blocks, 6 more at 1500-2000.
@@ -182,6 +197,10 @@ export function createStructures(seed, dim, terrain) {
       case 'dungeon': if (h < 0.5 && !flat) { const y = 12 + Math.floor(hash2(rx, rz, seed ^ 0x4141) * 38); if (landY(x, z) > y + 10) c = { x, z, y }; } break;
       case 'fortress': if (h < 0.75) c = { x, z, y: 52 + Math.floor(hash2(rx, rz, seed ^ 0x6161) * 16) }; break;
       case 'bastion': if (h < 0.55 && b() !== BI.BASALT_DELTAS) { const y = terrain.floorY ? terrain.floorY(x, z, 90, NETHER_LAVA + 2) : -1; if (y > 0) c = { x, z, y }; } break;
+      case 'shipwreck': if (h < 0.75 && !flat && (OCEANS.has(b()) || b() === BI.BEACH)) { const y = landY(x, z); if (y < SEA - 3 || (b() === BI.BEACH && y <= SEA + 1)) c = { x, z, y }; } break;
+      case 'ocean_ruin': if (h < 0.8 && !flat && OCEANS.has(b()) && b() !== BI.DEEP_OCEAN) { const y = landY(x, z); if (y < SEA - 4) c = { x, z, y }; } break;
+      case 'ocean_monument': if (!flat && b() === BI.DEEP_OCEAN && [[-29, -29], [28, -29], [-29, 28], [28, 28], [0, 0]].every(([a, e]) => OCEANS.has(biomeOf(x + a, z + e)) && landY(x + a, z + e) < SEA - 14)) c = { x, z, y: SEA - 25 }; break;
+      case 'buried_treasure': if (h < 0.5 && !flat && b() === BI.BEACH) { const y = landY(x, z); if (y >= SEA - 2 && y <= SEA + 3) c = { x, z, y }; } break;
       case 'end_city': if (h < 0.8 && Math.hypot(x, z) > END_OUTER_R + 60) { const y = terrain.surfaceY(x, z); if (y > 40 && terrain.surfaceY(x + 6, z) > 40 && terrain.surfaceY(x - 6, z) > 40 && terrain.surfaceY(x, z + 6) > 40 && terrain.surfaceY(x, z - 6) > 40) c = { x, z, y }; } break;
     }
     if (c) { c.kind = kind; c.seed = (hash2(rx, rz, seed ^ K.salt ^ 0x9999) * 4294967296) >>> 0; }
@@ -1105,6 +1124,163 @@ export function createStructures(seed, dim, terrain) {
     w.addBlockEntity({ type: 'chest', x: c.x - 3, y: y + 25, z: c.z - 3, items: [{ key: 'elytra', count: 1 }, null, null, { key: 'diamond', count: 3 + Math.floor(r() * 4) }, ...new Array(23).fill(null)] });
     put(w, c.x + 3, y + 25, c.z - 3, S('diamond_block'));
     for (let i = 0; i < 3; i++) w.addEntity({ type: 'enderman', x: c.x + 3.5 - i * 3, y: y + 1, z: c.z + 3.5, data: { persistent: true } });
+  };
+
+  // ---------------- shipwreck ----------------
+  // A wooden hull lying on the sea floor: upright, capsized or snapped in half, with holes, a
+  // stump of a mast, and three chests (supplies at the bow, maps amidships, treasure in the cabin).
+  BUILD.shipwreck = (w, c) => {
+    const r = mulberry32(c.seed);
+    const wood = ['oak', 'spruce', 'dark_oak', 'birch'][Math.floor(r() * 4)];
+    const plank = S(`${wood}_planks`), log = S(`${wood}_log`), fence = S(`${wood}_fence`), slabS = S(`${wood}_slab`);
+    const dir = Math.floor(r() * 4), [fx, fz] = DIRS[dir], [sx, sz] = DIRS[(dir + 1) % 4];
+    const L = 18 + Math.floor(r() * 6), variant = r(), capsized = variant < 0.25, half = variant > 0.8 ? (r() < 0.5 ? 1 : 2) : 0;
+    const base = c.y - (c.y >= SEA ? 0 : 1);
+    const at = (u, v, h) => [c.x + fx * (u - (L >> 1)) + sx * v, (capsized ? base + 7 - h : base + h), c.z + fz * (u - (L >> 1)) + sz * v];
+    const half0 = half === 1 ? L >> 1 : 0, half1 = half === 2 ? L >> 1 : L;
+    const holeAt = (u, v, h) => hash3(u * 7 + v, h, c.seed & 0xffff, seed ^ 0x51e) < 0.1;
+    const hw = u => Math.min(3, 1 + Math.min(u, L - 1 - u) * 0.6);
+    for (let u = half0; u < half1; u++) {
+      const W = Math.floor(hw(u));
+      for (let v = -W; v <= W; v++) {
+        const bottom = Math.floor(Math.abs(v) * 0.7);
+        for (let h = bottom; h <= 5; h++) {
+          const [x, y, z] = at(u, v, h);
+          const side = Math.abs(v) === W || u === half0 || u === half1 - 1, deck = h === 4, floor = h === bottom;
+          const breakEnd = half && (half === 1 ? u === half0 : u === half1 - 1);
+          if ((side && h <= 4) || floor || deck) {
+            if (holeAt(u, v, h) || (breakEnd && r() < 0.6) || (deck && Math.abs(v) <= 1 && Math.abs(u - (L >> 1)) === 3)) put(w, x, y, z, wet(y));
+            else put(w, x, y, z, h === 4 && side ? logAxis(`${wood}_log`, fx ? 1 : 2) : plank);
+          } else if (h < 4 || h === 5) put(w, x, y, z, h === 5 ? (side && !holeAt(u, v, 9) ? fence : wet(y)) : wet(y));
+        }
+      }
+    }
+    // Stern cabin and mast.
+    if (half !== 2) {
+      for (let u = L - 6; u < L - 1; u++) for (let v = -2; v <= 2; v++) for (let h = 5; h <= 8; h++) {
+        const [x, y, z] = at(u, v, h), edge = u === L - 6 || u === L - 2 || Math.abs(v) === 2 || h === 8;
+        put(w, x, y, z, edge ? (h === 8 ? slabS : plank) : wet(y));
+      }
+      const [dx, dy, dz] = at(L - 6, 0, 6); put(w, dx, dy, dz, wet(dy));
+      const [cx2, cy2, cz2] = at(L - 3, 1, 5); chest(w, cx2, cy2, cz2, dir, r, 'shipwreck_treasure');
+    }
+    if (half !== 1) { const [bx, by, bz] = at(2, 0, 1); chest(w, bx, by, bz, dir, r, 'shipwreck_supply'); }
+    if (!half || half === 2) { const [mx, my, mz] = at(L >> 1, 1, 1); chest(w, mx, my, mz, dir, r, 'shipwreck_map'); }
+    if (!capsized && half !== 1) {
+      const mastH = 3 + Math.floor(r() * 6);
+      for (let h = 5; h < 5 + mastH; h++) { const [x, y, z] = at((L >> 1) + 2, 0, h); put(w, x, y, z, logAxis(`${wood}_log`, 0)); }
+    }
+    void log;
+  };
+
+  // ---------------- ocean ruins ----------------
+  // A scatter of broken stone-brick (cold) or sandstone (warm) rooms on the sea floor; the biggest
+  // one hides a chest, and drowned lurk among them.
+  BUILD.ocean_ruin = (w, c) => {
+    const r = mulberry32(c.seed);
+    const warm = biomeOf(c.x, c.z) === BI.WARM_OCEAN;
+    const mat = (x, y, z) => {
+      if (warm) return S(hash3(x, y, z, seed) < 0.3 ? 'cut_sandstone' : 'sandstone');
+      const h = hash3(x, y, z, seed ^ 0x77);
+      return S(h < 0.35 ? 'mossy_stone_bricks' : h < 0.55 ? 'cracked_stone_bricks' : h < 0.62 ? 'mossy_cobblestone' : 'stone_bricks');
+    };
+    const n = 1 + Math.floor(r() * 5);
+    for (let i = 0; i < n; i++) {
+      const big = i === 0;
+      const ox = i === 0 ? 0 : Math.floor((r() - 0.5) * 30), oz = i === 0 ? 0 : Math.floor((r() - 0.5) * 30);
+      const cx = c.x + ox, cz = c.z + oz, y = landY(cx, cz) + 1;
+      if (y > SEA - 3) continue;
+      const wx = big ? 5 + Math.floor(r() * 3) : 2 + Math.floor(r() * 3), wz = big ? 5 + Math.floor(r() * 3) : 2 + Math.floor(r() * 3);
+      const hgt = big ? 3 + Math.floor(r() * 3) : 1 + Math.floor(r() * 3);
+      for (let dz = -wz; dz <= wz; dz++) for (let dx = -wx; dx <= wx; dx++) {
+        const x = cx + dx, z = cz + dz, edge = Math.abs(dx) === wx || Math.abs(dz) === wz;
+        foundation(w, x, y, z, mat(x, y - 1, z), 4);
+        put(w, x, y - 1, z, mat(x, y - 1, z));
+        for (let k = 0; k < hgt; k++) {
+          const keep = edge && hash3(x, k, z, seed ^ 0x3a3) > 0.25 + k * 0.18 && !(dx === 0 && k < 2);
+          put(w, x, y + k, z, keep ? mat(x, y + k, z) : wet(y + k));
+        }
+        if (big && !edge && hash3(x, 9, z, seed) < 0.3) put(w, x, y + hgt - 1, z, mat(x, y, z));
+      }
+      if (big) {
+        chest(w, cx + 1, y, cz + 1, 0, r, 'ocean_ruin');
+        put(w, cx - 1, y, cz - 1, S(warm ? 'chiseled_sandstone' : 'chiseled_stone_bricks'));
+        w.addEntity({ type: 'drowned', x: cx + 0.5, y, z: cz - 1.5 });
+        if (r() < 0.5) w.addEntity({ type: 'drowned', x: cx - 1.5, y, z: cz + 1.5 });
+      }
+    }
+  };
+
+  // ---------------- ocean monument ----------------
+  // The underwater temple: a 58x58 prismarine fortress on pillars. Outer halls with lantern-lit
+  // windows, two wing towers, a stepped central pyramid topped by a penthouse, a maze of flooded
+  // rooms, a sponge room and a dark-prismarine core hiding eight gold blocks. Guarded by
+  // guardians and three elder guardians.
+  BUILD.ocean_monument = (w, c) => {
+    const r = mulberry32(c.seed), y0 = c.y;
+    const PB = S('prismarine_bricks'), PR = S('prismarine'), DP = S('dark_prismarine'), SL = S('sea_lantern'), GOLD = S('gold_block'), SP = S('wet_sponge');
+    const x0 = Math.max(c.x - 29, w.ox), x1 = Math.min(c.x + 28, w.ox + CHUNK - 1), z0 = Math.max(c.z - 29, w.oz), z1 = Math.min(c.z + 28, w.oz + CHUNK - 1);
+    if (x0 > x1 || z0 > z1) return;
+    const cellWall = v => ((v + 29) % 8) === 0; // interior room grid lines
+    const rough = (x, y, z) => (hash3(x, y, z, seed ^ 0x9e7) < 0.35 ? PR : PB);
+    for (let z = z0; z <= z1; z++) for (let x = x0; x <= x1; x++) {
+      const a = x - c.x, b = z - c.z, ea = Math.abs(a + 0.5), eb = Math.abs(b + 0.5);
+      // Base slab and pillars down to the sea floor.
+      put(w, x, y0, z, PB);
+      if ((a + 29) % 7 === 0 && (b + 29) % 7 === 0) foundation(w, x, y0, z, PB, 40);
+      const outer = ea > 28 || eb > 28;
+      const wing = ea > 20 && eb > 20;
+      const core = ea < 5 && eb < 5;
+      for (let k = 1; k <= 30; k++) {
+        const y = y0 + k;
+        let blk = null;
+        if (wing) {
+          // Corner towers.
+          const tEdge = ea > 28 || eb > 28 || ea < 21.5 || eb < 21.5;
+          if (k <= 14) blk = tEdge ? (k % 5 === 3 && (Math.abs(a) === 25 || Math.abs(b) === 25) ? SL : k === 14 ? DP : rough(x, y, z)) : k === 1 ? PB : wet(y);
+          else if (k === 15 && ea < 27 && eb < 27) blk = DP;
+        } else if (k <= 8) {
+          if (outer) {
+            const door = b < -27 && Math.abs(a + 0.5) < 3.5 && k <= 5;
+            blk = door ? wet(y) : k === 8 ? DP : k === 4 && (a + 29) % 7 === 3 ? SL : rough(x, y, z);
+          } else if (core) blk = ea > 4 || eb > 4 || k === 7 ? DP : (ea < 1.5 && eb < 1.5 && (k === 2 || k === 3)) ? GOLD : k === 1 ? DP : wet(y);
+          else if (k === 8) blk = (a + b) % 9 === 0 ? SL : PB;
+          else if ((cellWall(a) || cellWall(b)) && k <= 7) {
+            // Room walls with doorways in the middle of each cell side.
+            const mid = cellWall(a) ? ((b + 29) % 8 >= 3 && (b + 29) % 8 <= 5) : ((a + 29) % 8 >= 3 && (a + 29) % 8 <= 5);
+            const open = mid && k <= 3 && hash2(Math.floor((a + 29) / 8) * 7 + (cellWall(a) ? 1 : 0), Math.floor((b + 29) / 8), seed ^ 0x5ea) < 0.7;
+            blk = open ? wet(y) : k === 4 && (a + b) % 5 === 0 ? SL : rough(x, y, z);
+          } else blk = k === 1 && (a + b) % 11 === 0 ? SL : wet(y);
+        } else {
+          // Stepped central pyramid over the halls, then the penthouse.
+          const step = Math.floor((k - 9) / 2), hs = 22 - step * 3;
+          if (ea < hs && eb < hs && hs > 4) {
+            const shell = ea > hs - 1 || eb > hs - 1 || (k - 9) % 2 === 1;
+            const window = ea > hs - 1 && (k - 9) % 2 === 0 && Math.abs(b) % 6 === 0;
+            blk = shell ? (window ? SL : (k - 9) % 2 === 1 ? DP : rough(x, y, z)) : wet(y);
+          } else if (k <= 26 && ea < 5 && eb < 5) blk = (ea > 4 || eb > 4 || k === 26) ? DP : k === 22 && ea < 1 && eb < 1 ? SL : wet(y);
+        }
+        if (blk) put(w, x, y, z, blk);
+      }
+    }
+    // A sponge room in one of the cells.
+    const sa = -21 + 8 * Math.floor(r() * 2), sb = -21 + 16 * Math.floor(r() * 2);
+    for (let dz = 1; dz <= 6; dz++) for (let dx = 1; dx <= 6; dx++) if (hash3(dx, 1, dz, c.seed) < 0.55) put(w, c.x + sa + dx, y0 + 7, c.z + sb + dz, SP);
+    // Guardians: every chunk plans the same spawns and keeps the ones that fall inside it.
+    {
+      const er = mulberry32(c.seed ^ 0x6a4d);
+      w.addEntity({ type: 'elder_guardian', x: c.x + 0.5, y: y0 + 20, z: c.z + 0.5, data: { persistent: true } });
+      w.addEntity({ type: 'elder_guardian', x: c.x - 24.5, y: y0 + 6, z: c.z + 24.5, data: { persistent: true } });
+      w.addEntity({ type: 'elder_guardian', x: c.x + 24.5, y: y0 + 6, z: c.z + 24.5, data: { persistent: true } });
+      for (let i = 0; i < 7; i++) w.addEntity({ type: 'guardian', x: c.x + (er() - 0.5) * 44, y: y0 + 2 + er() * 5, z: c.z + (er() - 0.5) * 44, data: { persistent: true } });
+    }
+  };
+
+  // ---------------- buried treasure ----------------
+  // A chest a few blocks under a beach, with a Heart of the Sea.
+  BUILD.buried_treasure = (w, c) => {
+    const r = mulberry32(c.seed), y = c.y - 3 - Math.floor(r() * 2);
+    chest(w, c.x, y, c.z, 0, r, 'buried_treasure', { key: 'heart_of_the_sea', count: 1 });
   };
 
   return { place, locate, kinds: Object.keys(KINDS).filter(k => KINDS[k].dim === dim), strongholds };

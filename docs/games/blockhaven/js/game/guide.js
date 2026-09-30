@@ -1,11 +1,11 @@
 // The in-game guide: features, commands, crafting, farming, combat, villagers, dimensions and graphics.
-import { MusicPlayer } from './music.js?v=muo2aap4';
-import { BLOCKS, BLOCK_ITEMS, TEXTURES } from '../data/blocks.js?v=muo2aap4';
-import { ITEMS, I } from '../data/items.js?v=muo2aap4';
-import { SHAPED, SHAPELESS, SMELTING } from '../data/recipes.js?v=muo2aap4';
-import { MOBS } from '../data/mobs.js?v=muo2aap4';
-import { BIOMES } from '../gen/biomes.js?v=muo2aap4';
-import { COMMANDS } from './commands.js?v=muo2aap4';
+import { MusicPlayer } from './music.js?v=muo2mobr';
+import { BLOCKS, BLOCK_ITEMS, TEXTURES } from '../data/blocks.js?v=muo2mobr';
+import { ITEMS, I } from '../data/items.js?v=muo2mobr';
+import { SHAPED, SHAPELESS, SMELTING } from '../data/recipes.js?v=muo2mobr';
+import { MOBS } from '../data/mobs.js?v=muo2mobr';
+import { BIOMES } from '../gen/biomes.js?v=muo2mobr';
+import { COMMANDS } from './commands.js?v=muo2mobr';
 
 const esc = s => String(s).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
 
@@ -107,6 +107,15 @@ export function guideSections(icons) {
         <li><b>Creepers</b> hiss before they explode; back away! Endermen get angry if you look at their eyes (a carved pumpkin on your head protects you). Skeletons strafe while shooting; spiders are calm in daylight; zombies and skeletons burn in the sun.</li>
         <li>A <b>Totem of Undying</b> in either hand saves you from death once.</li>
       </ul>`,
+    Oceans: `
+      <h4>Under the sea</h4>
+      <table>
+        <tr><td>Shipwrecks</td><td>Sunken hulls on the sea floor (some capsized or snapped in half, a few beached). Supply chest at the bow, map chest amidships, treasure chest in the stern cabin.</td></tr>
+        <tr><td>Ocean ruins</td><td>Clusters of broken stone-brick (cold seas) or sandstone (warm seas) rooms. The largest hides a chest; drowned lurk nearby.</td></tr>
+        <tr><td>Ocean monuments</td><td>Huge prismarine temples in deep oceans, full of flooded halls. Guardians fire charging lasers; three Elder Guardians curse divers with Mining Fatigue. A sponge room, and eight gold blocks hidden in the dark core.</td></tr>
+        <tr><td>Buried treasure</td><td>A chest a few blocks under a beach, always holding a Heart of the Sea.</td></tr>
+      </table>
+      <p>Use <code>/locate shipwreck</code>, <code>ocean_ruin</code>, <code>ocean_monument</code> or <code>buried_treasure</code> to find them.</p>`,
     'Villages & trading': `
       <p>Villages have houses, farms, paths and a well. Right-click a villager to trade. Each villager has a profession (farmer, librarian, armorer, weaponsmith, toolsmith, butcher, cleric, fletcher, leatherworker, shepherd, fisherman, mason, cartographer). Trading gives them experience: at each new level they unlock better trades — up to diamond gear and enchanted golden apples.</p>
       <p>Emeralds are the currency: mine them in mountains or earn them by selling crops, coal, paper and more. Iron golems protect villages; pillagers from outposts attack them. Zombies can turn villagers into zombie villagers — cure them with a golden apple.</p>`,

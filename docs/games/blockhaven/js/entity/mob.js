@@ -1,14 +1,14 @@
 // Living mobs: physics, AI archetypes, combat, breeding/taming, trading and animation.
-import { Entity, drawModel, rootMatrix, M } from './entity.js?v=muo2aap4';
-import { Projectile, renderStack } from './objects.js?v=muo2aap4';
-import { MOBS, PROFESSIONS } from '../data/mobs.js?v=muo2aap4';
-import { B, BLOCKS, SOLID } from '../data/blocks.js?v=muo2aap4';
-import { UNLOADED } from '../world/world.js?v=muo2aap4';
-import { villagerTrades } from '../game/trades.js?v=muo2aap4';
-import { findPath, clearWalk } from './pathfind.js?v=muo2aap4';
-import { ARMOR_BYPASS, armorStats, armorReduce, applyInvul } from '../game/combat.js?v=muo2aap4';
-import { armorSkinKey } from '../data/armor.js?v=muo2aap4';
-import { I } from '../data/items.js?v=muo2aap4';
+import { Entity, drawModel, rootMatrix, M } from './entity.js?v=muo2mobr';
+import { Projectile, renderStack } from './objects.js?v=muo2mobr';
+import { MOBS, PROFESSIONS } from '../data/mobs.js?v=muo2mobr';
+import { B, BLOCKS, SOLID } from '../data/blocks.js?v=muo2mobr';
+import { UNLOADED } from '../world/world.js?v=muo2mobr';
+import { villagerTrades } from '../game/trades.js?v=muo2mobr';
+import { findPath, clearWalk } from './pathfind.js?v=muo2mobr';
+import { ARMOR_BYPASS, armorStats, armorReduce, applyInvul } from '../game/combat.js?v=muo2mobr';
+import { armorSkinKey } from '../data/armor.js?v=muo2mobr';
+import { I } from '../data/items.js?v=muo2mobr';
 
 const rnd = (a, b) => a + Math.random() * (b - a);
 const rint = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
@@ -460,6 +460,7 @@ export class Mob extends Entity {
       case 'enderman': return this.aiEnderman(dt);
       case 'slime': return this.aiSlime(dt);
       case 'swimmer': case 'fish': return this.aiSwim(dt);
+      case 'guardian': return this.aiGuardian(dt);
       case 'bat': case 'flyer': return this.aiFlyer(dt);
       case 'phantom': return this.aiPhantom(dt);
       case 'blaze': return this.aiBlaze(dt);
@@ -671,6 +672,50 @@ export class Mob extends Entity {
     const sp = this.speed * (this.mobType === 'squid' ? 0.6 + 0.4 * Math.max(0, Math.sin(this.age * 3)) : 1);
     this.vel[0] += (dx / n * sp - this.vel[0]) * Math.min(1, dt * 2); this.vel[1] += (dy / n * sp - this.vel[1]) * Math.min(1, dt * 2); this.vel[2] += (dz / n * sp - this.vel[2]) * Math.min(1, dt * 2);
     this.yaw += wrap(Math.atan2(-dx, -dz) - this.yaw) * Math.min(1, dt * 4);
+  }
+  // Guardians hold still while charging a laser at their target (4 s, elders 3 s) that then hits
+  // for full damage; elders also curse nearby players with Mining Fatigue every minute.
+  aiGuardian(dt) {
+    const g = this.game, d = this.def;
+    if (d.elder) {
+      this.curseT = (this.curseT ?? 5) - dt;
+      if (this.curseT <= 0) {
+        this.curseT = 60;
+        const f = this.focus;
+        if (f === g.playerEntity && this.playerTargetable() && this.distToPlayer() < 50) { g.addEffect('mining_fatigue', 300); g.sound.play('ghast_warn', null, 0.8); if (g.app.showAction) g.app.showAction('An Elder Guardian cursed you with Mining Fatigue', 3); }
+      }
+    }
+    if (!this.target && this.playerTargetable() && this.distToPlayer() < 16 && this.canSee(this.focus)) this.target = this.focus;
+    if (!this.target) {
+      const prey = g.entities.near(this.pos, 12, e => e.mobType === 'squid' || e.mobType === 'glow_squid' || e.mobType === 'axolotl')[0];
+      if (prey && Math.random() < dt / 10) this.target = prey;
+    }
+    const t = this.target;
+    if (!t || !this.inWater && !this.onGround) { this.laser = null; if (this.inWater) this.aiSwim(dt); return; }
+    const dist = this.distTo(t.pos), see = this.canSee(t);
+    this.lookAt(t.pos, 10, dt);
+    if (!see || dist > 16) {
+      this.laser = null;
+      if (this.inWater) { const dx = t.pos[0] - this.pos[0], dy = t.pos[1] + 0.5 - this.pos[1], dz = t.pos[2] - this.pos[2], n = Math.hypot(dx, dy, dz) || 1; for (const [a, v] of [[0, dx], [1, dy], [2, dz]]) this.vel[a] += (v / n * this.speed - this.vel[a]) * Math.min(1, dt * 2); }
+      return;
+    }
+    // Charging: brake, keep the beam on the target.
+    for (let a = 0; a < 3; a++) this.vel[a] *= Math.exp(-4 * dt);
+    if (this.attackT > 0) return;
+    if (!this.laser) { this.laser = { t: 0 }; g.sound.play('fuse', this.pos, 0.4); }
+    this.laser.t += dt;
+    if (this.laser.t >= d.laser.time) {
+      this.laser = null; this.attackT = 1.5;
+      const diffMul = { peaceful: 0, easy: 0.67, normal: 1, hard: 1.5 }[g.difficulty] ?? 1;
+      t.hurt(d.laser.dmg * ((t === g.playerEntity || t.remote) ? diffMul : 1) + 1, { kind: 'magic', attacker: this });
+    }
+  }
+  // Where a charging laser points (for drawing), whether we or another player own this mob.
+  laserInfo() {
+    if (this.puppet) return this.laserTgt ? { to: this.laserTgt, prog: this.laserProg } : null;
+    if (!this.laser || !this.target) return null;
+    const t = this.target;
+    return { to: [t.pos[0], t.pos[1] + (t.h || 1) * 0.6, t.pos[2]], prog: Math.min(1, this.laser.t / this.def.laser.time) };
   }
   aiFlyer(dt) {
     this.wanderT -= dt;
@@ -1014,6 +1059,14 @@ export class Mob extends Entity {
     }
     if (this.fire > 0) for (let k = 0; k < 2; k++) g.particles.fx('flame', [this.pos[0] + rnd(-this.hw, this.hw), this.pos[1] + rnd(0, this.h), this.pos[2] + rnd(-this.hw, this.hw)], 1, 0.05, 0.2);
     if (this.name) ctx.labels.push({ text: this.name, pos: [this.pos[0], this.pos[1] + this.h + 0.5, this.pos[2]] });
+    const lz = this.def.laser && this.laserInfo();
+    if (lz) {
+      // The beam fades from violet to hot yellow as the charge completes.
+      const eye = [this.pos[0], this.pos[1] + this.h * 0.5, this.pos[2]], to = lz.to, layer = g.fxLayer('white'), p = lz.prog;
+      const col = [0.5 + p * 0.9, 0.3 + p * 0.9, 1.2 - p * 0.9, 0.55 + p * 0.4], wd = 0.025 + p * 0.025;
+      for (const [ox, oz] of [[wd, 0], [0, wd]]) ctx.itemFx.quad([[eye[0] - ox, eye[1], eye[2] - oz], [to[0] - ox, to[1], to[2] - oz], [to[0] + ox, to[1], to[2] + oz], [eye[0] + ox, eye[1], eye[2] + oz]], [0, 0, 1, 1], layer, col);
+      ctx.itemFx.quad([[eye[0], eye[1] - wd, eye[2]], [to[0], to[1] - wd, to[2]], [to[0], to[1] + wd, to[2]], [eye[0], eye[1] + wd, eye[2]]], [0, 0, 1, 1], layer, col);
+    }
     if (this.beam) {
       const c = this.beam.pos, layer = g.fxLayer('white');
       ctx.itemFx.quad([[c[0] - 0.1, c[1] + 1, c[2]], [this.pos[0] - 0.1, this.pos[1] + 2, this.pos[2]], [this.pos[0] + 0.1, this.pos[1] + 2, this.pos[2]], [c[0] + 0.1, c[1] + 1, c[2]]], [0, 0, 1, 1], layer, [1.2, 0.6, 1.4, 0.7]);
@@ -1031,7 +1084,7 @@ export class Mob extends Entity {
 }
 
 // Moves an entity without gravity handling (fliers/swimmers).
-import { moveEntity } from './physics.js?v=muo2aap4';
+import { moveEntity } from './physics.js?v=muo2mobr';
 function import_move(e, dt) { moveEntity(e.world, e, e.vel[0] * dt, e.vel[1] * dt, e.vel[2] * dt); }
 
 // Renders a held item using a part matrix (model units).

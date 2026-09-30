@@ -1,24 +1,24 @@
 // The running game: world + dimensions, player survival state, entities, simulation, weather and saving.
-import { B, BLOCKS, SOLID, OPAQUE, DIM, DIM_NAMES, HEIGHT, SEA, props, st, SHAPE_OF, SHAPE } from '../data/blocks.js?v=muo2aap4';
-import { I, maxStack } from '../data/items.js?v=muo2aap4';
-import { SMELTING } from '../data/recipes.js?v=muo2aap4';
-import { MOBS } from '../data/mobs.js?v=muo2aap4';
-import { BIOMES, COLD } from '../gen/biomes.js?v=muo2aap4';
-import { World, UNLOADED, posKey } from '../world/world.js?v=muo2aap4';
-import { Player } from './player.js?v=muo2aap4';
-import { PlayerInventory, Container } from './inventory.js?v=muo2aap4';
-import { EntityManager } from '../entity/entity.js?v=muo2aap4';
-import { ItemEntity, XpOrb, FallingBlock, PrimedTnt, Lightning, Projectile } from '../entity/objects.js?v=muo2aap4';
-import { Mob, RIDEABLE } from '../entity/mob.js?v=muo2aap4';
-import { Particles } from './particles.js?v=muo2aap4';
-import { Sim } from './sim.js?v=muo2aap4';
-import { blockDrops } from './drops.js?v=muo2aap4';
-import { computeEnv } from './env.js?v=muo2aap4';
-import { fuelOf } from './ui.js?v=muo2aap4';
-import { unlockLevel } from './trades.js?v=muo2aap4';
-import { forward } from '../core/math.js?v=muo2aap4';
-import { EndCrystal } from '../entity/crystal.js?v=muo2aap4';
-import { ARMOR_BYPASS, armorReduce, applyInvul, isAxe, shieldFaces, applyKnockback, knockbackResist } from './combat.js?v=muo2aap4';
+import { B, BLOCKS, SOLID, OPAQUE, DIM, DIM_NAMES, HEIGHT, SEA, props, st, SHAPE_OF, SHAPE } from '../data/blocks.js?v=muo2mobr';
+import { I, maxStack } from '../data/items.js?v=muo2mobr';
+import { SMELTING } from '../data/recipes.js?v=muo2mobr';
+import { MOBS } from '../data/mobs.js?v=muo2mobr';
+import { BIOMES, COLD } from '../gen/biomes.js?v=muo2mobr';
+import { World, UNLOADED, posKey } from '../world/world.js?v=muo2mobr';
+import { Player } from './player.js?v=muo2mobr';
+import { PlayerInventory, Container } from './inventory.js?v=muo2mobr';
+import { EntityManager } from '../entity/entity.js?v=muo2mobr';
+import { ItemEntity, XpOrb, FallingBlock, PrimedTnt, Lightning, Projectile } from '../entity/objects.js?v=muo2mobr';
+import { Mob, RIDEABLE } from '../entity/mob.js?v=muo2mobr';
+import { Particles } from './particles.js?v=muo2mobr';
+import { Sim } from './sim.js?v=muo2mobr';
+import { blockDrops } from './drops.js?v=muo2mobr';
+import { computeEnv } from './env.js?v=muo2mobr';
+import { fuelOf } from './ui.js?v=muo2mobr';
+import { unlockLevel } from './trades.js?v=muo2mobr';
+import { forward } from '../core/math.js?v=muo2mobr';
+import { EndCrystal } from '../entity/crystal.js?v=muo2mobr';
+import { ARMOR_BYPASS, armorReduce, applyInvul, isAxe, shieldFaces, applyKnockback, knockbackResist } from './combat.js?v=muo2mobr';
 
 export const DAY = 1200; // seconds per day
 const rnd = (a, b) => a + Math.random() * (b - a);
@@ -841,6 +841,13 @@ export class Game {
   }
   spawnWater(x, y, z) {
     const biome = BIOMES[this.world.biomeAt(x, z)]?.key || '';
+    // Inside an ocean monument (prismarine all around): guardians keep appearing.
+    if (biome === 'deep_ocean' && this.difficulty !== 'peaceful') {
+      const pid = st('prismarine_bricks')[0];
+      let n = 0;
+      for (const [dx, dy, dz] of [[0, -3, 0], [0, -6, 0], [4, 0, 0], [-4, 0, 0], [0, 0, 4], [0, 0, -4], [0, 4, 0]]) if (this.world.getBlock(x + dx, y + dy, z + dz) === pid) n++;
+      if (n >= 2 && this.entities.count(e => e.mobType === 'guardian' && Math.abs(e.pos[0] - x) < 40 && Math.abs(e.pos[2] - z) < 40) < 8) { this.spawnMob('guardian', x + 0.5, y, z + 0.5); return; }
+    }
     const warm = biome === 'warm_ocean', river = biome.includes('river'), ocean = biome.includes('ocean');
     if (!ocean && !river && Math.random() < 0.8) return;
     let t = river ? (Math.random() < 0.5 ? 'salmon' : 'squid') : warm ? (Math.random() < 0.7 ? 'tropical_fish' : 'pufferfish') : ['cod', 'cod', 'squid', 'salmon', 'dolphin'][Math.floor(Math.random() * 5)];
