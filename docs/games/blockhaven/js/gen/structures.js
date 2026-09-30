@@ -4,11 +4,11 @@
 // written into every chunk it overlaps (ChunkBuilder clips writes), so they span chunk borders
 // seamlessly. Planning must never read the chunk, only the terrain functions, so every chunk
 // sees the same plan.
-import { hash2, hash3, mulberry32 } from '../core/noise.js?v=munmcvi9';
-import { B, st, DIM, SEA, CHUNK, COLORS, CROP_AGE_SHIFT } from '../data/blocks.js?v=munmcvi9';
-import { BI } from './biomes.js?v=munmcvi9';
-import { NETHER_LAVA } from './nether.js?v=munmcvi9';
-import { END_OUTER_R } from './end.js?v=munmcvi9';
+import { hash2, hash3, mulberry32 } from '../core/noise.js?v=munmlnfa';
+import { B, st, DIM, SEA, CHUNK, COLORS, CROP_AGE_SHIFT } from '../data/blocks.js?v=munmlnfa';
+import { BI } from './biomes.js?v=munmlnfa';
+import { NETHER_LAVA } from './nether.js?v=munmlnfa';
+import { END_OUTER_R } from './end.js?v=munmlnfa';
 
 const DIRS = [[0, 1], [-1, 0], [0, -1], [1, 0]]; // +z, -x, -z, +x (same as placement code)
 const S = k => st(k);

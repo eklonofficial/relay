@@ -48,7 +48,7 @@
   #title { background: radial-gradient(ellipse at center, rgba(0,0,0,0) 45%, rgba(0,0,0,0.35) 100%); gap: 0; }
   .logo { position: relative; margin-bottom: calc(var(--bs) * 18px); text-align: center; }
   .logo canvas { display: block; width: calc(var(--bs) * var(--logo-w, 250) * 1px); max-width: 94vw; image-rendering: pixelated; filter: drop-shadow(0 calc(var(--bs) * 2px) calc(var(--bs) * 3px) rgba(0,0,0,0.35)); }
-  .splash { position: absolute; right: calc(var(--bs) * -34px); bottom: calc(var(--bs) * -4px); color: #ffff00; font: 400 calc(var(--bs) * 10px) var(--px-font); text-shadow: calc(var(--bs) * 1px) calc(var(--bs) * 1px) 0 #3f3f00; transform: rotate(-20deg); white-space: nowrap; animation: pulse 0.5s ease-in-out infinite alternate; transform-origin: center; }
+  .splash { position: absolute; left: calc(100% - var(--bs) * 12px); top: calc(var(--bs) * 31px); color: #ffff00; font: 400 calc(var(--bs) * 8px) var(--px-font); text-shadow: calc(var(--bs) * 1px) calc(var(--bs) * 1px) 0 #3f3f00; white-space: nowrap; transform-origin: 0 50%; transform: rotate(-20deg); animation: pulse 0.5s ease-in-out infinite alternate; }
   @keyframes pulse { from { transform: rotate(-20deg) scale(1); } to { transform: rotate(-20deg) scale(1.08); } }
   #title .menu { gap: calc(var(--bs) * 4px); }
   #title .menu .row.bottom { margin-top: calc(var(--bs) * 8px); gap: calc(var(--bs) * 4px); align-items: center; flex-wrap: nowrap; }
@@ -379,6 +379,6 @@
 </div>
 
 <div id="error" class="screen hidden"></div>
-<script type="module" src="js/main.js?v=munmcvi9"></script>
+<script type="module" src="js/main.js?v=munmlnfa"></script>
 </body>
 </html>

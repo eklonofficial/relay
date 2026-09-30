@@ -1,10 +1,10 @@
 // Player actions: mining, placing, using items and blocks, attacking.
-import { meleeDamage, isCrit, knockStrength, isSword } from './combat.js?v=munmcvi9';
-import { B, BLOCKS, SOLID, OPAQUE, SHAPE_OF, SHAPE, props, st, DIM, FACING_SHIFT, AXIS_SHIFT, VARIANT_MASK } from '../data/blocks.js?v=munmcvi9';
-import { I, breakTime } from '../data/items.js?v=munmcvi9';
-import { collisionBoxes, selectionBoxes } from '../data/shapes.js?v=munmcvi9';
-import { UNLOADED, posKey } from '../world/world.js?v=munmcvi9';
-import { forward } from '../core/math.js?v=munmcvi9';
+import { meleeDamage, isCrit, knockStrength, isSword } from './combat.js?v=munmlnfa';
+import { B, BLOCKS, SOLID, OPAQUE, SHAPE_OF, SHAPE, props, st, DIM, FACING_SHIFT, AXIS_SHIFT, VARIANT_MASK } from '../data/blocks.js?v=munmlnfa';
+import { I, breakTime } from '../data/items.js?v=munmlnfa';
+import { collisionBoxes, selectionBoxes } from '../data/shapes.js?v=munmlnfa';
+import { UNLOADED, posKey } from '../world/world.js?v=munmlnfa';
+import { forward } from '../core/math.js?v=munmlnfa';
 
 const DIRS = [[0, 1], [-1, 0], [0, -1], [1, 0]];
 export const dirIndex = (x, z) => (Math.abs(x) > Math.abs(z) ? (x > 0 ? 3 : 1) : (z > 0 ? 0 : 2));
