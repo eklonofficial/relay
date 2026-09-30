@@ -1,13 +1,14 @@
 // Living mobs: physics, AI archetypes, combat, breeding/taming, trading and animation.
-import { Entity, drawModel, rootMatrix, M } from './entity.js?v=munk2rp4';
-import { Projectile, renderStack } from './objects.js?v=munk2rp4';
-import { MOBS, PROFESSIONS } from '../data/mobs.js?v=munk2rp4';
-import { B, BLOCKS, SOLID } from '../data/blocks.js?v=munk2rp4';
-import { UNLOADED } from '../world/world.js?v=munk2rp4';
-import { villagerTrades } from '../game/trades.js?v=munk2rp4';
-import { ARMOR_BYPASS, armorStats, armorReduce, applyInvul } from '../game/combat.js?v=munk2rp4';
-import { armorSkinKey } from '../data/armor.js?v=munk2rp4';
-import { I } from '../data/items.js?v=munk2rp4';
+import { Entity, drawModel, rootMatrix, M } from './entity.js?v=munkcr3r';
+import { Projectile, renderStack } from './objects.js?v=munkcr3r';
+import { MOBS, PROFESSIONS } from '../data/mobs.js?v=munkcr3r';
+import { B, BLOCKS, SOLID } from '../data/blocks.js?v=munkcr3r';
+import { UNLOADED } from '../world/world.js?v=munkcr3r';
+import { villagerTrades } from '../game/trades.js?v=munkcr3r';
+import { findPath, clearWalk } from './pathfind.js?v=munkcr3r';
+import { ARMOR_BYPASS, armorStats, armorReduce, applyInvul } from '../game/combat.js?v=munkcr3r';
+import { armorSkinKey } from '../data/armor.js?v=munkcr3r';
+import { I } from '../data/items.js?v=munkcr3r';
 
 const rnd = (a, b) => a + Math.random() * (b - a);
 const rint = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
@@ -32,6 +33,8 @@ function rollEquipment(type, difficulty) {
   if (kind === 'zombie' && Math.random() < (difficulty === 'hard' ? 0.05 : 0.01) * 3) eq.hand = Math.random() < 0.33 ? 'iron_sword' : 'iron_shovel';
   return eq.hand || eq.armor.some(Boolean) ? eq : null;
 }
+
+const QUIET = new Set(['creeper', 'cod', 'salmon', 'tropical_fish', 'pufferfish', 'squid', 'glow_squid', 'turtle', 'axolotl']);
 
 export class Mob extends Entity {
   constructor(game, type, x, y, z, opts = {}) {
@@ -182,7 +185,7 @@ export class Mob extends Entity {
     if (d < 0.3) return true;
     this.lookAt(p, 6, dt);
     const fx = -Math.sin(this.yaw), fz = -Math.cos(this.yaw);
-    if (!this.def.flying && !this.def.swim && this.onGround && !this.target) {
+    if (!this.def.flying && !this.def.swim && this.onGround && !this.target && !this.followingPath) {
       const ax = this.pos[0] + fx * 0.9, az = this.pos[2] + fz * 0.9;
       let drop = 0;
       for (let k = 0; k < 4 && !SOLID[this.world.getBlock(ax, this.pos[1] - 1 - k, az)]; k++) drop++;
@@ -207,8 +210,55 @@ export class Mob extends Entity {
       const cx = this.home && Math.hypot(this.home[0] - this.pos[0], this.home[2] - this.pos[2]) > 24 ? this.home : this.pos;
       this.goal = [cx[0] + rnd(-radius, radius), this.pos[1], cx[2] + rnd(-radius, radius)];
     }
-    if (this.goal) { if (this.moveTo(this.goal, speed, dt)) this.goal = null; if (this.stuck > 1.5) { this.goal = null; this.stuck = 0; } }
+    if (this.goal) { if (this.navigateTo(this.goal, speed, dt)) this.goal = null; if (this.stuck > 1.5 || this.noPath) { this.goal = null; this.stuck = 0; this.noPath = false; this.wanderT = Math.min(this.wanderT, 0.5); } }
     else this.brake(dt);
+  }
+  // Walk towards p: straight at it when the way is clear, otherwise along an A* path that
+  // steps up blocks, drops down safely, goes around walls and through doorways.
+  navigateTo(p, speed, dt) {
+    const d = this.def, g = this.game;
+    this.followingPath = false;
+    if (d.flying || d.swim || d.hop || this.inWater) { this.path = null; return this.moveTo(p, speed, dt); }
+    const dist = Math.hypot(p[0] - this.pos[0], p[2] - this.pos[2]);
+    if (this.age - (this.clearT ?? -9) > 0.35) { this.clearT = this.age; this.lastClear = dist < 20 && clearWalk(this.world, this.pos, p, Math.ceil(this.h)); }
+    if (this.lastClear) { this.path = null; this.closeDoors(); return this.moveTo(p, speed, dt); }
+    const goalMoved = !this.pathGoal || Math.hypot(this.pathGoal[0] - p[0], this.pathGoal[2] - p[2]) > 2.5;
+    if ((!this.path || goalMoved || this.stuck > 0.8) && this.age >= (this.repathT || 0) && g.pathBudget > 0) {
+      g.pathBudget--;
+      this.repathT = this.age + 0.6 + Math.random() * 0.4; this.stuck = 0;
+      const r = findPath(this.world, this.pos, p, { height: Math.ceil(this.h), doors: this.mobType === 'villager' || this.mobType === 'wandering_trader', maxNodes: this.target ? 900 : 500 });
+      this.path = r && r.points.length ? r.points : null; this.pathI = 0; this.pathGoal = p.slice();
+      this.noPath = !this.path;
+    }
+    if (!this.path) { if (this.target) return this.moveTo(p, speed, dt); this.brake(dt); return false; }
+    let wp = this.path[this.pathI];
+    if (Math.hypot(wp[0] - this.pos[0], wp[2] - this.pos[2]) < 0.45 && Math.abs(wp[1] - this.pos[1]) < 1.3) {
+      if (++this.pathI >= this.path.length) { this.path = null; this.closeDoors(); return dist < 1.5; }
+      wp = this.path[this.pathI];
+    }
+    if (this.mobType === 'villager' || this.mobType === 'wandering_trader') this.openDoorAt(wp);
+    this.followingPath = true;
+    this.moveTo(wp, speed, dt);
+    return false;
+  }
+  openDoorAt(wp) {
+    const w = this.world;
+    for (const dy of [0, 1]) {
+      const x = Math.floor(wp[0]), y = Math.floor(wp[1]) + dy, z = Math.floor(wp[2]);
+      if (w.getBlock(x, y, z) !== B.DOOR) continue;
+      const m = w.getMeta(x, y, z);
+      if (!((m >> 5) & 1)) { this.game.setBlock(x, y, z, B.DOOR, m | 32); this.game.sound.play('door_open', [x, y, z], 0.5); (this.openedDoors ||= []).push([x, y, z]); }
+    }
+  }
+  closeDoors() {
+    if (!this.openedDoors) return;
+    const w = this.world;
+    this.openedDoors = this.openedDoors.filter(([x, y, z]) => {
+      if (Math.hypot(x + 0.5 - this.pos[0], z + 0.5 - this.pos[2]) < 1.6) return true;
+      const m = w.getMeta(x, y, z);
+      if (w.getBlock(x, y, z) === B.DOOR && (m >> 5) & 1) this.game.setBlock(x, y, z, B.DOOR, m & ~32);
+      return false;
+    });
   }
   brake(dt) { const k = Math.exp(-10 * dt); if (this.onGround) { this.vel[0] *= k; this.vel[2] *= k; } }
   flee(from, dt, speed) {
@@ -230,7 +280,7 @@ export class Mob extends Entity {
     const d = Math.hypot(t.pos[0] - this.pos[0], t.pos[2] - this.pos[2]);
     const dy = Math.abs(t.pos[1] - this.pos[1]);
     reach = reach ?? this.hw + (t.hw || 0.3) + 0.9;
-    if (d > reach * 0.8) this.moveTo(t.pos, this.chaseSpeed(), dt); else { this.lookAt(t.pos, 10, dt); this.brake(dt); }
+    if (d > reach * 0.8) this.navigateTo(t.pos, this.chaseSpeed(), dt); else { this.lookAt(t.pos, 10, dt); this.brake(dt); }
     if (a.leap && this.onGround && d < 4 && d > 2 && Math.random() < dt * 1.5) { const n = d || 1; this.vel[0] = (t.pos[0] - this.pos[0]) / n * 6; this.vel[2] = (t.pos[2] - this.pos[2]) / n * 6; this.vel[1] = 6; }
     if (d < reach && dy < 2.2 && this.attackT <= 0) {
       this.attackT = a.cd;
@@ -294,6 +344,11 @@ export class Mob extends Entity {
     this.environment(dt);
     if (this.dead) return;
     this.ai(dt);
+    // Idle voices: moos, bleats, groans and rattles every so often while near the player.
+    if (this.deathT <= 0 && !QUIET.has(this.mobType)) {
+      this.ambT = (this.ambT ?? rnd(2, 12)) - dt;
+      if (this.ambT <= 0) { this.ambT = rnd(7, 18); if (this.distToPlayer() < 20) this.game.sound.mob(this.mobType, 'ambient', this.pos, this); }
+    }
     // Bosses show a health bar to nearby players (the nearest boss wins).
     if (this.def.kind === 'boss' && this.deathT <= 0) {
       const g = this.game, d = this.distToPlayer();
@@ -407,7 +462,7 @@ export class Mob extends Entity {
     if (this.love > 0 && !this.baby) {
       const mate = g.entities.near(this.pos, 8, e => e !== this && e.mobType === this.mobType && e.love > 0 && !e.baby)[0];
       if (mate) {
-        this.moveTo(mate.pos, this.speed * 0.8, dt);
+        this.navigateTo(mate.pos, this.speed * 0.8, dt);
         if (this.distTo(mate.pos) < 1.5 + this.hw) {
           this.love = 0; mate.love = 0; this.breedCd = mate.breedCd = 300;
           g.spawnMob(this.mobType, this.pos[0], this.pos[1] + 0.2, this.pos[2], { baby: true, woolColor: Math.random() < 0.5 ? this.woolColor : mate.woolColor });
@@ -419,7 +474,7 @@ export class Mob extends Entity {
     // Follow a player holding food.
     const held = g.inv.held;
     if (d.food && held && d.food.includes(held.key) && this.distToPlayer() < 10 && g.alive) {
-      if (this.distToPlayer() > 2.2) this.moveTo(g.player.pos, this.speed * 0.6, dt); else { this.lookAt(g.player.pos, 6, dt); this.brake(dt); }
+      if (this.distToPlayer() > 2.2) this.navigateTo(g.player.pos, this.speed * 0.6, dt); else { this.lookAt(g.player.pos, 6, dt); this.brake(dt); }
       return;
     }
     if (this.mobType === 'chicken' && !this.baby) { this.eggT -= dt; if (this.eggT <= 0) { this.eggT = rnd(300, 600); g.dropItem(this.pos[0], this.pos[1] + 0.3, this.pos[2], { key: 'egg', count: 1 }); g.sound.play('pop', this.pos, 0.4); } }
@@ -438,7 +493,7 @@ export class Mob extends Entity {
       if (this.sitting) { this.brake(dt); return; }
       const d = this.distToPlayer();
       if (d > 14 && g.alive) { this.pos = [g.player.pos[0] + rnd(-1, 1), g.player.pos[1], g.player.pos[2] + rnd(-1, 1)]; return; }
-      if (d > 3.5) { this.moveTo(g.player.pos, this.speed * 1.1, dt); return; }
+      if (d > 3.5) { this.navigateTo(g.player.pos, this.speed * 1.1, dt); return; }
       // Defend the owner.
       const foe = g.lastAttackedBy && !g.lastAttackedBy.dead && g.lastAttackedBy !== this ? g.lastAttackedBy : g.lastTarget && !g.lastTarget.dead && g.lastTarget !== this ? g.lastTarget : null;
       if (foe && foe.isLiving && foe.distTo(this.pos) < 16) this.target = foe;
@@ -472,7 +527,7 @@ export class Mob extends Entity {
     const d = this.distTo(t.pos);
     const see = this.canSee(t);
     this.lookAt(t.pos, 10, dt);
-    if (d > a.range * 0.7 || !see) this.moveTo(t.pos, this.chaseSpeed() * 0.9, dt);
+    if (d > a.range * 0.7 || !see) this.navigateTo(t.pos, this.chaseSpeed() * 0.9, dt);
     else if (d < 4) this.flee(t.pos, dt, this.speed);
     else {
       this.strafe = this.strafe || (Math.random() < 0.5 ? 1 : -1);
@@ -514,7 +569,7 @@ export class Mob extends Entity {
         this.dead = true;
         g.explode([this.pos[0], this.pos[1] + 0.8, this.pos[2]], this.charged ? 6 : 3, { source: this, breakBlocks: g.rules.mobGriefing });
       }
-    } else { this.fuse = Math.max(0, this.fuse - dt * 2); this.moveTo(t.pos, this.chaseSpeed(), dt); }
+    } else { this.fuse = Math.max(0, this.fuse - dt * 2); this.navigateTo(t.pos, this.chaseSpeed(), dt); }
   }
   aiEnderman(dt) {
     const g = this.game;
@@ -836,7 +891,8 @@ export class Mob extends Entity {
         break;
       }
       case 'quadruped': case 'creeper': {
-        P.head = head;
+        const hr = this.model.parts.head && this.model.parts.head.rot;
+        P.head = hr ? [head[0] + hr[0], head[1], hr[2] || 0] : head;
         P.leg0 = [sw, 0, 0]; P.leg1 = [-sw, 0, 0]; P.leg2 = [-sw, 0, 0]; P.leg3 = [sw, 0, 0];
         if (this.model.parts.tail) P.tail = [(this.model.parts.tail.rot?.[0] || 0) + Math.sin(t * 3) * 0.1, Math.sin(t * 2) * 0.2 * (this.tamed ? 3 : 1), 0];
         if (this.mobType === 'wolf' && this.sitting) { P.leg2 = [-1.4, 0, 0]; P.leg3 = [-1.4, 0, 0]; }
@@ -937,7 +993,7 @@ export class Mob extends Entity {
 }
 
 // Moves an entity without gravity handling (fliers/swimmers).
-import { moveEntity } from './physics.js?v=munk2rp4';
+import { moveEntity } from './physics.js?v=munkcr3r';
 function import_move(e, dt) { moveEntity(e.world, e, e.vel[0] * dt, e.vel[1] * dt, e.vel[2] * dt); }
 
 // Renders a held item using a part matrix (model units).
