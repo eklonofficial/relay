@@ -235,7 +235,8 @@ export class Projectile extends Entity {
         g.particles.fx('portal', hp, 40, 2);
         break;
       case 'wither_skull':
-        g.explode(hp, 1, { source: this.shooter });
+        if (e && e.hurt) { e.hurt(8, { kind: 'projectile', attacker: this.shooter, projectile: this }); if (e.addEffect) e.addEffect('wither', 10); }
+        g.explode(hp, 1, { source: this.shooter, breakBlocks: g.rules.mobGriefing });
         break;
       default: break;
     }

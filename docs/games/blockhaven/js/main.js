@@ -759,7 +759,7 @@ class App {
     if (this.hintUntil && performance.now() > this.hintUntil) { this.hintUntil = 0; $('hint').style.opacity = 0; }
     const boss = $('boss');
     boss.classList.toggle('hidden', !g.bossBar);
-    if (g.bossBar) { boss.querySelector('.n').textContent = g.bossBar.name; boss.querySelector('.b div').style.width = `${g.bossBar.frac * 100}%`; }
+    if (g.bossBar) { boss.querySelector('.n').textContent = g.bossBar.name; const bar = boss.querySelector('.b div'); bar.style.width = `${g.bossBar.frac * 100}%`; bar.style.background = g.bossBar.color || ''; }
     $('onfire').style.opacity = g.stats.fire > 0 && this.view === 0 && g.alive && g.survivalLike ? 1 : 0;
     const act = $('action');
     if (g.mode === 'spectator') { act.textContent = 'Spectator mode — fly through blocks · scroll to change speed · /gamemode to leave'; act.style.opacity = this.specHintT === undefined || this.specHintT > 0 ? 1 : 0; this.specHintT = (this.specHintT ?? 6) - dt; }

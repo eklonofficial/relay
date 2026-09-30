@@ -71,7 +71,7 @@ export class EntityManager {
       e.age += dt;
       // Distant mobs think less often (their skipped time is carried over), which keeps
       // big villages and mob farms cheap on low-end machines.
-      if (p && e.isLiving && e.mobType !== 'ender_dragon' && !e.target) {
+      if (p && e.isLiving && !(e.def && e.def.kind === 'boss') && !e.target) {
         const dx = e.pos[0] - p[0], dz = e.pos[2] - p[2], d2 = dx * dx + dz * dz;
         const n = d2 > 9216 ? 8 : d2 > 1600 ? 3 : 1;
         if (n > 1) {

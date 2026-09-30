@@ -496,6 +496,12 @@ function special(bufO, bufT, i, id, m, shape, ox, oy, oz, x, y, z) {
       for (const [lx, lz] of [[0, 0], [13, 0], [0, 13], [13, 13]]) box(buf, i, ox, oy, oz, lx, 0, lz, lx + 3, 3, lz + 3, sixOf(TEX.planks_oak), flags);
       break;
     }
+    case SHAPE.SKULL: {
+      const facing = (m >> 1) & 3, L = six(id, m);
+      L6[4] = texOf(id, m, 6);
+      rbox(buf, i, ox, oy, oz, facing, 4, 0, 4, 12, 8, 12, L, flags);
+      break;
+    }
     case SHAPE.LANTERN: {
       const hanging = (m >> 1) & 1, dy = hanging ? 7 : 0;
       const L = sixOf(texOf(id, m, 0));

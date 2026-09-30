@@ -41,6 +41,7 @@ export class Mob extends Entity {
     this.size = opts.size || (d.sizes ? [1, 2, 4][rint(0, 2)] : 1);
     this.baby = !!opts.baby;
     this.equipment = opts.equipment || rollEquipment(type, game.difficulty);
+    this.fresh = !!opts.fresh;
     const sc = (d.scale || 1) * (d.sizes ? this.size : 1) * (this.baby ? 0.5 : 1);
     this.scale = sc;
     this.hw = d.hw * (d.sizes ? this.size : 1) * (this.baby ? 0.5 : 1);
@@ -86,6 +87,7 @@ export class Mob extends Entity {
     if (this.dead || this.deathT > 0) return false;
     if (this.def.fireImmune && (src.kind === 'fire' || src.kind === 'lava')) return false;
     if (this.mobType === 'enderman' && src.kind === 'projectile') { this.teleportRandom(); return false; }
+    if (this.mobType === 'wither' && (this.spawnT > 0 || (this.armored && src.kind === 'projectile'))) return false;
     if (this.mobType === 'ender_dragon' && src.kind !== 'explosion' && src.kind !== 'player' && src.kind !== 'projectile' && src.kind !== 'kill') return false;
     const hit = applyInvul(this, amount);
     if (hit.amount <= 0) return false;
@@ -292,6 +294,11 @@ export class Mob extends Entity {
     this.environment(dt);
     if (this.dead) return;
     this.ai(dt);
+    // Bosses show a health bar to nearby players (the nearest boss wins).
+    if (this.def.kind === 'boss' && this.deathT <= 0) {
+      const g = this.game, d = this.distToPlayer();
+      if (d < 128 && (!g.bossBar || d < g.bossBar.dist)) g.bossBar = { name: this.name || this.def.name, frac: Math.max(0, this.health / this.maxHealth), color: this.def.bossColor || '#e070ff', dist: d };
+    }
     // Physics per archetype.
     if (d.flying) this.flyPhysics(dt);
     else if (d.swim && this.inWater) this.swimPhysics(dt);
@@ -314,7 +321,7 @@ export class Mob extends Entity {
     const k = Math.exp(-2 * dt);
     this.vel[0] *= k; this.vel[1] *= k; this.vel[2] *= k;
     const steps = Math.max(1, Math.ceil(Math.hypot(...this.vel) * dt / 0.45));
-    if (this.mobType === 'ender_dragon' || this.mobType === 'ghast') { this.pos[0] += this.vel[0] * dt; this.pos[1] += this.vel[1] * dt; this.pos[2] += this.vel[2] * dt; return; }
+    if (this.mobType === 'ender_dragon' || this.mobType === 'ghast' || this.mobType === 'wither') { this.pos[0] += this.vel[0] * dt; this.pos[1] += this.vel[1] * dt; this.pos[2] += this.vel[2] * dt; return; }
     for (let i = 0; i < steps; i++) import_move(this, dt / steps);
   }
   swimPhysics(dt) {
@@ -380,6 +387,7 @@ export class Mob extends Entity {
       case 'snowgolem': return this.aiSnowGolem(dt);
       case 'villager': return this.aiVillager(dt);
       case 'dragon': return this.aiDragon(dt);
+      case 'wither': return this.aiWither(dt);
       default: return this.wander(dt);
     }
   }
@@ -668,9 +676,58 @@ export class Mob extends Entity {
     this.wander(dt, 10);
     if (this.mobType === 'wandering_trader' && this.age > 2400) this.dead = true;
   }
+  // The Wither: charges up for 10 s after being built, explodes, then hunts the player (or any
+  // living non-undead mob), circling overhead and firing wither skulls. Below half health it
+  // grows armor (arrow-proof), dives in close and fires faster. It regenerates slowly.
+  aiWither(dt) {
+    const g = this.game;
+    if (this.spawnT === undefined) this.spawnT = this.fresh ? 10 : 0;
+    if (this.spawnT > 0) {
+      this.spawnT -= dt; this.vel = [0, 0, 0];
+      this.health = Math.max(1, this.maxHealth * (1 - Math.max(0, this.spawnT) / 10));
+      if (Math.random() < dt * 8) g.particles.fx('portal', this.center(), 4, 1.4);
+      if (this.spawnT <= 0) { g.explode([this.pos[0], this.pos[1] + 1.5, this.pos[2]], 7, { source: this, breakBlocks: g.rules.mobGriefing }); g.sound.mob('wither', 'death', this.pos, this); }
+      return;
+    }
+    this.health = Math.min(this.maxHealth, this.health + dt);
+    this.armored = this.health < this.maxHealth / 2;
+    const bad = t => !t || t.dead || t.deathT > 0 || (t === g.playerEntity && !this.playerTargetable());
+    if (bad(this.target) || Math.random() < dt * 0.1) {
+      this.target = this.playerTargetable() && this.distToPlayer() < 48 ? g.playerEntity
+        : g.entities.near(this.pos, 24, e => e.isLiving && e !== this && !e.dead && e.def && !e.def.undead && e.def.kind !== 'boss')[0] || null;
+    }
+    const t = this.target;
+    let goal;
+    if (t) {
+      this.orbitA = (this.orbitA || Math.random() * 6) + dt * (this.armored ? 0.9 : 0.5);
+      const r = this.armored ? 3 : 9;
+      goal = [t.pos[0] + Math.cos(this.orbitA) * r, t.pos[1] + (this.armored ? 1.5 : 5), t.pos[2] + Math.sin(this.orbitA) * r];
+    } else {
+      this.wanderT -= dt;
+      if (this.wanderT <= 0 || !this.goal) { this.wanderT = rnd(3, 6); this.goal = [this.pos[0] + rnd(-12, 12), this.pos[1] + rnd(-3, 3), this.pos[2] + rnd(-12, 12)]; }
+      goal = this.goal;
+    }
+    const dx = goal[0] - this.pos[0], dy = goal[1] - this.pos[1], dz = goal[2] - this.pos[2], n = Math.hypot(dx, dy, dz) || 1;
+    const sp = (this.armored ? 7 : 5) * Math.min(1, n / 3), k = Math.min(1, dt * 2);
+    this.vel[0] += (dx / n * sp - this.vel[0]) * k; this.vel[1] += (dy / n * sp - this.vel[1]) * k; this.vel[2] += (dz / n * sp - this.vel[2]) * k;
+    if (t) {
+      this.lookAt(t.pos, 12, dt);
+      this.shootT = (this.shootT ?? 2) - dt;
+      if (this.shootT <= 0 && this.canSee(t)) { this.shootT = this.armored ? 0.6 : 1.1; this.shoot('wither_skull', t, 18); this.swing = 1; }
+    }
+    // Smash through blocks it flies into.
+    this.smashT = (this.smashT || 0) - dt;
+    if (this.smashT <= 0 && g.rules.mobGriefing) {
+      this.smashT = 0.5;
+      const w = this.world;
+      for (let y = Math.floor(this.pos[1]); y <= Math.floor(this.pos[1] + this.h); y++) for (let x = Math.floor(this.pos[0] - 1); x <= Math.floor(this.pos[0] + 1); x++) for (let z = Math.floor(this.pos[2] - 1); z <= Math.floor(this.pos[2] + 1); z++) {
+        const id = w.getBlock(x, y, z);
+        if (id !== B.AIR && id !== UNLOADED && id !== B.WATER && id !== B.LAVA && id !== B.BEDROCK && id !== B.OBSIDIAN && id !== B.END_PORTAL && id !== B.END_PORTAL_FRAME && BLOCKS[id].hardness !== Infinity) g.breakBlock(x, y, z, { player: false });
+      }
+    }
+  }
   aiDragon(dt) {
     const g = this.game;
-    g.bossBar = { name: 'Ender Dragon', frac: this.health / this.maxHealth };
     this.phaseT -= dt;
     // Crystals heal.
     const crystal = g.entities.near(this.pos, 40, e => e.type === 'end_crystal')[0];
@@ -815,6 +872,16 @@ export class Mob extends Entity {
         for (let i = 0; i < 5; i++) P.pivots[`neck${i}`] = [0, 30 + Math.sin(t * 1.5 - i * 0.4) * 2 * (i + 1) * 0.5, -32 - i * 10];
         P.pivots.head = [0, 30 + Math.sin(t * 1.5 - 2) * 3, -80];
         for (let i = 0; i < 12; i++) P.pivots[`tail${i}`] = [Math.sin(t * 1.2 + i * 0.4) * i * 1.2, 30 + Math.sin(t * 1.5 + i * 0.3) * i * 0.6, 32 + i * 10];
+        break;
+      }
+      case 'wither': {
+        // Heads track the target; the side heads glance around; the tail sways; it breathes.
+        P.head = head;
+        P.headL = [head[0] * 0.6 + Math.sin(t * 0.9) * 0.2, head[1] * 0.6 + Math.sin(t * 0.7) * 0.5 + 0.3, 0];
+        P.headR = [head[0] * 0.6 + Math.sin(t * 1.1 + 2) * 0.2, head[1] * 0.6 + Math.sin(t * 0.8 + 1) * 0.5 - 0.3, 0];
+        P.tail = [0.35 + Math.sin(t * 1.3) * 0.2, 0, Math.sin(t * 0.9) * 0.15];
+        P.ribs = [Math.sin(t * 2) * 0.04 - 0.1, 0, 0];
+        P.spine = [-0.1, 0, 0];
         break;
       }
       case 'bug': { P.pivots = {}; for (const k of Object.keys(this.model.parts)) { const i = Number(k.slice(1)); P.pivots[k] = [Math.sin(w * 2 + i) * 0.8 * a, 0, -4 + i * 3]; } break; }
