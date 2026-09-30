@@ -1,24 +1,24 @@
 // The running game: world + dimensions, player survival state, entities, simulation, weather and saving.
-import { B, BLOCKS, SOLID, OPAQUE, DIM, DIM_NAMES, HEIGHT, SEA, props, st, SHAPE_OF, SHAPE } from '../data/blocks.js?v=muo4kot4';
-import { I, maxStack } from '../data/items.js?v=muo4kot4';
-import { SMELTING } from '../data/recipes.js?v=muo4kot4';
-import { MOBS } from '../data/mobs.js?v=muo4kot4';
-import { BIOMES, COLD } from '../gen/biomes.js?v=muo4kot4';
-import { World, UNLOADED, posKey } from '../world/world.js?v=muo4kot4';
-import { Player } from './player.js?v=muo4kot4';
-import { PlayerInventory, Container } from './inventory.js?v=muo4kot4';
-import { EntityManager } from '../entity/entity.js?v=muo4kot4';
-import { ItemEntity, XpOrb, FallingBlock, PrimedTnt, Lightning, Projectile } from '../entity/objects.js?v=muo4kot4';
-import { Mob, RIDEABLE } from '../entity/mob.js?v=muo4kot4';
-import { Particles } from './particles.js?v=muo4kot4';
-import { Sim } from './sim.js?v=muo4kot4';
-import { blockDrops } from './drops.js?v=muo4kot4';
-import { computeEnv } from './env.js?v=muo4kot4';
-import { fuelOf } from './ui.js?v=muo4kot4';
-import { unlockLevel } from './trades.js?v=muo4kot4';
-import { forward } from '../core/math.js?v=muo4kot4';
-import { EndCrystal } from '../entity/crystal.js?v=muo4kot4';
-import { ARMOR_BYPASS, armorReduce, applyInvul, isAxe, shieldFaces, applyKnockback, knockbackResist } from './combat.js?v=muo4kot4';
+import { B, BLOCKS, SOLID, OPAQUE, DIM, DIM_NAMES, HEIGHT, SEA, props, st, SHAPE_OF, SHAPE } from '../data/blocks.js?v=muo4v4cx';
+import { I, maxStack } from '../data/items.js?v=muo4v4cx';
+import { SMELTING } from '../data/recipes.js?v=muo4v4cx';
+import { MOBS } from '../data/mobs.js?v=muo4v4cx';
+import { BIOMES, COLD } from '../gen/biomes.js?v=muo4v4cx';
+import { World, UNLOADED, posKey } from '../world/world.js?v=muo4v4cx';
+import { Player } from './player.js?v=muo4v4cx';
+import { PlayerInventory, Container } from './inventory.js?v=muo4v4cx';
+import { EntityManager } from '../entity/entity.js?v=muo4v4cx';
+import { ItemEntity, XpOrb, FallingBlock, PrimedTnt, Lightning, Projectile } from '../entity/objects.js?v=muo4v4cx';
+import { Mob, RIDEABLE } from '../entity/mob.js?v=muo4v4cx';
+import { Particles } from './particles.js?v=muo4v4cx';
+import { Sim } from './sim.js?v=muo4v4cx';
+import { blockDrops } from './drops.js?v=muo4v4cx';
+import { computeEnv } from './env.js?v=muo4v4cx';
+import { fuelOf } from './ui.js?v=muo4v4cx';
+import { unlockLevel } from './trades.js?v=muo4v4cx';
+import { forward } from '../core/math.js?v=muo4v4cx';
+import { EndCrystal } from '../entity/crystal.js?v=muo4v4cx';
+import { ARMOR_BYPASS, armorReduce, applyInvul, isAxe, shieldFaces, applyKnockback, knockbackResist } from './combat.js?v=muo4v4cx';
 
 export const DAY = 1200; // seconds per day
 const rnd = (a, b) => a + Math.random() * (b - a);

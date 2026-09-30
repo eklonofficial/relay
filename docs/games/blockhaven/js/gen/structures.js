@@ -4,11 +4,11 @@
 // written into every chunk it overlaps (ChunkBuilder clips writes), so they span chunk borders
 // seamlessly. Planning must never read the chunk, only the terrain functions, so every chunk
 // sees the same plan.
-import { hash2, hash3, mulberry32 } from '../core/noise.js?v=muo4kot4';
-import { B, st, DIM, SEA, CHUNK, COLORS, CROP_AGE_SHIFT } from '../data/blocks.js?v=muo4kot4';
-import { BI, OCEANS } from './biomes.js?v=muo4kot4';
-import { NETHER_LAVA } from './nether.js?v=muo4kot4';
-import { END_OUTER_R } from './end.js?v=muo4kot4';
+import { hash2, hash3, mulberry32 } from '../core/noise.js?v=muo4v4cx';
+import { B, st, DIM, SEA, CHUNK, COLORS, CROP_AGE_SHIFT } from '../data/blocks.js?v=muo4v4cx';
+import { BI, OCEANS } from './biomes.js?v=muo4v4cx';
+import { NETHER_LAVA } from './nether.js?v=muo4v4cx';
+import { END_OUTER_R } from './end.js?v=muo4v4cx';
 
 const DIRS = [[0, 1], [-1, 0], [0, -1], [1, 0]]; // +z, -x, -z, +x (same as placement code)
 const S = k => st(k);
@@ -37,6 +37,10 @@ const LOOT = {
   shipwreck_map: [2, 4, [['paper', 1, 10, 20], ['feather', 1, 5, 10], ['book', 1, 5, 5], ['clock', 1, 1, 1], ['compass', 1, 1, 1], ['emerald', 1, 3, 3]]],
   ocean_ruin: [2, 5, [['coal', 1, 4, 10], ['stone_axe', 1, 1, 2], ['rotten_flesh', 1, 3, 5], ['emerald', 1, 1, 5], ['wheat', 2, 3, 10], ['golden_helmet', 1, 1, 1], ['fishing_rod', 1, 1, 5], ['gold_nugget', 1, 3, 5], ['iron_ingot', 1, 2, 3], ['diamond', 1, 1, 1]]],
   buried_treasure: [5, 9, [['iron_ingot', 1, 4, 20], ['gold_ingot', 1, 4, 10], ['tnt', 1, 2, 5], ['emerald', 4, 8, 5], ['diamond', 1, 2, 5], ['prismarine_crystals', 1, 5, 5], ['cooked_cod', 2, 4, 5], ['cooked_salmon', 2, 4, 5], ['iron_sword', 1, 1, 5], ['leather_chestplate', 1, 1, 5], ['golden_apple', 1, 1, 2]]],
+  jungle_temple: [2, 6, [['bone', 4, 6, 20], ['gold_ingot', 2, 7, 15], ['emerald', 1, 3, 2], ['diamond', 1, 3, 3], ['iron_ingot', 1, 5, 15], ['rotten_flesh', 3, 7, 16], ['saddle', 1, 1, 3], ['bamboo', 1, 3, 15], ['golden_apple', 1, 1, 2]]],
+  trail_ruins: [2, 5, [['emerald', 1, 2, 6], ['wheat', 2, 3, 6], ['wooden_hoe', 1, 1, 4], ['clay_ball', 1, 4, 6], ['brick', 1, 4, 6], ['yellow_dye', 1, 2, 4], ['blue_dye', 1, 2, 4], ['light_blue_dye', 1, 2, 4], ['orange_dye', 1, 2, 4], ['coal', 1, 3, 6], ['gold_nugget', 1, 4, 5], ['torch', 2, 6, 4], ['lead', 1, 1, 3]]],
+  mansion: [2, 6, [['lead', 1, 1, 20], ['golden_apple', 1, 1, 15], ['enchanted_golden_apple', 1, 1, 2], ['name_tag', 1, 1, 20], ['book', 1, 3, 10], ['iron_pickaxe', 1, 1, 5], ['diamond_chestplate', 1, 1, 5], ['diamond_hoe', 1, 1, 5], ['chainmail_chestplate', 1, 1, 10], ['iron_ingot', 1, 4, 10], ['gold_ingot', 1, 4, 5], ['redstone', 1, 4, 10], ['emerald', 1, 3, 5], ['totem_of_undying', 1, 1, 1]]],
+  trial: [3, 7, [['emerald', 2, 4, 8], ['arrow', 4, 12, 10], ['iron_ingot', 1, 3, 10], ['diamond', 1, 2, 4], ['golden_apple', 1, 1, 4], ['bread', 2, 4, 8], ['baked_potato', 2, 4, 8], ['crossbow', 1, 1, 3], ['iron_axe', 1, 1, 4], ['diamond_axe', 1, 1, 1], ['shield', 1, 1, 3], ['trident', 1, 1, 1], ['ender_pearl', 1, 2, 3], ['experience_bottle', 1, 3, 5]]],
   swamp_hut: [1, 3, [['glowstone_dust', 1, 4, 10], ['string', 1, 4, 10], ['spider_eye', 1, 2, 10], ['redstone', 1, 4, 8], ['gunpowder', 1, 2, 8]]],
 };
 function lootItems(r, table) {
@@ -146,22 +150,28 @@ export function createStructures(seed, dim, terrain) {
   // ---------------- placement grid ----------------
   // spacing (blocks), margin, radius (block reach from origin), salt.
   const KINDS = {
-    village: { dim: DIM.OVERWORLD, spacing: 480, reach: 80, salt: 0x1a11 },
-    pillager_outpost: { dim: DIM.OVERWORLD, spacing: 640, reach: 24, salt: 0x1a12 },
-    desert_pyramid: { dim: DIM.OVERWORLD, spacing: 360, reach: 16, salt: 0x1a13 },
-    igloo: { dim: DIM.OVERWORLD, spacing: 360, reach: 12, salt: 0x1a14 },
-    swamp_hut: { dim: DIM.OVERWORLD, spacing: 360, reach: 10, salt: 0x1a15 },
-    ruined_portal: { dim: DIM.OVERWORLD, spacing: 280, reach: 10, salt: 0x1a16 },
-    mineshaft: { dim: DIM.OVERWORLD, spacing: 192, reach: 96, salt: 0x1a17 },
+    village: { dim: DIM.OVERWORLD, spacing: 384, reach: 80, salt: 0x1a11 },
+    pillager_outpost: { dim: DIM.OVERWORLD, spacing: 480, reach: 24, salt: 0x1a12 },
+    desert_pyramid: { dim: DIM.OVERWORLD, spacing: 272, reach: 16, salt: 0x1a13 },
+    igloo: { dim: DIM.OVERWORLD, spacing: 272, reach: 12, salt: 0x1a14 },
+    swamp_hut: { dim: DIM.OVERWORLD, spacing: 272, reach: 10, salt: 0x1a15 },
+    ruined_portal: { dim: DIM.OVERWORLD, spacing: 208, reach: 10, salt: 0x1a16 },
+    mineshaft: { dim: DIM.OVERWORLD, spacing: 160, reach: 96, salt: 0x1a17 },
     stronghold: { dim: DIM.OVERWORLD, reach: 72, salt: 0x1a18 },
-    dungeon: { dim: DIM.OVERWORLD, spacing: 48, reach: 8, salt: 0x1a19 },
-    fortress: { dim: DIM.NETHER, spacing: 352, reach: 96, salt: 0x2a11 },
-    bastion: { dim: DIM.NETHER, spacing: 352, reach: 24, salt: 0x2a12 },
-    end_city: { dim: DIM.END, spacing: 320, reach: 28, salt: 0x3a11 },
-    shipwreck: { dim: DIM.OVERWORLD, spacing: 288, reach: 16, salt: 0x1a21 },
-    ocean_ruin: { dim: DIM.OVERWORLD, spacing: 224, reach: 20, salt: 0x1a22 },
-    ocean_monument: { dim: DIM.OVERWORLD, spacing: 448, reach: 30, salt: 0x1a23 },
+    dungeon: { dim: DIM.OVERWORLD, spacing: 40, reach: 8, salt: 0x1a19 },
+    fortress: { dim: DIM.NETHER, spacing: 320, reach: 96, salt: 0x2a11 },
+    bastion: { dim: DIM.NETHER, spacing: 320, reach: 24, salt: 0x2a12 },
+    end_city: { dim: DIM.END, spacing: 256, reach: 28, salt: 0x3a11 },
+    shipwreck: { dim: DIM.OVERWORLD, spacing: 224, reach: 16, salt: 0x1a21 },
+    ocean_ruin: { dim: DIM.OVERWORLD, spacing: 176, reach: 20, salt: 0x1a22 },
+    ocean_monument: { dim: DIM.OVERWORLD, spacing: 384, reach: 30, salt: 0x1a23 },
     buried_treasure: { dim: DIM.OVERWORLD, spacing: 192, reach: 1, salt: 0x1a24 },
+    jungle_temple: { dim: DIM.OVERWORLD, spacing: 256, reach: 12, salt: 0x1a31 },
+    desert_well: { dim: DIM.OVERWORLD, spacing: 112, reach: 3, salt: 0x1a32 },
+    fossil: { dim: DIM.OVERWORLD, spacing: 96, reach: 9, salt: 0x1a33 },
+    trail_ruins: { dim: DIM.OVERWORLD, spacing: 256, reach: 16, salt: 0x1a34 },
+    woodland_mansion: { dim: DIM.OVERWORLD, spacing: 640, reach: 24, salt: 0x1a35 },
+    trial_chambers: { dim: DIM.OVERWORLD, spacing: 352, reach: 26, salt: 0x1a36 },
   };
 
   // Stronghold positions: 3 in a ring at 560-880 blocks, 6 more at 1500-2000.
@@ -201,6 +211,12 @@ export function createStructures(seed, dim, terrain) {
       case 'ocean_ruin': if (h < 0.8 && !flat && OCEANS.has(b()) && b() !== BI.DEEP_OCEAN) { const y = landY(x, z); if (y < SEA - 4) c = { x, z, y }; } break;
       case 'ocean_monument': if (!flat && b() === BI.DEEP_OCEAN && [[-29, -29], [28, -29], [-29, 28], [28, 28], [0, 0]].every(([a, e]) => OCEANS.has(biomeOf(x + a, z + e)) && landY(x + a, z + e) < SEA - 14)) c = { x, z, y: SEA - 25 }; break;
       case 'buried_treasure': if (h < 0.5 && !flat && b() === BI.BEACH) { const y = landY(x, z); if (y >= SEA - 2 && y <= SEA + 3) c = { x, z, y }; } break;
+      case 'jungle_temple': if (h < 0.85 && (b() === BI.JUNGLE || b() === BI.BAMBOO_JUNGLE)) { const y = landY(x, z); if (y >= SEA) c = { x, z, y }; } break;
+      case 'desert_well': if (h < 0.7 && b() === BI.DESERT) { const y = landY(x, z); if (y >= SEA) c = { x, z, y }; } break;
+      case 'fossil': if (h < 0.6 && !flat) { const y = 18 + Math.floor(hash2(rx, rz, seed ^ 0x7171) * 28); if (landY(x, z) > y + 12) c = { x, z, y }; } break;
+      case 'trail_ruins': if (h < 0.8 && !flat && [BI.TAIGA, BI.SNOWY_TAIGA, BI.OLD_GROWTH_TAIGA, BI.JUNGLE, BI.BIRCH_FOREST].includes(b())) { const y = landY(x, z); if (y >= SEA) c = { x, z, y }; } break;
+      case 'woodland_mansion': if (b() === BI.DARK_FOREST || (h < 0.25 && (b() === BI.FOREST || b() === BI.BIRCH_FOREST))) { const y = landY(x, z); if (y >= SEA && Math.abs(landY(x + 14, z + 12) - y) < 8 && Math.abs(landY(x - 14, z - 12) - y) < 8) c = { x, z, y }; } break;
+      case 'trial_chambers': if (h < 0.7 && !flat) { const y = 14 + Math.floor(hash2(rx, rz, seed ^ 0x8181) * 14); if (landY(x, z) > y + 20) c = { x, z, y }; } break;
       case 'end_city': if (h < 0.8 && Math.hypot(x, z) > END_OUTER_R + 60) { const y = terrain.surfaceY(x, z); if (y > 40 && terrain.surfaceY(x + 6, z) > 40 && terrain.surfaceY(x - 6, z) > 40 && terrain.surfaceY(x, z + 6) > 40 && terrain.surfaceY(x, z - 6) > 40) c = { x, z, y }; } break;
     }
     if (c) { c.kind = kind; c.seed = (hash2(rx, rz, seed ^ K.salt ^ 0x9999) * 4294967296) >>> 0; }
@@ -1124,6 +1140,173 @@ export function createStructures(seed, dim, terrain) {
     w.addBlockEntity({ type: 'chest', x: c.x - 3, y: y + 25, z: c.z - 3, items: [{ key: 'elytra', count: 1 }, null, null, { key: 'diamond', count: 3 + Math.floor(r() * 4) }, ...new Array(23).fill(null)] });
     put(w, c.x + 3, y + 25, c.z - 3, S('diamond_block'));
     for (let i = 0; i < 3; i++) w.addEntity({ type: 'enderman', x: c.x + 3.5 - i * 3, y: y + 1, z: c.z + 3.5, data: { persistent: true } });
+  };
+
+  // ---------------- desert well ----------------
+  BUILD.desert_well = (w, c) => {
+    const ss = S('sandstone'), sl = slab('sandstone_slab'), y = c.y;
+    for (let dz = -2; dz <= 2; dz++) for (let dx = -2; dx <= 2; dx++) {
+      foundation(w, c.x + dx, y, c.z + dz, ss, 6);
+      put(w, c.x + dx, y, c.z + dz, ss);
+      const rim = Math.abs(dx) === 2 || Math.abs(dz) === 2, inner = Math.abs(dx) <= 1 && Math.abs(dz) <= 1;
+      put(w, c.x + dx, y + 1, c.z + dz, rim && !(dx === 0 || dz === 0) ? ss : rim ? sl : AIR);
+      if (inner) { put(w, c.x + dx, y + 1, c.z + dz, AIR); if (dx === 0 || dz === 0) put(w, c.x + dx, y, c.z + dz, WATER); }
+      for (let k = 2; k <= 4; k++) put(w, c.x + dx, y + k, c.z + dz, AIR);
+      if (Math.abs(dx) === 1 && Math.abs(dz) === 1) { put(w, c.x + dx, y + 1, c.z + dz, ss); put(w, c.x + dx, y + 2, c.z + dz, ss); put(w, c.x + dx, y + 3, c.z + dz, ss); }
+      if (Math.abs(dx) <= 1 && Math.abs(dz) <= 1) put(w, c.x + dx, y + 4, c.z + dz, dx === 0 && dz === 0 ? ss : sl);
+    }
+    for (let k = 1; k <= 6; k++) put(w, c.x, y - k, c.z, WATER);
+  };
+
+  // ---------------- fossil ----------------
+  // A buried skeleton: a bone-block spine with arching ribs and a skull, sometimes turned to coal.
+  BUILD.fossil = (w, c) => {
+    const r = mulberry32(c.seed), coal = r() < 0.3, len = 9 + Math.floor(r() * 6), axisX = r() < 0.5;
+    const bone = (x, y, z) => put(w, x, y, z, coal ? S('coal_ore') : S('bone_block'));
+    const at = (u, v, h) => axisX ? [c.x + u - (len >> 1), c.y + h, c.z + v] : [c.x + v, c.y + h, c.z + u - (len >> 1)];
+    for (let u = 0; u < len; u++) {
+      bone(...at(u, 0, 3));
+      if (u % 2 === 0 && u > 1 && u < len - 2) for (const side of [-1, 1]) for (let k = 1; k <= 3; k++) bone(...at(u, side * k, 3 - Math.floor(k * k / 3)));
+    }
+    for (let a = 0; a < 2; a++) for (let b2 = -1; b2 <= 1; b2++) for (let h = 2; h <= 4; h++) if (r() < 0.85) bone(...at(len + a, b2, h));
+  };
+
+  // ---------------- jungle temple ----------------
+  BUILD.jungle_temple = (w, c) => {
+    const r = mulberry32(c.seed), y = c.y;
+    const cob = (x, yy, z) => (hash3(x, yy, z, seed ^ 0x1717) < 0.45 ? S('mossy_cobblestone') : S('cobblestone'));
+    const X0 = c.x - 6, X1 = c.x + 5, Z0 = c.z - 7, Z1 = c.z + 7;
+    for (let z = Z0; z <= Z1; z++) for (let x = X0; x <= X1; x++) foundation(w, x, y, z, S('cobblestone'), 10);
+    shell(w, X0, y, Z0, X1, y + 5, Z1, cob, seed, AIR);
+    shell(w, X0 + 1, y + 5, Z0 + 2, X1 - 1, y + 10, Z1 - 2, cob, seed, AIR);
+    for (let k = 0; k < 3; k++) fill(w, X0 + 2 + k, y + 11 + k, Z0 + 3 + k, X1 - 2 - k, y + 11 + k, Z1 - 3 - k, S('mossy_cobblestone'));
+    // Entrance stairway on the -z side, window slits, a chiselled crown.
+    for (let k = 0; k < 4; k++) fill(w, c.x - 1, y + 1 + k, Z0 - 4 + k, c.x + 1, y + 1 + k, Z0 - 4 + k, stairs('stone_stairs', 0));
+    fill(w, c.x - 1, y + 1, Z0, c.x + 1, y + 3, Z0, AIR);
+    fill(w, c.x - 1, y + 6, Z0 + 2, c.x + 1, y + 8, Z0 + 2, AIR);
+    for (const zz of [Z0 + 3, c.z, Z1 - 3]) { put(w, X0, y + 3, zz, AIR); put(w, X1, y + 3, zz, AIR); }
+    put(w, c.x, y + 14, c.z, S('chiseled_stone_bricks'));
+    fill(w, X0 + 1, y + 5, Z0 + 1, X1 - 1, y + 5, Z1 - 1, cob(0, 0, 0));
+    fill(w, c.x - 1, y + 5, c.z - 1, c.x, y + 5, c.z, AIR);
+    for (let k = 1; k <= 5; k++) { put(w, c.x - 1, y + k, c.z, cob(c.x, y + k, c.z)); put(w, c.x - 1, y + k, c.z - 1, [B.LADDER, 0]); }
+    // Lower treasure chamber reached by stairs down.
+    const by = y - 5;
+    shell(w, X0 + 1, by, Z0 + 2, X1 - 1, y, Z1 - 2, cob, seed, AIR);
+    for (let k = 1; k <= 5; k++) put(w, X1 - 2, y + 1 - k, Z1 - 3 - k, stairs('cobblestone_stairs', 2));
+    for (let k = 0; k < 6; k++) put(w, X1 - 2, y + 1 - k, Z1 - 3 - k + 1, AIR);
+    chest(w, X0 + 2, by + 1, c.z, 1, r, 'jungle_temple');
+    chest(w, X1 - 2, y + 6, Z1 - 3, 2, r, 'jungle_temple');
+    put(w, c.x, by + 1, Z0 + 3, S('chiseled_stone_bricks'));
+    // Vines hanging down the walls.
+    for (let z = Z0; z <= Z1; z++) for (const x of [X0 - 1, X1 + 1]) if (hash2(x, z, c.seed) < 0.35) for (let k = 5; k > 1 && hash3(x, k, z, seed) < 0.8; k--) put(w, x, y + k, z, [B.VINE, 0]);
+  };
+
+  // ---------------- trail ruins ----------------
+  // A half-buried settlement of terracotta and brick: broken rooms, a stump of a tower, gravel.
+  BUILD.trail_ruins = (w, c) => {
+    const r = mulberry32(c.seed);
+    const tones = ['terracotta', 'orange_terracotta', 'light_gray_terracotta', 'brown_terracotta', 'red_terracotta', 'yellow_terracotta', 'mud_bricks', 'bricks', 'packed_mud'];
+    const mat = (x, y, z) => S(tones[Math.floor(hash3(x, y, z, seed ^ 0x2a2a) * tones.length)]);
+    const rooms = 3 + Math.floor(r() * 3);
+    for (let i = 0; i < rooms; i++) {
+      const cx = c.x + (i ? Math.floor((r() - 0.5) * 24) : 0), cz = c.z + (i ? Math.floor((r() - 0.5) * 24) : 0);
+      const gy = landY(cx, cz), base = gy - 3, wx = 2 + Math.floor(r() * 2), wz = 2 + Math.floor(r() * 2), hgt = 4 + Math.floor(r() * 2);
+      for (let dz = -wz; dz <= wz; dz++) for (let dx = -wx; dx <= wx; dx++) {
+        const x = cx + dx, z = cz + dz, edge = Math.abs(dx) === wx || Math.abs(dz) === wz;
+        put(w, x, base, z, S('gravel'));
+        for (let k = 1; k <= hgt; k++) {
+          const yy = base + k;
+          if (edge) { if (yy <= gy || hash3(x, k, z, seed ^ 0x33) > 0.3 + (yy - gy) * 0.25) put(w, x, yy, z, mat(x, yy, z)); else if (yy > gy) put(w, x, yy, z, AIR); }
+          else put(w, x, yy, z, yy <= gy - 1 ? (hash3(x, yy, z, seed) < 0.6 ? S('gravel') : S('dirt')) : AIR);
+        }
+      }
+      if (i === 0) {
+        chest(w, cx, base + 1, cz, 0, r, 'trail_ruins');
+        put(w, cx, base + 2, cz, S('gravel'));
+        // Tower stump.
+        for (let k = 1; k <= 9; k++) for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) if ((Math.abs(dx) === 1 || Math.abs(dz) === 1) && hash3(dx, k, dz, c.seed) > (k > 5 ? 0.45 : 0.05)) put(w, cx + wx + 3 + dx, base + k, cz + dz, mat(cx + dx, base + k, cz + dz));
+      }
+    }
+  };
+
+  // ---------------- woodland mansion ----------------
+  // A two-storey dark oak manor with a cobblestone plinth, pillared walls, glass-paned windows,
+  // a hip roof, a grid of rooms (bedrooms, a library, a dining hall), and illager occupants.
+  BUILD.woodland_mansion = (w, c) => {
+    const r = mulberry32(c.seed), y = c.y + 1;
+    const X0 = c.x - 15, X1 = c.x + 15, Z0 = c.z - 11, Z1 = c.z + 11, H = 6;
+    const wall = S('dark_oak_planks'), pillar = logAxis('dark_oak_log', 0), floor = S('birch_planks'), glass = S('glass_pane'), roof = S('dark_oak_planks'), cob = S('cobblestone');
+    const x0 = Math.max(X0 - 1, w.ox), x1 = Math.min(X1 + 1, w.ox + CHUNK - 1), z0 = Math.max(Z0 - 1, w.oz), z1 = Math.min(Z1 + 1, w.oz + CHUNK - 1);
+    if (x0 > x1 || z0 > z1) return;
+    for (let z = z0; z <= z1; z++) for (let x = x0; x <= x1; x++) {
+      const inside = x >= X0 && x <= X1 && z >= Z0 && z <= Z1;
+      if (!inside) { for (let k = 0; k < 2 * H + 12; k++) put(w, x, y + k, z, AIR); put(w, x, y - 1, z, S('grass_block')); continue; }
+      foundation(w, x, y, z, cob, 10);
+      put(w, x, y - 1, z, cob);
+      const edge = x === X0 || x === X1 || z === Z0 || z === Z1;
+      const corner = (x - X0) % 6 === 0 && (edge && (z === Z0 || z === Z1)) || (z - Z0) % 6 === 0 && (x === X0 || x === X1);
+      const roomWall = !edge && (((x - X0) % 10 === 0) || ((z - Z0) % 11 === 0));
+      for (let fl = 0; fl < 2; fl++) {
+        const fy = y + fl * H;
+        put(w, x, fy, z, edge ? cob : fl ? floor : S('dark_oak_planks'));
+        for (let k = 1; k < H; k++) {
+          const yy = fy + k;
+          let blk = AIR;
+          if (edge) blk = corner ? pillar : (k >= 2 && k <= 3 && ((x + z) % 3 !== 0)) ? glass : k === H - 1 ? S('dark_oak_log') : wall;
+          else if (roomWall) {
+            const door = (((x - X0) % 10 === 0) ? Math.abs(((z - Z0) % 11) - 5) <= 0 : Math.abs(((x - X0) % 10) - 5) <= 0) && k <= 2;
+            blk = door ? AIR : S('birch_planks');
+          } else if (k === H - 1 && (x + z) % 7 === 0) blk = S('lantern');
+          put(w, x, yy, z, blk);
+        }
+      }
+      // Hip roof.
+      const d = Math.min(x - X0, X1 - x, z - Z0, Z1 - z);
+      for (let k = 0; k <= d && k < 10; k++) put(w, x, y + 2 * H + k, z, k === d ? roof : (k === d - 1 ? S('dark_oak_log') : AIR));
+    }
+    // Furnishing: a library, a dining hall, bedrooms; the doorway and entrance steps.
+    const inChunk = (x, z) => x >= w.ox && x < w.ox + CHUNK && z >= w.oz && z < w.oz + CHUNK;
+    for (let z = Z0 + 1; z < Z0 + 11; z++) { put(w, X0 + 1, y + 1, z, S('bookshelf')); put(w, X0 + 1, y + 2, z, S('bookshelf')); }
+    for (let x = c.x - 3; x <= c.x + 3; x++) { put(w, x, y + 1, c.z + 4, S('dark_oak_planks')); put(w, x, y + 2, c.z + 4, [B.CARPET, COLORS.indexOf('red')]); }
+    for (const [bx, bz] of [[X0 + 3, Z1 - 3], [X1 - 3, Z1 - 3], [X1 - 3, Z0 + 3]]) bed(w, bx, y + H + 1, bz, 0);
+    fill(w, c.x - 1, y + 1, Z0, c.x + 1, y + 3, Z0, AIR);
+    for (let k = 1; k <= 3; k++) fill(w, c.x - 1, y - k + 1, Z0 - k, c.x + 1, y - k + 1, Z0 - k, stairs('cobblestone_stairs', 0));
+    for (let x = X0 + 2; x < X1 - 1; x += 4) put(w, x, y + H + 1, c.z, [B.CARPET, COLORS.indexOf('gray')]);
+    for (let k = 1; k <= H; k++) put(w, X1 - 1, y + k, c.z + 3, [B.LADDER, 3]);
+    chest(w, X0 + 2, y + 1, Z1 - 2, 3, r, 'mansion');
+    chest(w, X1 - 2, y + H + 1, Z0 + 2, 1, r, 'mansion');
+    const er = mulberry32(c.seed ^ 0x3131);
+    for (const [ex, ez, fl, t] of [[c.x - 6, c.z, 0, 'vindicator'], [c.x + 6, c.z - 5, 0, 'vindicator'], [c.x, c.z + 6, 1, 'vindicator'], [c.x + 8, c.z + 4, 1, 'evoker']]) {
+      if (inChunk(ex, ez)) w.addEntity({ type: t, x: ex + 0.5 + (er() - 0.5), y: y + fl * H + 1, z: ez + 0.5, data: { persistent: true } });
+    }
+  };
+
+  // ---------------- trial chambers ----------------
+  // A buried copper-and-tuff hall: a chequered central arena with mob spawners, four corridors,
+  // lanterns and loot "vault" chests at the corridor ends.
+  BUILD.trial_chambers = (w, c) => {
+    const r = mulberry32(c.seed), y = c.y;
+    const tuff = S('tuff'), tiles = S('deepslate_tiles'), cu = S('copper_block'), pol = S('polished_deepslate');
+    shell(w, c.x - 10, y, c.z - 10, c.x + 10, y + 8, c.z + 10, (x, yy, z) => (yy === y ? (((x + z) & 1) ? cu : tuff) : yy === y + 8 ? pol : (yy === y + 4 ? cu : tiles)), seed);
+    // Corridors to each side, ending in a vault room.
+    for (let d = 0; d < 4; d++) {
+      const [dx, dz] = DIRS[d], [px, pz] = DIRS[(d + 1) % 4];
+      for (let t = 10; t <= 22; t++) for (let s2 = -2; s2 <= 2; s2++) for (let k = 0; k <= 4; k++) {
+        const x = c.x + dx * t + px * s2, z = c.z + dz * t + pz * s2, edge = Math.abs(s2) === 2 || k === 0 || k === 4;
+        put(w, x, y + k, z, edge ? (k === 0 ? tuff : k === 4 ? pol : tiles) : AIR);
+      }
+      const ex = c.x + dx * 22, ez = c.z + dz * 22;
+      put(w, ex, y + 1, ez, AIR);
+      chest(w, ex - dx, y + 1, ez - dz, (d + 2) % 4, r, 'trial');
+      put(w, ex - dx + px, y + 3, ez - dz + pz, S('lantern'));
+    }
+    // Spawners on raised copper plinths, lanterns hanging from the ceiling.
+    const mobs = ['zombie', 'skeleton', 'spider', 'husk', 'stray', 'slime'];
+    for (const [a, b2] of [[-5, -5], [5, 5], [-5, 5]]) { put(w, c.x + a, y + 1, c.z + b2, cu); spawner(w, c.x + a, y + 2, c.z + b2, mobs[Math.floor(r() * mobs.length)]); }
+    for (const [a, b2] of [[0, 0], [-7, 0], [7, 0], [0, -7], [0, 7]]) put(w, c.x + a, y + 7, c.z + b2, S('lantern'));
+    // A stair shaft up to the surface on the +x side.
+    const sx = c.x + 8, sz = c.z - 8, top = landY(sx, sz);
+    for (let yy = y + 1; yy <= top + 1; yy++) { put(w, sx, yy, sz + 1, tiles); put(w, sx, yy, sz, [B.LADDER, 0]); }
   };
 
   // ---------------- shipwreck ----------------

@@ -1,14 +1,14 @@
 // Chat commands (cheats) with Minecraft-style syntax, ~relative coordinates and suggestions.
-import { B, STATE, DIM, BLOCKS } from '../data/blocks.js?v=muo4kot4';
-import { I, ITEMS } from '../data/items.js?v=muo4kot4';
-import { MOBS } from '../data/mobs.js?v=muo4kot4';
-import { BIOMES } from '../gen/biomes.js?v=muo4kot4';
+import { B, STATE, DIM, BLOCKS } from '../data/blocks.js?v=muo4v4cx';
+import { I, ITEMS } from '../data/items.js?v=muo4v4cx';
+import { MOBS } from '../data/mobs.js?v=muo4v4cx';
+import { BIOMES } from '../gen/biomes.js?v=muo4v4cx';
 
 const MODES = { survival: 'survival', s: 'survival', 0: 'survival', creative: 'creative', c: 'creative', 1: 'creative', adventure: 'adventure', a: 'adventure', 2: 'adventure', spectator: 'spectator', sp: 'spectator', 3: 'spectator' };
 const DIMS = { overworld: DIM.OVERWORLD, 'minecraft:overworld': DIM.OVERWORLD, nether: DIM.NETHER, the_nether: DIM.NETHER, 'minecraft:the_nether': DIM.NETHER, end: DIM.END, the_end: DIM.END, 'minecraft:the_end': DIM.END };
 const TIMES = { day: 0.02, noon: 0.25, sunset: 0.46, night: 0.55, midnight: 0.75, sunrise: 0.97 };
 const EFFECTS = ['speed', 'slowness', 'haste', 'strength', 'instant_health', 'regeneration', 'resistance', 'fire_resistance', 'water_breathing', 'night_vision', 'poison', 'wither', 'absorption', 'jump_boost', 'hunger', 'invisibility', 'slow_falling'];
-const STRUCTURES = ['village', 'stronghold', 'mineshaft', 'dungeon', 'desert_pyramid', 'pillager_outpost', 'igloo', 'ruined_portal', 'fortress', 'bastion', 'end_city', 'swamp_hut', 'shipwreck', 'ocean_ruin', 'ocean_monument', 'buried_treasure'];
+const STRUCTURES = ['village', 'stronghold', 'mineshaft', 'dungeon', 'desert_pyramid', 'pillager_outpost', 'igloo', 'ruined_portal', 'fortress', 'bastion', 'end_city', 'swamp_hut', 'shipwreck', 'ocean_ruin', 'ocean_monument', 'buried_treasure', 'jungle_temple', 'desert_well', 'fossil', 'trail_ruins', 'woodland_mansion', 'trial_chambers'];
 
 export const COMMANDS = {
   help: { args: '[command]', desc: 'List commands' },
