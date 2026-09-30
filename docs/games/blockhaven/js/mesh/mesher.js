@@ -4,8 +4,8 @@ import {
   CHUNK, HEIGHT, PAD, PS, B, SHAPE, VF, TINT, TEX,
   OPAQUE, SHAPE_OF, TRANSLUCENT, EMIT, ATTEN, VFLAGS, CULL_SAME, TINT_OF, WATERLOGGED, VARIANT_MASK,
   FACING_SHIFT, AXIS_SHIFT, FACE_TEX, CROP_STAGES, CROP_TEX,
-} from '../data/blocks.js?v=munkyndc';
-import { BIOME_COLORS } from '../gen/biomes.js?v=munkyndc';
+} from '../data/blocks.js?v=munl1sz6';
+import { BIOME_COLORS } from '../gen/biomes.js?v=munl1sz6';
 
 export const H2 = HEIGHT + 2;
 export const VOLUME_SIZE = PS * PS * H2;

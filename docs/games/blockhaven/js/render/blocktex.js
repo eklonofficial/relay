@@ -1,6 +1,6 @@
 // Procedural 16x16 block textures. Every name registered in data/blocks.js must be drawable here.
-import { Painter, ramp, shade, mixHex, hex } from './paint.js?v=munkyndc';
-import { TEXTURES, COLORS } from '../data/blocks.js?v=munkyndc';
+import { Painter, ramp, shade, mixHex, hex } from './paint.js?v=munl1sz6';
+import { TEXTURES, COLORS } from '../data/blocks.js?v=munl1sz6';
 
 const N = 16;
 
@@ -62,7 +62,16 @@ function cobble(p, base, moss) {
       }
     });
     const edge = d2 - d1;
-    let c = edge < 0.8 ? shade(base, 0.55) : edge < 1.4 ? shade(base, 0.72) : shade(base, shadesArr[id] * (y % 3 === 0 && p.chance(0.3) ? 1.08 : 1));
+    const [px, py] = pts[id];
+    const dx = x + 0.5 - px, dy = y + 0.5 - py;
+    let c;
+    if (edge < 0.9) c = shade(base, 0.6);
+    else {
+      c = shade(base, shadesArr[id] * 1.08);
+      if (edge < 1.8 && (dx > 0 || dy > 0)) c = shade(c, 0.84);          // shadowed lower-right rim
+      else if (edge < 2.2 && dx < 0 && dy < 0) c = shade(c, 1.16);      // lit upper-left rim
+      if (p.chance(0.1)) c = shade(c, 0.93);
+    }
     p.put(x, y, c);
   }
   if (moss) {
@@ -162,13 +171,18 @@ function leaves(p, pal, tint) {
 
 function oreOn(p, baseFn, colors) {
   baseFn(p);
-  const spots = 3 + p.rand(2);
-  for (let k = 0; k < spots; k++) {
-    const cx = 2 + p.rand(11), cy = 2 + p.rand(11);
-    const cells = [[0, 0], [1, 0], [0, 1], [1, 1], [-1, 0], [2, 1], [1, 2], [0, -1]].slice(0, 4 + p.rand(4));
-    for (const [dx, dy] of cells) p.put(cx + dx, cy + dy, colors[(dx + dy + 3) % colors.length]);
-    p.put(cx, cy, colors[colors.length - 1]);
-    p.put(cx + 1, cy + 2, shade(colors[0], 0.6));
+  // Four or five clusters spread over the face (one per quadrant), each a blob of ore pixels
+  // with a bright top-left glint and a dark bottom-right edge.
+  const quads = [[1, 1], [8, 1], [1, 8], [8, 8], [4, 5]].slice(0, 4 + p.rand(2));
+  for (const [qx, qy] of quads) {
+    const cx = qx + 1 + p.rand(4), cy = qy + 1 + p.rand(4);
+    const cells = [[0, 0], [1, 0], [0, 1], [1, 1], [-1, 0], [2, 1], [1, 2], [0, -1], [2, 0], [-1, 1]].slice(0, 5 + p.rand(5));
+    const set = new Set(cells.map(([a, b]) => a + ',' + b));
+    for (const [dx, dy] of cells) {
+      const lit = !set.has((dx - 1) + ',' + dy) && !set.has(dx + ',' + (dy - 1));
+      const dark = !set.has((dx + 1) + ',' + dy) && !set.has(dx + ',' + (dy + 1));
+      p.put(cx + dx, cy + dy, lit ? colors[colors.length - 1] : dark ? colors[0] : colors[1 + ((dx + dy) & 1) % (colors.length - 2)]);
+    }
   }
   return p;
 }
@@ -341,7 +355,7 @@ const G = {
   tuff: p => stoneLike(p, '#6c6d65', { specks: ['#8a8b82', '#54554e', '#7e7a6e'] }),
   calcite: p => stoneLike(p, '#dfe0dc', { spread: 0.05, specks: ['#c8c9c4', '#f2f2ef'] }),
   dripstone_block: p => { stoneLike(p, '#866b5c', { spread: 0.1, clump: 3 }); for (let x = 1; x < N; x += 3) for (let y = 0; y < N; y++) if (p.chance(0.5)) p.put(x, y, '#6f5649'); return p; },
-  cobblestone: p => cobble(p, '#7a7a7a'),
+  cobblestone: p => cobble(p, '#808080'),
   mossy_cobblestone: p => cobble(p, '#7a7a7a', true),
   bedrock: p => p.noise(['#1f1f1f', '#3b3b3b', '#575757', '#7a7a7a'], { clump: 5, grain: 0.55 }),
   obsidian: p => { p.noise(['#0d0a14', '#15101f', '#1c1530', '#231a3a'], { clump: 4, grain: 0.35 }); return p.speck(['#3b2a63', '#4d3a82'], 7); },
@@ -359,7 +373,7 @@ const G = {
   polished_basalt_top: p => polished(p, '#5a5a62'),
   magma_block: p => { p.noise(['#3a1409', '#4d1d0c', '#62250f'], { clump: 4, grain: 0.3 }); const vn = p.valueNoise(5); for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) { const v = vn(x, y); if (v > 0.47 && v < 0.53) p.put(x, y, '#ff8f1f'); else if (v > 0.44 && v < 0.56) p.put(x, y, '#c9480f'); } return p; },
   // dirt family
-  dirt: p => { p.noise(['#6c4b33', '#79553a', '#866043', '#96704d'], { clump: 5, grain: 0.45 }); return p.speck(['#5c3f2a', '#a37c58'], 8); },
+  dirt: p => { p.noise(['#79553a', '#866043', '#8e6848', '#7d5a3d'], { clump: 2, grain: 0.55 }); p.speck(['#593d29', '#5f422c'], 14); return p.speck(['#b9855c', '#a8794f'], 10); },
   coarse_dirt: p => { G.dirt(p); return p.speck(['#5a5a5a', '#747474', '#4a3526'], 22); },
   rooted_dirt: p => { G.dirt(p); for (let k = 0; k < 5; k++) { let x = p.rand(N), y = p.rand(N); for (let i = 0; i < 5; i++) { p.wrapPut(x, y, '#a88a64'); x += p.rand(3) - 1; y++; } } return p; },
   mud: p => p.noise(['#2f2a2c', '#3a3438', '#443d41', '#4e464a'], { clump: 4, grain: 0.3 }),
@@ -373,7 +387,7 @@ const G = {
   grass_block_side: p => {
     G.dirt(p);
     for (let x = 0; x < N; x++) {
-      const d = 3 + (p.chance(0.5) ? 1 : 0) + (p.chance(0.25) ? 1 : 0);
+      const d = 2 + (p.chance(0.55) ? 1 : 0) + (p.chance(0.35) ? 1 : 0) + (p.chance(0.18) ? 2 : 0);
       for (let y = 0; y < d; y++) p.put(x, y, y === d - 1 ? '#7a7a7a' : p.pick(['#8a8a8a', '#979797', '#a6a6a6']), 254);
     }
     return p;
@@ -459,7 +473,7 @@ const G = {
   lantern: p => { p.clear(); p.rect(5, 9, 6, 7, '#3c3c46'); p.rect(6, 10, 4, 5, '#ffcf5a'); p.rect(7, 11, 2, 3, '#fff2b3'); p.hline(5, 12, 6, '#2e2e36'); p.rect(6, 7, 4, 2, '#4a4a55'); p.rect(5, 5, 6, 4, '#4a4a55'); p.rect(6, 6, 4, 2, '#5c5c68'); return p.bleed(); },
   soul_lantern: p => { G.lantern(p); p.rect(6, 10, 4, 5, '#5ee9f2'); p.rect(7, 11, 2, 3, '#c9fbff'); return p; },
   lantern_hanging: p => G.lantern(p),
-  crafting_table_top: p => { planks(p, '#a2824e'); p.frame(0, 0, 16, 16, '#6e5433'); p.hline(0, 7, 16, '#6e5433'); p.vline(7, 0, 16, '#6e5433'); return p; },
+  crafting_table_top: p => { planks(p, '#b08a52'); p.frame(0, 0, 16, 16, '#5c4424'); p.frame(1, 1, 14, 14, '#8a6a3a'); for (const k of [5, 10]) { p.hline(2, k, 12, '#6a5030'); p.vline(k, 2, 12, '#6a5030'); } return p; },
   crafting_table_side: p => { planks(p, '#a2824e'); p.rect(0, 0, 16, 3, '#7a5d38'); p.rect(3, 6, 4, 6, '#5e5e5e'); p.rect(4, 5, 2, 1, '#8c8c8c'); p.rect(10, 5, 2, 8, '#6e5433'); p.rect(9, 5, 4, 2, '#8c8c8c'); return p; },
   crafting_table_front: p => { G.crafting_table_side(p); p.rect(4, 8, 8, 5, '#6e5433'); p.rect(5, 9, 2, 3, '#c0c0c0'); p.rect(9, 9, 2, 3, '#c0c0c0'); return p; },
   furnace_side: p => { stoneLike(p, '#737373', { spread: 0.08 }); p.frame(0, 0, 16, 16, '#5a5a5a'); return p; },
@@ -475,7 +489,18 @@ const G = {
   ladder: p => { p.clear(); for (let y = 0; y < N; y++) { p.put(2, y, '#7a5d38'); p.put(3, y, '#8e6d42'); p.put(12, y, '#7a5d38'); p.put(13, y, '#8e6d42'); } for (let y = 1; y < N; y += 4) { p.hline(2, y, 12, '#9c7a4a'); p.hline(2, y + 1, 12, '#6e5433'); } return p.bleed(); },
   glass: p => glassTex(p, '#dbeef5', '#dbeef5', 0),
   iron_bars: p => { p.clear(); for (const x of [1, 5, 10, 14]) p.rect(x, 0, 1, 16, '#9a9a9a'); p.hline(0, 1, 16, '#8a8a8a'); p.hline(0, 14, 16, '#8a8a8a'); return p.bleed(); },
-  tnt_side: p => { p.fill('#d9432e'); for (let x = 0; x < N; x += 4) p.vline(x, 0, 16, '#b8331f'); p.rect(0, 5, 16, 6, '#e8e1d0'); p.rect(3, 6, 10, 4, '#e8e1d0'); for (const [x, w] of [[3, 3], [7, 3], [11, 2]]) p.rect(x, 7, w - 1, 2, '#2a2a2a'); return p; },
+  tnt_side: p => {
+    p.fill('#d9432e'); for (let x = 0; x < N; x += 4) { p.vline(x, 0, 16, '#b8331f'); p.vline(x + 2, 0, 16, '#e0543c'); }
+    p.rect(0, 5, 16, 6, '#e8e1d0'); p.hline(0, 5, 16, '#c8c0ae'); p.hline(0, 10, 16, '#c8c0ae');
+    const k = '#1e1e1e';
+    // T
+    p.hline(2, 6, 3, k); p.vline(3, 6, 4, k);
+    // N
+    p.vline(6, 6, 4, k); p.vline(9, 6, 4, k); p.put(7, 7, k); p.put(8, 8, k);
+    // T
+    p.hline(11, 6, 3, k); p.vline(12, 6, 4, k);
+    return p;
+  },
   tnt_top: p => { p.fill('#d9432e'); p.rect(4, 4, 8, 8, '#b8331f'); p.rect(7, 7, 2, 2, '#3a3a3a'); return p; },
   tnt_bottom: p => { p.fill('#b8331f'); p.frame(0, 0, 16, 16, '#9a2a18'); return p; },
   bookshelf: p => {
@@ -589,7 +614,7 @@ function family(name, p) {
   if ((m = name.match(/^stained_glass_(\w+)$/))) return glassTex(p, shade(DYE[m[1]], 1.15), DYE[m[1]], 110);
   if ((m = name.match(/^(deepslate_)?ore_(\w+)$/))) {
     const colors = {
-      coal: ['#1c1c1c', '#2b2b2b', '#3a3a3a', '#474747'], iron: ['#b88a6c', '#c49a7c', '#d8af93', '#e6c4a8'],
+      coal: ['#0c0c0c', '#1a1a1a', '#262626', '#454545'], iron: ['#b88a6c', '#c49a7c', '#d8af93', '#e6c4a8'],
       copper: ['#8a4a2a', '#b8613a', '#d9774a', '#5ea890'], gold: ['#d9b420', '#e0c52a', '#fcee4b', '#fff7a0'],
       redstone: ['#8a0000', '#b50000', '#e01010', '#ff4a4a'], lapis: ['#1a3a8a', '#1f4db8', '#2a5fd9', '#4a7ef0'],
       emerald: ['#0f8a3a', '#17a84a', '#2ac760', '#7af0a0'], diamond: ['#2fb3bd', '#3dcbd6', '#5decf5', '#a6fbff'],
