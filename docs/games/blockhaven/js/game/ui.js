@@ -1,7 +1,7 @@
 // Container GUIs (inventory, crafting, chest, furnace, creative, trading) and the HUD.
-import { I, ITEMS, TABS, maxStack, ARMOR_SLOTS } from '../data/items.js?v=muo1ytra';
-import { findRecipe, allRecipes, matches, SMELTING, TAGS } from '../data/recipes.js?v=muo1ytra';
-import { same } from './inventory.js?v=muo1ytra';
+import { I, ITEMS, TABS, maxStack, ARMOR_SLOTS } from '../data/items.js?v=muo2aap4';
+import { findRecipe, allRecipes, matches, SMELTING, TAGS } from '../data/recipes.js?v=muo2aap4';
+import { same } from './inventory.js?v=muo2aap4';
 
 const $ = id => document.getElementById(id);
 const el = (tag, cls, parent) => { const e = document.createElement(tag); if (cls) e.className = cls; if (parent) parent.appendChild(e); return e; };
@@ -605,8 +605,21 @@ export class HUD {
     }
     void flip;
   }
+  // White sweep over hotbar items that are cooling down (ender pearls, a knocked-out shield).
+  updateCooldowns() {
+    const g = this.game, cds = g.itemCooldowns || {};
+    const slots = [...this.hotbarSlots, document.getElementById('offhand-slot')];
+    slots.forEach((d, i) => {
+      const s = i < 9 ? g.inv.main.get(i) : g.inv.offhand.get(0), c = s && cds[s.key];
+      let o = d.querySelector('.cd');
+      if (!c) { if (o) o.remove(); return; }
+      if (!o) { o = document.createElement('div'); o.className = 'cd'; d.appendChild(o); }
+      o.style.height = `${Math.max(0, c.t / c.max) * 100}%`;
+    });
+  }
   update(dt) {
     const g = this.game, S = this.sprites, st = g.stats;
+    this.updateCooldowns();
     const survival = g.mode === 'survival' || g.mode === 'adventure' || g.mode === 'hardcore';
     $('stats').style.visibility = survival ? 'visible' : 'hidden';
     $('xp').style.visibility = survival ? 'visible' : 'hidden';

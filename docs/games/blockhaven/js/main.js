@@ -1,33 +1,33 @@
 // Blockhaven bootstrap: assets, menus, input, camera, frame loop.
-import { Demo, DEMO_SEED } from './demo.js?v=muo1ytra';
-import { armorModel, armorSkinKey, ARMOR_MATERIALS, ARMOR_PIECES, elytraModel } from './data/armor.js?v=muo1ytra';
-import { TEXTURES, TEX, B, BLOCKS, DIM, DIM_NAMES, SHAPE_OF, SHAPE, props } from './data/blocks.js?v=muo1ytra';
-import { I, ITEMS } from './data/items.js?v=muo1ytra';
-import { MOBS, PROFESSIONS, playerModel, saddleModel, PLAYER_SKINS } from './data/mobs.js?v=muo1ytra';
-import { Net, cleanCode, cleanName, MAX_PLAYERS } from './net/net.js?v=muo1ytra';
-import { NameTags } from './net/nametags.js?v=muo1ytra';
-import { BIOMES } from './gen/biomes.js?v=muo1ytra';
-import { generateBlockTextures } from './render/blocktex.js?v=muo1ytra';
-import { generateItemTextures, ITEM_LAYER, FX_LAYER, ITEM_LAYER_COUNT } from './render/itemtex.js?v=muo1ytra';
-import { packModel, paintModel, SKIN, faceRects } from './render/mobtex.js?v=muo1ytra';
-import { buildMipChain } from './render/atlas.js?v=muo1ytra';
-import { Renderer, Batch } from './render/renderer.js?v=muo1ytra';
-import { World, UNLOADED } from './world/world.js?v=muo1ytra';
-import { createGenerator } from './gen/index.js?v=muo1ytra';
-import { Game } from './game/game.js?v=muo1ytra';
-import { Interact } from './game/interact.js?v=muo1ytra';
-import { Commands } from './game/commands.js?v=muo1ytra';
-import { GUI, HUD } from './game/ui.js?v=muo1ytra';
-import { buildIcons, hudSprites } from './game/icons.js?v=muo1ytra';
-import { Sound } from './game/audio.js?v=muo1ytra';
-import { buildLogo, buttonTexture, iconDataURL } from './render/logo.js?v=muo1ytra';
-import { computeEnv } from './game/env.js?v=muo1ytra';
-import { guideSections } from './game/guide.js?v=muo1ytra';
-import { listWorlds, loadWorld, saveWorld, deleteWorld } from './game/storage.js?v=muo1ytra';
-import { drawModel, rootMatrix, M } from './entity/entity.js?v=muo1ytra';
-import { itemMesh, emitItemMesh } from './entity/itemmesh.js?v=muo1ytra';
-import { Lightning } from './entity/objects.js?v=muo1ytra';
-import { compose, translation, rotationX, rotationY, rotationZ, scaling, forward, mat4 } from './core/math.js?v=muo1ytra';
+import { Demo, DEMO_SEED } from './demo.js?v=muo2aap4';
+import { armorModel, armorSkinKey, ARMOR_MATERIALS, ARMOR_PIECES, elytraModel } from './data/armor.js?v=muo2aap4';
+import { TEXTURES, TEX, B, BLOCKS, DIM, DIM_NAMES, SHAPE_OF, SHAPE, props } from './data/blocks.js?v=muo2aap4';
+import { I, ITEMS } from './data/items.js?v=muo2aap4';
+import { MOBS, PROFESSIONS, playerModel, saddleModel, PLAYER_SKINS } from './data/mobs.js?v=muo2aap4';
+import { Net, cleanCode, cleanName, MAX_PLAYERS } from './net/net.js?v=muo2aap4';
+import { NameTags } from './net/nametags.js?v=muo2aap4';
+import { BIOMES } from './gen/biomes.js?v=muo2aap4';
+import { generateBlockTextures } from './render/blocktex.js?v=muo2aap4';
+import { generateItemTextures, ITEM_LAYER, FX_LAYER, ITEM_LAYER_COUNT } from './render/itemtex.js?v=muo2aap4';
+import { packModel, paintModel, SKIN, faceRects } from './render/mobtex.js?v=muo2aap4';
+import { buildMipChain } from './render/atlas.js?v=muo2aap4';
+import { Renderer, Batch } from './render/renderer.js?v=muo2aap4';
+import { World, UNLOADED } from './world/world.js?v=muo2aap4';
+import { createGenerator } from './gen/index.js?v=muo2aap4';
+import { Game } from './game/game.js?v=muo2aap4';
+import { Interact } from './game/interact.js?v=muo2aap4';
+import { Commands } from './game/commands.js?v=muo2aap4';
+import { GUI, HUD } from './game/ui.js?v=muo2aap4';
+import { buildIcons, hudSprites } from './game/icons.js?v=muo2aap4';
+import { Sound } from './game/audio.js?v=muo2aap4';
+import { buildLogo, buttonTexture, iconDataURL } from './render/logo.js?v=muo2aap4';
+import { computeEnv } from './game/env.js?v=muo2aap4';
+import { guideSections } from './game/guide.js?v=muo2aap4';
+import { listWorlds, loadWorld, saveWorld, deleteWorld } from './game/storage.js?v=muo2aap4';
+import { drawModel, rootMatrix, M } from './entity/entity.js?v=muo2aap4';
+import { itemMesh, emitItemMesh } from './entity/itemmesh.js?v=muo2aap4';
+import { Lightning } from './entity/objects.js?v=muo2aap4';
+import { compose, translation, rotationX, rotationY, rotationZ, scaling, forward, mat4 } from './core/math.js?v=muo2aap4';
 
 const $ = id => document.getElementById(id);
 const SETTINGS_KEY = 'blockhaven.settings.v2';
@@ -638,6 +638,7 @@ class App {
     const n = ((i % 9) + 9) % 9;
     if (n === g.inv.selected) return;
     g.inv.selected = n;
+    g.attackCooldown = 0; // switching items restarts the attack charge, as in the original
     g.invDirty = true;
     this.interact.equip = 1;
     const s = g.inv.held;
@@ -851,14 +852,14 @@ class App {
       pos: p.renderPos || p.pos, yaw: p.yaw, pitch: p.pitch, walk: p.bobPhase * 1.6, walkAmt: p.bobAmount, swing: this.interact.swing,
       sneaking: p.sneaking, riding: !!g.riding, gliding: p.gliding, vel: p.vel, layer: this.mobLayer('player'), flash: this.post.hurt > 0.5 ? 0.6 : 0,
       armor: g.inv.armor.slots.map(s => s && s.key), held: g.inv.held && g.inv.held.key, off: g.inv.offhand.get(0) && g.inv.offhand.get(0).key,
-      bow: this.interact.using === 'bow', blocking: g.blocking,
+      bow: this.interact.using === 'bow' || this.interact.using === 'crossbow', trident: this.interact.using === 'trident', blocking: g.blocking,
     });
   }
   drawRemotePlayer(ctx, rp) {
     this.drawHumanoid(ctx, {
       pos: rp.pos, yaw: rp.yaw, pitch: rp.headPitch, walk: rp.walk, walkAmt: rp.walkAmt, swing: rp.swing, sneaking: rp.sneaking, riding: rp.riding,
       gliding: rp.gliding, vel: rp.vel, layer: this.mobLayer(`player_${rp.skin}`), flash: rp.hurtT > 0 ? 0.6 : 0,
-      armor: rp.armor, held: rp.held, off: rp.off, bow: rp.drawingBow, blocking: rp.blocking,
+      armor: rp.armor, held: rp.held, off: rp.off, bow: rp.drawingBow, trident: rp.throwingTrident, blocking: rp.blocking,
     });
   }
   // A player model in any pose: walking, sneaking, riding, gliding, drawing a bow, blocking.
@@ -871,6 +872,7 @@ class App {
     if (s.riding) { poses.rightLeg = [1.35, -0.25, 0]; poses.leftLeg = [1.35, 0.25, 0]; poses.rightArm = [0.55 + swing, 0, 0]; poses.leftArm = [0.55, 0, 0]; }
     if (s.bow) { poses.rightArm = [1.45 + s.pitch, -0.1, 0]; poses.leftArm = [1.45 + s.pitch, 0.45, 0]; }
     if (s.blocking) poses.leftArm = [0.9, 0.55, 0];
+    if (s.trident) poses.rightArm = [2.8, -0.2, 0];
     const lp = s.pos;
     const light = g.world.lightAt(lp[0], lp[1] + 1, lp[2]);
     const b = Math.max(Math.pow(0.8, 15 - light.sky) * g.env.skyLight[0], Math.pow(0.82, 15 - light.blk), g.env.ambient[0]);
@@ -1016,7 +1018,11 @@ class App {
         emitItemMesh(batch, itemMesh(key, this.itemTex[FX_LAYER[key] ?? ITEM_LAYER.bow]), FX_LAYER[key] ?? ITEM_LAYER[held.key], m, [light, light, light]);
         return { batch, batchTex: 'item', light };
       }
-      if (using === 'eat') m = flatItem(M.chain(sway, M.t(0.18, -0.36 + Math.sin(it.useT * 18) * 0.04, -0.58), M.ry(-40 * D2R), M.rx(20 * D2R)));
+      if (using === 'trident') {
+        // Wound back over the shoulder, prongs forward, trembling once fully charged.
+        const pull = Math.min(1, it.useT / 0.5), shake = pull >= 1 ? Math.sin(this.time * 50) * 0.004 : 0;
+        m = M.chain(sway, M.t(0.3 + shake, -0.28 + pull * 0.06, -0.5 + pull * 0.2), orient([-0.08, 0.18, -1], [0.3, 1, 0.1]), M.s(1.15), M.t(-0.5, -0.5, 0));
+      } else if (using === 'eat') m = flatItem(M.chain(sway, M.t(0.18, -0.36 + Math.sin(it.useT * 18) * 0.04, -0.58), M.ry(-40 * D2R), M.rx(20 * D2R)));
       else if (using === 'shield') m = M.chain(sway, M.t(0.25, -0.4, -0.6), M.ry(-0.3), M.s(0.8), M.t(-0.5, -0.5, 0));
       else {
         // Chop: the blade sweeps from upper right down across the crosshair, fast out, slower back.

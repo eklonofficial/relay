@@ -1,7 +1,7 @@
 // Shared combat rules (Java Edition 1.9+ numbers). Mobs, the local player and — once multiplayer
 // lands — remote players all resolve hits through these functions, so PvE and PvP behave the same:
 // attack cooldown, crits, sweeps, knockback, armor and toughness, and invulnerability frames.
-import { I } from '../data/items.js?v=muo1ytra';
+import { I } from '../data/items.js?v=muo2aap4';
 
 // Damage kinds that ignore armor.
 export const ARMOR_BYPASS = new Set(['fall', 'drown', 'fire', 'starve', 'magic', 'void', 'kill', 'wither', 'poison', 'lava', 'suffocate']);
@@ -54,6 +54,28 @@ export function isCrit(p, charge) {
 
 // Knockback strength in blocks/second: sprint hits knock harder.
 export function knockStrength(sprintHit) { return sprintHit ? 9 : 5; }
+// Sweeping a sword (no enchantment) deals 1 damage to everything around the target.
+export const SWEEP_DAMAGE = 1;
+// Seconds a raised shield needs before it blocks, and how long an axe hit disables it.
+export const SHIELD_DELAY = 0.25, SHIELD_DISABLE = 5;
+// Netherite armour resists knockback (10% per piece).
+export function knockbackResist(stacks) { let r = 0; for (const s of stacks) if (s && I[s.key] && I[s.key].material === 'netherite') r += 0.1; return Math.min(1, r); }
+// Minecraft's LivingEntity.knockback in blocks/second: halve the current motion, push away from
+// the source; only a grounded target is also lifted.
+export function applyKnockback(vel, dir, strength, onGround, resist = 0) {
+  const s = strength * (1 - resist) * 20;
+  if (s <= 0) return;
+  const n = Math.hypot(dir[0], dir[1]) || 1;
+  vel[0] = vel[0] / 2 + dir[0] / n * s;
+  vel[2] = vel[2] / 2 + dir[1] / n * s;
+  if (onGround) vel[1] = Math.min(8, vel[1] / 2 + s);
+}
+// Whether a shield held by someone at pos looking along look faces the source (within 90°).
+export function shieldFaces(pos, look, src) {
+  const dx = src[0] - pos[0], dz = src[2] - pos[2], n = Math.hypot(dx, dz);
+  if (n < 1e-6) return true;
+  return (dx * look[0] + dz * look[2]) / (n * (Math.hypot(look[0], look[2]) || 1)) > 0;
+}
 
 export const isSword = key => !!(key && I[key] && I[key].tool && I[key].tool.type === 'sword');
 export const isAxe = key => !!(key && I[key] && I[key].tool && I[key].tool.type === 'axe');
