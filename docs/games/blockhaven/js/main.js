@@ -1,33 +1,33 @@
 // Blockhaven bootstrap: assets, menus, input, camera, frame loop.
-import { Demo, DEMO_SEED } from './demo.js?v=muo1hk09';
-import { armorModel, armorSkinKey, ARMOR_MATERIALS, ARMOR_PIECES, elytraModel } from './data/armor.js?v=muo1hk09';
-import { TEXTURES, TEX, B, BLOCKS, DIM, DIM_NAMES, SHAPE_OF, SHAPE, props } from './data/blocks.js?v=muo1hk09';
-import { I, ITEMS } from './data/items.js?v=muo1hk09';
-import { MOBS, PROFESSIONS, playerModel, saddleModel, PLAYER_SKINS } from './data/mobs.js?v=muo1hk09';
-import { Net, cleanCode, cleanName, MAX_PLAYERS } from './net/net.js?v=muo1hk09';
-import { NameTags } from './net/nametags.js?v=muo1hk09';
-import { BIOMES } from './gen/biomes.js?v=muo1hk09';
-import { generateBlockTextures } from './render/blocktex.js?v=muo1hk09';
-import { generateItemTextures, ITEM_LAYER, FX_LAYER, ITEM_LAYER_COUNT } from './render/itemtex.js?v=muo1hk09';
-import { packModel, paintModel, SKIN, faceRects } from './render/mobtex.js?v=muo1hk09';
-import { buildMipChain } from './render/atlas.js?v=muo1hk09';
-import { Renderer, Batch } from './render/renderer.js?v=muo1hk09';
-import { World, UNLOADED } from './world/world.js?v=muo1hk09';
-import { createGenerator } from './gen/index.js?v=muo1hk09';
-import { Game } from './game/game.js?v=muo1hk09';
-import { Interact } from './game/interact.js?v=muo1hk09';
-import { Commands } from './game/commands.js?v=muo1hk09';
-import { GUI, HUD } from './game/ui.js?v=muo1hk09';
-import { buildIcons, hudSprites } from './game/icons.js?v=muo1hk09';
-import { Sound } from './game/audio.js?v=muo1hk09';
-import { buildLogo, buttonTexture, iconDataURL } from './render/logo.js?v=muo1hk09';
-import { computeEnv } from './game/env.js?v=muo1hk09';
-import { guideSections } from './game/guide.js?v=muo1hk09';
-import { listWorlds, loadWorld, saveWorld, deleteWorld } from './game/storage.js?v=muo1hk09';
-import { drawModel, rootMatrix, M } from './entity/entity.js?v=muo1hk09';
-import { itemMesh, emitItemMesh } from './entity/itemmesh.js?v=muo1hk09';
-import { Lightning } from './entity/objects.js?v=muo1hk09';
-import { compose, translation, rotationX, rotationY, rotationZ, scaling, forward, mat4 } from './core/math.js?v=muo1hk09';
+import { Demo, DEMO_SEED } from './demo.js?v=muo1jidk';
+import { armorModel, armorSkinKey, ARMOR_MATERIALS, ARMOR_PIECES, elytraModel } from './data/armor.js?v=muo1jidk';
+import { TEXTURES, TEX, B, BLOCKS, DIM, DIM_NAMES, SHAPE_OF, SHAPE, props } from './data/blocks.js?v=muo1jidk';
+import { I, ITEMS } from './data/items.js?v=muo1jidk';
+import { MOBS, PROFESSIONS, playerModel, saddleModel, PLAYER_SKINS } from './data/mobs.js?v=muo1jidk';
+import { Net, cleanCode, cleanName, MAX_PLAYERS } from './net/net.js?v=muo1jidk';
+import { NameTags } from './net/nametags.js?v=muo1jidk';
+import { BIOMES } from './gen/biomes.js?v=muo1jidk';
+import { generateBlockTextures } from './render/blocktex.js?v=muo1jidk';
+import { generateItemTextures, ITEM_LAYER, FX_LAYER, ITEM_LAYER_COUNT } from './render/itemtex.js?v=muo1jidk';
+import { packModel, paintModel, SKIN, faceRects } from './render/mobtex.js?v=muo1jidk';
+import { buildMipChain } from './render/atlas.js?v=muo1jidk';
+import { Renderer, Batch } from './render/renderer.js?v=muo1jidk';
+import { World, UNLOADED } from './world/world.js?v=muo1jidk';
+import { createGenerator } from './gen/index.js?v=muo1jidk';
+import { Game } from './game/game.js?v=muo1jidk';
+import { Interact } from './game/interact.js?v=muo1jidk';
+import { Commands } from './game/commands.js?v=muo1jidk';
+import { GUI, HUD } from './game/ui.js?v=muo1jidk';
+import { buildIcons, hudSprites } from './game/icons.js?v=muo1jidk';
+import { Sound } from './game/audio.js?v=muo1jidk';
+import { buildLogo, buttonTexture, iconDataURL } from './render/logo.js?v=muo1jidk';
+import { computeEnv } from './game/env.js?v=muo1jidk';
+import { guideSections } from './game/guide.js?v=muo1jidk';
+import { listWorlds, loadWorld, saveWorld, deleteWorld } from './game/storage.js?v=muo1jidk';
+import { drawModel, rootMatrix, M } from './entity/entity.js?v=muo1jidk';
+import { itemMesh, emitItemMesh } from './entity/itemmesh.js?v=muo1jidk';
+import { Lightning } from './entity/objects.js?v=muo1jidk';
+import { compose, translation, rotationX, rotationY, rotationZ, scaling, forward, mat4 } from './core/math.js?v=muo1jidk';
 
 const $ = id => document.getElementById(id);
 const SETTINGS_KEY = 'blockhaven.settings.v2';
@@ -1027,13 +1027,17 @@ class App {
       emitItemMesh(batch, itemMesh(held.key, this.itemPixels(held.key)), this.itemLayer(held.key), m, [light, light, light]);
       return { batch, batchTex: 'item', light };
     }
-    // Empty hand: the player's arm punching forward (renderPlayerArm curves).
-    const lm = Math.sin(f * f * Math.PI), mm = Math.sin(sf * Math.PI);
+    // Empty hand: Minecraft's renderArmFirstPerson stack (blocks and degrees), then the arm model
+    // in its own space: our arm box (hand at y -10, outer face +x) turned into the original's
+    // (hand at y +12, shoulder pivot at x -5).
+    const DR = Math.PI / 180, f2 = -0.3 * Math.sin(sf * Math.PI), f3 = 0.4 * Math.sin(sf * Math.PI * 2), f4 = -0.4 * Math.sin(f * Math.PI);
+    const f5 = Math.sin(f * f * Math.PI), f6 = Math.sin(sf * Math.PI);
     const model = this.mobModel('player'), arm = { tex: model.tex, parts: { rightArm: { pivot: [0, 0, 0], boxes: model.parts.rightArm.boxes } } };
     const root = M.chain(sway,
-      M.t(0.6 - 0.3 * Math.sin(sf * Math.PI), -0.44 + 0.25 * Math.sin(sf * Math.PI * 2) - equip * 0.6, -0.72 - 0.3 * Math.sin(f * Math.PI)),
-      M.ry((mm * 70) * D2R * 0.5), M.rz(-lm * 20 * D2R),
-      M.t(0.04, 0.05, -0.02), M.ry(-0.35), M.rx(1.5 - mm * 0.35), M.rz(-0.25), M.s(1 / 16 * 0.9));
+      M.t(f2 + 0.64, f3 - 0.6 - equip * 0.6, f4 - 0.72),
+      M.ry(45 * DR), M.ry(f6 * 70 * DR), M.rz(-f5 * 20 * DR),
+      M.t(-1, 3.6, 3.5), M.rz(120 * DR), M.rx(200 * DR), M.ry(-135 * DR), M.t(5.6, 0, 0),
+      M.s(1 / 16), M.t(-6, 2, 0), M.rz(Math.PI));
     drawModel(batch, arm, this.mobLayer('player'), root, {}, [light, light, light], 0);
     return { batch, batchTex: 'mob', light };
   }
