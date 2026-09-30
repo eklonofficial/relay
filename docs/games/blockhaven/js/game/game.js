@@ -504,6 +504,7 @@ export class Game {
 
   // ---------------- per-frame tick ----------------
   update(dt) {
+    this.bossBar = null; // bosses re-register every tick while nearby
     this.time += dt;
     if (this.timers.length) { const now = this.time; const due = this.timers.filter(t => t.t <= now); this.timers = this.timers.filter(t => t.t > now); for (const t of due) t.fn(); }
     if (this.rules.doDaylightCycle && this.dim === DIM.OVERWORLD) {
@@ -519,7 +520,6 @@ export class Game {
     this.tickBlockEntities(dt);
     this.spawnTick(dt);
     this.portalTick(dt);
-    this.bossBar = null;
     if (this.stats.health > 0 && this.stats.effects.night_vision) this.nightVision = 1; else this.nightVision = 0;
   }
   updateWeather(dt) {

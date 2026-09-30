@@ -13,7 +13,7 @@ export const DIM_NAMES = ['overworld', 'the_nether', 'the_end'];
 export const SHAPE = {
   NONE: 0, CUBE: 1, CROSS: 2, TORCH: 3, LIQUID: 4, SLAB: 5, STAIRS: 6, FENCE: 7, PANE: 8, DOOR: 9, TRAPDOOR: 10,
   LADDER: 11, CROP: 12, SNOW: 13, CARPET: 14, FARMLAND: 15, CACTUS: 16, CHEST: 17, BED: 18, LANTERN: 19, FLAT: 20,
-  PORTAL: 21, END_PORTAL: 22, ENDFRAME: 23, FIRE: 24, VINE: 25, ROD: 26, RAIL: 27, CAMPFIRE: 28,
+  PORTAL: 21, END_PORTAL: 22, ENDFRAME: 23, FIRE: 24, VINE: 25, ROD: 26, RAIL: 27, CAMPFIRE: 28, SKULL: 29,
 };
 
 // Vertex flags read by the shaders.
@@ -258,6 +258,11 @@ def('bamboo', { shape: SHAPE.ROD, opaque: false, hardness: 1, tool: 'axe', sound
 def('sweet_berry_bush', { shape: SHAPE.CROSS, hardness: 0, sound: 'grass', flags: VF.PLANT, slow: 0.6, damage: 0.5, drop: 'sweet_berries*2', tab: 'natural' });
 def('glow_lichen', { shape: SHAPE.VINE, opaque: false, cutout: true, light: 7, hardness: 0.2, sound: 'grass', facingShift: 0, replaceable: true, drop: 'none', flags: VF.EMISSIVE, tab: 'natural' });
 def('cave_vines', { shape: SHAPE.CROSS, light: 14, hardness: 0, sound: 'grass', climbable: true, flags: VF.PLANT, drop: 'glow_berries', tab: 'natural' });
+// Mob heads (new ids go last so saved worlds keep their block ids).
+def('skull', { shape: SHAPE.SKULL, opaque: false, hardness: 1, sound: 'stone', facingShift: 1, tab: 'functional' }, [
+  { key: 'skeleton_skull', tex: { side: 'skeleton_skull_side', top: 'skeleton_skull_top', front: 'skeleton_skull_front' } },
+  { key: 'wither_skeleton_skull', tex: { side: 'wither_skull_side', top: 'wither_skull_top', front: 'wither_skull_front' } },
+]);
 
 // Textures reached through state rather than a variant's default faces.
 for (let i = 0; i < 8; i++) tex(`wheat_stage${i}`);

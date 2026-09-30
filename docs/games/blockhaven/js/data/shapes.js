@@ -44,6 +44,7 @@ export function collisionBoxes(id, m, out = []) {
     case SHAPE.ENDFRAME: out.push([0, 0, 0, 1, 13 * P, 1]); break;
     case SHAPE.FLAT: out.push([0, 0, 0, 1, 1.5 * P, 1]); break;
     case SHAPE.CAMPFIRE: out.push([0, 0, 0, 1, 7 * P, 1]); break;
+    case SHAPE.SKULL: out.push([4 * P, 0, 4 * P, 12 * P, 8 * P, 12 * P]); break;
     case SHAPE.CROSS: if (id === B.COBWEB) break; out.push([2 * P, 0, 2 * P, 14 * P, 14 * P, 14 * P]); break;
     case SHAPE.CROP: break;
     default: out.push(FULL);

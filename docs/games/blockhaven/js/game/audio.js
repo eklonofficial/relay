@@ -12,7 +12,7 @@ const VOICE = {
   wolf: [500, 'sawtooth', 0.18, 0.7, 0.2], cat: [700, 'triangle', 0.4, 0.8, 0], horse: [420, 'sawtooth', 0.6, 0.6, 0.2], llama: [350, 'triangle', 0.4, 0.8, 0.1],
   golem: [80, 'square', 0.3, 0.8, 0.5], blaze: [180, 'sawtooth', 0.6, 0.9, 0.6], ghast: [900, 'sine', 1.1, 0.5, 0.2], slime: [120, 'sine', 0.2, 0.6, 0.3],
   bat: [2400, 'square', 0.08, 1.2, 0], parrot: [1500, 'square', 0.15, 1.3, 0], fox: [800, 'sawtooth', 0.2, 0.7, 0.2], bear: [90, 'sawtooth', 0.8, 0.7, 0.4],
-  dragon: [60, 'sawtooth', 2, 0.6, 0.5], phantom: [600, 'sawtooth', 0.6, 0.5, 0.4], piglin: [200, 'sawtooth', 0.4, 0.8, 0.3], zpiglin: [150, 'sawtooth', 0.5, 0.8, 0.3],
+  dragon: [60, 'sawtooth', 2, 0.6, 0.5], wither: [48, 'sawtooth', 1.4, 0.55, 0.7], phantom: [600, 'sawtooth', 0.6, 0.5, 0.4], piglin: [200, 'sawtooth', 0.4, 0.8, 0.3], zpiglin: [150, 'sawtooth', 0.5, 0.8, 0.3],
   hoglin: [100, 'sawtooth', 0.5, 0.8, 0.5], ravager: [70, 'sawtooth', 0.8, 0.7, 0.5], panda: [300, 'triangle', 0.4, 0.8, 0.2], goat: [500, 'sawtooth', 0.4, 0.9, 0.1],
   fish: [0, 'noise', 0.1, 1, 1], squid: [0, 'noise', 0.2, 1, 1], dolphin: [2000, 'sine', 0.3, 1.2, 0], frog: [180, 'square', 0.2, 1.1, 0.1], turtle: [200, 'sine', 0.3, 0.9, 0.2],
   rabbit: [1000, 'sine', 0.1, 1, 0.2], silverfish: [2000, 'noise', 0.15, 1, 1], strider: [250, 'sawtooth', 0.4, 0.8, 0.3], axolotl: [900, 'sine', 0.2, 1.2, 0],

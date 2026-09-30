@@ -323,6 +323,7 @@ export class Interact {
     this.commit(x, y, z, id, meta, held);
     // Golems: pumpkin on snow/iron bodies.
     if (id === B.PUMPKIN) this.checkGolem(x, y, z);
+    if (id === B.SKULL && (meta & 1) === 1) this.checkWither(x, y, z);
   }
   commit(x, y, z, id, meta, held, sound = true) {
     const g = this.g;
@@ -331,6 +332,24 @@ export class Interact {
     this.swing = 1;
     if (g.mode !== 'creative') g.inv.consumeHeld();
     if (id === B.CRAFTING_TABLE) g.advance('bench', 'Benchmarking', 'Craft a crafting table', 'crafting_table');
+  }
+  // Soul sand/soil T with three wither skeleton skulls on top builds the Wither.
+  checkWither(x, y, z) {
+    const g = this.g, w = g.world;
+    const soul = (a, b, c) => w.getBlock(a, b, c) === B.SOUL_SAND;
+    const skull = (a, b, c) => w.getBlock(a, b, c) === B.SKULL && (w.getMeta(a, b, c) & 1) === 1;
+    for (const [ax, az] of [[1, 0], [0, 1]]) for (let o = -1; o <= 1; o++) {
+      const cx = x - ax * o, cz = z - az * o, row = [-1, 0, 1];
+      if (!row.every(k => skull(cx + ax * k, y, cz + az * k))) continue;
+      if (!row.every(k => soul(cx + ax * k, y - 1, cz + az * k)) || !soul(cx, y - 2, cz)) continue;
+      for (const k of row) { w.setBlock(cx + ax * k, y, cz + az * k, B.AIR, 0); w.setBlock(cx + ax * k, y - 1, cz + az * k, B.AIR, 0); }
+      w.setBlock(cx, y - 2, cz, B.AIR, 0);
+      g.spawnMob('wither', cx + 0.5, y - 2, cz + 0.5, { fresh: true, persistent: true });
+      g.chat('The Wither has been summoned!', '#b44cf0');
+      g.advance('summon_wither', 'Withering Heights', 'Summon the Wither', 'wither_skeleton_skull');
+      return true;
+    }
+    return false;
   }
   checkGolem(x, y, z) {
     const g = this.g, w = g.world;

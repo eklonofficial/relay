@@ -373,6 +373,26 @@ mob('hoglin', { chase: 4.6,
   model: () => { const m = quadruped({ body: S('#c67a5a', 'fur', { top: D.stripes('#e8c8a0', 2, true) }), head: S('#c67a5a', 'fur', face(eyes({ c: '#1a1a1a', pupil: null, y: 0.3 }))), leg: S('#a86a4a') }, { legH: 11, legW: 6, bodyW: 16, bodyH: 14, bodyL: 19, headW: 14, headH: 6, headL: 19 }); m.parts.head.boxes.push(box([-8, -1, -18], [2, 6, 2], S('#f0e8d0')), box([6, -1, -18], [2, 6, 2], S('#f0e8d0'))); return m; },
 });
 
+// --- the wither ---
+mob('wither', {
+  hw: 0.45, h: 3.2, scale: 1.35, health: 300, speed: 5, kind: 'boss', ai: 'wither', flying: true, fireImmune: true, undead: true, knockbackResist: 1,
+  attack: { dmg: 8, cd: 1, wither: 10 }, egg: ['#141414', '#4a4a4a'], drops: [['nether_star', 1, 1]], xp: [50, 50], sound: 'wither', noEgg: true, bossColor: '#b44cf0',
+  model: () => {
+    const bone = S('#2b2b2b', 'noise', null, 0.14);
+    const eyes2 = f => S('#262626', 'noise', face(eyes({ c: '#f0f0f0', pupil: null, y: 0.45, sep: 0.22 }), D.rect(0.3, 0.72, 0.4, 0.1, '#0a0a0a')), 0.12);
+    const parts = {
+      spine: part([0, 8, 0], [box([-1.5, 0, -1.5], [3, 16, 3], bone)]),
+      ribs: part([0, 13, 0], [box([-4.5, 0, -2], [9, 1.5, 4], bone), box([-4.5, 3, -2], [9, 1.5, 4], bone), box([-4.5, 6, -2], [9, 1.5, 4], bone)]),
+      tail: part([0, 8, 0], [box([-1.5, -9, -1.5], [3, 9, 3], bone)]),
+      shoulders: part([0, 24, 0], [box([-10, 0, -1.5], [20, 3, 3], bone)]),
+      head: part([0, 27, 0], [box([-4, 0, -4], [8, 8, 8], eyes2())]),
+      headL: part([-9, 26, 0], [box([-3, 0, -3], [6, 6, 6], eyes2())]),
+      headR: part([9, 26, 0], [box([-3, 0, -3], [6, 6, 6], eyes2())]),
+    };
+    return { anim: 'wither', parts, eye: 31 };
+  },
+});
+
 // --- the dragon ---
 mob('ender_dragon', {
   hw: 4, h: 4, health: 200, speed: 12, kind: 'boss', ai: 'dragon', flying: true, fireImmune: true, attack: { dmg: 10, cd: 1 }, egg: ['#1a1a1a', '#e070ff'], drops: [], xp: [12000, 12000], sound: 'dragon', knockbackResist: 1, noEgg: true,

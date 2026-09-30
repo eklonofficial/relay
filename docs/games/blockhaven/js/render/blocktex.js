@@ -318,6 +318,9 @@ function portalTex(p) {
 
 // ---------- named textures ----------
 
+// Skull faces live in the centre 8x8 of the tile (the head is an 8-pixel cube).
+const skull = (p, pal) => { p.noise(pal, { clump: 2, grain: 0.25 }); return p; };
+const skullFace = (p, dark) => { p.rect(5, 7, 2, 2, dark); p.rect(9, 7, 2, 2, dark); p.rect(7, 9, 2, 1, dark); for (let x = 5; x < 11; x += 2) p.rect(x, 11, 1, 1, dark); return p; };
 const G = {
   // stones
   stone: p => stoneLike(p, '#7d7d7d', { streak: '#6a6a6a' }),
@@ -521,6 +524,12 @@ const G = {
   coral_block_bubble: p => { p.noise(['#a01fa0', '#b82ab8', '#8a148a'], { clump: 3 }); return p.speck(['#e060e0'], 14); },
   coral_block_fire: p => { p.noise(['#c72a2a', '#d93a3a', '#a81f1f'], { clump: 3 }); return p.speck(['#f07a5a'], 14); },
   coral_block_horn: p => { p.noise(['#d8c82a', '#e6d83a', '#b8a81f'], { clump: 3 }); return p.speck(['#fff06a'], 14); },
+  skeleton_skull_side: p => skull(p, ['#b9b9ae', '#cfcfc4', '#e0e0d6']),
+  skeleton_skull_top: p => skull(p, ['#c2c2b7', '#d6d6cc', '#e6e6dc']),
+  skeleton_skull_front: p => skullFace(skull(p, ['#b9b9ae', '#cfcfc4', '#e0e0d6']), '#3a3a36'),
+  wither_skull_side: p => skull(p, ['#1c1c1c', '#262626', '#303030']),
+  wither_skull_top: p => skull(p, ['#202020', '#2a2a2a', '#343434']),
+  wither_skull_front: p => skullFace(skull(p, ['#1c1c1c', '#262626', '#303030']), '#060606'),
   bone_block_side: p => { p.noise(['#e2ddc6', '#d6d0b6', '#ece8d4'], { clump: 3, grain: 0.2 }); for (let x = 2; x < N; x += 5) p.vline(x, 0, 16, '#c9c2a4'); return p; },
   bone_block_top: p => { p.noise(['#e2ddc6', '#d6d0b6'], { clump: 3 }); p.rect(4, 4, 8, 8, '#c9c2a4'); p.rect(6, 6, 4, 4, '#b8b194'); return p; },
   shroomlight: p => { p.noise(['#f09a3a', '#ffb24a', '#ffc86a', '#ffdc8a'], { clump: 3, grain: 0.4 }); return p.speck(['#fff2b8'], 10); },
