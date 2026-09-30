@@ -1,7 +1,7 @@
 // Chunk storage, streaming, edits and queries for one dimension.
-import { CHUNK, HEIGHT, PAD, PS, B, OPAQUE, SOLID, EMIT, VARIANT_MASK, SHAPE_OF, SHAPE, DIM } from '../data/blocks.js?v=munmlnfa';
-import { VOLUME_SIZE } from '../mesh/mesher.js?v=munmlnfa';
-import { selectionBoxes, collisionBoxes } from '../data/shapes.js?v=munmlnfa';
+import { CHUNK, HEIGHT, PAD, PS, B, OPAQUE, SOLID, EMIT, VARIANT_MASK, SHAPE_OF, SHAPE, DIM } from '../data/blocks.js?v=muo1hk09';
+import { VOLUME_SIZE } from '../mesh/mesher.js?v=muo1hk09';
+import { selectionBoxes, collisionBoxes } from '../data/shapes.js?v=muo1hk09';
 
 export const UNLOADED = 255;
 export const chunkKey = (cx, cz) => `${cx},${cz}`;
@@ -32,7 +32,7 @@ export class World {
     const count = Math.max(1, Math.min(4, (navigator.hardwareConcurrency || 4) - 1));
     this.workers = [];
     for (let i = 0; i < count; i++) {
-      const w = new Worker(new URL('../worker.js?v=munmlnfa', import.meta.url), { type: 'module' });
+      const w = new Worker(new URL('../worker.js?v=muo1hk09', import.meta.url), { type: 'module' });
       w.busy = 0;
       w.onmessage = e => this.onWorkerMessage(w, e.data);
       w.onerror = e => console.error('worker error', e.message);
@@ -223,7 +223,19 @@ export class World {
     if (old !== id && this.blockEntities.has(posKey(x, y, z)) && this.cb.onBlockEntityRemoved) this.cb.onBlockEntityRemoved(x, y, z, this.blockEntities.get(posKey(x, y, z)));
     if (old !== id) this.blockEntities.delete(posKey(x, y, z));
     if (notify && this.cb.onBlockChange) this.cb.onBlockChange(x, y, z, old, id, oldM, m);
+    if (this.cb.onEdit && !this.mirroring) this.cb.onEdit(x, y, z, id, m);
     return true;
+  }
+  // A change made on another player's machine: mirror it without re-simulating or re-sending.
+  // Chunks we have not loaded just remember it for when they generate.
+  setBlockRemote(x, y, z, id, m) {
+    if (y < 0 || y >= HEIGHT) return;
+    const cx = Math.floor(x / CHUNK), cz = Math.floor(z / CHUNK), c = this.chunk(cx, cz);
+    if (c && c.ids) { this.mirroring = true; try { this.setBlock(x, y, z, id, m, false); } finally { this.mirroring = false; } return; }
+    const key = chunkKey(cx, cz);
+    if (!this.edits.has(key)) this.edits.set(key, new Map());
+    this.edits.get(key).set((x - cx * CHUNK) + (z - cz * CHUNK) * CHUNK + y * CC, id | (m << 8));
+    if (id !== B.AIR) this.blockEntities.delete(posKey(x, y, z));
   }
 
   serializeEdits() {

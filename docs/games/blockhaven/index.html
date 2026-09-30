@@ -226,6 +226,28 @@
   .stat-card b { display: block; font-size: 26px; color: #8fd16a; }
   .icon-strip { display: flex; flex-wrap: wrap; gap: 2px; margin: 6px 0; }
   .icon-strip img { width: 28px; height: 28px; }
+  /* ---------- multiplayer ---------- */
+  #title .menu .row.pair { gap: calc(var(--bs) * 4px); flex-wrap: nowrap; }
+  .mp-panel { width: min(560px, 94vw); gap: 14px; }
+  .mp-grid { display: grid; grid-template-columns: 110px 1fr; gap: 10px 12px; align-items: center; width: 100%; font-size: 14px; }
+  .mp-grid label { text-align: right; text-shadow: 1px 1px 0 #000; }
+  .mp-skins { display: flex; gap: 8px; }
+  .mp-skin { width: 76px; height: auto; padding: 6px 0 4px; display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 12px; }
+  .mp-skin canvas { width: 32px; height: 64px; image-rendering: pixelated; }
+  .mp-skin.on { border-color: #fff; color: #ffffa0; }
+  .mp-box { width: 100%; background: rgba(0,0,0,0.35); border: 2px solid #000; padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; align-items: center; }
+  .mp-head { font-family: var(--px-font); font-size: 16px; color: #ffffa0; text-shadow: 1px 1px 0 #000; align-self: flex-start; }
+  .mp-join { display: flex; gap: 8px; }
+  #mp-code { width: 150px; text-align: center; text-transform: uppercase; letter-spacing: 0.3em; font: 20px var(--px-font); }
+  .mp-status { min-height: 1.3em; font-size: 13px; color: #ddd; text-align: center; max-width: 480px; line-height: 1.4; }
+  .mp-status.err { color: #ff7a7a; } .mp-status.ok { color: #7aff7a; }
+  .room-info { font-family: var(--px-font); font-size: calc(var(--bs) * 8px); text-align: center; color: #e0e0e0; text-shadow: 1px 1px 0 #000; line-height: 1.5; max-width: 90vw; }
+  .room-info b { color: #ffff55; letter-spacing: 0.15em; font-weight: 400; font-size: 1.3em; }
+  #nametags { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+  .nametag { position: absolute; left: 0; top: 0; font-family: var(--px-font); color: #fff; background: rgba(0,0,0,0.3); padding: 0 0.3em; white-space: nowrap; line-height: 1.25; will-change: transform; }
+  #playerlist { position: absolute; top: calc(var(--gs) * 10px); left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.55); padding: calc(var(--gs) * 2px) calc(var(--gs) * 4px); font: 400 calc(var(--gs) * 8px) / 1.35 var(--px-font); min-width: calc(var(--gs) * 120px); text-align: center; text-shadow: calc(var(--gs) * 1px) calc(var(--gs) * 1px) 0 #3f3f3f; }
+  #playerlist .h { color: #ffff55; margin-bottom: calc(var(--gs) * 2px); }
+  #playerlist .p { background: rgba(255,255,255,0.08); margin-top: calc(var(--gs) * 1px); text-align: left; padding: 0 calc(var(--gs) * 2px); }
   #error { background: #10131c; padding: 30px; text-align: center; font-size: 16px; }
 </style>
 </head>
@@ -244,8 +266,8 @@
   <div class="logo" id="logo" role="img" aria-label="Blockhaven: Random ahh edition"><div class="splash" id="splash"></div></div>
   <div class="menu">
     <button id="btn-play">Singleplayer</button>
-    <button id="btn-demo">Watch the Demo</button>
-    <button id="btn-guide">Guide &amp; Features</button>
+    <button id="btn-mp">Multiplayer</button>
+    <div class="row pair"><button class="half" id="btn-demo">Watch the Demo</button><button class="half" id="btn-guide">Guide &amp; Features</button></div>
     <div class="row bottom"><button class="sq" id="btn-mute" title="Sound on/off"><img id="mute-icon" alt=""></button><button class="half" id="btn-settings">Options...</button><button class="half" id="btn-controls">Controls</button><button class="sq" id="btn-full" title="Fullscreen"><img id="full-icon" alt=""></button></div>
   </div>
   <div class="footer"><span>Blockhaven 1.20.1</span><span>Every pixel made in code. Not affiliated with Mojang.</span></div>
@@ -282,6 +304,8 @@
 </div>
 
 <div id="hud" class="hidden">
+  <div id="nametags"></div>
+  <div id="playerlist" class="hidden"></div>
   <div id="crosshair"></div>
   <div id="attack-ind" class="hidden"><div></div></div>
   <div id="boss" class="hidden"><div class="n"></div><div class="b"><div></div></div></div>
@@ -311,9 +335,33 @@
 <div id="pause" class="screen dim hidden">
   <h2>Game Menu</h2>
   <button id="btn-resume">Back to Game</button>
+  <button id="btn-open">Open to Friends</button>
+  <div id="room-info" class="room-info hidden"></div>
   <div class="row"><button class="half" id="btn-settings2">Settings</button><button class="half" id="btn-controls2">Controls</button></div>
   <button id="btn-guide2">Guide &amp; Commands</button>
   <button id="btn-quit">Save and Quit to Title</button>
+</div>
+
+<div id="mp" class="screen dim hidden">
+  <div class="panel mp-panel">
+    <h3>Multiplayer</h3>
+    <div class="mp-grid">
+      <label for="mp-name">Your name</label>
+      <input type="text" id="mp-name" maxlength="16" spellcheck="false" autocomplete="off">
+      <label>Skin</label>
+      <div id="mp-skins" class="mp-skins"></div>
+    </div>
+    <div class="mp-box">
+      <div class="mp-head">Join a friend's world</div>
+      <div class="mp-join"><input type="text" id="mp-code" maxlength="5" placeholder="CODE" spellcheck="false" autocomplete="off"><button class="half" id="btn-mp-join">Join World</button></div>
+      <div id="mp-status" class="mp-status"></div>
+    </div>
+    <div class="mp-box">
+      <div class="mp-head">Host your own</div>
+      <div class="hint-text">Open one of your worlds, press <b>Esc</b> and choose <b>Open to Friends</b>, then share the code. Up to 5 players, on the same Wi-Fi or anywhere online.</div>
+    </div>
+    <div class="row"><button class="half" id="btn-mp-host">Host a World…</button><button class="half" id="btn-mp-back">Back</button></div>
+  </div>
 </div>
 
 <div id="death" class="screen hidden">
@@ -379,6 +427,7 @@
 </div>
 
 <div id="error" class="screen hidden"></div>
-<script type="module" src="js/main.js?v=munmlnfa"></script>
+<script defer src="net-config.js?v=muo1hk09"></script>
+<script type="module" src="js/main.js?v=muo1hk09"></script>
 </body>
 </html>

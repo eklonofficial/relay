@@ -1,11 +1,11 @@
 // The in-game guide: features, commands, crafting, farming, combat, villagers, dimensions and graphics.
-import { MusicPlayer } from './music.js?v=munmlnfa';
-import { BLOCKS, BLOCK_ITEMS, TEXTURES } from '../data/blocks.js?v=munmlnfa';
-import { ITEMS, I } from '../data/items.js?v=munmlnfa';
-import { SHAPED, SHAPELESS, SMELTING } from '../data/recipes.js?v=munmlnfa';
-import { MOBS } from '../data/mobs.js?v=munmlnfa';
-import { BIOMES } from '../gen/biomes.js?v=munmlnfa';
-import { COMMANDS } from './commands.js?v=munmlnfa';
+import { MusicPlayer } from './music.js?v=muo1hk09';
+import { BLOCKS, BLOCK_ITEMS, TEXTURES } from '../data/blocks.js?v=muo1hk09';
+import { ITEMS, I } from '../data/items.js?v=muo1hk09';
+import { SHAPED, SHAPELESS, SMELTING } from '../data/recipes.js?v=muo1hk09';
+import { MOBS } from '../data/mobs.js?v=muo1hk09';
+import { BIOMES } from '../gen/biomes.js?v=muo1hk09';
+import { COMMANDS } from './commands.js?v=muo1hk09';
 
 const esc = s => String(s).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
 
@@ -58,6 +58,19 @@ export function guideSections(icons) {
         <tr><td>Netherite</td><td>Diamond gear + netherite ingot (4 scrap + 4 gold)</td></tr>
       </table>
       <p>Gold tools are the fastest but break quickly. Using the wrong tool is slow and many blocks drop nothing without the right pickaxe tier.</p>`,
+    Multiplayer: `
+      <h4>Play with friends</h4>
+      <p>Up to 5 players can share a world, on the same Wi-Fi or anywhere online. It is free and needs no account.</p>
+      <table>
+        <tr><td>Host</td><td>Open one of your worlds, press <code>Esc</code> and choose <b>Open to Friends</b>. Share the 5-letter room code shown in the menu.</td></tr>
+        <tr><td>Join</td><td>Title screen → <b>Multiplayer</b>, pick your name and one of the four skins, type the code and press <b>Join World</b>.</td></tr>
+        <tr><td>Tab</td><td>Hold to see who is online and the room code.</td></tr>
+        <tr><td>T</td><td>Chat with everyone.</td></tr>
+      </table>
+      <h4>How it works</h4>
+      <p>The host's world is the real one: it is saved on the host's computer along with every guest's inventory and position, so guests can leave and come back later. Block changes, chests and furnaces, chat, day/night and weather are shared. Name tags show through walls at any distance, except for sneaking players.</p>
+      <p>PvP is on: swords, axes, arrows and explosions hurt other players, with armour, shields and knockback working as usual.</p>
+      <p>If joining fails from a different network, the network may block direct connections; see MULTIPLAYER.md in the project for the free fix.</p>`,
     Commands: `
       <p>Open chat with <code>T</code> or <code>/</code>. Commands need <b>Allow Cheats</b> (set when creating a world). Press <code>Tab</code> to complete names, and <code>↑</code>/<code>↓</code> for history. Coordinates accept <code>~</code> for "relative to me", e.g. <code>/tp ~ ~20 ~</code>.</p>
       <table>${Object.entries(COMMANDS).map(([k, v]) => `<tr><td>/${k} ${esc(v.args)}</td><td>${esc(v.desc)}</td></tr>`).join('')}</table>

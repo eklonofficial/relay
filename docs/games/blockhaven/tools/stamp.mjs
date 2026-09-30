@@ -15,5 +15,5 @@ const stamp = s => s
 let n = 0;
 for (const f of files) { const s = readFileSync(f, 'utf8'), t = stamp(s); if (t !== s) { writeFileSync(f, t); n++; } }
 const html = join(root, 'index.html');
-writeFileSync(html, readFileSync(html, 'utf8').replace(/src="js\/main\.js(\?v=[^"]*)?"/, `src="js/main.js?v=${v}"`));
+writeFileSync(html, readFileSync(html, 'utf8').replace(/src="js\/main\.js(\?v=[^"]*)?"/, `src="js/main.js?v=${v}"`).replace(/src="net-config\.js(\?v=[^"]*)?"/, `src="net-config.js?v=${v}"`));
 console.log(`stamped ${n} modules + index.html with v=${v}`);

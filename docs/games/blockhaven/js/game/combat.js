@@ -1,7 +1,7 @@
 // Shared combat rules (Java Edition 1.9+ numbers). Mobs, the local player and — once multiplayer
 // lands — remote players all resolve hits through these functions, so PvE and PvP behave the same:
 // attack cooldown, crits, sweeps, knockback, armor and toughness, and invulnerability frames.
-import { I } from '../data/items.js?v=munmlnfa';
+import { I } from '../data/items.js?v=muo1hk09';
 
 // Damage kinds that ignore armor.
 export const ARMOR_BYPASS = new Set(['fall', 'drown', 'fire', 'starve', 'magic', 'void', 'kill', 'wither', 'poison', 'lava', 'suffocate']);

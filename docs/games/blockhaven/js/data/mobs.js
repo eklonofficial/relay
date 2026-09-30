@@ -1,6 +1,6 @@
 // Mob roster: stats, AI archetype, drops, box models and procedural skins.
 // Model space: 1 unit = 1/16 block, feet at y=0, the mob faces -Z.
-import { D, pal, shade as shadeHex } from '../render/mobtex.js?v=munmlnfa';
+import { D, pal, shade as shadeHex } from '../render/mobtex.js?v=muo1hk09';
 
 const box = (o, s, style, extra = {}) => ({ o, s, style, ...extra });
 const part = (pivot, boxes, extra = {}) => ({ pivot, boxes, ...extra });
@@ -431,11 +431,20 @@ mob('ender_dragon', {
 MOBS.villager.professionModel = prof => villagerModel(PROFESSION_COLORS[prof] || '#6a4a3a', prof === 'librarian' ? { all: D.band(0.1, 0.25, '#8a3a2a') } : prof === 'cleric' ? { all: D.band(0.3, 0.4, '#e0c040') } : prof === 'farmer' ? { all: D.band(0.0, 0.15, '#e8d890') } : null)();
 
 // The player's own model (first-person arm and third-person view).
-export function playerModel() {
-  const skin = '#c8926a';
+// The four default player skins players pick from in Multiplayer: [name, skin tone, hair,
+// hair length (0 short .. 1 long), eye colour, shirt, trousers, shoes].
+export const PLAYER_SKINS = [
+  ['Classic', '#c8926a', '#3a2412', 0.25, '#3a4ab8', '#2aa8a8', '#3a3aa8', '#5a5a5a'],
+  ['Ranger', '#eac19a', '#c8621e', 0.9, '#3a8a3a', '#5a9a3a', '#6a4a2a', '#3a2a1a'],
+  ['Ember', '#8a5a3a', '#1a1414', 0.3, '#4a2a14', '#c83a3a', '#2a2a2e', '#e8e8e8'],
+  ['Frost', '#f0cfb0', '#e8d890', 0.55, '#3aa8d8', '#7a4ab8', '#8a8a92', '#3a3a44'],
+];
+export function playerModel(v = 0) {
+  const [, skin, hair, len, eye, shirt, pants, shoes] = PLAYER_SKINS[v] || PLAYER_SKINS[0];
+  const side = D.band(0, 0.3 + len * 0.55, hair);
   const m = humanoid({
-    head: S(skin, 'noise', { front: D.all(D.band(0, 0.25, '#3a2412'), eyes({ c: '#ffffff', pupil: '#3a4ab8', y: 0.45, sep: 0.2 }), D.rect(0.35, 0.72, 0.3, 0.1, '#8a4a3a')), top: D.rect(0, 0, 1, 1, '#3a2412'), right: D.band(0, 0.35, '#3a2412'), left: D.band(0, 0.35, '#3a2412'), back: D.band(0, 0.7, '#3a2412') }, 0.06),
-    body: S('#2aa8a8', 'noise', null, 0.07), arm: S(skin, 'noise', { all: D.band(0, 0.3, '#2aa8a8') }, 0.06), leg: S('#3a3aa8', 'noise', { all: D.band(0.85, 1, '#5a5a5a') }, 0.07),
+    head: S(skin, 'noise', { front: D.all(D.band(0, 0.25, hair), eyes({ c: '#ffffff', pupil: eye, y: 0.45, sep: 0.2 }), D.rect(0.35, 0.72, 0.3, 0.1, shadeHex(skin, 0.7))), top: D.rect(0, 0, 1, 1, hair), right: side, left: side, back: D.band(0, 0.7 + len * 0.3, hair) }, 0.06),
+    body: S(shirt, 'noise', null, 0.07), arm: S(skin, 'noise', { all: D.band(0, 0.3, shirt) }, 0.06), leg: S(pants, 'noise', { all: D.band(0.85, 1, shoes) }, 0.07),
   });
   return m;
 }
