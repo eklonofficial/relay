@@ -5,10 +5,28 @@ import * as T from '../gen/trees.js';
 
 const NB4 = [[1, 0], [-1, 0], [0, 1], [0, -1]];
 const k3 = (x, y, z) => `${x},${y},${z}`;
+// Fire behaviour per block: [burn chance per fire tick, spread encouragement] (after Java Edition).
+const FLAME = new Map();
+function flameOf(id) {
+  if (FLAME.has(id)) return FLAME.get(id);
+  let v = null;
+  const b = BLOCKS[id];
+  if (id === B.LEAVES || id === B.WOOL || id === B.CARPET || id === B.HAY_BLOCK || id === B.MOSS_CARPET) v = [0.6, 30];
+  else if (id === B.PLANT || id === B.FLOWER || id === B.VINE || id === B.SWEET_BERRY_BUSH || id === B.SAPLING || id === B.CAVE_VINES || id === B.GLOW_LICHEN) v = [1, 60];
+  else if (id === B.BOOKSHELF) v = [0.3, 30];
+  else if (id === B.LOG) v = [0.05, 5];
+  else if (id === B.PLANKS || id === B.FENCE || id === B.CRAFTING_TABLE || id === B.BAMBOO) v = [0.2, 5];
+  else if (id === B.TNT) v = [1, 15];
+  else if (b && b.flammable) v = [0.2, 5];
+  FLAME.set(id, v);
+  return v;
+}
+const DIRS6 = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]];
+
 const NEEDS_GROUND = new Set([SHAPE.CROSS, SHAPE.CROP, SHAPE.CARPET, SHAPE.SNOW, SHAPE.RAIL, SHAPE.DOOR, SHAPE.FIRE, SHAPE.CAMPFIRE]);
 
 export class Sim {
-  constructor(game) { this.game = game; this.queue = new Map(); this.time = 0; }
+  constructor(game) { this.game = game; this.queue = new Map(); this.time = 0; this.fires = new Map(); }
   get world() { return this.game.world; }
   schedule(x, y, z, delay) {
     const key = k3(x, y, z);
@@ -21,6 +39,7 @@ export class Sim {
 
   // Called for every block change.
   onChange(x, y, z) {
+    if (this.world.getBlock(x, y, z) === B.FIRE) this.trackFire(x, y, z); else this.fires.delete(k3(x, y, z));
     for (const [dx, dy, dz] of [[0, 0, 0], [1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]]) {
       const id = this.world.getBlock(x + dx, y + dy, z + dz);
       if (id === UNLOADED) continue;
@@ -37,7 +56,64 @@ export class Sim {
     const due = [];
     for (const [key, u] of this.queue) { if (u.at <= this.time) { due.push(u); this.queue.delete(key); if (due.length >= budget) break; } }
     for (const u of due) this.tick(u.x, u.y, u.z);
+    this.fireTicks();
     this.randomTicks(dt);
+  }
+
+  // ---------------- fire ----------------
+  trackFire(x, y, z, age = 0) {
+    const key = k3(x, y, z);
+    if (!this.fires.has(key)) this.fires.set(key, { x, y, z, age, next: this.time + 0.6 + Math.random() * 1.2 });
+  }
+  fireTicks() {
+    let n = 0;
+    for (const [key, f] of this.fires) {
+      if (f.next > this.time) continue;
+      f.next = this.time + 1.1 + Math.random() * 1.1;
+      this.fireTick(key, f);
+      if (++n > 60) break;
+    }
+  }
+  flammableAround(x, y, z) {
+    for (const [dx, dy, dz] of DIRS6) if (flameOf(this.world.getBlock(x + dx, y + dy, z + dz))) return true;
+    return false;
+  }
+  fireTick(key, f) {
+    const g = this.game, w = this.world, { x, y, z } = f;
+    const id = w.getBlock(x, y, z);
+    if (id === UNLOADED) return;
+    if (id !== B.FIRE) { this.fires.delete(key); return; }
+    if (!g.rules.doFireTick) return;
+    const below = w.getBlock(x, y - 1, z);
+    const eternal = below === B.NETHERRACK || (below === B.BASALT && (w.getMeta(x, y - 1, z) & 7) === 4);
+    const soul = (w.getMeta(x, y, z) & 1) === 1;
+    if (!eternal && g.raining && w.lightAt(x, y, z).sky >= 15 && Math.random() < 0.6) { g.setBlock(x, y, z, B.AIR, 0); return; }
+    f.age = Math.min(15, f.age + Math.floor(Math.random() * 3));
+    const fuel = this.flammableAround(x, y, z);
+    if (!eternal && !soul) {
+      if (!fuel) { if (!SOLID[below] || f.age > 3) { g.setBlock(x, y, z, B.AIR, 0); return; } }
+      else if (f.age >= 15 && !flameOf(below) && Math.random() < 0.25) { g.setBlock(x, y, z, B.AIR, 0); return; }
+    }
+    if (soul || eternal && !fuel) return;
+    // Burn neighbours: they either catch fire themselves or crumble away.
+    for (const [dx, dy, dz] of DIRS6) {
+      const nx = x + dx, ny = y + dy, nz = z + dz, n = w.getBlock(nx, ny, nz), fl = flameOf(n);
+      if (!fl || Math.random() >= fl[0] * 0.5) continue;
+      if (n === B.TNT) { g.igniteTnt(nx, ny, nz); continue; }
+      if (Math.random() < 0.6 - f.age * 0.02) { g.setBlock(nx, ny, nz, B.FIRE, 0); this.trackFire(nx, ny, nz, Math.min(15, f.age + 2)); }
+      else g.setBlock(nx, ny, nz, B.AIR, 0);
+    }
+    // Spread through the air into spots next to fuel, more easily upwards.
+    for (let dy = -1; dy <= 4; dy++) for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) {
+      if (!dx && !dy && !dz) continue;
+      const nx = x + dx, ny = y + dy, nz = z + dz;
+      if (w.getBlock(nx, ny, nz) !== B.AIR) continue;
+      let enc = 0;
+      for (const [ex, ey, ez] of DIRS6) { const fl = flameOf(w.getBlock(nx + ex, ny + ey, nz + ez)); if (fl) enc = Math.max(enc, fl[1]); }
+      if (!enc) continue;
+      const chance = enc / 100 * 0.35 / (dy > 1 ? dy : 1);
+      if (Math.random() < chance) { g.setBlock(nx, ny, nz, B.FIRE, 0); this.trackFire(nx, ny, nz, Math.min(15, f.age + 1)); }
+    }
   }
 
   tick(x, y, z) {
@@ -196,21 +272,7 @@ export class Sim {
         if (w.getBlock(nx, ny, nz) === B.DIRT && w.getMeta(nx, ny, nz) === 0 && !OPAQUE[w.getBlock(nx, ny + 1, nz)] && w.lightAt(nx, ny + 1, nz).sky >= 4) g.setBlock(nx, ny, nz, B.GRASS_BLOCK, 0);
         return;
       }
-      case B.FIRE: {
-        if (!g.rules.doFireTick) return;
-        const below = w.getBlock(x, y - 1, z);
-        const eternal = below === B.NETHERRACK || (below === B.BASALT && (w.getMeta(x, y - 1, z) & 7) === 4);
-        if (g.raining && w.lightAt(x, y, z).sky >= 15 && !eternal) { g.setBlock(x, y, z, B.AIR, 0); return; }
-        for (const [dx, dy, dz] of [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]]) {
-          const n = w.getBlock(x + dx, y + dy, z + dz);
-          if (BLOCKS[n] && BLOCKS[n].flammable && Math.random() < 0.25) {
-            if (n === B.TNT) { g.igniteTnt(x + dx, y + dy, z + dz); continue; }
-            g.setBlock(x + dx, y + dy, z + dz, Math.random() < 0.6 ? B.FIRE : B.AIR, 0);
-          }
-        }
-        if (!eternal && Math.random() < 0.3) g.setBlock(x, y, z, B.AIR, 0);
-        return;
-      }
+      case B.FIRE: this.trackFire(x, y, z); return;
       case B.CACTUS: case B.SUGAR_CANE: case B.BAMBOO: {
         if (w.getBlock(x, y + 1, z) !== B.AIR || Math.random() > 0.2) return;
         let h = 1; while (w.getBlock(x, y - h, z) === id) h++;

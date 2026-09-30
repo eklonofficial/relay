@@ -131,7 +131,7 @@ const wolfModel = (col, tame) => () => ({
     tail: part([0, 12, 5], [box([-1, -8, 0], [2, 8, 2], S(col, 'fur'))], { rot: [0.6, 0, 0] }),
   },
 });
-mob('wolf', { hw: 0.3, h: 0.85, health: 8, speed: 3.4, kind: 'neutral', ai: 'wolf', attack: { dmg: 4, cd: 1 }, food: ['beef', 'cooked_beef', 'porkchop', 'cooked_porkchop', 'chicken', 'mutton', 'rotten_flesh'], tameItem: 'bone', egg: ['#d8d8d8', '#c8b8a0'], drops: [], xp: [1, 3], sound: 'wolf', model: wolfModel('#d8d4cc') });
+mob('wolf', { chase: 5.4, hw: 0.3, h: 0.85, health: 8, speed: 3.4, kind: 'neutral', ai: 'wolf', attack: { dmg: 4, cd: 1 }, food: ['beef', 'cooked_beef', 'porkchop', 'cooked_porkchop', 'chicken', 'mutton', 'rotten_flesh'], tameItem: 'bone', egg: ['#d8d8d8', '#c8b8a0'], drops: [], xp: [1, 3], sound: 'wolf', model: wolfModel('#d8d4cc') });
 mob('fox', {
   hw: 0.3, h: 0.7, health: 10, speed: 3.6, kind: 'passive', ai: 'animal', food: ['sweet_berries', 'glow_berries'], egg: ['#d87a2a', '#f0e0c8'], drops: [], xp: [1, 3], sound: 'fox', nocturnalHunter: true,
   model: () => { const m = wolfModel('#d8762a')(); m.parts.head.boxes[1].style = S('#f0e8e0', 'fur', face(D.rect(0.3, 0, 0.4, 0.3, '#1a1a1a'))); m.parts.tail.boxes = [box([-2, -9, 0], [4, 9, 4], S('#d8762a', 'fur', { all: D.band(0.8, 1, '#f0f0f0') }))]; m.parts.head.boxes[2].style = S('#2a1a10'); m.parts.head.boxes[3].style = S('#2a1a10'); return m; },
@@ -144,7 +144,7 @@ mob('panda', {
   hw: 0.65, h: 1.25, health: 20, speed: 1.6, kind: 'neutral', ai: 'animal', food: ['bamboo'], egg: ['#f0f0f0', '#1a1a1a'], drops: [['bamboo', 0, 2]], xp: [1, 3], sound: 'panda', attack: { dmg: 6, cd: 1 },
   model: () => { const m = quadruped({ body: S('#f0f0f0', 'fur', { all: D.band(0, 0.45, '#1f1f1f') }, 0.05), head: S('#f0f0f0', 'fur', face(D.rect(0.12, 0.3, 0.3, 0.35, '#1f1f1f'), D.rect(0.58, 0.3, 0.3, 0.35, '#1f1f1f'), D.rect(0.2, 0.42, 0.1, 0.1, '#ffffff'), D.rect(0.7, 0.42, 0.1, 0.1, '#ffffff'), D.rect(0.4, 0.7, 0.2, 0.15, '#1f1f1f')), 0.05), leg: S('#1f1f1f', 'fur') }, { legH: 9, legW: 6, bodyW: 13, bodyH: 10, bodyL: 18, headW: 13, headH: 10, headL: 9 }); m.parts.head.boxes.push(box([-6, 4, -2], [3, 3, 1], S('#1f1f1f')), box([3, 4, -2], [3, 3, 1], S('#1f1f1f'))); return m; },
 });
-mob('polar_bear', {
+mob('polar_bear', { chase: 4.6,
   hw: 0.7, h: 1.4, health: 30, speed: 2.5, kind: 'neutral', ai: 'neutral', attack: { dmg: 6, cd: 1 }, egg: ['#f0f0f0', '#9a9a9a'], drops: [['cod', 0, 2], ['salmon', 0, 1]], xp: [1, 3], sound: 'bear',
   model: () => { const m = quadruped({ body: S('#f0f0f0', 'fur', null, 0.05), head: S('#f0f0f0', 'fur', face(eyes({ c: '#1a1a1a', pupil: null, y: 0.3, sep: 0.3 })), 0.05), leg: S('#e8e8e8', 'fur', null, 0.05) }, { legH: 10, legW: 6, bodyW: 14, bodyH: 12, bodyL: 22, headW: 7, headH: 7, headL: 7 }); m.parts.head.boxes.push(box([-2, -3.5, -10], [4, 3, 3], S('#e0e0e0', 'fur', face(D.rect(0.3, 0, 0.4, 0.4, '#1a1a1a'))))); return m; },
 });
@@ -255,7 +255,7 @@ export const PROFESSIONS = ['farmer', 'librarian', 'armorer', 'weaponsmith', 'to
 export const PROFESSION_COLORS = { farmer: '#c8a860', librarian: '#e8e8e8', armorer: '#3a3a3a', weaponsmith: '#4a4a4a', toolsmith: '#5a4030', butcher: '#e8e8e8', cleric: '#6a3a8a', fletcher: '#6a8a3a', leatherworker: '#8a5a2a', shepherd: '#a88a6a', fisherman: '#3a6a8a', mason: '#6a6a5a', cartographer: '#e0d8b0', nitwit: '#3a8a3a' };
 mob('villager', { hw: 0.3, h: 1.95, health: 20, speed: 2.1, kind: 'utility', ai: 'villager', egg: ['#563c33', '#bd8b72'], drops: [], xp: [0, 0], sound: 'villager', persistent: true, model: villagerModel('#6a4a3a') });
 mob('wandering_trader', { hw: 0.3, h: 1.95, health: 20, speed: 2.3, kind: 'utility', ai: 'villager', egg: ['#456296', '#eaa430'], drops: [], xp: [0, 0], sound: 'villager', model: villagerModel('#2a4a8a', { all: D.band(0.4, 0.5, '#e0a030') }) });
-mob('iron_golem', {
+mob('iron_golem', { chase: 3.6,
   hw: 0.7, h: 2.7, health: 100, speed: 1.6, kind: 'utility', ai: 'golem', attack: { dmg: 11, cd: 1.3, fling: 1 }, egg: ['#dbcdc1', '#74a332'], drops: [['iron_ingot', 3, 5], ['poppy', 0, 2]], xp: [0, 0], sound: 'golem', knockbackResist: 1, persistent: true,
   model: () => { const st = S('#d8d0c4', 'noise', { all: D.spots('#8a8a6a', 4, 1) }, 0.07); const vine = S('#d8d0c4', 'noise', { all: D.all(D.spots('#8a8a6a', 3, 1), D.spots('#4a8a2a', 3, 2)) }, 0.07);
     return { anim: 'golem', eye: 38, parts: {
@@ -280,20 +280,20 @@ const zombieLike = (skin, shirt, pants, eye = '#1a1a1a') => () => {
   m.anim = 'zombie'; return m;
 };
 const undead = { kind: 'hostile', ai: 'melee', undead: true, xp: [5, 5] };
-mob('zombie', { ...undead, armor: 2, hw: 0.3, h: 1.95, health: 20, speed: 2.3, attack: { dmg: 3, cd: 1 }, burns: true, egg: ['#00afaf', '#799c65'], drops: [['rotten_flesh', 0, 2], ['iron_ingot', 0, 1, 0.025], ['carrot', 0, 1, 0.025], ['potato', 0, 1, 0.025]], sound: 'zombie', breaksDoors: true, model: zombieLike(ZOMBIE_SKIN, '#2a8aa8', '#3a3a8a') });
-mob('husk', { ...undead, armor: 2, hw: 0.3, h: 1.95, health: 20, speed: 2.3, attack: { dmg: 3, cd: 1, hunger: 7 }, egg: ['#797061', '#e6cc94'], drops: [['rotten_flesh', 0, 2]], sound: 'zombie', model: zombieLike(HUSK, '#8a7a5a', '#6a5a3a') });
-mob('drowned', { ...undead, armor: 2, hw: 0.3, h: 1.95, health: 20, speed: 2.3, swim: true, amphibious: true, attack: { dmg: 3, cd: 1, trident: 0.06 }, burns: true, egg: ['#8ff1d7', '#799c65'], drops: [['rotten_flesh', 0, 2], ['copper_ingot', 0, 1, 0.11]], sound: 'zombie', model: zombieLike(DROWNED, '#3a8a6a', '#2a6a5a', '#9af0e8') });
-mob('zombie_villager', { ...undead, armor: 2, hw: 0.3, h: 1.95, health: 20, speed: 2.3, attack: { dmg: 3, cd: 1 }, burns: true, egg: ['#563c33', '#799c65'], drops: [['rotten_flesh', 0, 2]], sound: 'zombie', curable: true,
+mob('zombie', { chase: 4.0, ...undead, armor: 2, hw: 0.3, h: 1.95, health: 20, speed: 2.3, attack: { dmg: 3, cd: 1 }, burns: true, egg: ['#00afaf', '#799c65'], drops: [['rotten_flesh', 0, 2], ['iron_ingot', 0, 1, 0.025], ['carrot', 0, 1, 0.025], ['potato', 0, 1, 0.025]], sound: 'zombie', breaksDoors: true, model: zombieLike(ZOMBIE_SKIN, '#2a8aa8', '#3a3a8a') });
+mob('husk', { chase: 4.0, ...undead, armor: 2, hw: 0.3, h: 1.95, health: 20, speed: 2.3, attack: { dmg: 3, cd: 1, hunger: 7 }, egg: ['#797061', '#e6cc94'], drops: [['rotten_flesh', 0, 2]], sound: 'zombie', model: zombieLike(HUSK, '#8a7a5a', '#6a5a3a') });
+mob('drowned', { chase: 4.0, ...undead, armor: 2, hw: 0.3, h: 1.95, health: 20, speed: 2.3, swim: true, amphibious: true, attack: { dmg: 3, cd: 1, trident: 0.06 }, burns: true, egg: ['#8ff1d7', '#799c65'], drops: [['rotten_flesh', 0, 2], ['copper_ingot', 0, 1, 0.11]], sound: 'zombie', model: zombieLike(DROWNED, '#3a8a6a', '#2a6a5a', '#9af0e8') });
+mob('zombie_villager', { chase: 4.0, ...undead, armor: 2, hw: 0.3, h: 1.95, health: 20, speed: 2.3, attack: { dmg: 3, cd: 1 }, burns: true, egg: ['#563c33', '#799c65'], drops: [['rotten_flesh', 0, 2]], sound: 'zombie', curable: true,
   model: () => { const m = humanoid({ head: S(ZOMBIE_SKIN, 'noise', face(eyes({ c: '#b82020', pupil: '#1a1a1a', y: 0.35 }))), body: S('#6a4a3a'), robe: S('#6a4a3a'), arm: S(ZOMBIE_SKIN), leg: S('#5a4a3a'), nose: S(ZOMBIE_SKIN) }, { headH: 10, bodyD: 6, nose: true, robe: true }); m.anim = 'zombie'; return m; } });
 const skeletonModel = (bone, rag, eye = '#1a1a1a') => () => {
   const b = S(bone, 'noise', null, 0.08);
   const m = humanoid({ head: S(bone, 'noise', face(D.rect(0.15, 0.4, 0.25, 0.2, eye), D.rect(0.6, 0.4, 0.25, 0.2, eye), D.rect(0.42, 0.62, 0.16, 0.12, eye), D.rect(0.2, 0.8, 0.6, 0.08, '#6a6a6a')), 0.08), body: rag ? S(rag, 'noise') : S(bone, 'noise', { front: D.stripes('#3a3a3a', 3) }, 0.08), arm: b, leg: b }, { thin: true });
   m.anim = 'skeleton'; return m;
 };
-mob('skeleton', { ...undead, hw: 0.3, h: 1.99, health: 20, speed: 2.4, attack: { ranged: 'arrow', range: 15, cd: 2 }, burns: true, egg: ['#c1c1c1', '#494949'], drops: [['bone', 0, 2], ['arrow', 0, 2]], sound: 'skeleton', holds: 'bow', model: skeletonModel('#c8c8c0') });
-mob('stray', { ...undead, hw: 0.3, h: 1.99, health: 20, speed: 2.4, attack: { ranged: 'arrow', range: 15, cd: 2, slow: true }, burns: true, egg: ['#617677', '#ddeaea'], drops: [['bone', 0, 2], ['arrow', 0, 2]], sound: 'skeleton', holds: 'bow', model: skeletonModel('#a8b8b8', '#6a8888') });
-mob('wither_skeleton', { ...undead, hw: 0.35, h: 2.4, scale: 1.2, health: 20, speed: 2.5, attack: { dmg: 8, cd: 1, wither: 10 }, fireImmune: true, egg: ['#141414', '#474d4d'], drops: [['coal', 0, 1], ['bone', 0, 2], ['wither_skeleton_skull', 0, 1, 0.025]], sound: 'skeleton', holds: 'stone_sword', model: skeletonModel('#2a2a2a', null, '#8a8a8a') });
-mob('zombified_piglin', { ...undead, kind: 'neutral', ai: 'melee', hw: 0.3, h: 1.95, health: 20, speed: 2.3, attack: { dmg: 8, cd: 1 }, fireImmune: true, egg: ['#ea9393', '#4c7129'], drops: [['rotten_flesh', 0, 1], ['gold_nugget', 0, 1], ['gold_ingot', 0, 1, 0.025]], sound: 'zpiglin', holds: 'golden_sword', groupAnger: true,
+mob('skeleton', { chase: 3.9, ...undead, hw: 0.3, h: 1.99, health: 20, speed: 2.4, attack: { ranged: 'arrow', range: 15, cd: 2 }, burns: true, egg: ['#c1c1c1', '#494949'], drops: [['bone', 0, 2], ['arrow', 0, 2]], sound: 'skeleton', holds: 'bow', model: skeletonModel('#c8c8c0') });
+mob('stray', { chase: 3.9, ...undead, hw: 0.3, h: 1.99, health: 20, speed: 2.4, attack: { ranged: 'arrow', range: 15, cd: 2, slow: true }, burns: true, egg: ['#617677', '#ddeaea'], drops: [['bone', 0, 2], ['arrow', 0, 2]], sound: 'skeleton', holds: 'bow', model: skeletonModel('#a8b8b8', '#6a8888') });
+mob('wither_skeleton', { chase: 4.4, ...undead, hw: 0.35, h: 2.4, scale: 1.2, health: 20, speed: 2.5, attack: { dmg: 8, cd: 1, wither: 10 }, fireImmune: true, egg: ['#141414', '#474d4d'], drops: [['coal', 0, 1], ['bone', 0, 2], ['wither_skeleton_skull', 0, 1, 0.025]], sound: 'skeleton', holds: 'stone_sword', model: skeletonModel('#2a2a2a', null, '#8a8a8a') });
+mob('zombified_piglin', { chase: 4.6, ...undead, kind: 'neutral', ai: 'melee', hw: 0.3, h: 1.95, health: 20, speed: 2.3, attack: { dmg: 8, cd: 1 }, fireImmune: true, egg: ['#ea9393', '#4c7129'], drops: [['rotten_flesh', 0, 1], ['gold_nugget', 0, 1], ['gold_ingot', 0, 1, 0.025]], sound: 'zpiglin', holds: 'golden_sword', groupAnger: true,
   model: () => { const m = humanoid({ head: S('#e89a8a', 'noise', face(eyes({ c: '#ffffff', pupil: '#1a1a1a', y: 0.3 }), D.spots('#5a8a3a', 3, 2))), body: S('#8a6a4a', 'noise', { all: D.spots('#5a8a3a', 3, 2) }), arm: S('#e89a8a', 'noise', { all: D.spots('#5a8a3a', 2, 2) }), leg: S('#6a4a3a') }); m.parts.head.boxes[0].s = [10, 8, 8]; m.parts.head.boxes[0].o = [-5, 0, -4]; m.parts.head.boxes.push(box([-2, 0, -5], [4, 4, 1], S('#e8a0a0', 'flat', face(D.rect(0.2, 0.3, 0.2, 0.4, '#8a4a4a'), D.rect(0.6, 0.3, 0.2, 0.4, '#8a4a4a'))))); m.anim = 'zombie'; return m; } });
 mob('phantom', {
   hw: 0.45, h: 0.5, health: 20, speed: 7, kind: 'hostile', ai: 'phantom', flying: true, undead: true, burns: true, attack: { dmg: 6, cd: 1.5 }, egg: ['#43518a', '#88ff00'], drops: [['phantom_membrane', 0, 1]], xp: [5, 5], sound: 'phantom',
@@ -307,7 +307,7 @@ mob('phantom', {
 });
 
 // --- other hostiles ---
-mob('creeper', {
+mob('creeper', { chase: 4.0,
   hw: 0.3, h: 1.7, health: 20, speed: 2.4, kind: 'hostile', ai: 'creeper', egg: ['#0da70b', '#000000'], drops: [['gunpowder', 0, 2]], xp: [5, 5], sound: 'creeper',
   model: () => { const c = S('#5ec04a', 'noise', null, 0.2);
     return { anim: 'creeper', eye: 22, parts: {
@@ -326,11 +326,15 @@ const spiderModel = (col, eyeCol) => () => {
   for (let i = 0; i < 8; i++) { const side = i < 4 ? 1 : -1, row = i % 4; parts[`leg${i}`] = part([side * 3, 9, -2 + row * 1.5], [box(side > 0 ? [0, -1, -1] : [-16, -1, -1], [16, 2, 2], st)], { rot: [0, (row - 1.5) * 0.35 * side, side * 0.6] }); }
   return { anim: 'spider', eye: 9, parts };
 };
-mob('spider', { hw: 0.7, h: 0.9, health: 16, speed: 3, kind: 'hostile', ai: 'melee', climbs: true, neutralInDay: true, attack: { dmg: 2, cd: 1, leap: true }, egg: ['#342d27', '#a80e0e'], drops: [['string', 0, 2], ['spider_eye', 0, 1, 0.33]], xp: [5, 5], sound: 'spider', model: spiderModel('#3a302a', '#e02020') });
-mob('cave_spider', { hw: 0.35, h: 0.5, scale: 0.7, health: 12, speed: 3.2, kind: 'hostile', ai: 'melee', climbs: true, attack: { dmg: 2, cd: 1, poison: 7 }, egg: ['#0c424e', '#a80e0e'], drops: [['string', 0, 2], ['spider_eye', 0, 1, 0.33]], xp: [5, 5], sound: 'spider', model: spiderModel('#1a4a5a', '#e02020') });
-mob('enderman', {
+mob('spider', { chase: 4.8, hw: 0.7, h: 0.9, health: 16, speed: 3, kind: 'hostile', ai: 'melee', climbs: true, neutralInDay: true, attack: { dmg: 2, cd: 1, leap: true }, egg: ['#342d27', '#a80e0e'], drops: [['string', 0, 2], ['spider_eye', 0, 1, 0.33]], xp: [5, 5], sound: 'spider', model: spiderModel('#3a302a', '#e02020') });
+mob('cave_spider', { chase: 5, hw: 0.35, h: 0.5, scale: 0.7, health: 12, speed: 3.2, kind: 'hostile', ai: 'melee', climbs: true, attack: { dmg: 2, cd: 1, poison: 7 }, egg: ['#0c424e', '#a80e0e'], drops: [['string', 0, 2], ['spider_eye', 0, 1, 0.33]], xp: [5, 5], sound: 'spider', model: spiderModel('#1a4a5a', '#e02020') });
+mob('enderman', { chase: 6.2,
   hw: 0.3, h: 2.9, health: 40, speed: 3, kind: 'neutral', ai: 'enderman', attack: { dmg: 7, cd: 1 }, egg: ['#161616', '#000000'], drops: [['ender_pearl', 0, 1]], xp: [5, 5], sound: 'enderman', hatesWater: true, teleports: true,
-  model: () => { const b = S('#161616', 'noise', null, 0.1); const m = humanoid({ head: S('#161616', 'noise', face(D.rect(0.05, 0.55, 0.35, 0.12, '#e070ff'), D.rect(0.6, 0.55, 0.35, 0.12, '#e070ff'), D.rect(0.12, 0.55, 0.12, 0.12, '#ffc8ff'), D.rect(0.72, 0.55, 0.12, 0.12, '#ffc8ff')), 0.1), body: b, arm: b, leg: b }, { thin: true, legH: 28, armH: 28 }); m.anim = 'enderman'; return m; },
+  model: () => { const b = S('#161616', 'noise', null, 0.1); const m = humanoid({ head: S('#161616', 'noise', face(D.rect(0.05, 0.55, 0.35, 0.12, '#e070ff'), D.rect(0.6, 0.55, 0.35, 0.12, '#e070ff'), D.rect(0.12, 0.55, 0.12, 0.12, '#ffc8ff'), D.rect(0.72, 0.55, 0.12, 0.12, '#ffc8ff')), 0.1), body: b, arm: b, leg: b }, { thin: true, legH: 28, armH: 28 }); m.anim = 'enderman';
+    // Jaw and mouth, hidden inside the head until it opens in anger.
+    m.parts.jaw = part([0, 40, 0], [box([-3.9, 0, -3.9], [7.8, 2, 7.8], S('#101010', 'noise', face(D.rect(0.1, 0, 0.8, 0.5, '#e070ff')), 0.1))]);
+    m.parts.mouth = part([0, 40, 0], [box([-3.6, 0.2, -3.6], [7.2, 7.4, 7.2], S('#5c1454', 'noise', null, 0.25))]);
+    return m; },
 });
 mob('witch', {
   hw: 0.3, h: 1.95, health: 26, speed: 2.2, kind: 'hostile', ai: 'ranged', attack: { ranged: 'potion', range: 8, cd: 3 }, egg: ['#340000', '#51a03e'], drops: [['glass_bottle', 0, 2], ['glowstone_dust', 0, 2], ['gunpowder', 0, 2], ['redstone', 0, 2], ['spider_eye', 0, 2], ['sugar', 0, 2], ['stick', 0, 2]], xp: [5, 5], sound: 'witch',
@@ -340,15 +344,15 @@ const cube = (col, inner, eyeCol, scale = 1) => () => ({ anim: 'slime', eye: 6, 
 mob('slime', { hw: 0.26, h: 0.52, health: 4, speed: 2.5, kind: 'hostile', ai: 'slime', attack: { dmg: 2, cd: 1, touch: true }, egg: ['#51a03e', '#7ebf6e'], drops: [['slime_ball', 0, 2]], xp: [1, 4], sound: 'slime', sizes: true, translucent: true, model: cube('#6ac85a', '#4a9a3a', '#1a4a1a') });
 mob('magma_cube', { hw: 0.26, h: 0.52, health: 4, speed: 2.5, kind: 'hostile', ai: 'slime', attack: { dmg: 3, cd: 1, touch: true }, fireImmune: true, egg: ['#340000', '#fcfc00'], drops: [['magma_cream', 0, 1, 0.25]], xp: [1, 4], sound: 'slime', sizes: true, model: () => { const m = cube('#3a1a0a', null, '#ffa020')(); m.parts.body.boxes[0].style = S('#4a1a0a', 'noise', { all: D.stripes('#f08a1a', 3), front: D.all(D.stripes('#f08a1a', 3), D.rect(0.12, 0.25, 0.2, 0.2, '#ffe060'), D.rect(0.68, 0.25, 0.2, 0.2, '#ffe060')) }); return m; } });
 const bug = (col, n) => () => { const parts = {}; for (let i = 0; i < n; i++) parts[`s${i}`] = part([0, 0, -4 + i * 3], [box([-2 + (i === 1 ? -1 : 0), 0, 0], [4 + (i === 1 ? 2 : 0), 3 + (i === 1 ? 1 : 0), 3], S(col, 'noise', i === 0 ? face(D.rect(0.2, 0.3, 0.2, 0.3, '#1a1a1a'), D.rect(0.6, 0.3, 0.2, 0.3, '#1a1a1a')) : null))]); return { anim: 'bug', eye: 2, parts }; };
-mob('silverfish', { hw: 0.2, h: 0.3, health: 8, speed: 3, kind: 'hostile', ai: 'melee', attack: { dmg: 1, cd: 1 }, egg: ['#6e6e6e', '#303030'], drops: [], xp: [5, 5], sound: 'silverfish', model: bug('#8a8a8a', 4) });
-mob('endermite', { hw: 0.2, h: 0.3, health: 8, speed: 3, kind: 'hostile', ai: 'melee', attack: { dmg: 2, cd: 1 }, egg: ['#161616', '#6e6e6e'], drops: [], xp: [3, 3], sound: 'silverfish', model: bug('#3a2a4a', 4) });
+mob('silverfish', { chase: 4.4, hw: 0.2, h: 0.3, health: 8, speed: 3, kind: 'hostile', ai: 'melee', attack: { dmg: 1, cd: 1 }, egg: ['#6e6e6e', '#303030'], drops: [], xp: [5, 5], sound: 'silverfish', model: bug('#8a8a8a', 4) });
+mob('endermite', { chase: 4.4, hw: 0.2, h: 0.3, health: 8, speed: 3, kind: 'hostile', ai: 'melee', attack: { dmg: 2, cd: 1 }, egg: ['#161616', '#6e6e6e'], drops: [], xp: [3, 3], sound: 'silverfish', model: bug('#3a2a4a', 4) });
 const illager = (robe, eyeCol = '#1a3a1a', armed = true) => () => {
   const m = humanoid({ head: S('#8a9a9a', 'noise', face(eyes({ c: '#ffffff', pupil: eyeCol, y: 0.4 }), D.rect(0.12, 0.3, 0.76, 0.08, '#2a2a2a'))), body: S(robe), robe: S(robe, 'noise', { all: D.band(0.55, 0.6, '#1a1a1a') }), arm: S(robe), leg: S('#2a2a2a'), nose: S('#8a9a9a') }, { headH: 10, bodyD: 6, nose: true, robe: true, crossed: !armed });
   if (armed) m.anim = 'zombie';
   return m;
 };
-mob('pillager', { hw: 0.3, h: 1.95, health: 24, speed: 2.4, kind: 'hostile', ai: 'ranged', raider: true, attack: { ranged: 'arrow', range: 16, cd: 2.5, crossbow: true }, egg: ['#532f36', '#959b9b'], drops: [['arrow', 0, 2], ['crossbow', 0, 1, 0.085]], xp: [5, 5], sound: 'illager', holds: 'crossbow', model: illager('#4a3a3a') });
-mob('vindicator', { hw: 0.3, h: 1.95, health: 24, speed: 2.5, kind: 'hostile', ai: 'melee', raider: true, attack: { dmg: 13, cd: 1.2 }, egg: ['#959b9b', '#275e61'], drops: [['emerald', 0, 1], ['iron_axe', 0, 1, 0.085]], xp: [5, 5], sound: 'illager', holds: 'iron_axe', model: illager('#2a3a4a') });
+mob('pillager', { chase: 3.9, hw: 0.3, h: 1.95, health: 24, speed: 2.4, kind: 'hostile', ai: 'ranged', raider: true, attack: { ranged: 'arrow', range: 16, cd: 2.5, crossbow: true }, egg: ['#532f36', '#959b9b'], drops: [['arrow', 0, 2], ['crossbow', 0, 1, 0.085]], xp: [5, 5], sound: 'illager', holds: 'crossbow', model: illager('#4a3a3a') });
+mob('vindicator', { chase: 4.6, hw: 0.3, h: 1.95, health: 24, speed: 2.5, kind: 'hostile', ai: 'melee', raider: true, attack: { dmg: 13, cd: 1.2 }, egg: ['#959b9b', '#275e61'], drops: [['emerald', 0, 1], ['iron_axe', 0, 1, 0.085]], xp: [5, 5], sound: 'illager', holds: 'iron_axe', model: illager('#2a3a4a') });
 mob('evoker', { hw: 0.3, h: 1.95, health: 24, speed: 2.2, kind: 'hostile', ai: 'ranged', raider: true, attack: { ranged: 'fangs', range: 12, cd: 4 }, egg: ['#959b9b', '#1e1c1a'], drops: [['totem_of_undying', 1, 1], ['emerald', 0, 1]], xp: [10, 10], sound: 'illager', model: illager('#1a1a1a', '#1a1a1a', false) });
 mob('ravager', {
   hw: 0.98, h: 2.2, health: 100, speed: 2.5, kind: 'hostile', ai: 'melee', raider: true, attack: { dmg: 12, cd: 2, fling: 1 }, egg: ['#757470', '#5b5049'], drops: [['saddle', 1, 1]], xp: [20, 20], sound: 'ravager', breaksLeaves: true, knockbackResist: 0.75,
@@ -363,8 +367,8 @@ mob('ghast', {
   model: () => { const parts = { body: part([0, 4, 0], [box([-8, 0, -8], [16, 16, 16], S('#f0f0f0', 'noise', face(D.rect(0.15, 0.3, 0.2, 0.12, '#3a3a3a'), D.rect(0.65, 0.3, 0.2, 0.12, '#3a3a3a'), D.rect(0.35, 0.6, 0.3, 0.2, '#3a3a3a')), 0.05))]) }; for (let i = 0; i < 9; i++) parts[`t${i}`] = part([-5 + (i % 3) * 5, 4, -5 + Math.floor(i / 3) * 5], [box([-1, -8 - (i * 7) % 5, -1], [2, 8 + (i * 7) % 5, 2], S('#e8e8e8'))]); return { anim: 'ghast', eye: 14, parts }; },
 });
 const piglinModel = gold => () => { const m = humanoid({ head: S('#e8a090', 'noise', face(eyes({ c: '#ffffff', pupil: '#1a1a1a', y: 0.3 }))), body: S('#8a5a3a', 'noise', { all: D.band(0.8, 1, gold) }), arm: S('#e8a090'), leg: S('#6a4a2a') }); m.parts.head.boxes[0].s = [10, 8, 8]; m.parts.head.boxes[0].o = [-5, 0, -4]; m.parts.head.boxes.push(box([-2, 0, -5], [4, 4, 1], S('#e8a0a0', 'flat', face(D.rect(0.2, 0.3, 0.2, 0.4, '#8a4a4a'), D.rect(0.6, 0.3, 0.2, 0.4, '#8a4a4a')))), box([-6, 4, -1], [1, 5, 4], S('#e89080')), box([5, 4, -1], [1, 5, 4], S('#e89080'))); m.anim = 'zombie'; return m; };
-mob('piglin', { hw: 0.3, h: 1.95, health: 16, speed: 2.5, kind: 'hostile', ai: 'melee', attack: { dmg: 5, cd: 1 }, goldCalm: true, barters: true, egg: ['#995f40', '#f9f3a4'], drops: [['gold_ingot', 0, 1, 0.08]], xp: [5, 5], sound: 'piglin', holds: 'golden_sword', model: piglinModel('#e0b020') });
-mob('hoglin', {
+mob('piglin', { chase: 4.5, hw: 0.3, h: 1.95, health: 16, speed: 2.5, kind: 'hostile', ai: 'melee', attack: { dmg: 5, cd: 1 }, goldCalm: true, barters: true, egg: ['#995f40', '#f9f3a4'], drops: [['gold_ingot', 0, 1, 0.08]], xp: [5, 5], sound: 'piglin', holds: 'golden_sword', model: piglinModel('#e0b020') });
+mob('hoglin', { chase: 4.6,
   hw: 0.7, h: 1.4, health: 40, speed: 2.5, kind: 'hostile', ai: 'melee', attack: { dmg: 6, cd: 1.2, fling: 0.6 }, egg: ['#c66e55', '#5f6464'], drops: [['porkchop', 2, 4], ['leather', 0, 1]], cooked: { porkchop: 'cooked_porkchop' }, xp: [5, 5], sound: 'hoglin',
   model: () => { const m = quadruped({ body: S('#c67a5a', 'fur', { top: D.stripes('#e8c8a0', 2, true) }), head: S('#c67a5a', 'fur', face(eyes({ c: '#1a1a1a', pupil: null, y: 0.3 }))), leg: S('#a86a4a') }, { legH: 11, legW: 6, bodyW: 16, bodyH: 14, bodyL: 19, headW: 14, headH: 6, headL: 19 }); m.parts.head.boxes.push(box([-8, -1, -18], [2, 6, 2], S('#f0e8d0')), box([6, -1, -18], [2, 6, 2], S('#f0e8d0'))); return m; },
 });
