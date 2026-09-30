@@ -231,6 +231,7 @@ class App {
     this.hud.last = {};
     $('hotbar').parentElement.style.visibility = m === 'spectator' ? 'hidden' : 'visible';
   }
+  showAction(text, t = 1.6) { this.actionText = text; this.actionT = t; }
   summonLightning(x, y, z) { this.game.entities.add(new Lightning(this.game, x, y, z)); }
   hurtFlash() { this.post.hurt = 1; this.shakeAmt = Math.max(this.shakeAmt, 0.35); }
   flash(v) { this.post.flash = Math.max(this.post.flash, v); }
@@ -272,7 +273,14 @@ class App {
     this.suggestions = s;
   }
 
-  requestLock() { const r = $('game').requestPointerLock(); if (r && r.catch) r.catch(() => {}); }
+  // Raw (unaccelerated) mouse input where supported, like Minecraft's "Raw Input" option.
+  requestLock() {
+    const c = $('game');
+    let r;
+    try { r = c.requestPointerLock({ unadjustedMovement: true }); } catch { r = null; }
+    if (r && r.catch) r.catch(() => { const r2 = c.requestPointerLock(); if (r2 && r2.catch) r2.catch(() => {}); });
+    else if (!r && document.pointerLockElement !== c) { try { c.requestPointerLock(); } catch { /* ignore */ } }
+  }
 
   bindSettings() {
     const bind = (id, key, label, apply) => {
@@ -340,6 +348,7 @@ class App {
     const canvas = $('game');
     document.addEventListener('pointerlockchange', () => {
       this.locked = document.pointerLockElement === canvas;
+      if (this.locked) { this.lockedAt = performance.now(); this.mouseAvg = 0; }
       if (this.locked) { if (this.mode === 'pause') this.setMode('play'); }
       else if (this.mode === 'play' && !this.suppressPause) { this.setMode('pause'); this.saveGame(); }
       this.suppressPause = false;
@@ -347,9 +356,15 @@ class App {
     canvas.addEventListener('click', () => { if ((this.mode === 'play' || this.mode === 'loading') && !this.locked) this.requestLock(); });
     document.addEventListener('mousemove', e => {
       if (!this.locked || this.mode !== 'play' || !this.game) return;
+      let dx = e.movementX, dy = e.movementY;
+      // Some browsers occasionally report a huge bogus jump (especially right after locking or
+      // when the event queue stalls); drop deltas that are wildly out of line with recent motion.
+      const mag = Math.abs(dx) + Math.abs(dy), avg = this.mouseAvg || 0;
+      if (performance.now() - (this.lockedAt || 0) < 120 || (mag > 250 && mag > avg * 8 + 60)) { this.mouseAvg = avg * 0.9; return; }
+      this.mouseAvg = avg * 0.8 + mag * 0.2;
       const s = settings.sensitivity / 100 * 0.0022, p = this.game.player;
-      p.yaw -= e.movementX * s;
-      p.pitch = Math.max(-1.56, Math.min(1.56, p.pitch - e.movementY * s));
+      p.yaw -= dx * s;
+      p.pitch = Math.max(-1.56, Math.min(1.56, p.pitch - dy * s));
     });
     document.addEventListener('mousedown', e => {
       if (this.mode !== 'play' || !this.locked) return;
@@ -366,7 +381,7 @@ class App {
       this.select(g.inv.selected + Math.sign(e.deltaY));
     }, { passive: true });
     document.addEventListener('keydown', e => this.keyDown(e));
-    document.addEventListener('keyup', e => this.keys.delete(e.code));
+    document.addEventListener('keyup', e => { this.keys.delete(e.code); if (e.code === 'KeyW') this.tapSprint = false; });
     window.addEventListener('blur', () => { this.keys.clear(); this.mouse.left = this.mouse.right = false; });
     document.addEventListener('visibilitychange', () => { if (document.hidden) this.saveGame(); });
     window.addEventListener('beforeunload', () => this.saveGame());
@@ -409,6 +424,11 @@ class App {
     const g = this.game;
     if (this.mode !== 'play' || !g) return;
     this.keys.add(e.code);
+    if (e.code === 'KeyW' && !e.repeat) {
+      const now = performance.now();
+      if (now - (this.lastWTap || 0) < 300) this.tapSprint = true;
+      this.lastWTap = now;
+    }
     if (/^Digit[1-9]$/.test(e.code)) this.select(Number(e.code.slice(5)) - 1);
     if (e.code === 'Space' && !e.repeat) g.player.jumpPressed(this.time);
     if (e.code === 'KeyE' && g.mode !== 'spectator' && g.alive) this.gui.openInventory();
@@ -418,7 +438,10 @@ class App {
     if (e.code === 'KeyF' && g.mode !== 'spectator') { const a = g.inv.held, b = g.inv.offhand.get(0); g.inv.setHeld(b); g.inv.offhand.set(0, a); }
     if (e.code === 'F1') { this.hudHidden = !this.hudHidden; $('hud').classList.toggle('hidden', this.hudHidden); }
     if (e.code === 'F3') { this.debug = !this.debug; $('debug').classList.toggle('hidden', !this.debug); }
-    if (e.code === 'F5') this.view = (this.view + 1) % 3;
+    if ((e.code === 'F5' || e.code === 'KeyV') && !e.repeat) {
+      this.view = (this.view + 1) % 3;
+      this.showAction(['First person', 'Third person (behind)', 'Third person (front)'][this.view]);
+    }
     if (e.code === 'F4' && g.cheats) this.setGameMode(g.mode === 'spectator' ? 'creative' : 'spectator');
   }
 
@@ -462,12 +485,19 @@ class App {
   // Dynamic resolution keeps the frame rate smooth on slow GPUs, only touching resolution when truly needed.
   adaptResolution(realDt) {
     if (!settings.dynamicRes) { this.renderScale = 1; return; }
+    // Resizing reallocates every render target, so it must be rare: only after a sustained
+    // slowdown (or recovery) and never more than once every few seconds.
     this.frameTimes.push(realDt);
-    if (this.frameTimes.length < 45) return;
-    const avg = this.frameTimes.reduce((a, b) => a + b, 0) / this.frameTimes.length;
+    if (this.frameTimes.length < 60) return;
+    const sorted = this.frameTimes.slice().sort((a, b) => a - b);
+    const med = sorted[sorted.length >> 1];
     this.frameTimes.length = 0;
-    if (avg > 1 / 40 && this.renderScale > 0.7) this.renderScale = Math.max(0.7, this.renderScale - 0.1);
-    else if (avg < 1 / 57 && this.renderScale < 1) this.renderScale = Math.min(1, this.renderScale + 0.05);
+    const now = performance.now();
+    this.resSlow = med > 1 / 36 ? (this.resSlow || 0) + 1 : 0;
+    this.resFast = med < 1 / 55 ? (this.resFast || 0) + 1 : 0;
+    if (now - (this.resChangedAt || 0) < 6000) return;
+    if (this.resSlow >= 2 && this.renderScale > 0.7) { this.renderScale = Math.max(0.7, +(this.renderScale - 0.15).toFixed(2)); this.resChangedAt = now; this.resSlow = 0; }
+    else if (this.resFast >= 6 && this.renderScale < 1) { this.renderScale = Math.min(1, +(this.renderScale + 0.15).toFixed(2)); this.resChangedAt = now; this.resFast = 0; }
   }
   framePanorama(dt) {
     const pano = this.panorama;
@@ -499,7 +529,7 @@ class App {
     if (playing && this.mode !== 'pause') {
       const input = {
         forward: this.keys.has('KeyW'), back: this.keys.has('KeyS'), left: this.keys.has('KeyA'), right: this.keys.has('KeyD'),
-        jump: this.keys.has('Space'), sneak: this.keys.has('ShiftLeft') || this.keys.has('ShiftRight'), sprint: this.keys.has('ControlLeft') || this.keys.has('ControlRight') || this.keys.has('KeyR'),
+        jump: this.keys.has('Space'), sneak: this.keys.has('ShiftLeft') || this.keys.has('ShiftRight'), sprint: this.keys.has('ControlLeft') || this.keys.has('ControlRight') || this.keys.has('KeyR') || !!this.tapSprint,
       };
       if (this.mode !== 'play') for (const k of Object.keys(input)) input[k] = false;
       if (g.alive) {
@@ -679,6 +709,7 @@ class App {
     if (g.bossBar) { boss.querySelector('.n').textContent = g.bossBar.name; boss.querySelector('.b div').style.width = `${g.bossBar.frac * 100}%`; }
     const act = $('action');
     if (g.mode === 'spectator') { act.textContent = 'Spectator mode — fly through blocks · scroll to change speed · /gamemode to leave'; act.style.opacity = this.specHintT === undefined || this.specHintT > 0 ? 1 : 0; this.specHintT = (this.specHintT ?? 6) - dt; }
+    else if (this.actionT > 0) { this.actionT -= dt; act.textContent = this.actionText; act.style.opacity = Math.min(1, this.actionT); this.specHintT = undefined; }
     else { act.style.opacity = 0; this.specHintT = undefined; }
     this.sound.updateMusic(dt, g.dim === DIM.NETHER ? 'nether' : g.dim === DIM.END ? 'end' : p.pos[1] < 50 ? 'cave' : g.isDay() ? 'day' : 'night');
     if (this.debug) {

@@ -8,8 +8,8 @@ import { mat4, perspective, multiply, invert, viewMatrix, frustumPlanes, boxVisi
 export const QUALITY = [
   { name: 'Disabled', shadow: 0, god: 0, bloom: 0, ssr: 0 },
   { name: 'Regular', shadow: 0, god: 0, bloom: 0, ssr: 0 },
-  { name: 'High', shadow: 2048, shadowR: 72, pcf: 1, god: 40, bloom: 0.55, ssr: 24 },
-  { name: 'PC', shadow: 4096, shadowR: 112, pcf: 2, god: 80, bloom: 0.7, ssr: 56 },
+  { name: 'High', shadow: 2048, shadowR: 72, pcf: 1, god: 40, bloom: 0.2, ssr: 24 },
+  { name: 'PC', shadow: 4096, shadowR: 112, pcf: 2, god: 80, bloom: 0.24, ssr: 56 },
 ];
 
 const MAX_QUADS = 1 << 18;
@@ -552,7 +552,7 @@ export class Renderer {
       if (cw > 0) {
         const u = cx / cw * 0.5 + 0.5, v = cy / cw * 0.5 + 0.5;
         const onScreen = 1 - Math.min(1, Math.max(0, Math.max(Math.abs(u - 0.5), Math.abs(v - 0.5)) * 2 - 1) * 1.5);
-        const strength = (this.quality >= 3 ? 0.55 : 0.4) * onScreen * Math.max(0, Math.min(1, d[1] * 4 + 0.2)) * (1 - (s.rain || 0));
+        const strength = 0.45 * onScreen * Math.max(0, Math.min(1, d[1] * 4 + 0.2)) * (1 - (s.rain || 0));
         sun = [u, v, strength];
       }
     }
