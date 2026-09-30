@@ -18,6 +18,8 @@ const VOICE = {
   rabbit: [1000, 'sine', 0.1, 1, 0.2], silverfish: [2000, 'noise', 0.15, 1, 1], strider: [250, 'sawtooth', 0.4, 0.8, 0.3], axolotl: [900, 'sine', 0.2, 1.2, 0],
 };
 
+import { MusicPlayer } from './music.js';
+
 export class Sound {
   constructor() { this.ctx = null; this.volume = 0.6; this.music = 0.4; this.listener = { pos: [0, 0, 0], yaw: 0 }; this.musicT = 20; }
   unlock() {
@@ -159,34 +161,13 @@ export class Sound {
     if (event === 'hurt') this.tone(f * p * 1.3 || 600, (f * p || 600) * 0.7, 0.12, 0.12, 'square', out);
   }
 
-  // Sparse generative piano-like ambience (pentatonic, long reverb), in the spirit of calm sandbox music.
+  // Soundtrack: structured original pieces per mood (see music.js), with short gaps between tracks.
   updateMusic(dt, mood = 'day') {
     if (!this.ctx || this.music <= 0) return;
-    this.musicT -= dt;
-    if (this.musicT > 0) return;
-    this.musicT = 90 + Math.random() * 120;
-    const scales = { day: [0, 2, 4, 7, 9], night: [0, 3, 5, 7, 10], nether: [0, 1, 5, 6, 10], end: [0, 2, 3, 7, 8], cave: [0, 3, 6, 7, 10] };
-    const sc = scales[mood] || scales.day;
-    const root = mood === 'nether' ? 110 : mood === 'end' ? 130.8 : 196 * (Math.random() < 0.5 ? 1 : 0.75);
-    const notes = 14 + Math.floor(Math.random() * 12);
-    let t = 0;
-    for (let i = 0; i < notes; i++) {
-      const deg = sc[Math.floor(Math.random() * sc.length)] + 12 * Math.floor(Math.random() * 2);
-      const f = root * Math.pow(2, deg / 12);
-      const c = this.ctx, now = c.currentTime + t;
-      for (const [mult, lvl, type] of [[1, 0.18, 'triangle'], [2, 0.05, 'sine'], [3, 0.02, 'sine']]) {
-        const o = c.createOscillator(); o.type = type; o.frequency.value = f * mult;
-        const g = c.createGain(); g.gain.setValueAtTime(0.0001, now); g.gain.linearRampToValueAtTime(lvl, now + 0.02); g.gain.exponentialRampToValueAtTime(0.0003, now + 3.5);
-        o.connect(g).connect(this.musicBus); o.start(now); o.stop(now + 3.6);
-      }
-      if (Math.random() < 0.25) {
-        const o = this.ctx.createOscillator(); o.type = 'sine'; o.frequency.value = root / 2 * Math.pow(2, sc[0] / 12);
-        const g = this.ctx.createGain(); g.gain.setValueAtTime(0.0001, now); g.gain.linearRampToValueAtTime(0.08, now + 0.5); g.gain.exponentialRampToValueAtTime(0.0003, now + 6);
-        o.connect(g).connect(this.musicBus); o.start(now); o.stop(now + 6.2);
-      }
-      t += [0.6, 0.9, 1.2, 1.8][Math.floor(Math.random() * 4)];
-    }
+    if (!this.musicPlayer) this.musicPlayer = new MusicPlayer(this.ctx, this.musicBus);
+    this.musicPlayer.update(dt, mood);
   }
+  get nowPlaying() { return this.musicPlayer && this.musicPlayer.piece ? this.musicPlayer.nowPlaying : null; }
   // Continuous rain hiss while it rains.
   setRain(level) {
     if (!this.ctx) return;

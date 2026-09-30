@@ -527,6 +527,7 @@ class App {
     const pano = this.panorama;
     if (!pano || !this.panoWorld) return;
     pano.yaw += dt * 0.04;
+    this.sound.updateMusic(dt, 'menu');
     this.panoWorld.update(pano.pos[0], pano.pos[2], Math.min(settings.renderDistance, LOW_END ? 5 : 7));
     const env = computeEnv(0, 0.07, forward(pano.yaw, -0.15), 0, 0, settings.brightness / 100);
     this.renderer.render({ camPos: pano.pos, yaw: pano.yaw, pitch: -0.15, roll: 0, fov: 75, time: this.time, env, medium: 0, renderDistance: Math.min(settings.renderDistance, LOW_END ? 5 : 7), clouds: settings.clouds, chunks: this.panoWorld.chunks.values(), dim: 0, post: { saturation: 1.1 } });
@@ -765,7 +766,7 @@ class App {
     if (g.mode === 'spectator') { act.textContent = 'Spectator mode — fly through blocks · scroll to change speed · /gamemode to leave'; act.style.opacity = this.specHintT === undefined || this.specHintT > 0 ? 1 : 0; this.specHintT = (this.specHintT ?? 6) - dt; }
     else if (this.actionT > 0) { this.actionT -= dt; act.textContent = this.actionText; act.style.opacity = Math.min(1, this.actionT); this.specHintT = undefined; }
     else { act.style.opacity = 0; this.specHintT = undefined; }
-    this.sound.updateMusic(dt, g.dim === DIM.NETHER ? 'nether' : g.dim === DIM.END ? 'end' : p.pos[1] < 50 ? 'cave' : g.isDay() ? 'day' : 'night');
+    this.sound.updateMusic(dt, g.dim === DIM.NETHER ? 'nether' : g.dim === DIM.END ? 'end' : p.pos[1] < 50 && g.world.lightAt(p.pos[0], p.pos[1] + 1, p.pos[2]).sky < 8 ? 'cave' : g.mode === 'creative' && g.isDay() ? 'creative' : g.isDay() ? 'day' : 'night');
     if (this.debug) {
       this.debugT = (this.debugT || 0) - dt;
       if (this.debugT <= 0) {
