@@ -1,6 +1,6 @@
 // Chunk under construction. All feature and structure writers use world coordinates and are
 // silently clipped to this chunk, so features that span chunk borders generate seamlessly.
-import { CHUNK, HEIGHT, B, BLOCKS, SHAPE_OF, SHAPE, OPAQUE } from '../data/blocks.js?v=muo4v4cx';
+import { CHUNK, HEIGHT, B, BLOCKS, SHAPE_OF, SHAPE, OPAQUE } from '../data/blocks.js?v=muo7rynu';
 
 export const CI = (x, y, z) => x + z * CHUNK + y * CHUNK * CHUNK;
 
@@ -52,7 +52,8 @@ export class ChunkBuilder {
     for (let y = Math.max(0, y0); y <= Math.min(HEIGHT - 1, y1); y++) for (let z = az; z <= bz; z++) for (let x = ax; x <= bx; x++) this.set(x, y, z, id, m);
   }
   overlaps(x0, z0, x1, z1) { return x1 >= this.ox && x0 < this.ox + CHUNK && z1 >= this.oz && z0 < this.oz + CHUNK; }
-  addBlockEntity(e) { if (this.inside(e.x, e.z)) this.blockEntities.push(e); }
-  addEntity(e) { if (this.inside(Math.floor(e.x), Math.floor(e.z))) this.entities.push(e); }
+  // Tagged with the structure being built (see gen/versions.js).
+  addBlockEntity(e) { if (this.inside(e.x, e.z)) { if (this.kind) e.k = this.kind; this.blockEntities.push(e); } }
+  addEntity(e) { if (this.inside(Math.floor(e.x), Math.floor(e.z))) { if (this.kind) e.k = this.kind; this.entities.push(e); } }
   isPlant(id) { return SHAPE_OF[id] === SHAPE.CROSS; }
 }

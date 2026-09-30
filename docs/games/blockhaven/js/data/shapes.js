@@ -1,5 +1,5 @@
 // Collision and selection boxes per block state, in block units (0..1, fences reach 1.5).
-import { SHAPE, SHAPE_OF, SOLID, B } from './blocks.js?v=muo4v4cx';
+import { SHAPE, SHAPE_OF, SOLID, B } from './blocks.js?v=muo7rynu';
 
 const P = 1 / 16;
 // Rotate a canonical (+Z-facing) box by `facing` quarter turns about the block centre.
@@ -66,6 +66,8 @@ export function selectionBoxes(id, m, out = []) {
     }
     case SHAPE.LADDER: case SHAPE.VINE: out.push(rot([0, 0, 13 * P, 1, 1, 1], m & 3)); return out;
     case SHAPE.RAIL: out.push([0, 0, 0, 1, 2 * P, 1]); return out;
+    // A snow layer is outlined (and cracks) at its visible height: 2 pixels per layer.
+    case SHAPE.SNOW: out.push([0, 0, 0, 1, ((m & 7) + 1) * 2 * P, 1]); return out;
     case SHAPE.ROD: out.push([6 * P, 0, 6 * P, 10 * P, 1, 10 * P]); return out;
     case SHAPE.FENCE: out.push([6 * P, 0, 6 * P, 10 * P, 1, 10 * P]); return out;
     case SHAPE.PANE: out.push([7 * P, 0, 7 * P, 9 * P, 1, 9 * P]); return out;

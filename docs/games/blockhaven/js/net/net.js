@@ -9,8 +9,8 @@
 // own hands, or their own water/fire/sand simulation) broadcasts it once; everyone else mirrors it
 // silently, so nothing is applied twice. The host keeps the authoritative save, including each
 // guest's inventory and position, and owns the clock and the weather.
-import { RemotePlayer } from './remote.js?v=muo4v4cx';
-import { EntitySync } from './share.js?v=muo4v4cx';
+import { RemotePlayer } from './remote.js?v=muo7rynu';
+import { EntitySync } from './share.js?v=muo7rynu';
 
 export const MAX_PLAYERS = 5;
 const PREFIX = 'blockhaven-v1-';
@@ -31,7 +31,7 @@ function loadLib() {
   if (!libPromise) {
     libPromise = new Promise((resolve, reject) => {
       const s = document.createElement('script');
-      s.src = new URL('../../vendor/peerjs.min.js?v=muo4v4cx', import.meta.url).href;
+      s.src = new URL('../../vendor/peerjs.min.js?v=muo7rynu', import.meta.url).href;
       s.onload = () => resolve();
       s.onerror = () => { libPromise = null; reject(new Error('Could not load the multiplayer library. Check your connection.')); };
       document.head.appendChild(s);
@@ -168,11 +168,11 @@ export class Net {
   snapshot(name) {
     const g = this.game, s = g.serialize();
     const dims = {};
-    for (const [d, v] of Object.entries(s.dims || {})) dims[d] = { edits: v.edits, blockEntities: v.blockEntities, populated: v.populated };
+    for (const [d, v] of Object.entries(s.dims || {})) dims[d] = { edits: v.edits, blockEntities: v.blockEntities, populated: v.populated, popOld: v.popOld };
     const saved = (g.meta.players || {})[name] || null;
     return {
       name: s.name, seed: s.seed, seedText: s.seedText, type: s.type, mode: s.mode, difficulty: s.difficulty, cheats: s.cheats, rules: s.rules,
-      time: s.time, day: s.day, weather: s.weather, spawn: s.spawn, dragonKilled: s.dragonKilled, dims, saved,
+      time: s.time, day: s.day, weather: s.weather, spawn: s.spawn, dragonKilled: s.dragonKilled, dims, saved, genVersion: s.genVersion, palette: s.palette,
     };
   }
 

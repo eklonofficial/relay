@@ -1,33 +1,33 @@
 // Blockhaven bootstrap: assets, menus, input, camera, frame loop.
-import { Demo, DEMO_SEED } from './demo.js?v=muo4v4cx';
-import { armorModel, armorSkinKey, ARMOR_MATERIALS, ARMOR_PIECES, elytraModel } from './data/armor.js?v=muo4v4cx';
-import { TEXTURES, TEX, B, BLOCKS, DIM, DIM_NAMES, SHAPE_OF, SHAPE, props } from './data/blocks.js?v=muo4v4cx';
-import { I, ITEMS } from './data/items.js?v=muo4v4cx';
-import { MOBS, PROFESSIONS, playerModel, saddleModel, PLAYER_SKINS } from './data/mobs.js?v=muo4v4cx';
-import { Net, cleanCode, cleanName, MAX_PLAYERS } from './net/net.js?v=muo4v4cx';
-import { NameTags } from './net/nametags.js?v=muo4v4cx';
-import { BIOMES } from './gen/biomes.js?v=muo4v4cx';
-import { generateBlockTextures } from './render/blocktex.js?v=muo4v4cx';
-import { generateItemTextures, ITEM_LAYER, FX_LAYER, ITEM_LAYER_COUNT } from './render/itemtex.js?v=muo4v4cx';
-import { packModel, paintModel, SKIN, faceRects } from './render/mobtex.js?v=muo4v4cx';
-import { buildMipChain } from './render/atlas.js?v=muo4v4cx';
-import { Renderer, Batch } from './render/renderer.js?v=muo4v4cx';
-import { World, UNLOADED } from './world/world.js?v=muo4v4cx';
-import { createGenerator } from './gen/index.js?v=muo4v4cx';
-import { Game } from './game/game.js?v=muo4v4cx';
-import { Interact } from './game/interact.js?v=muo4v4cx';
-import { Commands } from './game/commands.js?v=muo4v4cx';
-import { GUI, HUD } from './game/ui.js?v=muo4v4cx';
-import { buildIcons, hudSprites } from './game/icons.js?v=muo4v4cx';
-import { Sound } from './game/audio.js?v=muo4v4cx';
-import { buildLogo, buttonTexture, iconDataURL } from './render/logo.js?v=muo4v4cx';
-import { computeEnv } from './game/env.js?v=muo4v4cx';
-import { guideSections } from './game/guide.js?v=muo4v4cx';
-import { listWorlds, loadWorld, saveWorld, deleteWorld } from './game/storage.js?v=muo4v4cx';
-import { drawModel, rootMatrix, M } from './entity/entity.js?v=muo4v4cx';
-import { itemMesh, emitItemMesh } from './entity/itemmesh.js?v=muo4v4cx';
-import { Lightning } from './entity/objects.js?v=muo4v4cx';
-import { compose, translation, rotationX, rotationY, rotationZ, scaling, forward, mat4 } from './core/math.js?v=muo4v4cx';
+import { Demo, DEMO_SEED } from './demo.js?v=muo7rynu';
+import { armorModel, armorSkinKey, ARMOR_MATERIALS, ARMOR_PIECES, elytraModel } from './data/armor.js?v=muo7rynu';
+import { TEXTURES, TEX, B, BLOCKS, DIM, DIM_NAMES, SHAPE_OF, SHAPE, props } from './data/blocks.js?v=muo7rynu';
+import { I, ITEMS } from './data/items.js?v=muo7rynu';
+import { MOBS, PROFESSIONS, playerModel, saddleModel, PLAYER_SKINS } from './data/mobs.js?v=muo7rynu';
+import { Net, cleanCode, cleanName, MAX_PLAYERS } from './net/net.js?v=muo7rynu';
+import { NameTags } from './net/nametags.js?v=muo7rynu';
+import { BIOMES } from './gen/biomes.js?v=muo7rynu';
+import { generateBlockTextures } from './render/blocktex.js?v=muo7rynu';
+import { generateItemTextures, ITEM_LAYER, FX_LAYER, ITEM_LAYER_COUNT } from './render/itemtex.js?v=muo7rynu';
+import { packModel, paintModel, SKIN, faceRects } from './render/mobtex.js?v=muo7rynu';
+import { buildMipChain } from './render/atlas.js?v=muo7rynu';
+import { Renderer, Batch } from './render/renderer.js?v=muo7rynu';
+import { World, UNLOADED } from './world/world.js?v=muo7rynu';
+import { createGenerator } from './gen/index.js?v=muo7rynu';
+import { Game } from './game/game.js?v=muo7rynu';
+import { Interact } from './game/interact.js?v=muo7rynu';
+import { Commands } from './game/commands.js?v=muo7rynu';
+import { GUI, HUD } from './game/ui.js?v=muo7rynu';
+import { buildIcons, hudSprites } from './game/icons.js?v=muo7rynu';
+import { Sound } from './game/audio.js?v=muo7rynu';
+import { buildLogo, buttonTexture, iconDataURL } from './render/logo.js?v=muo7rynu';
+import { computeEnv } from './game/env.js?v=muo7rynu';
+import { guideSections } from './game/guide.js?v=muo7rynu';
+import { listWorlds, loadWorld, saveWorld, deleteWorld } from './game/storage.js?v=muo7rynu';
+import { drawModel, rootMatrix, M } from './entity/entity.js?v=muo7rynu';
+import { itemMesh, emitItemMesh } from './entity/itemmesh.js?v=muo7rynu';
+import { Lightning } from './entity/objects.js?v=muo7rynu';
+import { compose, translation, rotationX, rotationY, rotationZ, scaling, forward, mat4 } from './core/math.js?v=muo7rynu';
 
 const $ = id => document.getElementById(id);
 const SETTINGS_KEY = 'blockhaven.settings.v2';
@@ -191,7 +191,7 @@ class App {
     list.textContent = '';
     const worlds = await listWorlds();
     this.selectedWorld = null;
-    $('btn-world-play').disabled = $('btn-world-delete').disabled = true;
+    $('btn-world-play').disabled = $('btn-world-delete').disabled = $('btn-world-download').disabled = true;
     if (!worlds.length) { const d = document.createElement('div'); d.className = 'empty-note'; d.textContent = 'No worlds yet — create one!'; list.appendChild(d); return; }
     for (const w of worlds) {
       const e = document.createElement('div'); e.className = 'world-entry';
@@ -201,10 +201,40 @@ class App {
       const i = document.createElement('div'); i.className = 'info';
       i.textContent = `${new Date(w.lastPlayed).toLocaleString()} · ${w.mode[0].toUpperCase() + w.mode.slice(1)} · ${w.type === 'wild' ? 'Wild' : w.type === 'flat' ? 'Superflat' : 'Default'} · Day ${(w.day || 0) + 1}`;
       info.append(n, i); e.append(th, info);
-      e.addEventListener('click', () => { list.querySelectorAll('.sel').forEach(x => x.classList.remove('sel')); e.classList.add('sel'); this.selectedWorld = w.id; $('btn-world-play').disabled = $('btn-world-delete').disabled = false; });
+      e.addEventListener('click', () => { list.querySelectorAll('.sel').forEach(x => x.classList.remove('sel')); e.classList.add('sel'); this.selectedWorld = w.id; $('btn-world-play').disabled = $('btn-world-delete').disabled = $('btn-world-download').disabled = false; });
       e.addEventListener('dblclick', () => this.playWorld(w.id));
       list.appendChild(e);
     }
+  }
+  // Worlds travel as .bhworld files: the save as JSON, gzipped when the browser can.
+  async downloadWorld(id) {
+    const w = id && await loadWorld(id);
+    if (!w) return;
+    let blob = new Blob([JSON.stringify({ blockhaven: 1, world: w })], { type: 'application/json' });
+    if (window.CompressionStream) blob = await new Response(blob.stream().pipeThrough(new CompressionStream('gzip'))).blob();
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `${(w.name || 'world').replace(/[^\w\- ]+/g, '').trim() || 'world'}.bhworld`;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+  }
+  async uploadWorld(file) {
+    try {
+      const buf = new Uint8Array(await file.arrayBuffer());
+      let text;
+      if (buf[0] === 0x1f && buf[1] === 0x8b) {
+        if (!window.DecompressionStream) throw new Error('This browser cannot open compressed worlds.');
+        text = await new Response(new Blob([buf]).stream().pipeThrough(new DecompressionStream('gzip'))).text();
+      } else text = new TextDecoder().decode(buf);
+      const data = JSON.parse(text), w = data && (data.world || data);
+      if (!w || typeof w.seed !== 'number' || !w.name) throw new Error('That file is not a Blockhaven world.');
+      const existing = await listWorlds();
+      // Never overwrite: an upload is always added as its own world.
+      w.id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+      if (existing.some(e => e.name === w.name)) w.name = `${w.name} (uploaded)`;
+      await saveWorld(w);
+      this.showWorlds();
+    } catch (e) { alert(`Could not upload the world: ${e.message}`); }
   }
   async playWorld(id) {
     this.sound.unlock(); this.sound.click();
@@ -377,7 +407,7 @@ class App {
       mode: sv.mode || (m.mode === 'hardcore' ? 'survival' : m.mode), hardcore: m.mode === 'hardcore', difficulty: m.difficulty, cheats: m.cheats,
       rules: { ...(m.rules || {}), doWeatherCycle: false }, time: m.time, day: m.day, weather: m.weather, spawn, dragonKilled: m.dragonKilled, dims: m.dims,
       inventory: sv.inventory, enderChest: sv.enderChest, stats: sv.stats, advancements: sv.advancements,
-      player: sv.player || { pos: spawn.slice(), yaw: Math.PI * 0.75, pitch: 0, flying: false, dim: 0 }, guest: true,
+      player: sv.player || { pos: spawn.slice(), yaw: Math.PI * 0.75, pitch: 0, flying: false, dim: 0 }, guest: true, genVersion: m.genVersion, palette: m.palette,
     };
     this.net = net;
     this.startGame(meta);
@@ -514,6 +544,9 @@ class App {
   bindMenus() {
     const click = (id, fn) => $(id).addEventListener('click', () => { this.sound.unlock(); this.sound.click(); fn(); });
     click('btn-play', () => this.showWorlds());
+    click('btn-world-download', () => this.downloadWorld(this.selectedWorld));
+    click('btn-world-upload', () => $('world-file').click());
+    $('world-file').addEventListener('change', e => { const f = e.target.files && e.target.files[0]; e.target.value = ''; if (f) this.uploadWorld(f); });
     click('btn-world-back', () => { if (this.hostAfterLoad) this.showMultiplayer(); else this.setMode('title'); });
     click('btn-world-new', () => { this.setMode('create'); $('cw-name').focus(); $('cw-name').select(); this.updateCreateHint(); });
     click('btn-world-play', () => this.selectedWorld && this.playWorld(this.selectedWorld));
