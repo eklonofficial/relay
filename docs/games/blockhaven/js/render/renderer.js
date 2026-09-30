@@ -1,8 +1,8 @@
-import { CHUNK, TEX, DIM } from '../data/blocks.js?v=muo2sewa';
-import { meshSingleBlock, STRIDE } from '../mesh/mesher.js?v=muo2sewa';
-import * as S from './shaders.js?v=muo2sewa';
-import { uploadArray } from './atlas.js?v=muo2sewa';
-import { mat4, perspective, multiply, invert, viewMatrix, frustumPlanes, boxVisible } from '../core/math.js?v=muo2sewa';
+import { CHUNK, TEX, DIM } from '../data/blocks.js?v=muo4kot4';
+import { meshSingleBlock, STRIDE } from '../mesh/mesher.js?v=muo4kot4';
+import * as S from './shaders.js?v=muo4kot4';
+import { uploadArray } from './atlas.js?v=muo4kot4';
+import { mat4, perspective, multiply, invert, viewMatrix, frustumPlanes, boxVisible } from '../core/math.js?v=muo4kot4';
 
 // Graphics presets: 0 Disabled, 1 Regular, 2 High, 3 PC.
 export const QUALITY = [
@@ -367,19 +367,6 @@ export class Renderer {
     gl.clearColor(env.fogColor[0], env.fogColor[1], env.fogColor[2], 1);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-    // Sky
-    gl.disable(gl.DEPTH_TEST);
-    gl.depthMask(false);
-    gl.useProgram(this.sky.p);
-    this.setEnv(this.sky.u, s, fogNear, fogFar);
-    gl.uniformMatrix4fv(this.sky.u.uInvViewProj, false, invViewProj);
-    gl.uniform1f(this.sky.u.uNight, env.night);
-    gl.uniform1f(this.sky.u.uClouds, s.clouds ? 1 : 0);
-    gl.uniform1f(this.sky.u.uRain, s.rain || 0);
-    gl.uniform1i(this.sky.u.uDim, s.dim || 0);
-    gl.bindVertexArray(this.emptyVao);
-    gl.drawArrays(gl.TRIANGLES, 0, 3);
-
     gl.enable(gl.DEPTH_TEST);
     gl.depthMask(true);
     gl.depthFunc(gl.LEQUAL);
@@ -444,8 +431,25 @@ export class Renderer {
     if (s.crack) this.drawCrack(s.crack, viewProj);
     if (s.target) this.drawOutline(s.target, viewProj);
 
-    // Snapshot the opaque scene for water reflections/refraction.
-    const ssr = Q.ssr > 0 && s.medium === 0;
+    // Sky (stars, sun, moon, animated clouds) only where nothing opaque was drawn: its noise-heavy
+    // shader used to run for every pixel of the screen and then get painted over by terrain.
+    gl.enable(gl.DEPTH_TEST);
+    gl.depthFunc(gl.LEQUAL);
+    gl.depthMask(false);
+    gl.useProgram(this.sky.p);
+    this.setEnv(this.sky.u, s, fogNear, fogFar);
+    gl.uniformMatrix4fv(this.sky.u.uInvViewProj, false, invViewProj);
+    gl.uniform1f(this.sky.u.uNight, env.night);
+    gl.uniform1f(this.sky.u.uClouds, s.clouds ? 1 : 0);
+    gl.uniform1f(this.sky.u.uRain, s.rain || 0);
+    gl.uniform1i(this.sky.u.uDim, s.dim || 0);
+    gl.bindVertexArray(this.emptyVao);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+    gl.depthMask(true);
+
+    // Snapshot the opaque scene for water reflections/refraction, only when water is in view.
+    const anyWater = visible.some(([c]) => c.gpu.trans);
+    const ssr = Q.ssr > 0 && s.medium === 0 && anyWater;
     if (ssr) {
       gl.bindFramebuffer(gl.READ_FRAMEBUFFER, this.sceneFbo);
       gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, this.copyFbo);
