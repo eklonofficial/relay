@@ -1,4 +1,4 @@
-import { VF } from '../data/blocks.js?v=munfaoam';
+import { VF } from '../data/blocks.js?v=munk2rp4';
 
 const HEADER = `#version 300 es
 precision highp float;
@@ -291,6 +291,13 @@ void main() {
     return;
   }
   vec3 N = NORMALS[vNormal];
+  if (vFlags == F_WATER_TOP || vFlags == F_WATER) {
+    // Seamless world-space ripples instead of the tiled texture (no per-block grid lines).
+    vec3 wp = vFlags == F_WATER_TOP ? vec3(vWorld.x, 0.0, vWorld.z) : vWorld;
+    vec2 q = (vNormal < 2 ? wp.zy : vNormal > 3 ? wp.xy : wp.xz);
+    float n = vnoise(q * 0.9 + vec2(uTime * 0.12, uTime * 0.07)) * 0.6 + vnoise(q * 2.3 - vec2(uTime * 0.2, -uTime * 0.1)) * 0.4;
+    t = vec4(vec3(0.6 + n * 0.28), t.a);
+  }
   if (vFlags == F_WATER_TOP) {
     vec2 p = vWorld.xz;
     float e = 0.08;

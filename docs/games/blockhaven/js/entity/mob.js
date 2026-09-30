@@ -1,13 +1,13 @@
 // Living mobs: physics, AI archetypes, combat, breeding/taming, trading and animation.
-import { Entity, drawModel, rootMatrix, M } from './entity.js?v=munfaoam';
-import { Projectile, renderStack } from './objects.js?v=munfaoam';
-import { MOBS, PROFESSIONS } from '../data/mobs.js?v=munfaoam';
-import { B, BLOCKS, SOLID } from '../data/blocks.js?v=munfaoam';
-import { UNLOADED } from '../world/world.js?v=munfaoam';
-import { villagerTrades } from '../game/trades.js?v=munfaoam';
-import { ARMOR_BYPASS, armorStats, armorReduce, applyInvul } from '../game/combat.js?v=munfaoam';
-import { armorSkinKey } from '../data/armor.js?v=munfaoam';
-import { I } from '../data/items.js?v=munfaoam';
+import { Entity, drawModel, rootMatrix, M } from './entity.js?v=munk2rp4';
+import { Projectile, renderStack } from './objects.js?v=munk2rp4';
+import { MOBS, PROFESSIONS } from '../data/mobs.js?v=munk2rp4';
+import { B, BLOCKS, SOLID } from '../data/blocks.js?v=munk2rp4';
+import { UNLOADED } from '../world/world.js?v=munk2rp4';
+import { villagerTrades } from '../game/trades.js?v=munk2rp4';
+import { ARMOR_BYPASS, armorStats, armorReduce, applyInvul } from '../game/combat.js?v=munk2rp4';
+import { armorSkinKey } from '../data/armor.js?v=munk2rp4';
+import { I } from '../data/items.js?v=munk2rp4';
 
 const rnd = (a, b) => a + Math.random() * (b - a);
 const rint = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
@@ -937,7 +937,7 @@ export class Mob extends Entity {
 }
 
 // Moves an entity without gravity handling (fliers/swimmers).
-import { moveEntity } from './physics.js?v=munfaoam';
+import { moveEntity } from './physics.js?v=munk2rp4';
 function import_move(e, dt) { moveEntity(e.world, e, e.vel[0] * dt, e.vel[1] * dt, e.vel[2] * dt); }
 
 // Renders a held item using a part matrix (model units).

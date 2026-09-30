@@ -4,8 +4,8 @@ import {
   CHUNK, HEIGHT, PAD, PS, B, SHAPE, VF, TINT, TEX,
   OPAQUE, SHAPE_OF, TRANSLUCENT, EMIT, ATTEN, VFLAGS, CULL_SAME, TINT_OF, WATERLOGGED, VARIANT_MASK,
   FACING_SHIFT, AXIS_SHIFT, FACE_TEX, CROP_STAGES, CROP_TEX,
-} from '../data/blocks.js?v=munfaoam';
-import { BIOME_COLORS } from '../gen/biomes.js?v=munfaoam';
+} from '../data/blocks.js?v=munk2rp4';
+import { BIOME_COLORS } from '../gen/biomes.js?v=munk2rp4';
 
 export const H2 = HEIGHT + 2;
 export const VOLUME_SIZE = PS * PS * H2;
@@ -604,7 +604,9 @@ export function meshChunk(job) {
     }
   }
 
-  for (let sct = (maxY >> 4) + 1; sct <= 16; sct++) { secO[sct] = opaque.quads; secT[sct] = trans.quads; }
+  // Close the last section: every section boundary above the top block ends at the full count.
+  // (Using maxY >> 4 here dropped the top section whenever the terrain height was a multiple of 16.)
+  for (let sct = ((Math.max(1, maxY) - 1) >> 4) + 1; sct <= 16; sct++) { secO[sct] = opaque.quads; secT[sct] = trans.quads; }
   for (let sct = 1; sct < 17; sct++) { if (secO[sct] < secO[sct - 1]) secO[sct] = secO[sct - 1]; if (secT[sct] < secT[sct - 1]) secT[sct] = secT[sct - 1]; }
 
   // Light for the chunk's own columns, for entities and particles on the main thread.

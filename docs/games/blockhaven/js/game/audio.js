@@ -18,7 +18,7 @@ const VOICE = {
   rabbit: [1000, 'sine', 0.1, 1, 0.2], silverfish: [2000, 'noise', 0.15, 1, 1], strider: [250, 'sawtooth', 0.4, 0.8, 0.3], axolotl: [900, 'sine', 0.2, 1.2, 0],
 };
 
-import { MusicPlayer } from './music.js?v=munfaoam';
+import { MusicPlayer } from './music.js?v=munk2rp4';
 
 export class Sound {
   constructor() { this.ctx = null; this.volume = 0.6; this.music = 0.4; this.listener = { pos: [0, 0, 0], yaw: 0 }; this.musicT = 20; }
