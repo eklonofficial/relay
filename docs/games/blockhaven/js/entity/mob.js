@@ -1,14 +1,14 @@
 // Living mobs: physics, AI archetypes, combat, breeding/taming, trading and animation.
-import { Entity, drawModel, rootMatrix, M } from './entity.js?v=muo1jidk';
-import { Projectile, renderStack } from './objects.js?v=muo1jidk';
-import { MOBS, PROFESSIONS } from '../data/mobs.js?v=muo1jidk';
-import { B, BLOCKS, SOLID } from '../data/blocks.js?v=muo1jidk';
-import { UNLOADED } from '../world/world.js?v=muo1jidk';
-import { villagerTrades } from '../game/trades.js?v=muo1jidk';
-import { findPath, clearWalk } from './pathfind.js?v=muo1jidk';
-import { ARMOR_BYPASS, armorStats, armorReduce, applyInvul } from '../game/combat.js?v=muo1jidk';
-import { armorSkinKey } from '../data/armor.js?v=muo1jidk';
-import { I } from '../data/items.js?v=muo1jidk';
+import { Entity, drawModel, rootMatrix, M } from './entity.js?v=muo1whx0';
+import { Projectile, renderStack } from './objects.js?v=muo1whx0';
+import { MOBS, PROFESSIONS } from '../data/mobs.js?v=muo1whx0';
+import { B, BLOCKS, SOLID } from '../data/blocks.js?v=muo1whx0';
+import { UNLOADED } from '../world/world.js?v=muo1whx0';
+import { villagerTrades } from '../game/trades.js?v=muo1whx0';
+import { findPath, clearWalk } from './pathfind.js?v=muo1whx0';
+import { ARMOR_BYPASS, armorStats, armorReduce, applyInvul } from '../game/combat.js?v=muo1whx0';
+import { armorSkinKey } from '../data/armor.js?v=muo1whx0';
+import { I } from '../data/items.js?v=muo1whx0';
 
 const rnd = (a, b) => a + Math.random() * (b - a);
 const rint = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
@@ -140,7 +140,7 @@ export class Mob extends Entity {
     this.health = 0;
     this.deathT = 0.001;
     g.sound.mob(this.mobType, 'death', this.pos, this);
-    const byPlayer = src.attacker === g.playerEntity || (src.attacker && src.attacker.tamed);
+    const byPlayer = src.attacker === g.playerEntity || (src.attacker && (src.attacker.tamed || src.attacker.remote));
     const onFire = this.fire > 0;
     if (!this.baby && g.rules.doMobLoot) {
       for (const [key, a, b, chance] of d.drops || []) {
@@ -156,7 +156,7 @@ export class Mob extends Entity {
     }
     if (d.sizes && this.size > 1) for (let k = 0; k < rint(2, 4); k++) g.spawnMob(this.mobType, this.pos[0] + rnd(-0.5, 0.5), this.pos[1] + 0.5, this.pos[2] + rnd(-0.5, 0.5), { size: this.size / 2 });
     if (this.mobType === 'ender_dragon') g.onDragonDeath(this);
-    if (byPlayer) g.onKill(this);
+    if (src.attacker === g.playerEntity) g.onKill(this);
   }
   setFire(s) { if (!this.def.fireImmune) this.fire = Math.max(this.fire, s); }
   teleportRandom() {
@@ -178,8 +178,15 @@ export class Mob extends Entity {
   }
 
   // ---------------- helpers ----------------
-  playerTargetable() { const g = this.game; return g.alive && (g.mode === 'survival' || g.mode === 'adventure' || g.mode === 'hardcore') && g.difficulty !== 'peaceful'; }
-  distToPlayer() { const p = this.game.player.pos; return Math.hypot(p[0] - this.pos[0], p[1] - this.pos[1], p[2] - this.pos[2]); }
+  // The player this mob pays attention to: the local one, or in multiplayer whoever is nearest.
+  get focus() { return (this.game.net && this._focus) || this.game.playerEntity; }
+  playerTargetable(t = this.focus) {
+    const g = this.game;
+    if (g.difficulty === 'peaceful') return false;
+    if (t && t.remote) return t.visible && !t.deadFlag && (t.mode === 'survival' || t.mode === 'adventure');
+    return g.alive && (g.mode === 'survival' || g.mode === 'adventure' || g.mode === 'hardcore');
+  }
+  distToPlayer() { const p = this.focus.pos; return Math.hypot(p[0] - this.pos[0], p[1] - this.pos[1], p[2] - this.pos[2]); }
   canSee(t) {
     const e = [this.pos[0], this.pos[1] + this.h * 0.85, this.pos[2]];
     const tp = t.pos, th = t.h || 1.6;
@@ -308,10 +315,10 @@ export class Mob extends Entity {
   doAttack(t) {
     const a = this.def.attack, g = this.game;
     const diffMul = { peaceful: 0, easy: 0.6, normal: 1, hard: 1.5 }[g.difficulty] ?? 1;
-    let dmg = a.dmg * (t === g.playerEntity ? diffMul : 1);
-    if (this.mobType === 'iron_golem') dmg = rnd(7, 21) * (t === g.playerEntity ? diffMul : 1);
+    let dmg = a.dmg * ((t === g.playerEntity || t.remote) ? diffMul : 1);
+    if (this.mobType === 'iron_golem') dmg = rnd(7, 21) * ((t === g.playerEntity || t.remote) ? diffMul : 1);
     const weapon = this.equipment && this.equipment.hand;
-    if (weapon && I[weapon] && I[weapon].damage) dmg += (I[weapon].damage - 1) * (t === g.playerEntity ? diffMul : 1);
+    if (weapon && I[weapon] && I[weapon].damage) dmg += (I[weapon].damage - 1) * ((t === g.playerEntity || t.remote) ? diffMul : 1);
     const dx = t.pos[0] - this.pos[0], dz = t.pos[2] - this.pos[2], n = Math.hypot(dx, dz) || 1;
     const ok = t.hurt(dmg, { kind: 'mob', attacker: this, knock: [dx / n, dz / n], knockStrength: a.fling ? 12 : 5 });
     if (ok) {
@@ -360,6 +367,7 @@ export class Mob extends Entity {
     }
     this.environment(dt);
     if (this.dead) return;
+    if (g.net) { this.focusT = (this.focusT || 0) - dt; if (this.focusT <= 0 || !this._focus) { this.focusT = 0.5; this._focus = g.nearestPlayer(this.pos); } }
     this.ai(dt);
     // Idle voices: moos, bleats, groans and rattles every so often while near the player.
     if (this.deathT <= 0 && !QUIET.has(this.mobType)) {
@@ -441,7 +449,7 @@ export class Mob extends Entity {
   ai(dt) {
     const d = this.def, g = this.game;
     if (this.rider) return; // steered by (or bucking) its rider
-    if (this.target && (this.target.dead || this.target.deathT > 0 || (this.target === g.playerEntity && !this.playerTargetable()) || this.distTo(this.target.pos) > 40)) this.target = null;
+    if (this.target && (this.target.dead || this.target.deathT > 0 || ((this.target === g.playerEntity || this.target.remote) && !this.playerTargetable(this.target)) || this.distTo(this.target.pos) > 40)) this.target = null;
     switch (d.ai) {
       case 'animal': return this.aiAnimal(dt);
       case 'wolf': return this.aiWolf(dt);
@@ -468,14 +476,15 @@ export class Mob extends Entity {
     const g = this.game;
     if (this.target || !this.playerTargetable()) return;
     if (this.distToPlayer() > range) return;
-    if (this.def.goldCalm && g.inv.armor.slots.some(s => s && s.key.startsWith('golden_'))) return;
+    const f = this.focus, armor = f.remote ? f.armor : g.inv.armor.slots.map(s => s && s.key);
+    if (this.def.goldCalm && armor.some(k => k && k.startsWith('golden_'))) return;
     if (this.def.neutralInDay && g.isDay() && this.world.lightAt(this.pos[0], this.pos[1] + 1, this.pos[2]).sky > 11) return;
-    if (this.canSee(g.playerEntity)) this.target = g.playerEntity;
+    if (this.canSee(f)) this.target = f;
   }
   aiAnimal(dt) {
     const g = this.game, d = this.def;
-    if (this.panic > 0) { this.panic -= dt; const s = g.player.pos; this.flee(s, dt, this.speed * 1.6); return; }
-    if (d.shy && this.distToPlayer() < 6 && !this.love) { this.flee(g.player.pos, dt, this.speed * 1.3); return; }
+    if (this.panic > 0) { this.panic -= dt; const s = this.focus.pos; this.flee(s, dt, this.speed * 1.6); return; }
+    if (d.shy && this.distToPlayer() < 6 && !this.love) { this.flee(this.focus.pos, dt, this.speed * 1.3); return; }
     // Breeding partners.
     if (this.love > 0 && !this.baby) {
       const mate = g.entities.near(this.pos, 8, e => e !== this && e.mobType === this.mobType && e.love > 0 && !e.baby)[0];
@@ -490,9 +499,9 @@ export class Mob extends Entity {
       }
     }
     // Follow a player holding food.
-    const held = g.inv.held;
-    if (d.food && held && d.food.includes(held.key) && this.distToPlayer() < 10 && g.alive) {
-      if (this.distToPlayer() > 2.2) this.navigateTo(g.player.pos, this.speed * 0.6, dt); else { this.lookAt(g.player.pos, 6, dt); this.brake(dt); }
+    const fp = this.focus, heldKey = fp.remote ? fp.held : g.inv.held && g.inv.held.key;
+    if (d.food && heldKey && d.food.includes(heldKey) && this.distToPlayer() < 10 && (fp.remote ? fp.visible : g.alive)) {
+      if (this.distToPlayer() > 2.2) this.navigateTo(fp.pos, this.speed * 0.6, dt); else { this.lookAt(fp.pos, 6, dt); this.brake(dt); }
       return;
     }
     if (this.mobType === 'chicken' && !this.baby) { this.eggT -= dt; if (this.eggT <= 0) { this.eggT = rnd(300, 600); g.dropItem(this.pos[0], this.pos[1] + 0.3, this.pos[2], { key: 'egg', count: 1 }); g.sound.play('pop', this.pos, 0.4); } }
@@ -500,7 +509,7 @@ export class Mob extends Entity {
       const b = this.world.getBlock(this.pos[0], this.pos[1] - 0.5, this.pos[2]);
       if (b === B.GRASS_BLOCK) { this.sheared = false; g.setBlock(Math.floor(this.pos[0]), Math.floor(this.pos[1] - 0.5), Math.floor(this.pos[2]), B.DIRT, 0); }
     }
-    if (this.mobType === 'goat' && this.playerTargetable() && this.distToPlayer() < 8 && Math.random() < dt / 20) { this.target = g.playerEntity; this.ramT = 2; }
+    if (this.mobType === 'goat' && this.playerTargetable() && this.distToPlayer() < 8 && Math.random() < dt / 20) { this.target = this.focus; this.ramT = 2; }
     if (this.ramT > 0) { this.ramT -= dt; if (this.target) { this.moveTo(this.target.pos, this.speed * 2.2, dt); if (this.distTo(this.target.pos) < 1.4) { this.target.hurt(2, { kind: 'mob', attacker: this, knock: [-Math.sin(this.yaw), -Math.cos(this.yaw)], knockStrength: 14 }); this.target = null; this.ramT = 0; } } return; }
     this.wander(dt);
   }
@@ -509,7 +518,7 @@ export class Mob extends Entity {
     if (this.target && (this.target !== g.playerEntity || !this.tamed)) { this.meleeTarget(dt); return; }
     if (this.tamed) {
       if (this.sitting) { this.brake(dt); return; }
-      const d = this.distToPlayer();
+      const op = g.player.pos, d = Math.hypot(op[0] - this.pos[0], op[1] - this.pos[1], op[2] - this.pos[2]);
       if (d > 14 && g.alive) { this.pos = [g.player.pos[0] + rnd(-1, 1), g.player.pos[1], g.player.pos[2] + rnd(-1, 1)]; return; }
       if (d > 3.5) { this.navigateTo(g.player.pos, this.speed * 1.1, dt); return; }
       // Defend the owner.
@@ -591,7 +600,7 @@ export class Mob extends Entity {
   }
   aiEnderman(dt) {
     const g = this.game;
-    if (!this.target && this.playerTargetable() && this.distToPlayer() < 64) {
+    if (!this.target && !this.focus.remote && this.playerTargetable() && this.distToPlayer() < 64) {
       // Aggro when the player looks straight at the head (a carved pumpkin helmet hides you).
       const e = g.player.eyePos(), f = g.lookDir();
       const h = [this.pos[0] - e[0], this.pos[1] + this.h * 0.9 - e[1], this.pos[2] - e[2]], len = Math.hypot(...h);
@@ -653,8 +662,9 @@ export class Mob extends Entity {
     const g = this.game;
     if (!this.inWater) return;
     this.wanderT -= dt;
-    if (this.mobType === 'pufferfish' && this.distToPlayer() < 2.5 && this.attackT <= 0 && this.playerTargetable()) { this.attackT = 1; this.doAttack(g.playerEntity); }
-    if (this.mobType === 'dolphin' && g.player.inWater && this.distToPlayer() < 12) this.goal = [g.player.pos[0] + rnd(-2, 2), g.player.pos[1] + rnd(-1, 1), g.player.pos[2] + rnd(-2, 2)];
+    if (this.mobType === 'pufferfish' && this.distToPlayer() < 2.5 && this.attackT <= 0 && this.playerTargetable()) { this.attackT = 1; this.doAttack(this.focus); }
+    const fw = this.focus;
+    if (this.mobType === 'dolphin' && (fw.remote ? this.world.getBlock(fw.pos[0], fw.pos[1] + 0.5, fw.pos[2]) === B.WATER : g.player.inWater) && this.distToPlayer() < 12) this.goal = [fw.pos[0] + rnd(-2, 2), fw.pos[1] + rnd(-1, 1), fw.pos[2] + rnd(-2, 2)];
     if (this.wanderT <= 0 || !this.goal) { this.wanderT = rnd(2, 6); this.goal = [this.pos[0] + rnd(-8, 8), this.pos[1] + rnd(-3, 3), this.pos[2] + rnd(-8, 8)]; }
     const dx = this.goal[0] - this.pos[0], dy = this.goal[1] - this.pos[1], dz = this.goal[2] - this.pos[2], n = Math.hypot(dx, dy, dz) || 1;
     if (this.world.getBlock(this.goal[0], this.goal[1], this.goal[2]) !== B.WATER) { this.goal = null; return; }
@@ -677,7 +687,7 @@ export class Mob extends Entity {
   }
   aiPhantom(dt) {
     const g = this.game;
-    if (!this.target && this.playerTargetable()) this.target = g.playerEntity;
+    if (!this.target && this.playerTargetable()) this.target = this.focus;
     const t = this.target;
     if (!t) { this.aiFlyer(dt); return; }
     this.phaseT = (this.phaseT || 0) - dt;
@@ -727,7 +737,7 @@ export class Mob extends Entity {
   }
   aiGolem(dt) {
     const g = this.game;
-    if (!this.target || this.target === g.playerEntity) {
+    if (!this.target || this.target === g.playerEntity || this.target.remote) {
       const foe = g.entities.near(this.pos, 16, e => e.isLiving && e.def && e.def.kind === 'hostile' && e.mobType !== 'creeper' && e.deathT === 0)[0];
       if (foe) this.target = foe;
     }
@@ -742,10 +752,10 @@ export class Mob extends Entity {
   }
   aiVillager(dt) {
     const g = this.game;
-    if (this.trading) { this.lookAt(g.player.pos, 8, dt); this.brake(dt); return; }
+    if (this.trading) { this.lookAt(this.focus.pos, 8, dt); this.brake(dt); return; }
     const threat = g.entities.near(this.pos, 8, e => e.def && (e.def.undead || e.def.raider) && e.deathT === 0 && e.def.kind === 'hostile')[0];
     if (threat) { this.flee(threat.pos, dt, this.speed * 1.4); return; }
-    if (this.distToPlayer() < 4 && Math.random() < dt) this.lookAt(g.player.pos, 20, dt);
+    if (this.distToPlayer() < 4 && Math.random() < dt) this.lookAt(this.focus.pos, 20, dt);
     this.wander(dt, 10);
     if (this.mobType === 'wandering_trader' && this.age > 2400) this.dead = true;
   }
@@ -764,9 +774,9 @@ export class Mob extends Entity {
     }
     this.health = Math.min(this.maxHealth, this.health + dt);
     this.armored = this.health < this.maxHealth / 2;
-    const bad = t => !t || t.dead || t.deathT > 0 || (t === g.playerEntity && !this.playerTargetable());
+    const bad = t => !t || t.dead || t.deathT > 0 || ((t === g.playerEntity || t.remote) && !this.playerTargetable(t));
     if (bad(this.target) || Math.random() < dt * 0.1) {
-      this.target = this.playerTargetable() && this.distToPlayer() < 48 ? g.playerEntity
+      this.target = this.playerTargetable() && this.distToPlayer() < 48 ? this.focus
         : g.entities.near(this.pos, 24, e => e.isLiving && e !== this && !e.dead && e.def && !e.def.undead && e.def.kind !== 'boss')[0] || null;
     }
     const t = this.target;
@@ -805,7 +815,7 @@ export class Mob extends Entity {
     // Crystals heal.
     const crystal = g.entities.near(this.pos, 40, e => e.type === 'end_crystal')[0];
     if (crystal && this.health < this.maxHealth) { this.health = Math.min(this.maxHealth, this.health + dt); this.beam = crystal; } else this.beam = null;
-    const p = g.player.pos;
+    const p = this.focus.pos;
     let goal;
     if (this.phase === 'circle') {
       this.circleA += dt * 0.25;
@@ -817,12 +827,12 @@ export class Mob extends Entity {
     } else if (this.phase === 'strafe') {
       goal = [p[0] + Math.cos(this.circleA) * 30, p[1] + 20, p[2] + Math.sin(this.circleA) * 30];
       this.circleA += dt * 0.4;
-      if (this.attackT <= 0 && this.playerTargetable()) { this.attackT = 2.5; this.shoot('dragon_fireball', g.playerEntity, 20); }
+      if (this.attackT <= 0 && this.playerTargetable()) { this.attackT = 2.5; this.shoot('dragon_fireball', this.focus, 20); }
       if (this.phaseT <= 0) { this.phase = 'circle'; this.phaseT = rnd(8, 14); }
     } else {
       const top = g.world.heightAt(0, 0);
       goal = [0, (top > 0 ? top : 64) + 2, 0];
-      if (this.distTo(goal) < 3) { this.vel = [0, 0, 0]; this.lookAt(p, 2, dt); if (this.attackT <= 0 && this.distToPlayer() < 20 && this.playerTargetable()) { this.attackT = 2; this.shoot('dragon_fireball', g.playerEntity, 16); } }
+      if (this.distTo(goal) < 3) { this.vel = [0, 0, 0]; this.lookAt(p, 2, dt); if (this.attackT <= 0 && this.distToPlayer() < 20 && this.playerTargetable()) { this.attackT = 2; this.shoot('dragon_fireball', this.focus, 16); } }
       if (this.phaseT <= 0) { this.phase = 'circle'; this.phaseT = rnd(10, 15); }
     }
     if (goal) {
@@ -831,11 +841,11 @@ export class Mob extends Entity {
       if (n > 2) { this.vel[0] += (dx / n * sp - this.vel[0]) * dt * 1.5; this.vel[1] += (dy / n * sp - this.vel[1]) * dt * 1.5; this.vel[2] += (dz / n * sp - this.vel[2]) * dt * 1.5; this.yaw += wrap(Math.atan2(-this.vel[0], -this.vel[2]) - this.yaw) * Math.min(1, dt * 2); }
     }
     // Body contact damage and knockback.
-    if (g.alive && this.distToPlayer() < 5 && this.attackT <= 0 && this.playerTargetable()) {
+    if (this.distToPlayer() < 5 && this.attackT <= 0 && this.playerTargetable()) {
       this.attackT = 1;
       const dx = p[0] - this.pos[0], dz = p[2] - this.pos[2], n = Math.hypot(dx, dz) || 1;
-      g.playerEntity.hurt(10, { kind: 'mob', attacker: this, knock: [dx / n, dz / n], knockStrength: 16 });
-      g.player.vel[1] = 10;
+      this.focus.hurt(10, { kind: 'mob', attacker: this, knock: [dx / n, dz / n], knockStrength: 16 });
+      if (this.focus === g.playerEntity) g.player.vel[1] = 10;
     }
     // Destroy blocks it flies through (not end stone/obsidian/bedrock).
     if (g.rules.mobGriefing && Math.random() < dt * 10) {
@@ -1021,7 +1031,7 @@ export class Mob extends Entity {
 }
 
 // Moves an entity without gravity handling (fliers/swimmers).
-import { moveEntity } from './physics.js?v=muo1jidk';
+import { moveEntity } from './physics.js?v=muo1whx0';
 function import_move(e, dt) { moveEntity(e.world, e, e.vel[0] * dt, e.vel[1] * dt, e.vel[2] * dt); }
 
 // Renders a held item using a part matrix (model units).

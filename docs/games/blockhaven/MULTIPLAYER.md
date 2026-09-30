@@ -24,6 +24,10 @@ GitHub Pages can only serve files, so the browsers talk to each other directly o
 2. A friend's browser asks that server for the code, and the two browsers set up a direct,
    encrypted connection. After that, all game data flows between the players.
 3. The host relays traffic between guests (a star), so each guest needs only one connection.
+4. Each mob, dropped item, XP orb or projectile is simulated by the player whose game spawned it.
+   That player streams it to the others, who draw a copy. Hits, pickups and right-clicks on a copy
+   are sent to the owner. When the owner moves far away or leaves, the entity is handed to a
+   player who is still nearby.
 
 The networking code is in `js/net/`. Connection settings are in `net-config.js`.
 

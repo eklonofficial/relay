@@ -1,11 +1,11 @@
 // The in-game guide: features, commands, crafting, farming, combat, villagers, dimensions and graphics.
-import { MusicPlayer } from './music.js?v=muo1jidk';
-import { BLOCKS, BLOCK_ITEMS, TEXTURES } from '../data/blocks.js?v=muo1jidk';
-import { ITEMS, I } from '../data/items.js?v=muo1jidk';
-import { SHAPED, SHAPELESS, SMELTING } from '../data/recipes.js?v=muo1jidk';
-import { MOBS } from '../data/mobs.js?v=muo1jidk';
-import { BIOMES } from '../gen/biomes.js?v=muo1jidk';
-import { COMMANDS } from './commands.js?v=muo1jidk';
+import { MusicPlayer } from './music.js?v=muo1whx0';
+import { BLOCKS, BLOCK_ITEMS, TEXTURES } from '../data/blocks.js?v=muo1whx0';
+import { ITEMS, I } from '../data/items.js?v=muo1whx0';
+import { SHAPED, SHAPELESS, SMELTING } from '../data/recipes.js?v=muo1whx0';
+import { MOBS } from '../data/mobs.js?v=muo1whx0';
+import { BIOMES } from '../gen/biomes.js?v=muo1whx0';
+import { COMMANDS } from './commands.js?v=muo1whx0';
 
 const esc = s => String(s).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
 
@@ -68,7 +68,7 @@ export function guideSections(icons) {
         <tr><td>T</td><td>Chat with everyone.</td></tr>
       </table>
       <h4>How it works</h4>
-      <p>The host's world is the real one: it is saved on the host's computer along with every guest's inventory and position, so guests can leave and come back later. Block changes, chests and furnaces, chat, day/night and weather are shared. Name tags show through walls at any distance, except for sneaking players.</p>
+      <p>The host's world is the real one: it is saved on the host's computer along with every guest's inventory and position, so guests can leave and come back later. Everyone sees the same mobs, animals, dropped items and XP; monsters chase whichever player is nearest. Block changes, chests and furnaces, chat, day/night and weather are shared too. Name tags show through walls at any distance, except for sneaking players.</p>
       <p>PvP is on: swords, axes, arrows and explosions hurt other players, with armour, shields and knockback working as usual.</p>
       <p>If joining fails from a different network, the network may block direct connections; see MULTIPLAYER.md in the project for the free fix.</p>`,
     Commands: `
