@@ -84,4 +84,48 @@ export class Painter {
     return this;
   }
   copyFrom(other) { this.d.set(other.d); return this; }
+  // Two-octave tileable value noise in [0,1]: soft blotches with a little finer variation on top.
+  fbm(cells, oct = 2) { const a = this.valueNoise(cells), b = oct > 1 ? this.valueNoise(cells * 2) : null; return b ? (x, y) => a(x, y) * 0.65 + b(x, y) * 0.35 : a; }
+  // Clumped n-tone fill with exact tone proportions (pal[i] covers weights[i]/sum of the area), assigned by
+  // rank of blotchy noise plus per-pixel grain. This is the vanilla "soft 4-tone blotch" look for stone, dirt, wool...
+  dither(pal, weights = null, { cells = 4, grain = 0.3, oct = 2, x0 = 0, y0 = 0, w = this.w, h = this.h } = {}) {
+    const wts = weights || pal.map(() => 1), vn = this.fbm(cells, oct), vals = [];
+    for (let y = y0; y < y0 + h; y++) for (let x = x0; x < x0 + w; x++) vals.push([vn(x, y) * (1 - grain) + this.r() * grain, x, y]);
+    vals.sort((a, b) => a[0] - b[0]);
+    const total = wts.reduce((a, c) => a + c, 0);
+    let k = 0, acc = wts[0] / total * vals.length;
+    vals.forEach(([, x, y], r) => { while (r >= acc && k < pal.length - 1) { k++; acc += wts[k] / total * vals.length; } this.put(x, y, pal[k]); });
+    return this;
+  }
+  // n single-pixel flecks of pal, never adjacent to another fleck (vanilla stone's lone light/dark pixels).
+  flecks(pal, n) {
+    const used = new Set();
+    for (let k = 0, tries = 0; k < n && tries < n * 8; tries++) {
+      const x = this.rand(this.w), y = this.rand(this.h);
+      let ok = true;
+      for (let dy = -1; dy <= 1 && ok; dy++) for (let dx = -1; dx <= 1; dx++) if (used.has(((y + dy + this.h) % this.h) * this.w + (x + dx + this.w) % this.w)) { ok = false; break; }
+      if (!ok) continue;
+      used.add(y * this.w + x); this.put(x, y, this.pick(pal)); k++;
+    }
+    return this;
+  }
+  // Angular pebbles: n small w x h chips of pal with a 1px darker shadow along the lower-right edge.
+  pebbles(pal, n, { maxW = 3, maxH = 2, shadow = 0.78 } = {}) {
+    for (let k = 0; k < n; k++) {
+      const x = this.rand(this.w), y = this.rand(this.h), w = 1 + this.rand(maxW), h = 1 + this.rand(maxH), c = this.pick(pal);
+      for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) this.wrapPut(x + i, y + j, c);
+      const sc = shade(c, shadow);
+      for (let i = 0; i < w; i++) this.wrapPut(x + i, y + h, sc);
+      for (let j = 0; j < h; j++) this.wrapPut(x + w, y + j, sc);
+    }
+    return this;
+  }
+  // Horizontal or vertical grain: n short runs of pal tones (length lo..hi) laid along an axis.
+  streaks(pal, n, lo = 2, hi = 5, vertical = false) {
+    for (let k = 0; k < n; k++) {
+      const x = this.rand(this.w), y = this.rand(this.h), l = lo + this.rand(hi - lo + 1), c = this.pick(pal);
+      for (let i = 0; i < l; i++) vertical ? this.wrapPut(x, y + i, c) : this.wrapPut(x + i, y, c);
+    }
+    return this;
+  }
 }
