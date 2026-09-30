@@ -1,35 +1,39 @@
 // Blockhaven bootstrap: assets, menus, input, camera, frame loop.
-import { Demo, DEMO_SEED } from './demo.js?v=muono2ew';
-import { armorModel, armorSkinKey, ARMOR_MATERIALS, ARMOR_PIECES, elytraModel } from './data/armor.js?v=muono2ew';
-import { TEXTURES, TEX, B, BLOCKS, DIM, DIM_NAMES, SHAPE_OF, SHAPE, props } from './data/blocks.js?v=muono2ew';
-import { I, ITEMS } from './data/items.js?v=muono2ew';
-import { MOBS, PROFESSIONS, playerModel, saddleModel, PLAYER_SKINS } from './data/mobs.js?v=muono2ew';
-import { Net, cleanCode, cleanName, cleanKey, cleanChat, chatLine, MAX_PLAYERS } from './net/net.js?v=muono2ew';
-import { NameTags } from './net/nametags.js?v=muono2ew';
-import { BIOMES } from './gen/biomes.js?v=muono2ew';
-import { generateBlockTextures, drawBlockTexture } from './render/blocktex.js?v=muono2ew';
-import { generateItemTextures, ITEM_LAYER, FX_LAYER, ITEM_LAYER_COUNT } from './render/itemtex.js?v=muono2ew';
-import { packModel, paintModel, SKIN, faceRects } from './render/mobtex.js?v=muono2ew';
-import { buildMipChain } from './render/atlas.js?v=muono2ew';
-import { Renderer, Batch } from './render/renderer.js?v=muono2ew';
-import { World, UNLOADED } from './world/world.js?v=muono2ew';
-import { createGenerator } from './gen/index.js?v=muono2ew';
-import { Game } from './game/game.js?v=muono2ew';
-import { Interact, CROSSBOW_CHARGE } from './game/interact.js?v=muono2ew';
-import { Commands } from './game/commands.js?v=muono2ew';
-import { GUI, HUD } from './game/ui.js?v=muono2ew';
-import { buildIcons, hudSprites } from './game/icons.js?v=muono2ew';
-import { Sound } from './game/audio.js?v=muono2ew';
-import { buildLogo, buttonTexture, dirtTexture, iconDataURL } from './render/logo.js?v=muono2ew';
-import { computeEnv } from './game/env.js?v=muono2ew';
-import { guideSections } from './game/guide.js?v=muono2ew';
-import { listWorlds, loadWorld, saveWorld, deleteWorld } from './game/storage.js?v=muono2ew';
-import { drawModel, rootMatrix, M } from './entity/entity.js?v=muono2ew';
-import { itemMesh, emitItemMesh } from './entity/itemmesh.js?v=muono2ew';
-import { Lightning } from './entity/objects.js?v=muono2ew';
-import { compose, translation, rotationX, rotationY, rotationZ, scaling, forward, mat4 } from './core/math.js?v=muono2ew';
+import { Demo, DEMO_SEED } from './demo.js?v=muoqcjyl';
+import { armorModel, armorSkinKey, ARMOR_MATERIALS, ARMOR_PIECES, elytraModel } from './data/armor.js?v=muoqcjyl';
+import { TEXTURES, TEX, B, BLOCKS, DIM, DIM_NAMES, SHAPE_OF, SHAPE, props, HEIGHT } from './data/blocks.js?v=muoqcjyl';
+import { I, ITEMS } from './data/items.js?v=muoqcjyl';
+import { MOBS, PROFESSIONS, playerModel, saddleModel, PLAYER_SKINS } from './data/mobs.js?v=muoqcjyl';
+import { Net, cleanCode, cleanName, cleanKey, cleanChat, chatLine, MAX_PLAYERS } from './net/net.js?v=muoqcjyl';
+import { NameTags } from './net/nametags.js?v=muoqcjyl';
+import { BIOMES } from './gen/biomes.js?v=muoqcjyl';
+import { generateBlockTextures, drawBlockTexture } from './render/blocktex.js?v=muoqcjyl';
+import { generateItemTextures, ITEM_LAYER, FX_LAYER, ITEM_LAYER_COUNT } from './render/itemtex.js?v=muoqcjyl';
+import { packModel, paintModel, SKIN, faceRects } from './render/mobtex.js?v=muoqcjyl';
+import { buildMipChain } from './render/atlas.js?v=muoqcjyl';
+import { Renderer, Batch } from './render/renderer.js?v=muoqcjyl';
+import { World, UNLOADED } from './world/world.js?v=muoqcjyl';
+import { createGenerator } from './gen/index.js?v=muoqcjyl';
+import { Game } from './game/game.js?v=muoqcjyl';
+import { Interact, CROSSBOW_CHARGE } from './game/interact.js?v=muoqcjyl';
+import { SpawnPrep, STATUS_COLOR } from './game/spawnprep.js?v=muoqcjyl';
+import { splash } from './splash.js?v=muoqcjyl';
+import { Commands } from './game/commands.js?v=muoqcjyl';
+import { GUI, HUD } from './game/ui.js?v=muoqcjyl';
+import { buildIcons, hudSprites } from './game/icons.js?v=muoqcjyl';
+import { Sound } from './game/audio.js?v=muoqcjyl';
+import { buildLogo, buttonTexture, dirtTexture, iconDataURL } from './render/logo.js?v=muoqcjyl';
+import { computeEnv } from './game/env.js?v=muoqcjyl';
+import { guideSections } from './game/guide.js?v=muoqcjyl';
+import { listWorlds, loadWorld, saveWorld, deleteWorld } from './game/storage.js?v=muoqcjyl';
+import { drawModel, rootMatrix, M } from './entity/entity.js?v=muoqcjyl';
+import { itemMesh, emitItemMesh } from './entity/itemmesh.js?v=muoqcjyl';
+import { Lightning } from './entity/objects.js?v=muoqcjyl';
+import { compose, translation, rotationX, rotationY, rotationZ, scaling, forward, mat4 } from './core/math.js?v=muoqcjyl';
 
 const $ = id => document.getElementById(id);
+// Resolves after the page has painted what was just put on screen.
+const nextPaint = () => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
 const SETTINGS_KEY = 'blockhaven.settings.v2';
 const load = k => { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } };
 const store = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* ignore */ } };
@@ -128,6 +132,8 @@ class App {
   }
 
   init() {
+    // The splash (splash.js) counted the module downloads up to 0.3; the rest of startup reports here.
+    splash.progress(0.3);
     // Menu textures first, so even the error screen has its dirt background.
     const css = document.documentElement.style;
     css.setProperty('--btn-tex', `url(${buttonTexture()})`); css.setProperty('--dirt-tex', `url(${dirtTexture(drawBlockTexture('dirt', 1))})`);
@@ -136,8 +142,10 @@ class App {
     // Textures.
     this.blockTex = generateBlockTextures();
     this.renderer.setBlockTextures(buildMipChain(this.blockTex), TEXTURES.length);
+    splash.progress(0.4);
     this.itemTex = generateItemTextures();
     this.renderer.setItemTextures(buildMipChain(this.itemTex), this.itemTex.length);
+    splash.progress(0.45);
     // Mob skins (one 64x64 layer per mob, villager profession and the player).
     this.mobModels = new Map(); this.mobLayers = new Map();
     const skins = [];
@@ -152,6 +160,7 @@ class App {
     addSkin('elytra', elytraModel(), 779);
     for (const mat of Object.keys(ARMOR_MATERIALS)) for (const piece of ARMOR_PIECES) for (const thin of [false, true]) addSkin(`armor_${mat}_${piece}${thin ? '_thin' : ''}`, armorModel(mat, piece, thin), seed++);
     this.renderer.setEntityTextures(buildMipChain(skins, SKIN, 7), skins.length);
+    splash.progress(0.6);
     this.icons = buildIcons(this.blockTex, this.itemTex);
     this.sprites = hudSprites();
     this.sound = new Sound();
@@ -163,8 +172,10 @@ class App {
     // Like Minecraft, the splash is scaled so it always spans about 100 GUI px (measured once the font is in).
     const fitSplash = () => { const el = $('splash'), w = el.offsetWidth / (this.guiScale || 3) / (Number(getComputedStyle(el).getPropertyValue('--splash-scale')) || 1); el.style.setProperty('--splash-scale', Math.min(1.5, 110 / (w + 16)).toFixed(2)); };
     fitSplash(); if (document.fonts && document.fonts.ready) document.fonts.ready.then(fitSplash);
+    this.fontsReady = !document.fonts; if (document.fonts) document.fonts.ready.then(() => { this.fontsReady = true; });
     this.buildTitleArt();
     this.startPanorama();
+    splash.progress(0.7);
     requestAnimationFrame(t => this.frame(t));
     return true;
   }
@@ -193,7 +204,7 @@ class App {
     for (const name of Object.keys(secs)) { const b = document.createElement('button'); b.className = 'small'; b.textContent = name; b.addEventListener('click', () => { this.sound.click(); show(name); }); tabs.appendChild(b); }
     show(Object.keys(secs)[0]);
   }
-  fatal(msg) { $('title').classList.add('hidden'); $('error').classList.remove('hidden'); $('error').textContent = msg; }
+  fatal(msg) { $('title').classList.add('hidden'); $('error').classList.remove('hidden'); $('error').textContent = msg; splash.ready(); }
 
   // ---------------- asset lookups used by the game ----------------
   itemLayer(key) { return ITEM_LAYER[key] ?? FX_LAYER.blank; }
@@ -288,11 +299,13 @@ class App {
   }
   async playWorld(id) {
     this.sound.unlock(); this.sound.click();
+    this.showLoading('message', 'Reading world data...');
     const meta = await loadWorld(id);
-    if (!meta) return;
+    if (!meta) { this.showWorlds(); return; }
+    await nextPaint();
     this.startGame(meta);
   }
-  createWorld() {
+  async createWorld() {
     this.sound.unlock(); this.sound.click();
     const opt = k => $('create').querySelector(`[data-opt=${k}]`).dataset.v;
     const seedText = $('cw-seed').value;
@@ -301,6 +314,9 @@ class App {
       name: $('cw-name').value.trim() || 'New World', seed: hashSeed(seedText), seedText,
       mode: opt('mode'), type: opt('type'), difficulty: opt('difficulty'), cheats: opt('cheats') === 'on', created: Date.now(),
     };
+    // Setting up the generator and finding spawn blocks the page for a moment: show why first.
+    this.showLoading('message', 'Preparing for world creation...');
+    await nextPaint();
     this.startGame(meta);
   }
   // Cinematic showcase: a real (unsaved) world driven by scripted camera shots.
@@ -334,9 +350,11 @@ class App {
     this.game.hud = this.hud = new HUD(this.game, this.sprites);
     this.game.start(meta);
     this.chatLines = []; $('chat').textContent = '';
-    this.setMode('loading');
-    $('loading-label').textContent = meta.demo ? 'Preparing the demo…' : meta.dims ? 'Loading world…' : 'Generating world…';
-    this.loadingFor = 0;
+    // A world of our own prepares its spawn area first, with the chunk map; joining someone else's
+    // world (and the demo) only waits for the terrain, as joining a server does.
+    const p = this.game.player;
+    this.spawnPrep = meta.demo || meta.guest ? null : new SpawnPrep(this.game.world, Math.floor(p.pos[0] / 16), Math.floor(p.pos[2] / 16));
+    if (this.spawnPrep) this.showLoading('map'); else this.showLoading('terrain', 'Loading terrain...');
     if (!meta.demo) this.requestLock();
     if (!meta.demo) this.chat(`Welcome to ${meta.name}! Press T or / for chat and commands (try /help).`, '#aaaaaa');
     this.saveT = 0;
@@ -345,10 +363,18 @@ class App {
     $('hint').style.opacity = meta.dims || meta.demo ? 0 : 1;
   }
   onWorldOpened() {}
-  onDimensionChange(dim) {
+  onDimensionChange() {
     if (this.demo) return;
+    this.showLoading('terrain', 'Loading terrain...');
+  }
+  // Java Edition's loading screens (layouts in index.html): 'message' while a world is read or
+  // prepared, 'map' while spawn is prepared, 'terrain' until the chunk under the player is ready.
+  showLoading(kind, text = '') {
     this.setMode('loading');
-    $('loading-label').textContent = dim === DIM.NETHER ? 'Entering the Nether…' : dim === DIM.END ? 'Entering the End…' : 'Returning to the Overworld…';
+    $('loading').dataset.kind = kind;
+    $('load-msg').textContent = text;
+    if (kind === 'map') { $('load-pct').textContent = '0%'; this.drawChunkMap(null); }
+    this.loadingFor = 0;
   }
   async saveGame(quiet = true) {
     if (!this.game || !this.game.world || (this.game.meta && this.game.meta.demo)) return;
@@ -363,6 +389,7 @@ class App {
     await this.saveGame();
     this.leaveNet();
     if (this.game) { this.game.world.dispose(); this.game = null; }
+    this.spawnPrep = null;
     this.setMode('title');
     this.startPanorama();
   }
@@ -812,6 +839,9 @@ class App {
     // GUI scale like Minecraft's "Auto": the largest whole scale that keeps a 320x240 GUI on screen.
     const gs = Math.max(1, Math.min(4, Math.floor(Math.min(window.innerWidth / 320, window.innerHeight / 240))));
     if (gs !== this.guiScale) { this.guiScale = gs; document.documentElement.style.setProperty('--gs', gs); }
+    // Java's width / 2 and height / 2: the GUI size is the window over the scale, rounded up.
+    const hw = Math.floor(Math.ceil(window.innerWidth / gs) / 2), hh = Math.floor(Math.ceil(window.innerHeight / gs) / 2);
+    if (hw !== this.guiHalfW || hh !== this.guiHalfH) { this.guiHalfW = hw; this.guiHalfH = hh; document.documentElement.style.setProperty('--half-w', hw); document.documentElement.style.setProperty('--half-h', hh); }
     if (!this.game) { this.framePanorama(dt); return; }
     this.frameGame(dt);
   }
@@ -854,28 +884,69 @@ class App {
     if (this.resSlow >= 2 && this.renderScale > minScale) { this.renderScale = Math.max(minScale, +(this.renderScale - 0.15).toFixed(2)); this.resChangedAt = now; this.resSlow = 0; }
     else if (this.resFast >= 6 && this.renderScale < 1) { this.renderScale = Math.min(1, +(this.renderScale + 0.15).toFixed(2)); this.resChangedAt = now; this.resFast = 0; }
   }
+  // Startup ends once the title panorama's terrain is on screen and the fonts are in: the splash's
+  // last 30% is the share of the panorama's chunks built and uploaded.
+  bootProgress(radius) {
+    const w = this.panoWorld, cx = Math.floor(this.panorama.pos[0] / 16), cz = Math.floor(this.panorama.pos[2] / 16);
+    let total = 0, done = 0;
+    for (let dz = -radius; dz <= radius; dz++) for (let dx = -radius; dx <= radius; dx++) {
+      // The chunks World.update meshes: in view, with all eight neighbours inside the generated area.
+      if (dx * dx + dz * dz > (radius + 0.5) ** 2 || (Math.abs(dx) + 1) ** 2 + (Math.abs(dz) + 1) ** 2 > (radius + 1.5) ** 2) continue;
+      const c = w.chunk(cx + dx, cz + dz);
+      total++;
+      if (c && c.meshedVersion > 0 && !w.uploads.has(c.key)) done++;
+    }
+    splash.progress(0.7 + 0.3 * done / total);
+    if (done === total && this.fontsReady) { this.booted = true; splash.ready(); }
+  }
   framePanorama(dt) {
     const pano = this.panorama;
     if (!pano || !this.panoWorld) return;
     pano.yaw += dt * 0.04;
     this.sound.updateMusic(dt, 'menu');
-    this.panoWorld.update(pano.pos[0], pano.pos[2], Math.min(settings.renderDistance, LOW_END ? 5 : 7));
+    const panoRadius = Math.min(settings.renderDistance, LOW_END ? 5 : 7);
+    this.panoWorld.update(pano.pos[0], pano.pos[2], panoRadius);
+    if (!this.booted) this.bootProgress(panoRadius);
     const env = computeEnv(0, 0.07, forward(pano.yaw, -0.15), 0, 0, settings.brightness / 100);
     this.renderer.render({ camPos: pano.pos, yaw: pano.yaw, pitch: -0.15, roll: 0, fov: 75, time: this.time, env, medium: 0, renderDistance: Math.min(settings.renderDistance, LOW_END ? 5 : 7), clouds: settings.clouds, chunks: this.panoWorld.chunks.values(), dim: 0, post: { saturation: 1.1 } });
+  }
+  // LevelLoadingScreen.renderChunks: one pixel per chunk here, scaled to 2x2 GUI px by CSS; a chunk
+  // with no status yet is black.
+  drawChunkMap(prep) {
+    const cv = $('load-map'), n = cv.width, ctx = cv.getContext('2d');
+    if (!this.chunkMapImage) {
+      this.chunkMapImage = ctx.createImageData(n, n);
+      this.chunkMapRGB = STATUS_COLOR.map(h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16)));
+    }
+    const img = this.chunkMapImage, d = img.data;
+    for (let z = 0; z < n; z++) for (let x = 0; x < n; x++) {
+      const s = prep ? prep.statusAt(x, z) : -1, rgb = s < 0 ? [0, 0, 0] : this.chunkMapRGB[s], k = (x + z * n) * 4;
+      d[k] = rgb[0]; d[k + 1] = rgb[1]; d[k + 2] = rgb[2]; d[k + 3] = 255;
+    }
+    ctx.putImageData(img, 0, 0);
   }
   frameGame(dt) {
     const g = this.game, p = g.player;
     const rd = settings.renderDistance;
-    g.world.update(p.pos[0], p.pos[2], rd);
+    // While spawn is prepared, generation follows the spawn ticket rather than the view.
+    if (!this.spawnPrep) g.world.update(p.pos[0], p.pos[2], rd);
     if (this.mode === 'loading') {
-      g.settleArrival();
-      const r = 2, total = (2 * r + 1) ** 2;
-      let ready = 0;
-      const pcx = Math.floor(p.pos[0] / 16), pcz = Math.floor(p.pos[2] / 16);
-      for (let dz = -r; dz <= r; dz++) for (let dx = -r; dx <= r; dx++) { const c = g.world.chunk(pcx + dx, pcz + dz); if (c && c.meshedVersion > 0) ready++; }
-      $('load-bar').style.width = `${Math.round(ready / total * 100)}%`;
       this.loadingFor += dt;
-      if (ready === total && !g.pendingArrival) {
+      let ready = false;
+      if (this.spawnPrep) {
+        const prep = this.spawnPrep;
+        prep.update();
+        $('load-pct').textContent = `${prep.progress}%`;
+        this.drawChunkMap(prep);
+        if (prep.done) { this.spawnPrep = null; this.showLoading('terrain', 'Loading terrain...'); }
+      } else {
+        // ReceivingLevelScreen: done once the chunk under the player is built (or the player is above
+        // or below the world, or a spectator), and after 30 s whatever happens.
+        g.settleArrival();
+        const c = g.world.chunkAt(p.pos[0], p.pos[2]);
+        ready = !g.pendingArrival && ((c && c.meshedVersion > 0) || p.pos[1] < 0 || p.pos[1] >= HEIGHT || g.mode === 'spectator' || this.loadingFor > 30);
+      }
+      if (ready) {
         // Drop onto solid ground if the saved position is inside terrain.
         this.setMode(this.locked || this.demo ? 'play' : 'pause');
         this.setGameMode(g.mode);

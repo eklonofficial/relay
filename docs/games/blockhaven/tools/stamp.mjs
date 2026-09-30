@@ -1,8 +1,10 @@
-// Cache-busting: stamps every relative module import (and the worker URL and the page's entry
-// script) with ?v=<version>, so a deploy never mixes fresh and cached files. Run before pushing:
+// Cache-busting: stamps every relative module import (and the worker URLs and the page's entry
+// scripts) with ?v=<version>, so a deploy never mixes fresh and cached files. It also records on the
+// splash's script tag how many modules the page loads (data-modules), which the splash counts its
+// download progress against. Run before pushing:
 //   node docs/games/blockhaven/tools/stamp.mjs
-// CI runs the read-only check, which changes nothing and exits 1 if any reference is unstamped
-// or the stamps disagree on the version:
+// CI runs the read-only check, which changes nothing and exits 1 if any reference is unstamped,
+// the stamps disagree on the version, or the module count is out of date:
 //   node docs/games/blockhaven/tools/stamp.mjs --check
 import { readFileSync, writeFileSync, readdirSync, statSync } from 'node:fs';
 import { join, dirname, relative } from 'node:path';
@@ -13,6 +15,21 @@ const v = Date.now().toString(36);
 const files = [];
 (function walk(d) { for (const f of readdirSync(d)) { const p = join(d, f); if (statSync(p).isDirectory()) walk(p); else if (p.endsWith('.js')) files.push(p); } })(join(root, 'js'));
 const html = join(root, 'index.html');
+// The scripts index.html loads from js/.
+const ENTRIES = ['js/splash.js', 'js/main.js'];
+
+// How many modules the page itself fetches: everything imported from its entry scripts (worker
+// scripts are fetched by the workers, so a new URL(...) is not followed).
+function moduleCount() {
+  const seen = new Set(), todo = ENTRIES.map(e => join(root, e));
+  while (todo.length) {
+    const f = todo.pop();
+    if (seen.has(f)) continue;
+    seen.add(f);
+    for (const m of readFileSync(f, 'utf8').matchAll(/(?:from\s+|import\s*\(\s*|import\s+)(['"])(\.\.?\/[^'"?]+\.js)(?:\?v=[^'"]*)?\1/g)) todo.push(join(dirname(f), m[2]));
+  }
+  return seen.size;
+}
 
 if (process.argv.includes('--check')) process.exit(check());
 
@@ -21,7 +38,10 @@ const stamp = s => s
   .replace(/new URL\((['"])(\.\.?\/[^'"?]+\.js)(\?v=[^'"]*)?\1/g, (m, q, path) => `new URL(${q}${path}?v=${v}${q}`);
 let n = 0;
 for (const f of files) { const s = readFileSync(f, 'utf8'), t = stamp(s); if (t !== s) { writeFileSync(f, t); n++; } }
-writeFileSync(html, readFileSync(html, 'utf8').replace(/src="js\/main\.js(\?v=[^"]*)?"/, `src="js/main.js?v=${v}"`).replace(/src="net-config\.js(\?v=[^"]*)?"/, `src="net-config.js?v=${v}"`));
+writeFileSync(html, readFileSync(html, 'utf8')
+  .replace(/src="(js\/[^"?]+\.js)(\?v=[^"]*)?"/g, (m, path) => `src="${path}?v=${v}"`)
+  .replace(/src="net-config\.js(\?v=[^"]*)?"/, `src="net-config.js?v=${v}"`)
+  .replace(/data-modules="\d*"/, `data-modules="${moduleCount()}"`));
 console.log(`stamped ${n} modules + index.html with v=${v}`);
 
 // Read-only: every reference the write mode would stamp must carry ?v=, and all with one version.
@@ -44,7 +64,7 @@ function check() {
     for (const re of patterns) for (const m of s.matchAll(re)) see(f, s, m, m[2], m[3]);
   }
   const page = readFileSync(html, 'utf8');
-  for (const entry of ['js/main.js', 'net-config.js']) {
+  for (const entry of [...ENTRIES, 'net-config.js']) {
     const re = new RegExp(`src="(${entry.replace(/[.]/g, '\\.')})(?:\\?v=([^"]*))?"`, 'g');
     const found = [...page.matchAll(re)];
     if (!found.length) unstamped.push(`index.html  no <script src="${entry}"> found`);
@@ -60,6 +80,8 @@ function check() {
       byCount.map(([ver, locs]) => `    v=${ver || '(empty)'}  ${locs.length} ref(s), e.g. ${locs.slice(0, 3).join(', ')}`).join('\n'));
   }
   if (versions.size === 1 && [...versions.keys()][0] === '') problems.push('stamps are empty (?v= with no version)');
+  const counted = (page.match(/data-modules="(\d*)"/) || [])[1], modules = moduleCount();
+  if (Number(counted) !== modules) problems.push(`index.html data-modules is ${counted || '(missing)'}, but the page loads ${modules} modules`);
   if (problems.length) {
     console.error(`stamp check FAILED (${total} references checked):\n  ` + problems.join('\n  ') +
       '\n\nFix: run `node docs/games/blockhaven/tools/stamp.mjs` and commit the result.');

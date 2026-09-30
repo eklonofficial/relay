@@ -5,17 +5,22 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Blockhaven</title>
 <link rel="icon" href="data:,">
+<link rel="preload" href="fonts/minecraft-regular.woff2?v=muop1mmj" as="font" type="font/woff2" crossorigin>
 <style>
-  /* Pixelify Sans (OFL), vendored in fonts/: a 7-px-cap pixel face on an 11-px em, so 11 GUI px of
-     font-size puts one font pixel on one GUI pixel, the same glyph height as Minecraft's 8-px font. */
+  /* The "Minecraft" font (public domain, fonts/LICENSE-minecraft-font.txt; built by tools/font.py): 7-px caps and a
+     1-px descender on a 10-px em, so 10 GUI px of font-size puts one font pixel on one GUI pixel. Its bold is the
+     original's bold (each glyph drawn twice, 1 px apart). Pixelify Sans (OFL) covers characters it lacks. */
+  @font-face { font-family: "Minecraft"; font-style: normal; font-weight: 400; font-display: block; src: url(fonts/minecraft-regular.woff2?v=muop1mmj) format("woff2"); }
+  @font-face { font-family: "Minecraft"; font-style: normal; font-weight: 700; font-display: block; src: url(fonts/minecraft-bold.woff2?v=muop1mmj) format("woff2"); }
   @font-face { font-family: "Pixelify Sans"; font-style: normal; font-weight: 400 700; font-display: swap; src: url(fonts/pixelify-sans-latin.woff2?v=muoh3kij) format("woff2"); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
   @font-face { font-family: "Pixelify Sans"; font-style: normal; font-weight: 400 700; font-display: swap; src: url(fonts/pixelify-sans-latin-ext.woff2?v=muoh3kij) format("woff2"); unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
   @font-face { font-family: "Pixelify Sans"; font-style: normal; font-weight: 400 700; font-display: swap; src: url(fonts/pixelify-sans-cyrillic.woff2?v=muoh3kij) format("woff2"); unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; }
   :root {
     --gs: 3; /* GUI scale, set from the window size like Minecraft's "Auto" */
     --u: calc(var(--gs) * 1px); /* one GUI pixel */
-    --fs: calc(var(--gs) * 11px); --lh: calc(var(--gs) * 10px); /* the 8-px font and its line pitch */
-    --px-font: "Pixelify Sans", monospace; --ui-font: var(--px-font);
+    --half-w: 160; --half-h: 120; /* half the GUI size in GUI px, like Java's width / 2 and height / 2 (set at startup) */
+    --fs: calc(var(--gs) * 10px); --lh: calc(var(--gs) * 10px); /* the 8-px font and its line pitch */
+    --px-font: "Minecraft", "Pixelify Sans", monospace; --ui-font: var(--px-font);
     --shadow: var(--u) var(--u) 0 #3f3f3f; --pixel-shadow: var(--shadow);
     --btn-tex: none; --dirt-tex: none; /* stone tile behind buttons, dark dirt behind screens (set at startup) */
     --panel: #c6c6c6; --panel-light: #ffffff; --panel-dark: #555555; --slot: #8b8b8b;
@@ -103,9 +108,18 @@
   .empty-note { color: #a0a0a0; padding: calc(var(--u) * 24) 0; text-align: center; }
 
   /* ---------- loading ---------- */
-  #loading { justify-content: center; gap: calc(var(--u) * 8); }
-  #loading .bar { width: calc(var(--u) * 200); height: calc(var(--u) * 8); padding: var(--u); background: #000; }
-  #load-bar { height: 100%; width: 0; background: #80ff20; transition: width 0.2s; }
+  /* Java Edition's loading screens, all on the dirt background, at its coordinates (--half-w/--half-h: half the
+     GUI size, set with the GUI scale): a message 70 px from the top while a world is read or prepared
+     (GenericDirtMessageScreen); spawn preparation as the percentage 34 px above the centre and a 47x47 map of
+     chunk statuses, 2 px per chunk, centred 30 px below it (LevelLoadingScreen); and "Loading terrain..." 50 px
+     above the centre until the player's chunk is ready (ReceivingLevelScreen), which is also a dimension change.
+     Text boxes sit 1 px above the y Java draws at, where this font's caps start in a 10-px line. */
+  #load-msg, #load-pct { position: absolute; left: 0; right: 0; text-align: center; white-space: nowrap; line-height: calc(var(--u) * 10); }
+  #loading[data-kind=message] #load-msg { top: calc(var(--u) * 69); }
+  #loading[data-kind=terrain] #load-msg { top: calc(var(--u) * (var(--half-h) - 51)); }
+  #load-pct { top: calc(var(--u) * (var(--half-h) - 35)); }
+  #load-map { position: absolute; left: calc(var(--u) * (var(--half-w) - 47)); top: calc(var(--u) * (var(--half-h) - 17)); width: calc(var(--u) * 94); height: calc(var(--u) * 94); image-rendering: pixelated; }
+  #loading[data-kind=map] #load-msg, #loading:not([data-kind=map]) #load-pct, #loading:not([data-kind=map]) #load-map { display: none; }
 
   /* ---------- HUD ---------- */
   /* The original's HUD in GUI pixels: 182x22 hotbar on the bottom edge, 182x5 xp bar 2 px above it, 9-px heart/armor rows
@@ -308,9 +322,15 @@
   #chat-suggest { position: fixed; left: calc(var(--u) * 2); bottom: calc(var(--u) * 14); background: rgba(0,0,0,0.8); padding: var(--u) calc(var(--u) * 2); font: 400 var(--fs) / var(--lh) var(--px-font); white-space: pre; color: #e0e0e0; text-shadow: var(--shadow); pointer-events: none; }
   /* ---------- error ---------- */
   #error { justify-content: center; padding: 0 calc(var(--u) * 16); text-align: center; }
+  /* Startup splash (js/splash.js): this colour is on screen from the first paint, before any script runs. */
+  #boot { position: fixed; inset: 0; z-index: 1000; background: #44892c; }
+  #boot canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 </style>
 </head>
 <body>
+<div id="boot"><canvas id="boot-canvas"></canvas></div>
+<!-- data-modules: how many modules the page loads, kept up to date by tools/stamp.mjs (the splash's download progress) -->
+<script type="module" id="boot-script" src="js/splash.js?v=muoqcjyl" data-modules="64"></script>
 <canvas id="game"></canvas>
 
 <div id="demo" class="hidden">
@@ -355,9 +375,10 @@
   <div class="foot"><div class="row"><button class="half" id="btn-create">Create New World</button><button class="half" id="btn-create-cancel">Cancel</button></div></div>
 </div>
 
-<div id="loading" class="screen dirt hidden">
-  <div class="label" id="loading-label">Generating terrain…</div>
-  <div class="bar"><div id="load-bar"></div></div>
+<div id="loading" class="screen dirt hidden" data-kind="message">
+  <div id="load-msg"></div>
+  <div id="load-pct">0%</div>
+  <canvas id="load-map" width="47" height="47"></canvas>
 </div>
 
 <div id="hud" class="hidden">
@@ -481,7 +502,7 @@
 </div>
 
 <div id="error" class="screen dirt hidden"></div>
-<script defer src="net-config.js?v=muono2ew"></script>
-<script type="module" src="js/main.js?v=muono2ew"></script>
+<script defer src="net-config.js?v=muoqcjyl"></script>
+<script type="module" src="js/main.js?v=muoqcjyl"></script>
 </body>
 </html>

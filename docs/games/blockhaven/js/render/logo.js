@@ -1,6 +1,7 @@
 // Title-screen art generated at startup: the blocky stone logo, its subtitle banner, and the
 // noise tile behind every menu button. Drawn at 1 canvas px per GUI px and scaled up pixelated.
-const GLYPHS = {
+// Also the letters of the startup splash (render/splashart.js).
+export const GLYPHS = {
   A: ['.###.', '#...#', '#####', '#...#', '#...#', '#...#'],
   B: ['####.', '#...#', '####.', '#...#', '#...#', '####.'],
   C: ['.####', '#....', '#....', '#....', '#....', '.####'],
