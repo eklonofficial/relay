@@ -20,6 +20,7 @@ import { forward } from '../core/math.js?v=muo7rynu';
 import { EndCrystal } from '../entity/crystal.js?v=muo7rynu';
 import { migrateWorld } from './migrate.js?v=muo7rynu';
 import { ARMOR_BYPASS, armorReduce, applyInvul, isAxe, shieldFaces, applyKnockback, knockbackResist } from './combat.js?v=muo7rynu';
+import { deathText } from '../net/net.js?v=muo7rynu';
 
 export const DAY = 1200; // seconds per day
 const rnd = (a, b) => a + Math.random() * (b - a);
@@ -561,34 +562,16 @@ export class Game {
     }
     return true;
   }
-  deathMessage(src) {
-    return this.deathMessageRaw(src).replace(/^Player/, this.playerName);
-  }
-  deathMessageRaw(src) {
-    const a = src.attacker, name = a && a.def ? a.displayName || a.def.name : null;
-    switch (src.kind) {
-      case 'fall': return 'Player fell from a high place';
-      case 'lava': return 'Player tried to swim in lava';
-      case 'fire': return 'Player burned to death';
-      case 'drown': return 'Player drowned';
-      case 'starve': return 'Player starved to death';
-      case 'void': return 'Player fell out of the world';
-      case 'explosion': return name ? `Player was blown up by ${name}` : 'Player blew up';
-      case 'projectile': return `Player was shot by ${name || 'an arrow'}`;
-      case 'magic': return 'Player was killed by magic';
-      case 'wither': return 'Player withered away';
-      case 'lightning': return 'Player was struck by lightning';
-      case 'kill': return 'Player was killed';
-      default: return name ? `Player was slain by ${name}` : 'Player died';
-    }
-  }
+  deathMessage(src) { return deathText(this.playerName, src.kind, this.deathBy(src)); }
+  deathBy(src) { const a = src.attacker; return a && a.def ? a.displayName || a.def.name : null; }
   die(src) {
     this.dismount();
     const s = this.stats;
     this.alive = false; s.health = 0;
     const msg = this.deathMessage(src);
     this.chat(msg, '#ff8080');
-    if (this.net) this.net.send({ t: 'chat', id: this.net.myId, text: msg, color: '#ff8080' });
+    // Others rebuild the line from our real name (see net.js deathText), so only the cause travels.
+    if (this.net) this.net.send({ t: 'death', id: this.net.myId, k: src.kind || '', by: this.deathBy(src) });
     if (!this.rules.keepInventory) {
       const p = this.player.pos;
       for (const st of this.inv.allStacks()) this.dropItem(p[0], p[1] + 1, p[2], st, [rnd(-3, 3), rnd(2, 5), rnd(-3, 3)]);

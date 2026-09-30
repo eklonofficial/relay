@@ -4,7 +4,7 @@ import { armorModel, armorSkinKey, ARMOR_MATERIALS, ARMOR_PIECES, elytraModel } 
 import { TEXTURES, TEX, B, BLOCKS, DIM, DIM_NAMES, SHAPE_OF, SHAPE, props } from './data/blocks.js?v=muo7rynu';
 import { I, ITEMS } from './data/items.js?v=muo7rynu';
 import { MOBS, PROFESSIONS, playerModel, saddleModel, PLAYER_SKINS } from './data/mobs.js?v=muo7rynu';
-import { Net, cleanCode, cleanName, MAX_PLAYERS } from './net/net.js?v=muo7rynu';
+import { Net, cleanCode, cleanName, cleanKey, cleanChat, chatLine, MAX_PLAYERS } from './net/net.js?v=muo7rynu';
 import { NameTags } from './net/nametags.js?v=muo7rynu';
 import { BIOMES } from './gen/biomes.js?v=muo7rynu';
 import { generateBlockTextures } from './render/blocktex.js?v=muo7rynu';
@@ -43,6 +43,27 @@ const settings = Object.assign({
 if (!settings.fovMigrated) { if (settings.fov === 75) settings.fov = 70; settings.fovMigrated = true; store(SETTINGS_KEY, settings); }
 const SPLASHES = ['Random ahh edition!', 'Also try Minecraft!', 'Now with elytra!', 'Saddle up!', 'Now with the Nether!', 'Also try the End!', 'Creepers included!', '60 mobs!', 'Villagers will trade!', 'Wild worlds are wild!', 'Every pixel procedural!', 'Craft everything!', 'Spectator mode!', 'Runs on Chromebooks!', 'Mind the lava!', 'Floating islands!'];
 
+// What an uploaded world may say about itself (the create screen's choices, plus /gamemode's).
+const WORLD_MODES = ['survival', 'creative', 'hardcore', 'adventure', 'spectator'], WORLD_TYPES = ['default', 'wild', 'flat'], DIFFICULTIES = ['peaceful', 'easy', 'normal', 'hard'];
+const isObj = v => !!v && typeof v === 'object' && !Array.isArray(v);
+// Checks an uploaded save and fills in safe defaults; throws with a readable reason if it can't be used.
+function checkWorld(w) {
+  const bad = why => { throw new Error(`That file is not a Blockhaven world (${why}).`); };
+  if (!isObj(w) || typeof w.seed !== 'number' || !Number.isFinite(w.seed)) bad('no seed');
+  const pick = (k, list, def) => { if (w[k] === undefined || w[k] === null) w[k] = def; else if (!list.includes(w[k])) bad(`unknown ${k} "${String(w[k]).slice(0, 20)}"`); };
+  pick('mode', WORLD_MODES, 'survival'); pick('type', WORLD_TYPES, 'default'); pick('difficulty', DIFFICULTIES, 'normal');
+  if (w.dims !== undefined && (!isObj(w.dims) || Object.values(w.dims).some(d => d !== null && !isObj(d)))) bad('broken dimensions');
+  w.name = (typeof w.name === 'string' ? w.name.trim().slice(0, 32).trim() : '') || 'Uploaded World';
+  if (typeof w.seedText !== 'string') w.seedText = String(w.seed);
+  w.day = Number.isFinite(w.day) && w.day >= 0 ? Math.floor(w.day) : 0;
+  if (w.time !== undefined && !Number.isFinite(w.time)) delete w.time;
+  w.cheats = w.cheats !== false; w.hardcore = w.mode === 'hardcore' || w.hardcore === true;
+  for (const k of ['rules', 'players', 'weather', 'stats']) if (w[k] !== undefined && !isObj(w[k])) delete w[k];
+  if (w.palette !== undefined && !Array.isArray(w.palette)) delete w.palette;
+  if (typeof w.thumb !== 'string' || !w.thumb.startsWith('data:image/')) delete w.thumb;
+  delete w.demo; delete w.guest; // an upload is always a normal, saved, hostable world
+  return w;
+}
 const smooth = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 function hashSeed(text) {
   const t = text.trim();
@@ -194,16 +215,20 @@ class App {
     $('btn-world-play').disabled = $('btn-world-delete').disabled = $('btn-world-download').disabled = true;
     if (!worlds.length) { const d = document.createElement('div'); d.className = 'empty-note'; d.textContent = 'No worlds yet — create one!'; list.appendChild(d); return; }
     for (const w of worlds) {
-      const e = document.createElement('div'); e.className = 'world-entry';
-      const th = document.createElement('div'); th.className = 'thumb'; if (w.thumb) th.style.backgroundImage = `url(${w.thumb})`;
-      const info = document.createElement('div');
-      const n = document.createElement('div'); n.className = 'name'; n.textContent = w.name;
-      const i = document.createElement('div'); i.className = 'info';
-      i.textContent = `${new Date(w.lastPlayed).toLocaleString()} · ${w.mode[0].toUpperCase() + w.mode.slice(1)} · ${w.type === 'wild' ? 'Wild' : w.type === 'flat' ? 'Superflat' : 'Default'} · Day ${(w.day || 0) + 1}`;
-      info.append(n, i); e.append(th, info);
-      e.addEventListener('click', () => { list.querySelectorAll('.sel').forEach(x => x.classList.remove('sel')); e.classList.add('sel'); this.selectedWorld = w.id; $('btn-world-play').disabled = $('btn-world-delete').disabled = $('btn-world-download').disabled = false; });
-      e.addEventListener('dblclick', () => this.playWorld(w.id));
-      list.appendChild(e);
+      // One damaged save must not hide the rest of the list.
+      try {
+        const e = document.createElement('div'); e.className = 'world-entry';
+        const th = document.createElement('div'); th.className = 'thumb'; if (typeof w.thumb === 'string' && w.thumb.startsWith('data:image/')) th.style.backgroundImage = `url(${w.thumb})`;
+        const info = document.createElement('div');
+        const n = document.createElement('div'); n.className = 'name'; n.textContent = String(w.name || 'Untitled World');
+        const i = document.createElement('div'); i.className = 'info';
+        const mode = typeof w.mode === 'string' && w.mode ? w.mode : 'survival', day = Number.isFinite(w.day) ? w.day : 0;
+        i.textContent = `${new Date(w.lastPlayed || 0).toLocaleString()} · ${mode[0].toUpperCase() + mode.slice(1)} · ${w.type === 'wild' ? 'Wild' : w.type === 'flat' ? 'Superflat' : 'Default'} · Day ${day + 1}`;
+        info.append(n, i); e.append(th, info);
+        e.addEventListener('click', () => { list.querySelectorAll('.sel').forEach(x => x.classList.remove('sel')); e.classList.add('sel'); this.selectedWorld = w.id; $('btn-world-play').disabled = $('btn-world-delete').disabled = $('btn-world-download').disabled = false; });
+        e.addEventListener('dblclick', () => this.playWorld(w.id));
+        list.appendChild(e);
+      } catch (err) { console.warn('skipping broken world', w && w.id, err); }
     }
   }
   // Worlds travel as .bhworld files: the save as JSON, gzipped when the browser can.
@@ -226,8 +251,7 @@ class App {
         if (!window.DecompressionStream) throw new Error('This browser cannot open compressed worlds.');
         text = await new Response(new Blob([buf]).stream().pipeThrough(new DecompressionStream('gzip'))).text();
       } else text = new TextDecoder().decode(buf);
-      const data = JSON.parse(text), w = data && (data.world || data);
-      if (!w || typeof w.seed !== 'number' || !w.name) throw new Error('That file is not a Blockhaven world.');
+      const data = JSON.parse(text), w = checkWorld(data && (data.world || data));
       const existing = await listWorlds();
       // Never overwrite: an upload is always added as its own world.
       w.id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
@@ -346,6 +370,14 @@ class App {
     if (!cleanName(settings.mpName)) { settings.mpName = `Player${100 + Math.floor(Math.random() * 900)}`; store(SETTINGS_KEY, settings); }
     return cleanName(settings.mpName);
   }
+  // Random per-browser secret: the host ties our saved progress in its world to it, not just to our name.
+  mpKey() {
+    if (!cleanKey(settings.mpKey)) {
+      const b = crypto.getRandomValues(new Uint8Array(24)), c = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
+      settings.mpKey = Array.from(b, x => c[x & 63]).join(''); store(SETTINGS_KEY, settings);
+    }
+    return settings.mpKey;
+  }
   saveMpSettings() {
     const n = cleanName($('mp-name').value);
     if (n) settings.mpName = n;
@@ -391,7 +423,7 @@ class App {
     this.joining = true; $('btn-mp-join').disabled = true;
     this.sound.unlock();
     try {
-      const { net, welcome } = await Net.join(this, code, name, settings.skin | 0, t => this.mpStatus(t));
+      const { net, welcome } = await Net.join(this, code, name, settings.skin | 0, this.mpKey(), t => this.mpStatus(t));
       if (this.mode !== 'mp') { net.close(); return; }
       this.mpStatus('Joined!', 'ok');
       this.startGuestGame(net, welcome);
@@ -652,7 +684,7 @@ class App {
         if (v) {
           this.chatHistory.push(v);
           if (v.startsWith('/')) this.commands.run(v);
-          else { const text = `<${this.game.playerName}> ${v}`; this.chat(text); if (this.net) this.net.send({ t: 'chat', id: this.net.myId, text }); }
+          else { const msg = cleanChat(v); if (msg) { this.chat(chatLine(this.game.playerName, msg)); if (this.net) this.net.send({ t: 'chat', id: this.net.myId, msg }); } }
         }
         this.closeChat();
         return;
