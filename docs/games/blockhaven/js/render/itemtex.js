@@ -1,9 +1,9 @@
 // Procedural 16x16 pixel art for every non-block item, plus particle/effect sprites.
 // Icons are painted with a few primitives, then given MC-style dark outlines automatically.
-import { Painter, shade, mixHex, ramp } from './paint.js?v=munlpvny';
-import { ITEMS, I } from '../data/items.js?v=munlpvny';
-import { TEXTURES, TEX, BLOCKS, FACE_TEX, VARIANT_MASK, COLORS } from '../data/blocks.js?v=munlpvny';
-import { drawBlockTexture } from './blocktex.js?v=munlpvny';
+import { Painter, shade, mixHex, ramp } from './paint.js?v=munm0grh';
+import { ITEMS, I } from '../data/items.js?v=munm0grh';
+import { TEXTURES, TEX, BLOCKS, FACE_TEX, VARIANT_MASK, COLORS } from '../data/blocks.js?v=munm0grh';
+import { drawBlockTexture } from './blocktex.js?v=munm0grh';
 
 const N = 16;
 export const MAT = {
@@ -73,46 +73,80 @@ function handle(p, x0, y0, x1, y1) {
 }
 
 // ---------- tools ----------
+// Hand-drawn 16x16 masks in the vanilla layout: a 2-px handle runs from the bottom-left corner
+// towards the top-right, the head sits in the top-right quadrant. Legend: 0-3 material ramp,
+// o metal outline, c/b handle light/dark, h handle outline.
+function art(p, rows, pal) {
+  const o = shade(pal[0], 0.55);
+  const lut = { 0: pal[0], 1: pal[1], 2: pal[2], 3: pal[3], o, c: HANDLE[2], b: HANDLE[1], h: HANDLE[0] };
+  rows.forEach((row, y) => [...row].forEach((ch, x) => { if (lut[ch]) p.put(x, y, lut[ch]); }));
+}
+// Handle rows y0..13: light pixel at x = 15 - y, dark beside it, outline after; end cap at y 14.
+const shaft = y0 => Array.from({ length: 16 }, (_, y) => y === 14 ? '..hh............' : y >= y0 && y <= 13 ? '.'.repeat(15 - y) + 'cbh' + '.'.repeat(y - 2) : '');
+const withShaft = (rows, y0) => shaft(y0).map((r, y) => [...(rows[y] || '').padEnd(16, '.')].map((ch, x) => ch !== '.' ? ch : r[x] || '.').join('').slice(0, 16));
+const TOOL_ROWS = {
+  pickaxe: withShaft([
+    '................',
+    '................',
+    '.....o11111o....',
+    '....o33333332o..',
+    '.....ooooo1332o.',
+    '..........co32o.',
+    '...........o32o.',
+    '...........o32o.',
+    '...........o32o.',
+    '...........o32o.',
+    '...........o21o.',
+    '............oo..',
+  ], 6),
+  axe: withShaft([
+    '................',
+    '.........oo.....',
+    '........o33o....',
+    '.......o3332o...',
+    '......o333321o..',
+    '......o332211o..',
+    '.......oo1210o..',
+    '..........ooo...',
+  ], 6),
+  shovel: withShaft([
+    '................',
+    '................',
+    '...........oo...',
+    '..........o33o..',
+    '.........o3332o.',
+    '........o33321o.',
+    '.........o321o..',
+    '..........oo....',
+  ], 7),
+  hoe: withShaft([
+    '................',
+    '......ooooo.....',
+    '.....o333332o...',
+    '.....o21oo321o..',
+    '......oo..o10o..',
+  ], 5),
+};
+const toolArt = type => (p, pal) => art(p, TOOL_ROWS[type], pal);
+const [pickaxe, axe, shovel, hoe] = ['pickaxe', 'axe', 'shovel', 'hoe'].map(toolArt);
+// Sword in blade-aligned coordinates: s = across the blade (0 = axis), t = along it (tip -> pommel).
+// Everything is symmetric in s, so the guard sits square across the blade.
 function sword(p, pal) {
-  for (let k = 0; k < 9; k++) { p.put(5 + k, 10 - k, pal[3]); p.put(6 + k, 10 - k, pal[2]); p.put(6 + k, 11 - k, pal[1]); }
-  p.put(14, 1, pal[3]); p.put(15, 0, pal[2]);
-  line(p, 2, 8, 7, 13, pal[1]); line(p, 3, 8, 7, 12, pal[2]);
-  handle(p, 2, 13, 4, 11);
-  p.put(1, 14, pal[1]); p.put(2, 14, pal[0]);
-  outline(p);
-}
-function pickaxe(p, pal) {
-  handle(p, 2, 13, 10, 5);
-  for (let t = -1.72; t <= 0.14; t += 0.02) {
-    for (const [rr, k] of [[10.2, 1], [11.2, 2], [12.2, 3]]) {
-      const x = Math.round(3 + rr * Math.cos(t)), y = Math.round(12 + rr * Math.sin(t));
-      if (x >= 0 && y >= 0 && x < N && y < N) p.put(x, y, pal[k]);
-    }
-  }
-  outline(p);
-}
-function axe(p, pal) {
-  handle(p, 2, 13, 11, 4);
-  const pts = [[7, 2], [8, 1], [9, 1], [10, 1], [11, 2], [12, 3], [13, 4], [13, 5], [12, 6], [11, 7], [10, 7]];
-  for (let y = 1; y < 8; y++) for (let x = 7; x < 14; x++) {
-    const inside = (x - 7) + (y - 1) >= 1 && x - y < 10 && x + y < 19 && !(x <= 9 && y >= 5) && y - x < 0;
-    if (inside) p.put(x, y, pal[x + y < 11 ? 3 : x + y < 14 ? 2 : 1]);
-  }
-  for (const [x, y] of pts) if (!p.alpha(x, y)) p.put(x, y, pal[1]);
-  outline(p);
-}
-function shovel(p, pal) {
-  handle(p, 2, 13, 9, 6);
+  const o = shade(pal[0], 0.55);
   for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
-    const u = x + 0.5 - 11.5, v = y + 0.5 - 4.5, a = (u + v) / 1.414, b = (u - v) / 1.414;
-    if (Math.abs(a) / 3.2 + Math.abs(b) / 2.4 <= 1.05) p.put(x, y, pal[a + b < -1.5 ? 3 : a + b < 1 ? 2 : 1]);
+    const s = x + y - 15, t = y - x, as = Math.abs(s);
+    let c = null;
+    if (t >= -13 && t <= 2 && as <= 1 && !(t === -13 && s !== 0)) c = s < 0 ? pal[3] : s === 0 ? (t < -1 ? pal[3] : pal[2]) : pal[1];
+    else if (t >= 3 && t <= 4 && as <= 4) c = t === 3 ? (s < 0 ? pal[3] : pal[2]) : pal[1];
+    else if (t >= 5 && t <= 9 && (s === -1 || s === 0)) c = s < 0 ? HANDLE[2] : HANDLE[1];
+    else if (t >= 10 && t <= 11 && as <= 1) c = t === 10 ? pal[2] : pal[1];
+    if (c) p.put(x, y, c);
   }
-  outline(p);
-}
-function hoe(p, pal) {
-  handle(p, 2, 13, 11, 4);
-  line(p, 8, 2, 12, 2, pal[3]); line(p, 8, 3, 12, 3, pal[2]); p.put(13, 3, pal[1]); p.put(13, 4, pal[1]); p.put(12, 4, pal[1]);
-  outline(p);
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) if (!p.alpha(x, y)) {
+    const nb = [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => x + dx >= 0 && y + dy >= 0 && x + dx < N && y + dy < N && p.alpha(x + dx, y + dy) === 255);
+    if (nb) { p.put(x, y, o, 254); }
+  }
+  for (let i = 3; i < p.d.length; i += 4) if (p.d[i] === 254) p.d[i] = 255;
 }
 function shears(p) {
   const pal = MAT.iron;
@@ -139,15 +173,70 @@ function armor(p, piece, pal, mat) {
 }
 
 // ---------- generic shapes ----------
-const ingot = pal => p => { for (let y = 6; y < 12; y++) for (let x = 2; x < 14; x++) { const s = x - (11 - y); if (s < 0 || s > 9) continue; p.put(x, y, pal[y === 6 ? 3 : y < 8 ? 2 : y < 11 ? 1 : 0]); } outline(p); };
-const nugget = pal => p => { blob(p, 7.5, 9, 3.4, 2.6, pal, { rough: 0.2 }); p.put(6, 8, pal[3]); outline(p); };
-const gem = pal => p => {
-  const rows = ['................', '................', '.....######.....', '....#3333332....', '...#33233223#...', '..#3322222111#..', '..#2222211111#..', '...#22211110#...', '....#221110#....', '.....#2110#.....', '......#10#......', '.......##.......', '................', '................', '................', '................'];
-  rows.forEach((r, y) => [...r].forEach((ch, x) => { if (ch === '#') p.put(x, y, pal[0]); else if (ch >= '0' && ch <= '3') p.put(x, y, pal[Number(ch)]); }));
+const inPoly = (x, y, pts) => { let c = false; for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) { const [xi, yi] = pts[i], [xj, yj] = pts[j]; if ((yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi) c = !c; } return c; };
+// Isometric bar: lit top face, long front face, darker end cap.
+const ingot = pal => p => {
+  const top = [[1, 7], [10, 2.5], [15, 5], [6, 9.5]], front = [[6, 9.5], [15, 5], [15, 8], [6, 12.5]], end = [[1, 7], [6, 9.5], [6, 12.5], [1, 10]];
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+    const X = x + 0.5, Y = y + 0.5;
+    if (inPoly(X, Y, top)) p.put(x, y, (X + 2 * Y) < 19 ? pal[3] : pal[2]);
+    else if (inPoly(X, Y, front)) p.put(x, y, pal[1]);
+    else if (inPoly(X, Y, end)) p.put(x, y, pal[0]);
+  }
+  line(p, 2, 7, 6, 9, pal[3]);
+  outline(p);
 };
-const dust = pal => p => { for (let k = 0; k < 70; k++) { const a = p.r() * Math.PI * 2, r = Math.sqrt(p.r()) * 5; const x = Math.round(8 + Math.cos(a) * r * 1.2), y = Math.round(10 + Math.sin(a) * r * 0.6); p.put(x, y, pal[p.rand(4)]); } };
-const lump = (pal, spots) => p => { blob(p, 8, 8.5, 5, 4.2, pal, { rough: 0.25, rot: 0.4 }); if (spots) p.speck(spots, 6); for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) if (!p.alpha(x, y)) p.put(x, y, '#000', 0); outline(p); };
+const nugget = pal => p => { blob(p, 7.5, 9, 3.4, 2.6, pal, { rough: 0.2 }); p.put(6, 8, pal[3]); outline(p); };
+// Round cut gem: bright table facet upper-left, crown ring, dark pavilion lower-right.
+const gem = (pal, rx = 6, ry = 6) => p => {
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+    const dx = (x + 0.5 - 8) / rx, dy = (y + 0.5 - 8.5) / ry;
+    if (Math.abs(dx) + Math.abs(dy) > 1.3 || dx * dx + dy * dy > 1) continue;
+    const diag = dx + dy, table = Math.abs(dx) + Math.abs(dy) < 0.55;
+    const k = table ? (diag < 0.1 ? 3 : 2) : diag < -0.5 ? 3 : diag < 0.35 ? 2 : diag < 0.9 ? 1 : 0;
+    p.put(x, y, pal[k]);
+  }
+  p.put(5, 5, '#ffffff'); p.put(6, 5, pal[3]);
+  outline(p);
+};
+// Mound of grains, wider at the base, lit from the top-left.
+const dust = pal => p => {
+  for (let y = 4; y < 14; y++) for (let x = 0; x < N; x++) {
+    const hw = Math.min(6.2, (y - 3) * 0.9) - (y === 13 ? 1.2 : 0), dx = x + 0.5 - 8;
+    if (Math.abs(dx) > hw || (Math.abs(dx) > hw - 1 && p.r() < 0.35)) continue;
+    const l = -(dx / 6) - (y - 8) / 6 + (p.r() - 0.5) * 0.9;
+    p.put(x, y, pal[l > 0.55 ? 3 : l > 0 ? 2 : l > -0.6 ? 1 : 0]);
+  }
+  outline(p);
+};
+// Chunky rock made of overlapping lumps, each shaded on its own so the bumps read.
+const lump = (pal, spots) => p => {
+  const L = [[6, 7, 3.4], [10.2, 7.6, 3.6], [8, 10.6, 3.7], [5, 10.4, 2.6]];
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+    let best = null, bv = 0;
+    for (const [cx, cy, r] of L) { const dx = x + 0.5 - cx, dy = y + 0.5 - cy, v = 1 - Math.hypot(dx, dy) / r; if (v > bv) { bv = v; best = [dx / r, dy / r]; } }
+    if (!best) continue;
+    const l = -(best[0] + best[1]) * 0.9 + bv * 0.4 + (p.r() - 0.5) * 0.25;
+    p.put(x, y, pal[l > 0.6 ? 3 : l > 0.15 ? 2 : l > -0.35 ? 1 : 0]);
+  }
+  if (spots) p.speck(spots, 6);
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) if (!p.alpha(x, y)) p.put(x, y, '#000', 0);
+  outline(p);
+};
 const food = (pal, opts) => p => { blob(p, 8, 8.5, opts.rx || 5.5, opts.ry || 4, pal, { rot: opts.rot ?? -0.5 }); if (opts.deco) opts.deco(p); outline(p); };
+// Tapered root along the bottom-left -> top-right diagonal, with leafy tuft.
+function carrot(p, body, leaf) {
+  const ax = 2.5, ay = 13.5, bx = 10.5, by = 5.5, L = Math.hypot(bx - ax, by - ay);
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+    const px = x + 0.5 - ax, py = y + 0.5 - ay, t = (px * (bx - ax) + py * (by - ay)) / (L * L), d = (px * (by - ay) - py * (bx - ax)) / L;
+    if (t < 0 || t > 1.05 || Math.abs(d) > 0.5 + t * 2.3) continue;
+    const ring = Math.abs(((t * 5) % 1) - 0.5) < 0.1 && d > 0;
+    p.put(x, y, body[ring ? 0 : d < -0.8 ? 3 : d < 0.6 ? 2 : 1]);
+  }
+  for (const [x, y, k] of [[11, 4, 1], [12, 3, 2], [13, 2, 2], [11, 3, 2], [11, 2, 1], [10, 3, 1], [12, 5, 1], [13, 5, 2], [14, 4, 2], [12, 1, 2], [14, 6, 1]]) p.put(x, y, leaf[k]);
+  outline(p);
+}
+function stick(p, x0 = 3, y1 = 13) { for (let y = x0; y <= y1; y++) { const k = 15 - y; p.put(k, y, HANDLE[2]); p.put(k + 1, y, HANDLE[1]); } outline(p, HANDLE[0]); }
 
 function bucket(p, fill) {
   const pal = MAT.iron;
@@ -156,15 +245,18 @@ function bucket(p, fill) {
   else for (let x = 3; x < 13; x++) p.put(x, 4, '#2a2a2a');
   outline(p);
 }
+// Bow: limbs bulge towards the top-left, string along the other diagonal; drawing pulls it to the bottom-right.
 function bow(p, pull) {
-  const wood = ['#3d2a12', '#6b4c24', '#9c7640'];
-  const r = 9 - pull * 0.8;
-  for (let t = -0.35; t <= 1.92; t += 0.03) {
-    const x = Math.round(2 + Math.cos(t) * r), y = Math.round(13 - Math.sin(t) * r);
-    if (x >= 0 && y >= 0) { p.put(x, y, wood[2]); p.put(x - 1, y + 1 < N ? y : y, wood[1]); }
+  const wood = ['#3d2a12', '#6b4c24', '#9c7640', '#b8925a'];
+  const A = [14, 1.5], B = [1.5, 14], C = [2 + pull * 0.6, 2 + pull * 0.6];
+  for (let k = 0; k <= 80; k++) {
+    const t = k / 80, u = 1 - t, x = u * u * A[0] + 2 * u * t * C[0] + t * t * B[0], y = u * u * A[1] + 2 * u * t * C[1] + t * t * B[1];
+    const X = Math.round(x), Y = Math.round(y), grip = Math.abs(t - 0.5) < 0.1;
+    p.put(X, Y, grip ? wood[0] : wood[2]); if (!p.alpha(X + 1, Y) || grip) p.put(X + 1, Y, grip ? wood[1] : wood[1]);
   }
-  line(p, 2 + pull, 13 - pull, 12 - pull, 3 + pull, '#d8d8d8');
-  if (pull > 0) { line(p, 3 + pull, 12 - pull, 14 - pull, 1 + pull, '#8a6a3a'); p.put(14 - pull, 1 + pull, '#bbbbbb'); }
+  const s = pull * 1.2, mx = 8 + s, my = 8 + s;
+  line(p, 14, 2, Math.round(mx), Math.round(my), '#a8a8a8'); line(p, Math.round(mx), Math.round(my), 2, 14, '#a8a8a8');
+  if (pull > 0) { line(p, Math.round(mx) - 1, Math.round(my) - 1, 5 + pull, 5 + pull, '#8e6a38'); p.put(4 + pull, 4 + pull, '#bbbbbb'); }
   outline(p);
 }
 function arrow(p, tip = MAT.iron) {
@@ -192,7 +284,7 @@ function book(p) {
 function orb(p, pal, rim) { blob(p, 8, 8, 4.8, 4.8, pal); if (rim) { p.rect(6, 6, 4, 4, rim); p.rect(7, 7, 2, 2, '#000000'); } outline(p); }
 
 const G = {
-  stick: p => { line(p, 4, 12, 11, 5, (x, y, k) => HANDLE[k % 2 ? 1 : 2]); line(p, 5, 12, 12, 5, HANDLE[0]); outline(p); },
+  stick: p => stick(p),
   coal: lump(['#111111', '#1f1f1f', '#303030', '#4a4a4a']), charcoal: lump(['#1a140e', '#2e241a', '#453628', '#5e4a38']),
   raw_iron: lump(['#6e5446', '#a68268', '#c8a488', '#e6c8ac'], ['#8a6a55']), raw_gold: lump(['#8a6a10', '#c89a20', '#e6c040', '#fff090']),
   raw_copper: lump(['#6e3418', '#a8552c', '#d07040', '#f0a070'], ['#5ea890']),
@@ -200,7 +292,7 @@ const G = {
   netherite_ingot: ingot(MAT.netherite), netherite_scrap: lump(['#2a1f1c', '#4a3a33', '#66524a', '#8a7064']), brick: ingot(['#5a2016', '#8a3a28', '#b0543c', '#c87058']),
   nether_brick: ingot(['#1a0a0c', '#2c1418', '#44202a', '#5c2c36']),
   iron_nugget: nugget(MAT.iron), gold_nugget: nugget(MAT.golden),
-  diamond: gem(MAT.diamond), emerald: gem(['#0a4a22', '#17a84a', '#3ad870', '#b8ffd0']), quartz: gem(['#8a8278', '#cfc8bb', '#ece6dc', '#ffffff']),
+  diamond: gem(MAT.diamond), emerald: gem(['#0a4a22', '#17a84a', '#3ad870', '#b8ffd0'], 4.6, 6.4), quartz: gem(['#8a8278', '#cfc8bb', '#ece6dc', '#ffffff']),
   amethyst_shard: gem(['#3a1f6a', '#6a3fb0', '#9a6ae0', '#e0c8ff']), prismarine_crystals: gem(['#3a6a5a', '#6ab8a0', '#a8f0d8', '#ffffff']),
   echo_shard: gem(['#051a22', '#0a3a4a', '#1f6a7a', '#4ab8c8']), prismarine_shard: lump(['#2a5a4a', '#4a8a7a', '#6ab29a', '#9ad8c0']),
   lapis_lazuli: lump(['#0f2a6a', '#1f4db8', '#3a6ae0', '#7aa0ff']), redstone: dust(['#5a0000', '#a00000', '#e01010', '#ff5a4a']),
@@ -213,7 +305,7 @@ const G = {
   magma_cream: p => { orb(p, ['#5a1a00', '#a83a10', '#e06a20', '#ffc040']); p.speck(['#ffe070'], 5); },
   ghast_tear: p => { blob(p, 8, 9.5, 3.2, 4, ['#8aa8b0', '#b8d0d8', '#e0f0f4', '#ffffff']); p.put(8, 4, '#e0f0f4'); outline(p); },
   string: p => { for (let k = 0; k < 3; k++) line(p, 2 + k * 2, 13 - k, 13 - k, 2 + k * 2, '#e8e8e8'); outline(p, '#6a6a6a'); },
-  feather: p => { line(p, 3, 13, 12, 3, '#9a9a9a'); for (let k = 0; k < 8; k++) { line(p, 5 + k, 11 - k, 4 + k, 8 - k, '#f0f0f0'); line(p, 5 + k, 11 - k, 8 + k, 12 - k, '#dcdcdc'); } outline(p); },
+  feather: p => { line(p, 3, 13, 12, 3, '#9a9a9a'); for (let k = 0; k < 8; k++) { line(p, 5 + k, 11 - k, 4 + k, 8 - k, '#f0f0f0'); line(p, 5 + k, 11 - k, 8 + k, 12 - k, '#a8a8a8'); } outline(p); },
   leather: food(['#4f2810', '#7e4220', '#a55f34', '#c47d4c'], { rx: 5.8, ry: 4.6, rot: 0.3 }),
   rabbit_hide: food(['#6a5238', '#8a6c4a', '#a88a64', '#c8aa80'], { rx: 5, ry: 4.2 }),
   rabbit_foot: food(['#6a5238', '#a88a64', '#c8aa80', '#e8d8c0'], { rx: 2.5, ry: 5, rot: 0.6 }),
@@ -262,10 +354,10 @@ const G = {
   firework_rocket: p => { p.rect(6, 5, 4, 8, '#c83030'); p.rect(6, 5, 1, 8, '#e05050'); p.rect(9, 5, 1, 8, '#a02020'); p.rect(6, 7, 4, 1, '#f0f0f0'); p.rect(6, 10, 4, 1, '#f0f0f0'); p.rect(7, 3, 2, 2, '#d8d8d8'); p.put(8, 2, '#f0f0f0'); line(p, 8, 13, 8, 15, '#8a6a3a'); outline(p); },
   elytra: p => { blob(p, 5, 8, 3, 6, MAT.elytra, { rot: -0.2 }); blob(p, 11, 8, 3, 6, MAT.elytra, { rot: 0.2 }); outline(p); },
   // Food
-  apple: p => { blob(p, 8, 9, 5, 4.6, ['#6a0a0a', '#b01818', '#e03030', '#ff7a6a']); p.put(8, 4, '#4a2a10'); p.put(9, 3, '#3a8a2a'); p.put(10, 3, '#4aa83a'); outline(p); },
+  apple: p => { blob(p, 8, 9, 5, 4.6, ['#5a0808', '#a41212', '#d82424', '#ff6050']); p.put(8, 4, '#4a2a10'); p.put(8, 3, '#4a2a10'); p.put(9, 3, '#3a8a2a'); p.put(10, 3, '#4aa83a'); outline(p); },
   golden_apple: p => { blob(p, 8, 9, 5, 4.6, ['#8a6a10', '#d8a820', '#f6d84a', '#fff8b0']); p.put(8, 4, '#4a2a10'); p.put(9, 3, '#3a8a2a'); outline(p); },
   enchanted_golden_apple: p => { G.golden_apple(p); for (let k = 0; k < 6; k++) { const x = 4 + p.rand(8), y = 5 + p.rand(8); if (p.alpha(x, y)) p.put(x, y, '#ff80ff'); } },
-  bread: food(['#6a3a10', '#a8661e', '#d09040', '#e8b870'], { rx: 6.5, ry: 3.4, rot: -0.6, deco: p => { for (let k = 0; k < 3; k++) p.put(6 + k * 2, 10 - k * 2, '#e8c890'); } }),
+  bread: p => { blob(p, 8, 8, 7.4, 3.9, ['#6a3a10', '#a8661e', '#c98a3a', '#e0b060'], { rot: -Math.PI / 4 }); for (const k of [-3, 0, 3]) { const cx = 8 + k * 0.72, cy = 8 - k * 0.72; line(p, Math.round(cx - 1), Math.round(cy - 1), Math.round(cx + 1), Math.round(cy + 1), '#f0d090'); p.put(Math.round(cx + 1), Math.round(cy), '#8a4a14'); } outline(p); },
   porkchop: food(['#8a3a3a', '#d06a6a', '#f09a9a', '#ffc8c8'], { rx: 5.5, ry: 4 }), cooked_porkchop: food(['#5a2a10', '#9a5a2a', '#c8864a', '#e0aa70'], { rx: 5.5, ry: 4 }),
   beef: food(['#6a0a0a', '#b02a2a', '#d84a4a', '#f08a8a'], { rx: 5.5, ry: 4.2, deco: p => p.speck(['#f8e0e0'], 4) }), cooked_beef: food(['#3a1a0a', '#6a3a1a', '#8a5a2a', '#b07a4a'], { rx: 5.5, ry: 4.2 }),
   chicken: food(['#b08a7a', '#e0c0b0', '#f0d8cc', '#fff0e8'], { rx: 4.5, ry: 4.8, deco: p => { line(p, 11, 12, 13, 14, '#f4f0e0'); } }),
@@ -281,8 +373,8 @@ const G = {
   cooked_salmon: p => { blob(p, 7, 8, 5.5, 2.8, ['#8a3a1a', '#d06a3a', '#f09a5a', '#ffc890'], { rot: -0.4 }); outline(p); },
   tropical_fish: p => { blob(p, 7, 8, 5, 3.4, ['#a8501a', '#f07a2a', '#ffa050', '#ffffff'], { rot: -0.3 }); line(p, 6, 5, 8, 11, '#ffffff'); outline(p); },
   pufferfish: p => { orb(p, ['#8a7a1a', '#d8c030', '#f8e060', '#fff8b0']); for (let k = 0; k < 8; k++) p.put(4 + p.rand(9), 4 + p.rand(9), '#6a5a1a'); },
-  carrot: p => { line(p, 3, 13, 10, 6, '#f08a19'); line(p, 4, 13, 11, 6, '#d06a10'); line(p, 4, 12, 10, 7, '#ffaa40'); for (const [x, y] of [[11, 4], [12, 3], [12, 5], [13, 4]]) p.put(x, y, '#3a8a2a'); outline(p); },
-  golden_carrot: p => { line(p, 3, 13, 10, 6, '#f8c830'); line(p, 4, 13, 11, 6, '#d8a018'); line(p, 4, 12, 10, 7, '#fff080'); for (const [x, y] of [[11, 4], [12, 3], [12, 5]]) p.put(x, y, '#f8d860'); outline(p); },
+  carrot: p => carrot(p, ['#8a3a08', '#d86a10', '#f08a19', '#ffb050'], ['#1f5a14', '#2e8a1e', '#4ab82a']),
+  golden_carrot: p => carrot(p, ['#8a6a10', '#d8a018', '#f8c830', '#fff080'], ['#8a6a10', '#d8a018', '#f8d860']),
   potato: food(['#8a6a2a', '#c9a55a', '#e0c07a', '#f0d8a0'], { rx: 5, ry: 3.8, deco: p => p.speck(['#8a6a2a'], 3) }),
   baked_potato: food(['#6a4a1a', '#a87a3a', '#d0a060', '#f0d8a0'], { rx: 5, ry: 3.8 }),
   poisonous_potato: food(['#6a7a2a', '#a0b04a', '#c0d06a', '#e0f0a0'], { rx: 5, ry: 3.8 }),
