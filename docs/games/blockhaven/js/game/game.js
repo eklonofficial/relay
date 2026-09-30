@@ -1,24 +1,24 @@
 // The running game: world + dimensions, player survival state, entities, simulation, weather and saving.
-import { B, BLOCKS, SOLID, OPAQUE, DIM, DIM_NAMES, HEIGHT, SEA, props, st, SHAPE_OF, SHAPE } from '../data/blocks.js?v=muo1jidk';
-import { I, maxStack } from '../data/items.js?v=muo1jidk';
-import { SMELTING } from '../data/recipes.js?v=muo1jidk';
-import { MOBS } from '../data/mobs.js?v=muo1jidk';
-import { BIOMES, COLD } from '../gen/biomes.js?v=muo1jidk';
-import { World, UNLOADED, posKey } from '../world/world.js?v=muo1jidk';
-import { Player } from './player.js?v=muo1jidk';
-import { PlayerInventory, Container } from './inventory.js?v=muo1jidk';
-import { EntityManager } from '../entity/entity.js?v=muo1jidk';
-import { ItemEntity, XpOrb, FallingBlock, PrimedTnt, Lightning, Projectile } from '../entity/objects.js?v=muo1jidk';
-import { Mob, RIDEABLE } from '../entity/mob.js?v=muo1jidk';
-import { Particles } from './particles.js?v=muo1jidk';
-import { Sim } from './sim.js?v=muo1jidk';
-import { blockDrops } from './drops.js?v=muo1jidk';
-import { computeEnv } from './env.js?v=muo1jidk';
-import { fuelOf } from './ui.js?v=muo1jidk';
-import { unlockLevel } from './trades.js?v=muo1jidk';
-import { forward } from '../core/math.js?v=muo1jidk';
-import { EndCrystal } from '../entity/crystal.js?v=muo1jidk';
-import { ARMOR_BYPASS, armorReduce, applyInvul, isAxe } from './combat.js?v=muo1jidk';
+import { B, BLOCKS, SOLID, OPAQUE, DIM, DIM_NAMES, HEIGHT, SEA, props, st, SHAPE_OF, SHAPE } from '../data/blocks.js?v=muo1whx0';
+import { I, maxStack } from '../data/items.js?v=muo1whx0';
+import { SMELTING } from '../data/recipes.js?v=muo1whx0';
+import { MOBS } from '../data/mobs.js?v=muo1whx0';
+import { BIOMES, COLD } from '../gen/biomes.js?v=muo1whx0';
+import { World, UNLOADED, posKey } from '../world/world.js?v=muo1whx0';
+import { Player } from './player.js?v=muo1whx0';
+import { PlayerInventory, Container } from './inventory.js?v=muo1whx0';
+import { EntityManager } from '../entity/entity.js?v=muo1whx0';
+import { ItemEntity, XpOrb, FallingBlock, PrimedTnt, Lightning, Projectile } from '../entity/objects.js?v=muo1whx0';
+import { Mob, RIDEABLE } from '../entity/mob.js?v=muo1whx0';
+import { Particles } from './particles.js?v=muo1whx0';
+import { Sim } from './sim.js?v=muo1whx0';
+import { blockDrops } from './drops.js?v=muo1whx0';
+import { computeEnv } from './env.js?v=muo1whx0';
+import { fuelOf } from './ui.js?v=muo1whx0';
+import { unlockLevel } from './trades.js?v=muo1whx0';
+import { forward } from '../core/math.js?v=muo1whx0';
+import { EndCrystal } from '../entity/crystal.js?v=muo1whx0';
+import { ARMOR_BYPASS, armorReduce, applyInvul, isAxe } from './combat.js?v=muo1whx0';
 
 export const DAY = 1200; // seconds per day
 const rnd = (a, b) => a + Math.random() * (b - a);
@@ -142,6 +142,7 @@ export class Game {
         onBlockChange: (x, y, z) => this.sim.onChange(x, y, z),
         onBlockEntityRemoved: (x, y, z, be) => this.onBlockEntityRemoved(x, y, z, be),
         onEdit: (x, y, z, id, m) => { if (this.net) this.net.onLocalEdit(dim, x, y, z, id, m); },
+        onPopulate: key => { if (this.net) this.net.send({ t: 'pop', id: this.net.myId, d: dim, k: key }); },
       },
     });
     this.entities.clear();
@@ -163,14 +164,17 @@ export class Game {
     else if (d.t === 'item' && I[d.s.key]) { const e = new ItemEntity(this, d.p[0], d.p[1], d.p[2], d.s, [0, 0, 0]); e.age = d.a || 0; this.entities.add(e); }
     else if (d.t === 'crystal') this.entities.add(new EndCrystal(this, d.p[0], d.p[1], d.p[2]));
   }
-  serializeDim() {
+  serializeDim(forSave = false) {
+    const entities = this.entities.list.map(e => e.toJSON()).filter(Boolean);
+    // The host's save also keeps other players' mobs and items near it.
+    if (forSave && this.net && this.net.isHost) entities.push(...this.net.share.puppetsJSON());
     return {
       edits: this.world.serializeEdits(), populated: [...this.world.populated], blockEntities: this.world.serializeBlockEntities(),
-      entities: this.entities.list.map(e => e.toJSON()).filter(Boolean),
+      entities,
     };
   }
   serialize() {
-    this.dims[this.dim] = this.serializeDim();
+    this.dims[this.dim] = this.serializeDim(true);
     return {
       ...this.meta, time: this.dayTime, day: this.day, weather: this.weather, dims: this.dims, spawn: this.spawn, dragonKilled: this.dragonKilled,
       mode: this.hardcore ? 'hardcore' : this.mode, hardcore: this.hardcore, difficulty: this.difficulty, rules: this.rules, stats: this.stats,
@@ -326,6 +330,23 @@ export class Game {
     if (cur.container) cur.container.load(data.items || []);
     if (this.gui && this.gui.isOpen) this.gui.refresh && this.gui.refresh();
   }
+  // The nearest player (this one or a remote one in this dimension), preferring ones mobs can
+  // actually engage (alive, not in spectator).
+  nearestPlayer(pos) {
+    let best = this.playerEntity, bd = Infinity, active = false;
+    const consider = (e, ok) => {
+      const d = (e.pos[0] - pos[0]) ** 2 + (e.pos[1] - pos[1]) ** 2 + (e.pos[2] - pos[2]) ** 2;
+      if ((ok && !active) || (ok === active && d < bd)) { best = e; bd = d; active = ok; }
+    };
+    consider(this.playerEntity, this.alive && this.mode !== 'spectator');
+    if (this.net) for (const rp of this.net.remotePlayers()) if (rp.visible || (rp.dim === this.dim && rp.snaps.length && rp.spectator)) consider(rp, rp.visible);
+    return best;
+  }
+  applyRemotePopulated(dim, key) {
+    if (dim === this.dim) { this.world.populated.add(key); return; }
+    const d = this.dims[dim] || (this.dims[dim] = {});
+    (d.populated || (d.populated = [])).push(key);
+  }
   // What the host saves for a guest between sessions.
   playerData() {
     return {
@@ -412,7 +433,7 @@ export class Game {
       const impact = (1 - d / R) * exposure;
       const dmg = Math.floor((impact * impact + impact) / 2 * 7 * R + 1);
       const n = d || 1;
-      if (e.type === 'item') { if (Math.random() < 0.5) e.dead = true; continue; }
+      if (e.type === 'item') { if (!e.puppet && Math.random() < 0.5) e.dead = true; continue; }
       if (e.hurt) e.hurt(dmg, { kind: 'explosion', attacker: source && source.shooter ? source.shooter : source, knock: [(c[0] - pos[0]) / n, (c[2] - pos[2]) / n], knockStrength: impact * 14 });
       if (e.vel) e.vel[1] += impact * 10;
     }
@@ -439,6 +460,7 @@ export class Game {
     for (const e of [...this.entities.near(p, 4, o => o.isLiving), ...(this.alive ? [this.playerEntity] : [])]) {
       if (Math.hypot(e.pos[0] - p[0], e.pos[2] - p[2]) > 3) continue;
       if (e.mobType === 'creeper') { e.charged = true; continue; }
+      if (e.puppet) continue;
       if (e.mobType === 'pig') { e.dead = true; this.spawnMob('zombified_piglin', e.pos[0], e.pos[1], e.pos[2]); continue; }
       if (e.mobType === 'villager') { e.dead = true; this.spawnMob('witch', e.pos[0], e.pos[1], e.pos[2]); continue; }
       if (e.hurt) e.hurt(5, { kind: 'lightning' });
@@ -843,6 +865,7 @@ export class Game {
   }
   changeDimension(dim, pos, { portal = false } = {}) {
     this.dismount();
+    if (this.net) this.net.share.leaveDim(this.dim);
     this.dims[this.dim] = this.serializeDim();
     this.openWorld(dim);
     this.player.world = this.world;

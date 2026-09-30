@@ -9,7 +9,8 @@
 // own hands, or their own water/fire/sand simulation) broadcasts it once; everyone else mirrors it
 // silently, so nothing is applied twice. The host keeps the authoritative save, including each
 // guest's inventory and position, and owns the clock and the weather.
-import { RemotePlayer } from './remote.js?v=muo1jidk';
+import { RemotePlayer } from './remote.js?v=muo1whx0';
+import { EntitySync } from './share.js?v=muo1whx0';
 
 export const MAX_PLAYERS = 5;
 const PREFIX = 'blockhaven-v1-';
@@ -18,7 +19,7 @@ const PROTOCOL = 1;
 const PART = 12000;
 const STATE_HZ = 20;
 // Guest messages the host passes on to every other guest.
-const RELAY = new Set(['st', 'ed', 'be', 'chat', 'fx']);
+const RELAY = new Set(['st', 'ed', 'be', 'chat', 'fx', 'ent', 'pop']);
 
 export const cleanCode = s => String(s || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 5);
 export const cleanName = s => String(s || '').replace(/[^A-Za-z0-9_]/g, '').slice(0, 16);
@@ -30,7 +31,7 @@ function loadLib() {
   if (!libPromise) {
     libPromise = new Promise((resolve, reject) => {
       const s = document.createElement('script');
-      s.src = new URL('../../vendor/peerjs.min.js?v=muo1jidk', import.meta.url).href;
+      s.src = new URL('../../vendor/peerjs.min.js?v=muo1whx0', import.meta.url).href;
       s.onload = () => resolve();
       s.onerror = () => { libPromise = null; reject(new Error('Could not load the multiplayer library. Check your connection.')); };
       document.head.appendChild(s);
@@ -103,6 +104,7 @@ export class Net {
     this.stateT = 0; this.envT = 0; this.pdataT = 0; this.flushT = 0;
     this.swingCount = 0; this.hurtCount = 0;
     this.applying = false; this.closed = false;
+    this.share = new EntitySync(this);
   }
   get game() { return this.app.game; }
   get isHost() { return this.role === 'host'; }
@@ -166,7 +168,7 @@ export class Net {
   snapshot(name) {
     const g = this.game, s = g.serialize();
     const dims = {};
-    for (const [d, v] of Object.entries(s.dims || {})) dims[d] = { edits: v.edits, blockEntities: v.blockEntities };
+    for (const [d, v] of Object.entries(s.dims || {})) dims[d] = { edits: v.edits, blockEntities: v.blockEntities, populated: v.populated };
     const saved = (g.meta.players || {})[name] || null;
     return {
       name: s.name, seed: s.seed, seedText: s.seedText, type: s.type, mode: s.mode, difficulty: s.difficulty, cheats: s.cheats, rules: s.rules,
@@ -242,6 +244,15 @@ export class Net {
       case 'be': if (g) this.applyBlockEntity(m); break;
       case 'chat': this.app.chat(m.text, m.color || '#ffffff'); break;
       case 'fx': if (g) this.playFx(m); break;
+      case 'ent': if (g) this.share.onEnt(m); break;
+      case 'ehit': if (g) this.share.onEhit(m); break;
+      case 'take': if (g) this.share.onTake(m); break;
+      case 'give': if (g) this.share.onGive(m); break;
+      case 'givexp': if (g) this.share.onGiveXp(m); break;
+      case 'claim': if (g) this.share.onClaim(m); break;
+      case 'own': if (g) this.share.onOwn(m); break;
+      case 'handover': if (g && this.isHost) this.share.onHandover(m); break;
+      case 'pop': if (g) g.applyRemotePopulated(m.d, m.k); break;
       case 'hit': if (g) this.onHit(m); break;
       case 'env': if (g && !this.isHost) this.applyEnv(m); break;
       case 'pdata': if (this.isHost && from && g) { g.meta.players = g.meta.players || {}; g.meta.players[from.name] = m.d; } break;
@@ -255,6 +266,7 @@ export class Net {
     const p = this.players.get(id);
     if (!p) return;
     this.players.delete(id);
+    this.share.dropOwner(id);
     if (p.rp) p.rp.dead = true;
     if (p.link) p.link.close();
     if (this.isHost) this.broadcast({ t: 'leave', id, reason: why });
@@ -285,6 +297,7 @@ export class Net {
     if (this.stateT >= 1 / STATE_HZ) { this.stateT = 0; this.sendState(); }
     this.flushT += dt;
     if (this.flushT >= 0.05) { this.flushT = 0; this.flush(); }
+    this.share.update(dt);
     if (this.isHost) {
       this.envT += dt;
       if (this.envT >= 1) { this.envT = 0; this.broadcast({ t: 'env', time: g.dayTime, day: g.day, w: g.weather, pvp: g.rules.pvp !== false }); }
@@ -390,7 +403,7 @@ export class Net {
     this.closed = true;
     try {
       if (this.isHost) this.broadcast({ t: 'bye' });
-      else this.sendPlayerData();
+      else { this.share.handoverAll(); this.sendPlayerData(); }
     } catch { /* ignore */ }
     setTimeout(() => {
       for (const p of this.players.values()) if (p.link) p.link.close();
