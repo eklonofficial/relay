@@ -132,13 +132,25 @@ def _application_dirs() -> list[Path]:
     return dirs
 
 
+_NOT_A_WINDOW = re.compile(r"^(?:Terminal|NoDisplay|Hidden)\s*=\s*true\s*$", re.IGNORECASE | re.MULTILINE)
+
+
+def _opens_a_window(entry: Path) -> bool:
+    """Skip entries that don't put a window on screen: terminal-only tools
+    (texinfo ships `info.desktop` with `Terminal=true`) and hidden ones."""
+    try:
+        return not _NOT_A_WINDOW.search(entry.read_text(errors="replace"))
+    except OSError:
+        return False
+
+
 @lru_cache(maxsize=1)
 def _desktop_entries() -> frozenset[str]:
     """Lower-cased .desktop basenames. Cached: this is on the hot path."""
     names: set[str] = set()
     for directory in _application_dirs():
         try:
-            names.update(p.stem.lower() for p in directory.glob("*.desktop"))
+            names.update(p.stem.lower() for p in directory.glob("*.desktop") if _opens_a_window(p))
         except OSError:
             continue
     return frozenset(names)
