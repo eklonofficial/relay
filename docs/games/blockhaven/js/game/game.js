@@ -1,24 +1,24 @@
 // The running game: world + dimensions, player survival state, entities, simulation, weather and saving.
-import { B, BLOCKS, SOLID, OPAQUE, DIM, DIM_NAMES, HEIGHT, SEA, props, st, SHAPE_OF, SHAPE } from '../data/blocks.js?v=munl5eht';
-import { I, maxStack } from '../data/items.js?v=munl5eht';
-import { SMELTING } from '../data/recipes.js?v=munl5eht';
-import { MOBS } from '../data/mobs.js?v=munl5eht';
-import { BIOMES, COLD } from '../gen/biomes.js?v=munl5eht';
-import { World, UNLOADED, posKey } from '../world/world.js?v=munl5eht';
-import { Player } from './player.js?v=munl5eht';
-import { PlayerInventory, Container } from './inventory.js?v=munl5eht';
-import { EntityManager } from '../entity/entity.js?v=munl5eht';
-import { ItemEntity, XpOrb, FallingBlock, PrimedTnt, Lightning, Projectile } from '../entity/objects.js?v=munl5eht';
-import { Mob, RIDEABLE } from '../entity/mob.js?v=munl5eht';
-import { Particles } from './particles.js?v=munl5eht';
-import { Sim } from './sim.js?v=munl5eht';
-import { blockDrops } from './drops.js?v=munl5eht';
-import { computeEnv } from './env.js?v=munl5eht';
-import { fuelOf } from './ui.js?v=munl5eht';
-import { unlockLevel } from './trades.js?v=munl5eht';
-import { forward } from '../core/math.js?v=munl5eht';
-import { EndCrystal } from '../entity/crystal.js?v=munl5eht';
-import { ARMOR_BYPASS, armorReduce, applyInvul, isAxe } from './combat.js?v=munl5eht';
+import { B, BLOCKS, SOLID, OPAQUE, DIM, DIM_NAMES, HEIGHT, SEA, props, st, SHAPE_OF, SHAPE } from '../data/blocks.js?v=munlblf6';
+import { I, maxStack } from '../data/items.js?v=munlblf6';
+import { SMELTING } from '../data/recipes.js?v=munlblf6';
+import { MOBS } from '../data/mobs.js?v=munlblf6';
+import { BIOMES, COLD } from '../gen/biomes.js?v=munlblf6';
+import { World, UNLOADED, posKey } from '../world/world.js?v=munlblf6';
+import { Player } from './player.js?v=munlblf6';
+import { PlayerInventory, Container } from './inventory.js?v=munlblf6';
+import { EntityManager } from '../entity/entity.js?v=munlblf6';
+import { ItemEntity, XpOrb, FallingBlock, PrimedTnt, Lightning, Projectile } from '../entity/objects.js?v=munlblf6';
+import { Mob, RIDEABLE } from '../entity/mob.js?v=munlblf6';
+import { Particles } from './particles.js?v=munlblf6';
+import { Sim } from './sim.js?v=munlblf6';
+import { blockDrops } from './drops.js?v=munlblf6';
+import { computeEnv } from './env.js?v=munlblf6';
+import { fuelOf } from './ui.js?v=munlblf6';
+import { unlockLevel } from './trades.js?v=munlblf6';
+import { forward } from '../core/math.js?v=munlblf6';
+import { EndCrystal } from '../entity/crystal.js?v=munlblf6';
+import { ARMOR_BYPASS, armorReduce, applyInvul, isAxe } from './combat.js?v=munlblf6';
 
 export const DAY = 1200; // seconds per day
 const rnd = (a, b) => a + Math.random() * (b - a);
@@ -262,7 +262,7 @@ export class Game {
     const m = this.riding, p = this.player;
     if (!m) return;
     const seat = (RIDEABLE[m.mobType] && RIDEABLE[m.mobType].seat) || m.h * 0.75;
-    p.pos = [m.pos[0], m.pos[1] + seat, m.pos[2]]; p.vel = [0, 0, 0]; p.fallStart = null; p.onGround = true;
+    p.pos = [m.pos[0], m.pos[1] + seat, m.pos[2]]; p.vel = [0, 0, 0]; p.fallStart = null; p.onGround = true; p.renderPos = p.pos.slice();
   }
   toast(a, b, icon) { if (this.hud) this.hud.toast(a, b, icon); }
   chat(msg, color) { this.app.chat(msg, color); }

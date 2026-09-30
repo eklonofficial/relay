@@ -1,30 +1,30 @@
 // Blockhaven bootstrap: assets, menus, input, camera, frame loop.
-import { Demo, DEMO_SEED } from './demo.js?v=munl5eht';
-import { armorModel, armorSkinKey, ARMOR_MATERIALS, ARMOR_PIECES, elytraModel } from './data/armor.js?v=munl5eht';
-import { TEXTURES, TEX, B, BLOCKS, DIM, DIM_NAMES, SHAPE_OF, SHAPE, props } from './data/blocks.js?v=munl5eht';
-import { I, ITEMS } from './data/items.js?v=munl5eht';
-import { MOBS, PROFESSIONS, playerModel, saddleModel } from './data/mobs.js?v=munl5eht';
-import { BIOMES } from './gen/biomes.js?v=munl5eht';
-import { generateBlockTextures } from './render/blocktex.js?v=munl5eht';
-import { generateItemTextures, ITEM_LAYER, FX_LAYER, ITEM_LAYER_COUNT } from './render/itemtex.js?v=munl5eht';
-import { packModel, paintModel, SKIN } from './render/mobtex.js?v=munl5eht';
-import { buildMipChain } from './render/atlas.js?v=munl5eht';
-import { Renderer, Batch } from './render/renderer.js?v=munl5eht';
-import { World, UNLOADED } from './world/world.js?v=munl5eht';
-import { createGenerator } from './gen/index.js?v=munl5eht';
-import { Game } from './game/game.js?v=munl5eht';
-import { Interact } from './game/interact.js?v=munl5eht';
-import { Commands } from './game/commands.js?v=munl5eht';
-import { GUI, HUD } from './game/ui.js?v=munl5eht';
-import { buildIcons, hudSprites } from './game/icons.js?v=munl5eht';
-import { Sound } from './game/audio.js?v=munl5eht';
-import { computeEnv } from './game/env.js?v=munl5eht';
-import { guideSections } from './game/guide.js?v=munl5eht';
-import { listWorlds, loadWorld, saveWorld, deleteWorld } from './game/storage.js?v=munl5eht';
-import { drawModel, rootMatrix, M } from './entity/entity.js?v=munl5eht';
-import { itemMesh, emitItemMesh } from './entity/itemmesh.js?v=munl5eht';
-import { Lightning } from './entity/objects.js?v=munl5eht';
-import { compose, translation, rotationX, rotationY, rotationZ, scaling, forward, mat4 } from './core/math.js?v=munl5eht';
+import { Demo, DEMO_SEED } from './demo.js?v=munlblf6';
+import { armorModel, armorSkinKey, ARMOR_MATERIALS, ARMOR_PIECES, elytraModel } from './data/armor.js?v=munlblf6';
+import { TEXTURES, TEX, B, BLOCKS, DIM, DIM_NAMES, SHAPE_OF, SHAPE, props } from './data/blocks.js?v=munlblf6';
+import { I, ITEMS } from './data/items.js?v=munlblf6';
+import { MOBS, PROFESSIONS, playerModel, saddleModel } from './data/mobs.js?v=munlblf6';
+import { BIOMES } from './gen/biomes.js?v=munlblf6';
+import { generateBlockTextures } from './render/blocktex.js?v=munlblf6';
+import { generateItemTextures, ITEM_LAYER, FX_LAYER, ITEM_LAYER_COUNT } from './render/itemtex.js?v=munlblf6';
+import { packModel, paintModel, SKIN } from './render/mobtex.js?v=munlblf6';
+import { buildMipChain } from './render/atlas.js?v=munlblf6';
+import { Renderer, Batch } from './render/renderer.js?v=munlblf6';
+import { World, UNLOADED } from './world/world.js?v=munlblf6';
+import { createGenerator } from './gen/index.js?v=munlblf6';
+import { Game } from './game/game.js?v=munlblf6';
+import { Interact } from './game/interact.js?v=munlblf6';
+import { Commands } from './game/commands.js?v=munlblf6';
+import { GUI, HUD } from './game/ui.js?v=munlblf6';
+import { buildIcons, hudSprites } from './game/icons.js?v=munlblf6';
+import { Sound } from './game/audio.js?v=munlblf6';
+import { computeEnv } from './game/env.js?v=munlblf6';
+import { guideSections } from './game/guide.js?v=munlblf6';
+import { listWorlds, loadWorld, saveWorld, deleteWorld } from './game/storage.js?v=munlblf6';
+import { drawModel, rootMatrix, M } from './entity/entity.js?v=munlblf6';
+import { itemMesh, emitItemMesh } from './entity/itemmesh.js?v=munlblf6';
+import { Lightning } from './entity/objects.js?v=munlblf6';
+import { compose, translation, rotationX, rotationY, rotationZ, scaling, forward, mat4 } from './core/math.js?v=munlblf6';
 
 const $ = id => document.getElementById(id);
 const SETTINGS_KEY = 'blockhaven.settings.v2';
@@ -665,7 +665,7 @@ class App {
     const sw = Math.sin(p.bobPhase * 1.6) * 0.9 * p.bobAmount;
     const swing = Math.sin(this.interact.swing * Math.PI) * 1.4;
     const poses = { head: [p.pitch, 0, 0], rightLeg: [sw, 0, 0], leftLeg: [-sw, 0, 0], rightArm: [-sw * 0.8 + swing, 0, 0], leftArm: [sw * 0.8, 0, 0] };
-    if (g.riding) { poses.rightLeg = [-1.4, 0.3, 0]; poses.leftLeg = [-1.4, -0.3, 0]; poses.rightArm = [-0.6 + swing, 0, 0]; poses.leftArm = [-0.6, 0, 0]; }
+    if (g.riding) { poses.rightLeg = [1.35, -0.25, 0]; poses.leftLeg = [1.35, 0.25, 0]; poses.rightArm = [0.55 + swing, 0, 0]; poses.leftArm = [0.55, 0, 0]; }
     const light = g.world.lightAt(p.pos[0], p.pos[1] + 1, p.pos[2]);
     const b = Math.max(Math.pow(0.8, 15 - light.sky) * g.env.skyLight[0], Math.pow(0.82, 15 - light.blk), g.env.ambient[0]);
     const sneak = p.sneaking ? M.chain(M.t(0, -2, 0), M.rx(0)) : null;
@@ -676,7 +676,7 @@ class App {
       glide = M.chain(M.t(0, 12, 0), M.rx(-Math.PI / 2 - fp), M.t(0, -12, 0));
       poses.rightArm = [0.2, 0, 0.25]; poses.leftArm = [0.2, 0, -0.25]; poses.rightLeg = [0.05, 0, 0]; poses.leftLeg = [-0.05, 0, 0]; poses.head = [0.9, 0, 0];
     }
-    const root = rootMatrix(p.pos, p.yaw, 1, glide || sneak), flash = this.post.hurt > 0.5 ? 0.6 : 0;
+    const root = rootMatrix(p.renderPos || p.pos, p.yaw, 1, glide || sneak), flash = this.post.hurt > 0.5 ? 0.6 : 0;
     const mats = drawModel(ctx.mobs, model, layer, root, poses, [b, b, b], flash);
     const chest = g.inv.armor.get(1);
     if (chest && chest.key === 'elytra') {
