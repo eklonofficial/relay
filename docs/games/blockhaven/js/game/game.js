@@ -18,6 +18,7 @@ import { fuelOf } from './ui.js';
 import { unlockLevel } from './trades.js';
 import { forward } from '../core/math.js';
 import { EndCrystal } from '../entity/crystal.js';
+import { ARMOR_BYPASS, armorReduce, applyInvul, isAxe } from './combat.js';
 
 export const DAY = 1200; // seconds per day
 const rnd = (a, b) => a + Math.random() * (b - a);
@@ -329,31 +330,32 @@ export class Game {
   damagePlayer(amount, src = {}) {
     const s = this.stats;
     if (!this.alive || !this.survivalLike) return false;
-    if (this.invul > 0 && src.kind !== 'void' && src.kind !== 'kill') return false;
+    if (src.kind === 'void' || src.kind === 'kill') this.invul = 0;
     if (this.difficulty === 'peaceful' && src.kind === 'mob') return false;
     if (s.effects.fire_resistance && (src.kind === 'fire' || src.kind === 'lava')) return false;
-    let dmg = amount;
-    const bypass = ['fall', 'drown', 'fire', 'starve', 'magic', 'void', 'kill', 'wither', 'poison'].includes(src.kind);
+    const bypass = ARMOR_BYPASS.has(src.kind);
     // Shield blocks frontal attacks.
     if (this.blocking && src.attacker && src.kind !== 'explosion' && !bypass) {
       const a = src.attacker.pos, p = this.player.pos, f = this.lookDir();
       const dx = a[0] - p[0], dz = a[2] - p[2], n = Math.hypot(dx, dz) || 1;
-      if ((dx * f[0] + dz * f[2]) / n > 0.2) { this.sound.play('arrow_hit', p, 0.8); if (src.attacker.vel && src.kind === 'mob') { src.attacker.vel[0] += dx / n * -6; src.attacker.vel[2] += dz / n * -6; } this.inv.damageHeld(1); return false; }
+      if ((dx * f[0] + dz * f[2]) / n > 0.2 && !(src.attacker.equipment && isAxe(src.attacker.equipment.hand))) { this.sound.play('arrow_hit', p, 0.8); if (src.attacker.vel && src.kind === 'mob') { src.attacker.vel[0] += dx / n * -6; src.attacker.vel[2] += dz / n * -6; } this.inv.damageHeld(1); return false; }
     }
+    // Invulnerability frames: a harder hit still lands for the difference.
+    const hit = applyInvul(this, amount);
+    if (hit.amount <= 0) return false;
+    let dmg = hit.amount;
     if (!bypass) {
       const { pts, tough } = this.inv.armorPoints();
-      dmg = dmg * (1 - Math.min(20, Math.max(pts / 5, pts - dmg / (2 + tough / 4))) / 25);
-      if (pts) this.inv.damageArmor(amount);
+      dmg = armorReduce(dmg, pts, tough);
+      if (pts) this.inv.damageArmor(hit.amount);
     }
     if (s.effects.resistance) dmg *= 0.8;
     if (src.kind === 'fall' && this.inv.armor.get(3)) dmg *= 1;
     if (s.absorption > 0) { const a = Math.min(s.absorption, dmg); s.absorption -= a; dmg -= a; }
     s.health -= dmg;
-    this.invul = 0.5;
     this.exhaust(0.1);
-    this.app.hurtFlash(src);
-    this.sound.play('hurt', null, 0.8);
-    if (src.knock) { const k = src.knockStrength || 5; this.player.vel[0] += src.knock[0] * k; this.player.vel[2] += src.knock[1] * k; this.player.vel[1] = Math.max(this.player.vel[1], 4.5); }
+    if (hit.fresh) { this.app.hurtFlash(src); this.sound.play('hurt', null, 0.8); }
+    if (hit.fresh && src.knock) { const k = src.knockStrength || 5; this.player.vel[0] += src.knock[0] * k; this.player.vel[2] += src.knock[1] * k; this.player.vel[1] = Math.max(this.player.vel[1], 4.5); }
     if (src.attacker && src.attacker.isLiving) this.lastAttackedBy = src.attacker;
     this.lastDamage = src;
     if (s.health <= 0) {
@@ -409,7 +411,7 @@ export class Game {
     this.alive = true;
     if (this.dim !== DIM.OVERWORLD) this.changeDimension(DIM.OVERWORLD, this.spawn);
     this.player.pos = this.spawn.slice(); this.player.vel = [0, 0, 0]; this.player.fallStart = null;
-    this.invul = 3;
+    this.invul = 3; this.lastHurtAmount = Infinity;
   }
   onLand(dist, water) {
     if (water || this.player.inWeb || !this.survivalLike) return;

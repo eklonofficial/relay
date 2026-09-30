@@ -5,11 +5,33 @@ import { MOBS, PROFESSIONS } from '../data/mobs.js';
 import { B, BLOCKS, SOLID } from '../data/blocks.js';
 import { UNLOADED } from '../world/world.js';
 import { villagerTrades } from '../game/trades.js';
+import { ARMOR_BYPASS, armorStats, armorReduce, applyInvul } from '../game/combat.js';
+import { armorSkinKey } from '../data/armor.js';
+import { I } from '../data/items.js';
 
 const rnd = (a, b) => a + Math.random() * (b - a);
 const rint = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
 const wrap = a => { while (a > Math.PI) a -= Math.PI * 2; while (a < -Math.PI) a += Math.PI * 2; return a; };
 const WOOL_COLORS = { white: [1, 1, 1], light_gray: [0.62, 0.62, 0.6], gray: [0.3, 0.32, 0.34], black: [0.1, 0.1, 0.12], brown: [0.5, 0.33, 0.2], pink: [1, 0.6, 0.72] };
+
+// Natural armor and weapons (Java Edition odds, scaled by difficulty).
+const ARMORED = { zombie: 'zombie', husk: 'zombie', drowned: 'zombie', skeleton: 'skeleton', stray: 'skeleton' };
+const ARMOR_TIERS = [['leather', 0.37], ['golden', 0.49], ['chainmail', 0.129], ['iron', 0.0127], ['diamond', 0.0004]];
+function rollEquipment(type, difficulty) {
+  const kind = ARMORED[type];
+  if (!kind) return null;
+  const chance = { easy: 0.06, normal: 0.12, hard: 0.22 }[difficulty] ?? 0.12;
+  const eq = { armor: [null, null, null, null], hand: null };
+  if (Math.random() < chance) {
+    let r = Math.random(), mat = 'leather';
+    for (const [m, w] of ARMOR_TIERS) { if ((r -= w) < 0) { mat = m; break; } }
+    // Boots first, then leggings, chestplate and helmet, each less likely.
+    const stop = difficulty === 'hard' ? 0.1 : 0.25;
+    for (const slot of [3, 2, 1, 0]) { eq.armor[slot] = `${mat}_${['helmet', 'chestplate', 'leggings', 'boots'][slot]}`; if (Math.random() < stop) break; }
+  }
+  if (kind === 'zombie' && Math.random() < (difficulty === 'hard' ? 0.05 : 0.01) * 3) eq.hand = Math.random() < 0.33 ? 'iron_sword' : 'iron_shovel';
+  return eq.hand || eq.armor.some(Boolean) ? eq : null;
+}
 
 export class Mob extends Entity {
   constructor(game, type, x, y, z, opts = {}) {
@@ -18,6 +40,7 @@ export class Mob extends Entity {
     this.def = d; this.mobType = type; this.isLiving = true;
     this.size = opts.size || (d.sizes ? [1, 2, 4][rint(0, 2)] : 1);
     this.baby = !!opts.baby;
+    this.equipment = opts.equipment || rollEquipment(type, game.difficulty);
     const sc = (d.scale || 1) * (d.sizes ? this.size : 1) * (this.baby ? 0.5 : 1);
     this.scale = sc;
     this.hw = d.hw * (d.sizes ? this.size : 1) * (this.baby ? 0.5 : 1);
@@ -60,14 +83,21 @@ export class Mob extends Entity {
   // ---------------- damage ----------------
   hurt(amount, src = {}) {
     const g = this.game;
-    if (this.dead || this.deathT > 0 || this.invul > 0) return false;
+    if (this.dead || this.deathT > 0) return false;
     if (this.def.fireImmune && (src.kind === 'fire' || src.kind === 'lava')) return false;
     if (this.mobType === 'enderman' && src.kind === 'projectile') { this.teleportRandom(); return false; }
     if (this.mobType === 'ender_dragon' && src.kind !== 'explosion' && src.kind !== 'player' && src.kind !== 'projectile' && src.kind !== 'kill') return false;
+    const hit = applyInvul(this, amount);
+    if (hit.amount <= 0) return false;
+    amount = hit.amount;
+    if (!ARMOR_BYPASS.has(src.kind)) {
+      const { pts, tough } = armorStats(this.equipment ? this.equipment.armor : []);
+      amount = armorReduce(amount, pts + (this.def.armor || 0), tough);
+    }
     this.health -= amount;
-    this.invul = 0.5; this.hurtT = 0.4;
+    if (hit.fresh) this.hurtT = 0.4;
     const kr = 1 - (this.def.knockbackResist || 0);
-    if (src.knock && kr > 0) {
+    if (hit.fresh && src.knock && kr > 0) {
       const k = (src.knockStrength || 5) * kr;
       this.vel[0] += src.knock[0] * k; this.vel[2] += src.knock[1] * k;
       if (this.onGround || this.def.flying) this.vel[1] = Math.max(this.vel[1], 4 * kr);
@@ -99,6 +129,7 @@ export class Mob extends Entity {
       }
       if (d.woolDrop && !this.sheared) g.dropItem(this.pos[0], this.pos[1] + 0.5, this.pos[2], { key: `${this.woolColor}_wool`, count: 1 });
       if (this.mobType === 'creeper' && src.attacker && src.attacker.mobType === 'skeleton') g.dropItem(this.pos[0], this.pos[1], this.pos[2], { key: 'music_disc' in {} ? 'music_disc' : 'gunpowder', count: 1 });
+      if (this.equipment && byPlayer) for (const k of [...this.equipment.armor, this.equipment.hand]) if (k && Math.random() < 0.085) g.dropItem(this.pos[0], this.pos[1] + 0.5, this.pos[2], { key: k, count: 1, dmg: I[k] && I[k].durability ? Math.floor(I[k].durability * (0.3 + Math.random() * 0.6)) : undefined });
       if (byPlayer && d.xp) g.spawnXp(this.pos, rint(d.xp[0], d.xp[1]) * (d.sizes ? this.size : 1));
     }
     if (d.sizes && this.size > 1) for (let k = 0; k < rint(2, 4); k++) g.spawnMob(this.mobType, this.pos[0] + rnd(-0.5, 0.5), this.pos[1] + 0.5, this.pos[2] + rnd(-0.5, 0.5), { size: this.size / 2 });
@@ -201,6 +232,8 @@ export class Mob extends Entity {
     const diffMul = { peaceful: 0, easy: 0.6, normal: 1, hard: 1.5 }[g.difficulty] ?? 1;
     let dmg = a.dmg * (t === g.playerEntity ? diffMul : 1);
     if (this.mobType === 'iron_golem') dmg = rnd(7, 21) * (t === g.playerEntity ? diffMul : 1);
+    const weapon = this.equipment && this.equipment.hand;
+    if (weapon && I[weapon] && I[weapon].damage) dmg += (I[weapon].damage - 1) * (t === g.playerEntity ? diffMul : 1);
     const dx = t.pos[0] - this.pos[0], dz = t.pos[2] - this.pos[2], n = Math.hypot(dx, dz) || 1;
     const ok = t.hurt(dmg, { kind: 'mob', attacker: this, knock: [dx / n, dz / n], knockStrength: a.fling ? 12 : 5 });
     if (ok) {
@@ -758,9 +791,15 @@ export class Mob extends Entity {
     if (this.model.anim === 'bat' || this.model.anim === 'blaze' || this.model.anim === 'ghast') yOff = Math.sin(this.age * 2) * 0.1;
     const root = rootMatrix([this.pos[0], this.pos[1] + yOff, this.pos[2]], this.bodyYaw, sc, extra);
     const flash = this.hurtT > 0 || (this.mobType === 'creeper' && this.fuse > 0 && Math.floor(this.fuse * 8) % 2 === 0) ? 0.8 : 0;
-    const mats = drawModel(ctx.mobs, this.model, this.layer, root, this.pose(), light, flash);
+    this.lastPose = this.pose();
+    const mats = drawModel(ctx.mobs, this.model, this.layer, root, this.lastPose, light, flash);
+    // Worn armor follows the same pose.
+    if (this.equipment) for (const k of this.equipment.armor) {
+      const sk = k && armorSkinKey(k, !!this.model.thin);
+      if (sk) drawModel(ctx.mobs, g.mobModel(sk), g.mobLayer(sk), root, this.lastPose, light, flash);
+    }
     // Held item.
-    const held = this.def.holds;
+    const held = (this.equipment && this.equipment.hand) || this.def.holds;
     if (held && mats.rightArm) {
       const m = M.chain(mats.rightArm, M.t(0, -9, -1), M.rx(-Math.PI / 2), M.s(10));
       renderStackMatrix(ctx, g, held, m, light);
@@ -778,7 +817,7 @@ export class Mob extends Entity {
     return {
       t: 'mob', type: this.mobType, p: this.pos, yaw: this.yaw, health: this.health, baby: this.baby, size: this.size, tamed: this.tamed, sitting: this.sitting,
       sheared: this.sheared, woolColor: this.woolColor, name: this.name, persistent: this.persistent, home: this.home, charged: this.charged,
-      profession: this.profession, level: this.level, xp: this.xp, trades: this.trades,
+      profession: this.profession, level: this.level, xp: this.xp, trades: this.trades, equipment: this.equipment,
     };
   }
 }

@@ -15,7 +15,8 @@
   html, body { margin: 0; height: 100%; overflow: hidden; background: #0b0f18; color: #fff; font-family: var(--ui-font); user-select: none; -webkit-user-select: none; }
   canvas#game { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
   .hidden { display: none !important; }
-  .screen { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; }
+  .screen { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: safe center; gap: 12px; }
+  .screen:not(#hud) { overflow-y: auto; padding: 12px 0; box-sizing: border-box; }
   .dim { background: rgba(8, 10, 16, 0.55); backdrop-filter: blur(5px); }
   img { image-rendering: pixelated; }
 
