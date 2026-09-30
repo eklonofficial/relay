@@ -4,8 +4,9 @@ import {
   CHUNK, HEIGHT, PAD, PS, B, SHAPE, VF, TINT, TEX,
   OPAQUE, SHAPE_OF, TRANSLUCENT, EMIT, ATTEN, VFLAGS, CULL_SAME, TINT_OF, WATERLOGGED, VARIANT_MASK,
   FACING_SHIFT, AXIS_SHIFT, FACE_TEX, CROP_STAGES, CROP_TEX,
-} from '../data/blocks.js?v=muoddtng';
-import { BIOME_COLORS } from '../gen/biomes.js?v=muoddtng';
+} from '../data/blocks.js?v=muoh3kij';
+import { BIOME_COLORS } from '../gen/biomes.js?v=muoh3kij';
+import { up6, rotY, attach, FACE_OF_DIR6, OPP6, DIR2D_OF_6 } from '../data/orient.js?v=muoh3kij';
 
 export const H2 = HEIGHT + 2;
 export const VOLUME_SIZE = PS * PS * H2;
@@ -220,6 +221,59 @@ function rbox(buf, ci, ox, oy, oz, facing, x0, y0, z0, x1, y1, z1, layers, flags
   box(buf, ci, ox, oy, oz, x0, y0, z0, x1, y1, z1, rl, flags, oo);
 }
 
+// A box built in a canonical orientation and moved into place by xf(x, y, z, out) (see
+// data/orient.js); UVs come from the canonical positions so textures turn with the model.
+// o: { cull, tilt: [angle, pivotY, pivotZ] (a turn about X before xf), uv: per-face [u0, v0, u1, v1] or null, rot: per-face turns }
+const TP = new Float64Array(3), TQ = new Float64Array(12);
+function tbox(buf, ci, ox, oy, oz, xf, b, layers, flags, o = null) {
+  const own = cellLight(ci), cull = !o || o.cull !== false;
+  const tilt = o && o.tilt, ca = tilt ? Math.cos(tilt[0]) : 1, sa = tilt ? Math.sin(tilt[0]) : 0;
+  for (let f = 0; f < 6; f++) {
+    const layer = layers[f];
+    if (layer < 0) continue;
+    const cs = FACE_CORNERS[f], rect = o && o.uv && o.uv[f], rot = o && o.rot ? o.rot[f] : 0;
+    for (let k = 0; k < 4; k++) {
+      const c = cs[k];
+      let px = c[0] ? b[3] : b[0], py = c[1] ? b[4] : b[1], pz = c[2] ? b[5] : b[2];
+      let u, v;
+      if (rect) { const uv = UVF[f](c[0] * 16, c[1] * 16, c[2] * 16); u = rect[0] + (rect[2] - rect[0]) * uv[0] / 16; v = rect[1] + (rect[3] - rect[1]) * uv[1] / 16; }
+      else { const uv = UVF[f](px, py, pz); u = uv[0]; v = uv[1]; }
+      for (let r = 0; r < rot; r++) { const t = u; u = v; v = 16 - t; }
+      QU[k] = Math.max(0, Math.min(31, Math.round(u))); QV[k] = Math.max(0, Math.min(31, Math.round(v)));
+      if (tilt) { const dy = py - tilt[1], dz = pz - tilt[2]; py = tilt[1] + dy * ca - dz * sa; pz = tilt[2] + dy * sa + dz * ca; }
+      xf(px, py, pz, TP);
+      TQ[k * 3] = TP[0]; TQ[k * 3 + 1] = TP[1]; TQ[k * 3 + 2] = TP[2];
+    }
+    // Facing from the winding (corners run counter-clockwise seen from outside).
+    const ax = TQ[3] - TQ[0], ay = TQ[4] - TQ[1], az = TQ[5] - TQ[2], bx = TQ[9] - TQ[0], by = TQ[10] - TQ[1], bz = TQ[11] - TQ[2];
+    const nx = ay * bz - az * by, ny = az * bx - ax * bz, nz = ax * by - ay * bx;
+    const anx = Math.abs(nx), any = Math.abs(ny), anz = Math.abs(nz);
+    const face = anx >= any && anx >= anz ? (nx > 0 ? 0 : 1) : any >= anz ? (ny > 0 ? 2 : 3) : (nz > 0 ? 4 : 5);
+    const axis = face >> 1, edge = face & 1 ? 0 : 16;
+    let L = own;
+    if (TQ[axis] === edge && TQ[3 + axis] === edge && TQ[6 + axis] === edge && TQ[9 + axis] === edge) {
+      const n = ci + FO[face];
+      if (cull && OPAQUE[vol[n]]) continue;
+      const nl = cellLight(n);
+      L = (Math.max(nl >> 4, own >> 4) << 4) | Math.max(nl & 15, own & 15);
+    }
+    for (let k = 0; k < 4; k++) { QX[k] = ox + TQ[k * 3]; QY[k] = oy + TQ[k * 3 + 1]; QZ[k] = oz + TQ[k * 3 + 2]; QA[k] = 3; QL[k] = L; QB[k] = 0; }
+    emit(buf, layer, face, flags);
+  }
+}
+let XA = 0, XB = 0;
+const XF_UP6 = (x, y, z, o) => up6(XA, x, y, z, o);
+const XF_ROTY = (x, y, z, o) => rotY(XA, x, y, z, o);
+const XF_ATTACH = (x, y, z, o) => attach(XA, XB, x, y, z, o);
+const L6B = new Int32Array(6);
+function layersOf(a, b, c, d, e, f) { L6B[0] = a; L6B[1] = b; L6B[2] = c; L6B[3] = d; L6B[4] = e; L6B[5] = f; return L6B; }
+// Java's redstone wire colours by power level.
+const DUST_RGB = [];
+for (let p = 0; p < 16; p++) { const f = p / 15; DUST_RGB.push([Math.round((f * 0.6 + (p > 0 ? 0.4 : 0.3)) * 255), Math.round(Math.max(0, Math.min(1, f * f * 0.7 - 0.5)) * 255), Math.round(Math.max(0, Math.min(1, f * f * 0.6 - 0.7)) * 255)]); }
+const DUST_WALL = [[0, 15.5, 16, 15.5], [0.5, 0, 0.5, 16], [0, 0.5, 16, 0.5], [15.5, 0, 15.5, 16]]; // by horizontal facing: [ax, az, bx, bz]
+const HFACE = [4, 1, 5, 0]; // horizontal facing -> mesher face
+const ROT6 = new Int32Array(6);
+
 // Double-sided vertical plane from (ax, az) to (bx, bz) in block pixels.
 function plane(buf, ci, ox, oy, oz, ax, az, bx, bz, y0, y1, layer, flags, L, u0 = 0, u1 = 16) {
   const xs = [ax, ax, bx, bx], zs = [az, az, bz, bz], ys = [y0, y1, y1, y0], us = [u0, u0, u1, u1];
@@ -294,6 +348,41 @@ function cube(buf, i, id, m, ox, oy, oz) {
     }
     emit(buf, layer, f, flags);
   }
+}
+
+// A full cube with its own texture and texture rotation per face (six-way facing blocks).
+function cubeFaces(buf, i, layers, rots, flags, ox, oy, oz) {
+  for (let f = 0; f < 6; f++) {
+    const n = i + FO[f];
+    if (OPAQUE[vol[n]] || layers[f] < 0) continue;
+    const cs = FACE_CORNERS[f], co = CORNER_OFFS[f], rot = rots[f];
+    for (let k = 0; k < 4; k++) {
+      const c = cs[k], cr = co[k];
+      QX[k] = ox + c[0] * 16; QY[k] = oy + c[1] * 16; QZ[k] = oz + c[2] * 16;
+      let [u, v] = UVF[f](c[0] * 16, c[1] * 16, c[2] * 16);
+      for (let r = 0; r < rot; r++) { const t = u; u = v; v = 16 - t; }
+      QU[k] = u; QV[k] = v;
+      const A = i + cr[0], Bc = i + cr[1], C = i + cr[2];
+      const oa = OPAQUE[vol[A]], ob = OPAQUE[vol[Bc]], oc = OPAQUE[vol[C]];
+      const ao = oa && ob ? 0 : 3 - oa - ob - oc;
+      let sl = skyL[n], bl = blkL[n], cnt = 1;
+      if (!oa) { sl += skyL[A]; bl += blkL[A]; cnt++; }
+      if (!ob) { sl += skyL[Bc]; bl += blkL[Bc]; cnt++; }
+      if (!oc && !(oa && ob)) { sl += skyL[C]; bl += blkL[C]; cnt++; }
+      QA[k] = ao; QL[k] = packL(sl / cnt, bl / cnt); QB[k] = ao * 64 + (sl + bl) / cnt;
+    }
+    emit(buf, layers[f], f, flags);
+  }
+}
+// Texture rotation that makes a face's texture "up" point along six-way direction d.
+// Per face: the directions of +u and +v (from UVF).
+const FACE_PU = [2, 3, 5, 5, 5, 4], FACE_PV = [0, 0, 3, 2, 0, 0];
+function upRot(f, d) {
+  if (d === OPP6[FACE_PV[f]]) return 0;
+  if (d === FACE_PU[f]) return 1;
+  if (d === FACE_PV[f]) return 2;
+  if (d === OPP6[FACE_PU[f]]) return 3;
+  return 0;
 }
 
 // ---------------- liquids ----------------
@@ -563,6 +652,119 @@ function special(bufO, bufT, i, id, m, shape, ox, oy, oz, x, y, z) {
       plane(buf, i, ox, oy, oz, 0.8, 15.2, 15.2, 0.8, 0, 16, layer, VF.EMISSIVE, own);
       box(buf, i, ox, oy, oz, 1, 0, 3, 15, 3, 6, sixOf(TEX.log_oak), 0, { cull: false });
       box(buf, i, ox, oy, oz, 1, 0, 10, 15, 3, 13, sixOf(TEX.log_oak), 0, { cull: false });
+      break;
+    }
+    case SHAPE.DUST: {
+      const pw = m & 15, mask = m >> 4, c = DUST_RGB[pw];
+      TR = c[0]; TG = c[1]; TB = c[2];
+      const dot = TEX.redstone_dust_dot, line = TEX.redstone_dust_line;
+      if (mask === 5) flat(buf, ox, oy, oz, 0, 0, 16, 16, 0.5, line, 0, own, 0, false);
+      else if (mask === 10) flat(buf, ox, oy, oz, 0, 0, 16, 16, 0.5, line, 0, own, 1, false);
+      else {
+        flat(buf, ox, oy, oz, 0, 0, 16, 16, 1, dot, 0, own, 0, false);
+        if (mask & 4) flat(buf, ox, oy, oz, 0, 0, 16, 8, 0.5, line, 0, own, 0, false);
+        if (mask & 1) flat(buf, ox, oy, oz, 0, 8, 16, 16, 0.5, line, 0, own, 0, false);
+        if (mask & 2) flat(buf, ox, oy, oz, 0, 0, 8, 16, 0.5, line, 0, own, 1, false);
+        if (mask & 8) flat(buf, ox, oy, oz, 8, 0, 16, 16, 0.5, line, 0, own, 1, false);
+      }
+      // Climbing the side of a block to wire on top of it.
+      if (!OPAQUE[vol[i + SS]]) for (let d = 0; d < 4; d++) {
+        if (!(mask & (1 << d))) continue;
+        const n = i + FO[HFACE[d]];
+        if (vol[n + SS] !== B.REDSTONE_WIRE || !OPAQUE[vol[n]]) continue;
+        const w = DUST_WALL[d];
+        plane(buf, i, ox, oy, oz, w[0], w[1], w[2], w[3], 0, 16, line, 0, own);
+      }
+      break;
+    }
+    case SHAPE.DIODE: {
+      const rep = id === B.REPEATER, f = m & 3, powered = rep ? (m >> 4) & 1 : (m >> 3) & 1;
+      const top = TEX[rep ? (powered ? 'repeater_on' : 'repeater') : (powered ? 'comparator_on' : 'comparator')];
+      const side = TEX.smooth_stone;
+      box(buf, i, ox, oy, oz, 0, 0, 0, 16, 2, 16, layersOf(side, side, top, side, side, side), flags, { uvRot: [0, 0, f, 0, 0, 0] });
+      // Torches, modelled facing south (output towards +Z) and turned to the output direction.
+      XA = (f + 2) & 3;
+      const torch = (x, z, lit, h = 7) => {
+        const sideT = TEX[lit ? 'redstone_torch' : 'redstone_torch_off'], topT = TEX[lit ? 'rs_torch_head_on' : 'rs_torch_head_off'];
+        tbox(buf, i, ox, oy, oz, XF_ROTY, [x, 2, z, x + 2, h, z + 2], layersOf(sideT, sideT, topT, -1, sideT, sideT), 0, { cull: false, uv: [[7, 6, 9, 6 + h - 2], [7, 6, 9, 6 + h - 2], null, null, [7, 6, 9, 6 + h - 2], [7, 6, 9, 6 + h - 2]] });
+      };
+      if (rep) {
+        const delay = (m >> 2) & 3, z = 8 - delay * 2;
+        torch(7, 12, powered);
+        if ((m >> 5) & 1) tbox(buf, i, ox, oy, oz, XF_ROTY, [2, 2, z, 14, 4, z + 2], sixOf(TEX.bedrock), 0, { cull: false });
+        else torch(7, z, powered);
+      } else {
+        torch(3, 2, powered); torch(11, 2, powered);
+        torch(7, 12, (m >> 2) & 1, (m >> 2) & 1 ? 6 : 5);
+      }
+      break;
+    }
+    case SHAPE.LEVER: {
+      XA = m & 3; XB = (m >> 2) & 3;
+      const base = TEX.lever_base, stick = TEX.lever;
+      tbox(buf, i, ox, oy, oz, XF_ATTACH, [5, 0, 4, 11, 3, 12], sixOf(base), 0, { cull: false });
+      tbox(buf, i, ox, oy, oz, XF_ATTACH, [7, 1, 7, 9, 11, 9], layersOf(stick, stick, stick, -1, stick, stick), 0,
+        { cull: false, tilt: [(m >> 4) & 1 ? Math.PI / 4 : -Math.PI / 4, 1, 8], uv: [null, null, [7, 6, 9, 8], null, null, null] });
+      break;
+    }
+    case SHAPE.BUTTON: {
+      XA = (m >> 3) & 3; XB = (m >> 5) & 3;
+      tbox(buf, i, ox, oy, oz, XF_ATTACH, [5, 0, 6, 11, m & 128 ? 1 : 2, 10], sixOf(texOf(id, m, 0)), flags, { cull: false });
+      break;
+    }
+    case SHAPE.PLATE: {
+      const h = (m >> 2) & 15 ? 0.5 : 1;
+      box(buf, i, ox, oy, oz, 1, 0, 1, 15, h, 15, sixOf(texOf(id, m, 2)), flags);
+      break;
+    }
+    case SHAPE.DIRCUBE: {
+      const d = m & 7, front = FACE_OF_DIR6[d], back = FACE_OF_DIR6[OPP6[d]], vert = d < 2;
+      let tf, tb, ts, tt;
+      if (id === B.OBSERVER) { tf = TEX.observer_front; tb = TEX[m & 8 ? 'observer_back_on' : 'observer_back']; ts = TEX.observer_side; tt = vert ? ts : TEX.observer_top; }
+      else { const drop = id === B.DROPPER; tf = TEX[(drop ? 'dropper_front' : 'dispenser_front') + (vert ? '_vertical' : '')]; tb = TEX[vert ? 'furnace_top' : 'furnace_side']; ts = TEX.furnace_side; tt = vert ? ts : TEX.furnace_top; }
+      for (let f = 0; f < 6; f++) {
+        L6B[f] = f === front ? tf : f === back ? tb : f < 2 || f > 3 ? ts : tt;
+        ROT6[f] = f === front || f === back ? 0 : upRot(f, d);
+        if (id !== B.OBSERVER && f !== front && f !== back) ROT6[f] = 0;
+      }
+      cubeFaces(buf, i, L6B, ROT6, flags, ox, oy, oz);
+      break;
+    }
+    case SHAPE.PISTON: {
+      const d = (m >> 1) & 7, top = texOf(id, m, 2), bottom = TEX.piston_bottom, side = TEX.piston_side;
+      if (m & 16) {
+        XA = d;
+        tbox(buf, i, ox, oy, oz, XF_UP6, [0, 0, 0, 16, 12, 16], layersOf(side, side, TEX.piston_inner, bottom, side, side), flags);
+      } else {
+        const front = FACE_OF_DIR6[d], back = FACE_OF_DIR6[OPP6[d]];
+        for (let f = 0; f < 6; f++) { L6B[f] = f === front ? top : f === back ? bottom : side; ROT6[f] = f === front || f === back ? 0 : upRot(f, d); }
+        cubeFaces(buf, i, L6B, ROT6, flags, ox, oy, oz);
+      }
+      break;
+    }
+    case SHAPE.PISTON_HEAD: {
+      XA = (m >> 1) & 7;
+      const top = texOf(id, m, 2), side = TEX.piston_side, arm = TEX.piston_top;
+      tbox(buf, i, ox, oy, oz, XF_UP6, [0, 12, 0, 16, 16, 16], layersOf(side, side, top, TEX.piston_top, side, side), flags);
+      tbox(buf, i, ox, oy, oz, XF_UP6, [6, m & 16 ? 4 : 0, 6, 10, 12, 10], sixOf(arm), flags, { cull: false, uv: [[6, 0, 10, 12], [6, 0, 10, 12], null, null, [6, 0, 10, 12], [6, 0, 10, 12]] });
+      break;
+    }
+    case SHAPE.DAYLIGHT: {
+      const side = TEX.daylight_detector_side, top = TEX[m & 16 ? 'daylight_detector_inverted_top' : 'daylight_detector_top'];
+      box(buf, i, ox, oy, oz, 0, 0, 0, 16, 6, 16, layersOf(side, side, top, side, side, side), flags);
+      break;
+    }
+    case SHAPE.HOPPER: {
+      const out = TEX.hopper_outside, rim = TEX.hopper_top, inside = TEX.hopper_inside, d = m & 7;
+      const W = layersOf(out, out, rim, out, out, out);
+      box(buf, i, ox, oy, oz, 0, 10, 0, 16, 16, 2, W, flags, { cull: true });
+      box(buf, i, ox, oy, oz, 0, 10, 14, 16, 16, 16, W, flags, { cull: true });
+      box(buf, i, ox, oy, oz, 0, 10, 2, 2, 16, 14, W, flags, { cull: true });
+      box(buf, i, ox, oy, oz, 14, 10, 2, 16, 16, 14, W, flags, { cull: true });
+      box(buf, i, ox, oy, oz, 2, 10, 2, 14, 11, 14, layersOf(-1, -1, inside, out, -1, -1), flags, { cull: false });
+      box(buf, i, ox, oy, oz, 4, 4, 4, 12, 10, 12, sixOf(out), flags, { cull: false });
+      if (d === 0) box(buf, i, ox, oy, oz, 6, 0, 6, 10, 4, 10, sixOf(out), flags, { cull: true });
+      else { XA = DIR2D_OF_6[d]; tbox(buf, i, ox, oy, oz, XF_ROTY, [6, 4, 12, 10, 8, 16], sixOf(out), flags); }
       break;
     }
     default: break;

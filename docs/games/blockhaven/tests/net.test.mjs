@@ -128,6 +128,7 @@ function hostNet(players = {}) {
   const lines = [];
   const app = { game: { meta: { players }, serialize: () => ({ name: 'W', seed: 1, dims: {} }) }, chat: (t, c) => lines.push([t, c]), onPlayersChanged() {} };
   const net = new Net(app, 'host');
+  clearInterval(net.kaTimer); // the 2 s keep-alive timer would keep node running after the tests
   net.name = 'Host'; net.skin = 0; net.addRemote = () => {};
   return { net, app, lines };
 }
@@ -183,6 +184,7 @@ test('host stamps chat with the real sender and drops spoofed fields', () => {
   a.say({ t: 'join', id: 9, name: 'Mallory', skin: 0 });
   a.say({ t: 'bye', to: 2 });
   a.say({ t: 'part', id: 1, i: 0, n: 1, d: '{"t":"bye"}', to: 2 });
+  a.say({ t: 'ka' }); // keep-alives are accepted but never relayed
   assert.equal(b.c.sent.length, before);
   assert.equal(net.players.size, players);
 });

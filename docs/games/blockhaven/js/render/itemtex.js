@@ -1,9 +1,9 @@
 // Procedural 16x16 pixel art for every non-block item, plus particle/effect sprites.
 // Icons are hand-drawn as pixel rows (px``) or auto-shaded silhouettes (sil), then given MC-style dark outlines.
-import { Painter, shade, mixHex, ramp } from './paint.js?v=muoddtng';
-import { ITEMS, I } from '../data/items.js?v=muoddtng';
-import { TEXTURES, TEX, BLOCKS, FACE_TEX, VARIANT_MASK, COLORS } from '../data/blocks.js?v=muoddtng';
-import { drawBlockTexture } from './blocktex.js?v=muoddtng';
+import { Painter, shade, mixHex, ramp } from './paint.js?v=muoh3kij';
+import { ITEMS, I } from '../data/items.js?v=muoh3kij';
+import { TEXTURES, TEX, BLOCKS, FACE_TEX, VARIANT_MASK, COLORS } from '../data/blocks.js?v=muoh3kij';
+import { drawBlockTexture } from './blocktex.js?v=muoh3kij';
 
 const N = 16;
 export const MAT = {
@@ -743,8 +743,80 @@ const SEEDS = px`
 .......ab`;
 const seeds = (a, b, o) => p => sil(p, SEEDS, null, { a, b }, o);
 
+
+// ---------- redstone ----------
+// Smooth-stone slab seen from the front with its dust track; torches are a 2px stick under a lit red head.
+const SLAB = ['#6a6a6a', '#8e8e8e', '#a8a8a8', '#c6c6c6'];
+const RS_LUT = { r: '#8a1008', H: '#ff9a80', h: '#e8200e', j: '#a80c04', c: HANDLE[2], b: HANDLE[1] };
+const REPEATER = px`
+.
+.
+.
+.
+.
+...Hh......Hh
+...hj......hj
+...cb......cb
+...cb......cb
+...cb......cb
+.##############
+.#rrrrrrrrrrrr#
+.##############
+.##############`;
+const COMPARATOR = px`
+.
+.
+.
+.
+.......Hh
+.......hj
+..Hh...cb...Hh
+..hj...cb...hj
+..cb...cb...cb
+..cb...cb...cb
+.##############
+.#rrrrrrrrrrrr#
+.##############
+.##############`;
+// Lever: a handle leaning up-right out of a speckled cobblestone base.
+const LEVER = px`
+.
+.
+.
+.
+...........cb
+..........cb
+.........cb
+........cb
+.......cb
+......cb
+...##########
+...#s###s##s#
+...###s###s##
+...##########`;
+// Hopper: wide rim with a dark opening, tapering to a 2px spout.
+const HOPPER = px`
+.
+.
+.##############
+.#kkkkkkkkkkkk#
+.#kllllllllllk#
+.##############
+...##########
+...##########
+...##########
+.....######
+.....######
+......####
+.......##
+.......##`;
+
 // ---------- item table ----------
 const G = {
+  repeater: p => sil(p, REPEATER, SLAB, RS_LUT),
+  comparator: p => sil(p, COMPARATOR, SLAB, RS_LUT),
+  lever: p => sil(p, LEVER, MAT.stone, { s: '#4a4a4a', c: HANDLE[2], b: HANDLE[1] }),
+  hopper: p => sil(p, HOPPER, ['#262626', '#383838', '#4c4c4c', '#686868'], { k: '#141414', l: '#1e1e1e' }),
   stick: p => stick(p),
   coal: coal(['#0a0a0a', '#1a1a1a', '#2c2c2c', '#464646'], '#6e6e6e'), charcoal: coal(['#140e08', '#261c12', '#3a2c20', '#54422f'], '#7a6450'),
   flint: p => sil(p, px`
@@ -1627,7 +1699,7 @@ export function generateItemTextures() {
   for (const it of ITEMS) {
     if (it.block && !it.flat) continue;
     const p = new Painter(N, N, it.id + 7);
-    if (it.block) {
+    if (it.block && !G[it.key]) {
       const name = it.key.endsWith('_door') ? `door_${it.key.slice(0, -5)}_top` : flatTexFor(it);
       p.d.set(drawBlockTexture(name, it.id + 3));
       // Plants and vines are grey + biome tinted in the world; give their icons a fixed green.

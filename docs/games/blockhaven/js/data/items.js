@@ -1,6 +1,6 @@
 // Item registry: every block item plus tools, weapons, armor, food and materials.
-import { BLOCK_ITEMS, BLOCKS, COLORS, SHAPE, st } from './blocks.js?v=muoddtng';
-import { EGG_MOBS } from './mobs.js?v=muoddtng';
+import { BLOCK_ITEMS, BLOCKS, COLORS, SHAPE, st } from './blocks.js?v=muoh3kij';
+import { EGG_MOBS } from './mobs.js?v=muoh3kij';
 
 export const ITEMS = [];
 export const I = {};          // key -> item
@@ -16,10 +16,13 @@ function add(key, o = {}) {
 // ---- block items ----
 for (const b of BLOCK_ITEMS) {
   const blk = BLOCKS[b.id];
-  const flat = [SHAPE.CROSS, SHAPE.TORCH, SHAPE.DOOR, SHAPE.LADDER, SHAPE.VINE, SHAPE.RAIL, SHAPE.PANE, SHAPE.LANTERN, SHAPE.FIRE, SHAPE.ROD, SHAPE.FLAT, SHAPE.CAMPFIRE].includes(blk.shape);
+  const flat = [SHAPE.CROSS, SHAPE.TORCH, SHAPE.DOOR, SHAPE.LADDER, SHAPE.VINE, SHAPE.RAIL, SHAPE.PANE, SHAPE.LANTERN, SHAPE.FIRE, SHAPE.ROD, SHAPE.FLAT, SHAPE.CAMPFIRE, SHAPE.DIODE, SHAPE.LEVER, SHAPE.HOPPER].includes(blk.shape);
   add(b.key, { name: b.name, block: [b.id, b.meta], tab: b.tab, flat, kind: 'block' });
 }
 I.bed.stack = 1;
+// Pistons, observers and the like show their front in the hand.
+for (const k of ['piston', 'sticky_piston']) I[k].block = [I[k].block[0], (I[k].block[1] & 1) | (1 << 1)];
+for (const k of ['observer', 'dispenser', 'dropper']) I[k].block = [I[k].block[0], 3];
 
 // ---- tools ----
 export const TIERS = {
@@ -115,6 +118,8 @@ for (const k of ['stick', 'coal', 'charcoal', 'raw_iron', 'raw_gold', 'raw_coppe
   'nether_wart', 'glowstone_dust', 'clay_ball', 'brick', 'nether_brick', 'paper', 'book', 'sugar', 'wheat', 'bowl', 'glass_bottle', 'prismarine_crystals',
   'prismarine_shard', 'ink_sac', 'glow_ink_sac', 'phantom_membrane', 'shulker_shell', 'nautilus_shell', 'heart_of_the_sea', 'scute', 'honeycomb',
   'nether_star', 'dragon_breath', 'echo_shard', 'disc_fragment', 'experience_bottle']) add(k);
+// Redstone dust is an item that places a block.
+I.redstone.placeBlock = [BLOCKS.find(b => b && b.key === 'redstone_wire').id, 0]; I.redstone.tab = 'redstone';
 I.stick.fuel = 5; I.coal.fuel = 80; I.charcoal.fuel = 80; I.blaze_rod.fuel = 120; I.bowl.fuel = 5; I.lava_bucket.fuel = 1000;
 I.nether_wart.place = 'nether_wart';
 for (const c of COLORS) add(`${c}_dye`, { tab: 'ingredients', dye: c });
@@ -127,7 +132,7 @@ export function addSpawnEgg(mob, name, colors) {
 for (const m of EGG_MOBS) addSpawnEgg(m.key, m.name, m.egg);
 
 export const TABS = [
-  ['building', 'Building Blocks'], ['colored', 'Colored Blocks'], ['natural', 'Natural Blocks'], ['functional', 'Functional Blocks'],
+  ['building', 'Building Blocks'], ['colored', 'Colored Blocks'], ['natural', 'Natural Blocks'], ['functional', 'Functional Blocks'], ['redstone', 'Redstone Blocks'],
   ['tools', 'Tools & Utilities'], ['combat', 'Combat'], ['food', 'Food & Drinks'], ['ingredients', 'Ingredients'], ['spawn_eggs', 'Spawn Eggs'],
 ];
 

@@ -1,7 +1,7 @@
 // Inventory icons as data URLs: isometric cubes for blocks, crisp sprites for items.
-import { ITEMS } from '../data/items.js?v=muoddtng';
-import { FACE_TEX, VARIANT_MASK, TINT_OF, TINT, SHAPE_OF, SHAPE, TRANSLUCENT } from '../data/blocks.js?v=muoddtng';
-import { ITEM_LAYER } from '../render/itemtex.js?v=muoddtng';
+import { ITEMS } from '../data/items.js?v=muoh3kij';
+import { FACE_TEX, VARIANT_MASK, TINT_OF, TINT, SHAPE_OF, SHAPE, TRANSLUCENT } from '../data/blocks.js?v=muoh3kij';
+import { ITEM_LAYER } from '../render/itemtex.js?v=muoh3kij';
 
 const TINTS = { [TINT.GRASS]: [124, 189, 107], [TINT.FOLIAGE]: [72, 181, 24], [TINT.WATER]: [63, 118, 228] };
 
@@ -37,7 +37,7 @@ export function buildIcons(blockTex, itemTex) {
       const left = faceCanvas(blockTex[FACE_TEX[k + 6] ?? FACE_TEX[k + 4]], tint, 0.78);
       const right = faceCanvas(blockTex[FACE_TEX[k]], tint, 0.6);
       const shape = SHAPE_OF[id];
-      const hFrac = shape === SHAPE.SLAB ? 0.5 : shape === SHAPE.CARPET ? 0.08 : shape === SHAPE.SNOW ? 0.14 : shape === SHAPE.FARMLAND ? 0.94 : shape === SHAPE.TRAPDOOR ? 0.2 : 1;
+      const hFrac = shape === SHAPE.SLAB ? 0.5 : shape === SHAPE.CARPET ? 0.08 : shape === SHAPE.SNOW ? 0.14 : shape === SHAPE.FARMLAND ? 0.94 : shape === SHAPE.TRAPDOOR ? 0.2 : shape === SHAPE.PLATE ? 0.07 : shape === SHAPE.BUTTON ? 0.2 : shape === SHAPE.DAYLIGHT ? 0.375 : 1;
       if (TRANSLUCENT[id]) ctx.globalAlpha = 0.85;
       // Unit cube corners in screen space: half-width w, rise r, height h.
       const w = S * 0.43, r = S * 0.25, h = S * 0.5 * hFrac, cx = S / 2, top0 = S * 0.06 + (S * 0.5 - h);

@@ -1,7 +1,7 @@
 // First-person player movement: walking, sprinting, sneaking, swimming, climbing, flying and spectating.
-import { B, BLOCKS, SHAPE_OF, SHAPE, props } from '../data/blocks.js?v=muoddtng';
-import { moveEntity } from '../entity/physics.js?v=muoddtng';
-import { UNLOADED } from '../world/world.js?v=muoddtng';
+import { B, BLOCKS, SHAPE_OF, SHAPE, props } from '../data/blocks.js?v=muoh3kij';
+import { moveEntity } from '../entity/physics.js?v=muoh3kij';
+import { UNLOADED } from '../world/world.js?v=muoh3kij';
 
 export class Player {
   constructor(world) {
@@ -186,7 +186,10 @@ export class Player {
         m[1] = Math.max(m[1], -0.15);
         if (this.sneaking && m[1] < 0) m[1] = 0;
       }
+      const vy0 = m[1];
       move();
+      // Slime blocks bounce you back up unless you sneak (the original keeps all the speed for mobs and players).
+      if (this.onGround && vy0 < 0 && !this.sneaking && this.world.getBlock(this.pos[0], this.pos[1] - 0.05, this.pos[2]) === B.SLIME_BLOCK) m[1] = -vy0;
       if (this.climbing && (collidedWall || input.jump)) m[1] = 0.2;
       m[1] = (m[1] - 0.08) * 0.98;
       m[0] *= fr; m[2] *= fr;
@@ -218,9 +221,10 @@ export class Player {
     const id = this.world.getBlock(this.pos[0], this.pos[1] - 0.5, this.pos[2]);
     if (id === UNLOADED || !id) return 0.6;
     if (id === B.PACKED_ICE) return (this.world.getMeta(this.pos[0], this.pos[1] - 0.5, this.pos[2]) & 1) ? 0.989 : 0.98;
+    if (id === B.SLIME_BLOCK) return 0.8;
     return BLOCKS[id] && BLOCKS[id].slippery ? 0.98 : 0.6;
   }
-  jumpFactor() { const id = this.world.getBlock(this.pos[0], this.pos[1] - 0.5, this.pos[2]); return id === B.SOUL_SAND && (this.world.getMeta(this.pos[0], this.pos[1] - 0.5, this.pos[2]) & 1) === 0 ? 1 : 1; }
+  jumpFactor() { const id = this.world.getBlock(this.pos[0], this.pos[1] - 0.5, this.pos[2]); return id === B.HONEY_BLOCK ? 0.5 : 1; }
   speedFactor() {
     if (!this.onGround) return 1;
     const id = this.world.getBlock(this.pos[0], this.pos[1] - 0.1, this.pos[2]);

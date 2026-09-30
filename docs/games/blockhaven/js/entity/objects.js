@@ -1,10 +1,10 @@
 // Non-living entities: dropped items, XP orbs, projectiles, falling blocks, primed TNT, lightning.
-import { Entity, M } from './entity.js?v=muoddtng';
-import { itemMesh, emitItemMesh } from './itemmesh.js?v=muoddtng';
-import { I } from '../data/items.js?v=muoddtng';
-import { B, BLOCKS, SOLID, OPAQUE } from '../data/blocks.js?v=muoddtng';
-import { compose, translation, rotationX, rotationY, rotationZ, scaling } from '../core/math.js?v=muoddtng';
-import { maxStack } from '../data/items.js?v=muoddtng';
+import { Entity, M } from './entity.js?v=muoh3kij';
+import { itemMesh, emitItemMesh } from './itemmesh.js?v=muoh3kij';
+import { I } from '../data/items.js?v=muoh3kij';
+import { B, BLOCKS, SOLID, OPAQUE } from '../data/blocks.js?v=muoh3kij';
+import { compose, translation, rotationX, rotationY, rotationZ, scaling } from '../core/math.js?v=muoh3kij';
+import { maxStack } from '../data/items.js?v=muoh3kij';
 
 // Billboarded sprite quad facing the camera.
 export function billboard(batch, ctx, x, y, z, size, layer, color, uv = [0, 0, 1, 1]) {
@@ -185,6 +185,7 @@ export class Projectile extends Entity {
   }
   onBlock(hit, hp) {
     const g = this.game;
+    if (hit.id === B.TARGET) g.rs.targetHit(hit.x, hit.y, hit.z, hp, this);
     if (this.kind === 'arrow' || this.kind === 'trident') {
       this.inGround = true; this.groundT = 0; this.stuck = [hit.x, hit.y, hit.z]; this.vel = [0, 0, 0];
       g.sound.play('arrow_hit', hp, 0.5);

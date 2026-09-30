@@ -1,26 +1,27 @@
 // The running game: world + dimensions, player survival state, entities, simulation, weather and saving.
-import { B, BLOCKS, SOLID, OPAQUE, DIM, DIM_NAMES, HEIGHT, SEA, props, st, SHAPE_OF, SHAPE } from '../data/blocks.js?v=muoddtng';
-import { I, maxStack } from '../data/items.js?v=muoddtng';
-import { SMELTING } from '../data/recipes.js?v=muoddtng';
-import { MOBS } from '../data/mobs.js?v=muoddtng';
-import { BIOMES, COLD } from '../gen/biomes.js?v=muoddtng';
-import { World, UNLOADED, posKey } from '../world/world.js?v=muoddtng';
-import { Player } from './player.js?v=muoddtng';
-import { PlayerInventory, Container } from './inventory.js?v=muoddtng';
-import { EntityManager } from '../entity/entity.js?v=muoddtng';
-import { ItemEntity, XpOrb, FallingBlock, PrimedTnt, Lightning, Projectile } from '../entity/objects.js?v=muoddtng';
-import { Mob, RIDEABLE } from '../entity/mob.js?v=muoddtng';
-import { Particles } from './particles.js?v=muoddtng';
-import { Sim } from './sim.js?v=muoddtng';
-import { blockDrops } from './drops.js?v=muoddtng';
-import { computeEnv } from './env.js?v=muoddtng';
-import { fuelOf } from './ui.js?v=muoddtng';
-import { unlockLevel } from './trades.js?v=muoddtng';
-import { forward } from '../core/math.js?v=muoddtng';
-import { EndCrystal } from '../entity/crystal.js?v=muoddtng';
-import { migrateWorld } from './migrate.js?v=muoddtng';
-import { ARMOR_BYPASS, armorReduce, applyInvul, isAxe, shieldFaces, applyKnockback, knockbackResist } from './combat.js?v=muoddtng';
-import { deathText } from '../net/net.js?v=muoddtng';
+import { B, BLOCKS, SOLID, OPAQUE, DIM, DIM_NAMES, HEIGHT, SEA, props, st, SHAPE_OF, SHAPE } from '../data/blocks.js?v=muoh3kij';
+import { I, maxStack } from '../data/items.js?v=muoh3kij';
+import { SMELTING } from '../data/recipes.js?v=muoh3kij';
+import { MOBS } from '../data/mobs.js?v=muoh3kij';
+import { BIOMES, COLD } from '../gen/biomes.js?v=muoh3kij';
+import { World, UNLOADED, posKey } from '../world/world.js?v=muoh3kij';
+import { Player } from './player.js?v=muoh3kij';
+import { PlayerInventory, Container } from './inventory.js?v=muoh3kij';
+import { EntityManager } from '../entity/entity.js?v=muoh3kij';
+import { ItemEntity, XpOrb, FallingBlock, PrimedTnt, Lightning, Projectile } from '../entity/objects.js?v=muoh3kij';
+import { Mob, RIDEABLE } from '../entity/mob.js?v=muoh3kij';
+import { Particles } from './particles.js?v=muoh3kij';
+import { Sim } from './sim.js?v=muoh3kij';
+import { Redstone } from './redstone.js?v=muoh3kij';
+import { blockDrops } from './drops.js?v=muoh3kij';
+import { computeEnv } from './env.js?v=muoh3kij';
+import { fuelOf } from './ui.js?v=muoh3kij';
+import { unlockLevel } from './trades.js?v=muoh3kij';
+import { forward } from '../core/math.js?v=muoh3kij';
+import { EndCrystal } from '../entity/crystal.js?v=muoh3kij';
+import { migrateWorld } from './migrate.js?v=muoh3kij';
+import { ARMOR_BYPASS, armorReduce, applyInvul, isAxe, shieldFaces, applyKnockback, knockbackResist } from './combat.js?v=muoh3kij';
+import { deathText } from '../net/net.js?v=muoh3kij';
 
 export const DAY = 1200; // seconds per day
 const rnd = (a, b) => a + Math.random() * (b - a);
@@ -34,6 +35,7 @@ export class Game {
     this.particles = new Particles(this);
     this.entities = new EntityManager(this);
     this.sim = new Sim(this);
+    this.rs = new Redstone(this);
     this.inv = new PlayerInventory();
     this.tableGrid = new Container(9);
     this.tradeSlots = new Container(2);
@@ -143,7 +145,10 @@ export class Game {
         onMesh: (c, m) => this.renderer.uploadChunk(c, m), onUnload: c => this.renderer.freeChunk(c),
         onEntities: list => this.onGenEntities(list),
         onChunkLoaded: c => this.onChunkLoaded(c),
-        onBlockChange: (x, y, z) => this.sim.onChange(x, y, z),
+        // A state change of the same block (a wire's power, a door opening) matters to the liquid and
+        // support simulation only for liquids themselves.
+        onBlockChange: (x, y, z, old, id, oldM, m) => { if (old !== id || id === B.WATER || id === B.LAVA) this.sim.onChange(x, y, z); this.rs.onWorldChange(x, y, z, old, oldM, id, m); },
+        onRemoteChange: (x, y, z, old, oldM, id, m) => { this.rs.onWorldChange(x, y, z, old, oldM, id, m); if (old !== id) this.rs.placedBy(x, y, z); },
         onBlockEntityRemoved: (x, y, z, be) => this.onBlockEntityRemoved(x, y, z, be),
         onEdit: (x, y, z, id, m) => { if (this.net) this.net.onLocalEdit(dim, x, y, z, id, m); },
         onPopulate: key => { if (this.net) this.net.send({ t: 'pop', id: this.net.myId, d: dim, k: key }); },
@@ -151,6 +156,7 @@ export class Game {
     });
     this.entities.clear();
     if (this.chestAnims) this.chestAnims.clear();
+    this.rs.load(d.rs);
     for (const e of d.entities || []) this.loadEntity(e);
     this.app.onWorldOpened(this.world, dim);
     if (this.player) { this.player.world = this.world; }
@@ -175,7 +181,7 @@ export class Game {
     if (forSave && this.net && this.net.isHost) entities.push(...this.net.share.puppetsJSON());
     return {
       edits: this.world.serializeEdits(), populated: [...this.world.populated], popOld: this.world.serializePopOld(), blockEntities: this.world.serializeBlockEntities(),
-      entities,
+      entities, rs: this.rs.serialize(),
     };
   }
   serialize() {
@@ -354,6 +360,12 @@ export class Game {
   }
   applyRemoteBlockEntity(dim, k, data) {
     if (dim !== this.dim) { const d = this.dims[dim] || (this.dims[dim] = {}); (d.blockEntities || (d.blockEntities = {}))[k] = data; return; }
+    if (data && data.type === 'moving') {
+      // A block that already landed (its edit came first) keeps no moving record.
+      const [x, y, z] = k.split(',').map(Number);
+      if (this.world.getBlock(x, y, z) !== B.MOVING_PISTON) return;
+      this.rs.moving.add(k);
+    }
     const w = this.world, cur = w.blockEntities.get(k);
     if (!cur) { w.blockEntities.set(k, data); return; }
     for (const key of Object.keys(cur)) if (!(key in data)) delete cur[key];
@@ -391,7 +403,7 @@ export class Game {
     if (!be.container) {
       const c = new Container(size);
       c.load(be.items || []);
-      c.onChange = () => { be.items = c.toJSON(); this.onBlockEntityChanged(be); };
+      c.onChange = () => { be.items = c.toJSON(); this.onBlockEntityChanged(be); this.rs.onContainerChanged(be); };
       Object.defineProperty(be, 'container', { value: c, enumerable: false, writable: true });
     }
     return be.container;
@@ -693,6 +705,7 @@ export class Game {
     this.updateWeather(dt);
     this.updateSurvival(dt);
     this.sim.update(dt);
+    this.rs.update(dt);
     this.entities.update(dt);
     this.particles.update(dt);
     this.tickBlockEntities(dt);
