@@ -1,4 +1,5 @@
 // The in-game guide: features, commands, crafting, farming, combat, villagers, dimensions and graphics.
+import { MusicPlayer } from './music.js';
 import { BLOCKS, BLOCK_ITEMS, TEXTURES } from '../data/blocks.js';
 import { ITEMS, I } from '../data/items.js';
 import { SHAPED, SHAPELESS, SMELTING } from '../data/recipes.js';
@@ -21,7 +22,7 @@ export function guideSections(icons) {
       <div class="stats-grid">
         ${stat(BLOCKS.length, 'block types')}${stat(BLOCK_ITEMS.length, 'block variants')}${stat(ITEMS.length, 'items in total')}${stat(recipes, 'crafting recipes')}
         ${stat(Object.keys(SMELTING).length, 'smelting recipes')}${stat(mobs.length, 'mobs with AI')}${stat(BIOMES.length, 'biomes')}${stat(TEXTURES.length, 'hand-coded textures')}
-        ${stat(3, 'dimensions')}${stat(3, 'world types')}${stat(Object.keys(COMMANDS).length, 'chat commands')}${stat(4, 'graphics presets')}
+        ${stat(3, 'dimensions')}${stat(3, 'world types')}${stat(Object.keys(COMMANDS).length, 'chat commands')}${stat(4, 'graphics presets')}${stat(MusicPlayer.trackCount, 'original music tracks')}${stat(12, 'structure types')}
       </div>
       <h4>Highlights</h4>
       <ul>
