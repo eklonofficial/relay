@@ -5,9 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Blockhaven</title>
 <link rel="icon" href="data:,">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;500&display=swap">
 <style>
   :root {
     --ui-font: "Trebuchet MS", "Segoe UI", system-ui, sans-serif;
+    --px-font: "Pixelify Sans", "Trebuchet MS", system-ui, sans-serif;
+    --gs: 3; /* GUI scale, set from the window size like Minecraft's "Auto" */
     --pixel-shadow: 2px 2px 0 #2b2b2b;
     --panel: #c6c6c6; --panel-light: #ffffff; --panel-dark: #555555; --slot: #8b8b8b;
   }
@@ -74,40 +77,44 @@
 
   /* ---------- HUD ---------- */
   #hud { position: fixed; inset: 0; pointer-events: none; }
-  #crosshair { position: absolute; left: 50%; top: 50%; width: 22px; height: 22px; transform: translate(-50%, -50%); mix-blend-mode: difference; }
+  /* ---- HUD, laid out in GUI pixels (1 unit = var(--gs) screen px), after the original's layout ---- */
+  #crosshair { position: absolute; left: 50%; top: 50%; width: calc(var(--gs) * 9px); height: calc(var(--gs) * 9px); transform: translate(-50%, -50%); mix-blend-mode: difference; }
   #crosshair::before, #crosshair::after { content: ""; position: absolute; background: #fff; }
-  #crosshair::before { left: 10px; top: 0; width: 2px; height: 22px; }
-  #crosshair::after { left: 0; top: 10px; width: 22px; height: 2px; }
-  #attack-ind { position: absolute; left: 50%; top: calc(50% + 16px); width: 20px; height: 4px; transform: translateX(-50%); background: rgba(0,0,0,0.4); }
-  #attack-ind div { height: 100%; background: #fff; width: 0; }
-  #bottom { position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; }
-  #stats { width: 546px; display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 2px; }
-  .statcol { display: flex; flex-direction: column; gap: 2px; }
-  .statrow { display: flex; height: 18px; }
-  .statrow img { width: 18px; height: 18px; margin-right: 1px; }
+  #crosshair::before { left: calc(var(--gs) * 4px); top: 0; width: calc(var(--gs) * 1px); height: 100%; }
+  #crosshair::after { left: 0; top: calc(var(--gs) * 4px); width: 100%; height: calc(var(--gs) * 1px); }
+  #bottom { position: absolute; bottom: 0; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; font-family: var(--px-font); }
+  #stats { width: calc(var(--gs) * 182px); display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: calc(var(--gs) * 1px); }
+  .statcol { display: flex; flex-direction: column; gap: calc(var(--gs) * 1px); }
+  .statrow { display: flex; height: calc(var(--gs) * 9px); }
+  .statrow img { width: calc(var(--gs) * 9px); height: calc(var(--gs) * 9px); margin-right: calc(var(--gs) * -1px); image-rendering: pixelated; }
   .statrow.right { flex-direction: row-reverse; }
-  .statrow.right img { margin: 0 0 0 1px; }
-  .statrow img.shake { transform: translateY(-2px); }
-  #xp { width: 546px; height: 8px; background: #1a1a1a; border: 2px solid #000; position: relative; margin-bottom: 3px; }
-  #xp-fill { height: 100%; background: linear-gradient(180deg, #a8f060, #6ad82a 60%, #3a8a1a); width: 0; }
-  #xp-level { position: absolute; left: 50%; top: -20px; transform: translateX(-50%); color: #80ff20; font: 700 16px var(--ui-font); text-shadow: 1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000; }
-  #hotbar { display: flex; gap: 0; padding: 3px; background: rgba(0,0,0,0.5); border: 2px solid rgba(0,0,0,0.85); border-radius: 3px; }
-  .slot { position: relative; width: 60px; height: 60px; display: flex; align-items: center; justify-content: center; border: 2px solid rgba(255,255,255,0.12); background: rgba(139,139,139,0.28); }
-  .slot img { width: 44px; height: 44px; filter: drop-shadow(0 2px 1px rgba(0,0,0,0.45)); pointer-events: none; }
-  .slot.selected { border: 3px solid #fff; box-shadow: 0 0 12px rgba(255,255,255,0.35); z-index: 1; }
-  .count { position: absolute; right: 3px; bottom: 0; font: 700 16px var(--ui-font); color: #fff; text-shadow: 2px 2px 0 #3f3f3f; pointer-events: none; }
-  .dur { position: absolute; left: 6px; right: 6px; bottom: 5px; height: 3px; background: #000; pointer-events: none; }
-  .dur div { height: 100%; }
-  #offhand-slot { position: absolute; left: -76px; bottom: 0; }
-  #item-name { position: absolute; bottom: 150px; left: 0; right: 0; text-align: center; font-size: 17px; font-weight: 700; text-shadow: var(--pixel-shadow); opacity: 0; transition: opacity 0.5s; }
-  #action { position: absolute; bottom: 175px; left: 0; right: 0; text-align: center; font-size: 16px; text-shadow: var(--pixel-shadow); opacity: 0; transition: opacity 0.4s; }
+  .statrow.right img { margin: 0 calc(var(--gs) * -1px) 0 0; }
+  .statrow img.shake { transform: translateY(calc(var(--gs) * -1px)); }
+  #xp { width: calc(var(--gs) * 182px); height: calc(var(--gs) * 5px); background: #1b1b1b; box-shadow: inset 0 0 0 calc(var(--gs) * 1px) #000; position: relative; margin: calc(var(--gs) * 2px) 0 calc(var(--gs) * 2px);
+    background-image: repeating-linear-gradient(90deg, transparent 0 calc(var(--gs) * 17px), #000 calc(var(--gs) * 17px) calc(var(--gs) * 18px)); }
+  #xp-fill { height: 100%; background: linear-gradient(180deg, #b8f870 0 20%, #80ff20 20% 80%, #3c8a10 80%); width: 0; }
+  #xp-level { position: absolute; left: 50%; bottom: calc(var(--gs) * 3px); transform: translateX(-50%); color: #80ff20; font: 500 calc(var(--gs) * 9px) var(--px-font); line-height: 1;
+    text-shadow: calc(var(--gs) * 1px) 0 0 #000, calc(var(--gs) * -1px) 0 0 #000, 0 calc(var(--gs) * 1px) 0 #000, 0 calc(var(--gs) * -1px) 0 #000; }
+  #hotbar { display: flex; padding: calc(var(--gs) * 1px); background: rgba(0,0,0,0.45); box-shadow: 0 0 0 calc(var(--gs) * 1px) rgba(0,0,0,0.75); margin-bottom: calc(var(--gs) * 1px); }
+  .slot { position: relative; box-sizing: border-box; width: calc(var(--gs) * 20px); height: calc(var(--gs) * 20px); display: flex; align-items: center; justify-content: center;
+    border: calc(var(--gs) * 1px) solid #8b8b8b; border-color: #9a9a9a #6f6f6f #6f6f6f #9a9a9a; background: rgba(38,38,38,0.55); }
+  .slot img { width: calc(var(--gs) * 16px); height: calc(var(--gs) * 16px); image-rendering: pixelated; pointer-events: none; }
+  .slot.selected { z-index: 1; outline: calc(var(--gs) * 2px) solid #e6e6e6; box-shadow: 0 0 0 calc(var(--gs) * 1px) #000, inset 0 0 0 calc(var(--gs) * 1px) rgba(0,0,0,0.6); }
+  .count { position: absolute; right: calc(var(--gs) * 0px); bottom: calc(var(--gs) * -1px); font: 500 calc(var(--gs) * 8px) var(--px-font); line-height: 1; color: #fff; text-shadow: calc(var(--gs) * 1px) calc(var(--gs) * 1px) 0 #3f3f3f; pointer-events: none; }
+  .dur { position: absolute; left: calc(var(--gs) * 2px); right: calc(var(--gs) * 2px); bottom: calc(var(--gs) * 2px); height: calc(var(--gs) * 2px); background: #000; pointer-events: none; }
+  .dur div { height: 50%; }
+  #attack-ind { position: absolute; left: 50%; top: calc(50% + var(--gs) * 9px); width: calc(var(--gs) * 16px); height: calc(var(--gs) * 2px); transform: translateX(-50%); background: rgba(0,0,0,0.45); }
+  #attack-ind div { height: 100%; background: #fff; width: 0; }
+  #offhand-slot { position: absolute; left: calc(var(--gs) * -31px); bottom: calc(var(--gs) * 1px); background: rgba(38,38,38,0.7); box-shadow: 0 0 0 calc(var(--gs) * 1px) rgba(0,0,0,0.75); }
+  #item-name { font-family: var(--px-font); font-weight: 400; font-size: calc(var(--gs) * 9px) !important; position: absolute; bottom: calc(var(--gs) * 59px); left: 0; right: 0; text-align: center; font-size: 17px; font-weight: 700; text-shadow: var(--pixel-shadow); opacity: 0; transition: opacity 0.5s; }
+  #action { font-family: var(--px-font); font-size: calc(var(--gs) * 8px) !important; position: absolute; bottom: calc(var(--gs) * 72px); left: 0; right: 0; text-align: center; font-size: 16px; text-shadow: var(--pixel-shadow); opacity: 0; transition: opacity 0.4s; }
   #debug { position: absolute; top: 8px; left: 8px; font: 13px/1.45 ui-monospace, Menlo, Consolas, monospace; background: rgba(0,0,0,0.45); padding: 6px 9px; white-space: pre; text-shadow: 1px 1px 0 #000; }
-  #boss { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); width: 420px; text-align: center; }
+  #boss { position: absolute; top: calc(var(--gs) * 3px); left: 50%; transform: translateX(-50%); width: calc(var(--gs) * 182px); text-align: center; font-family: var(--px-font); }
   #boss .n { font-size: 15px; text-shadow: var(--pixel-shadow); margin-bottom: 3px; }
   #boss .b { height: 8px; border: 2px solid #000; background: #3a0a3a; }
   #boss .b div { height: 100%; background: linear-gradient(180deg, #f070f0, #b030b0); }
-  #chat { position: absolute; left: 8px; bottom: 170px; width: min(560px, 60vw); display: flex; flex-direction: column; gap: 2px; font-size: 15px; }
-  .msg { background: rgba(0,0,0,0.45); padding: 2px 6px; text-shadow: 1px 1px 0 #000; transition: opacity 1s; white-space: pre-wrap; word-break: break-word; }
+  #chat { position: absolute; left: calc(var(--gs) * 2px); bottom: calc(var(--gs) * 62px); width: min(calc(var(--gs) * 320px), 70vw); display: flex; flex-direction: column; gap: 0; font: 400 calc(var(--gs) * 8px) var(--px-font); line-height: calc(var(--gs) * 9px); }
+  .msg { background: rgba(0,0,0,0.5); padding: 0 calc(var(--gs) * 1px); text-shadow: calc(var(--gs) * 1px) calc(var(--gs) * 1px) 0 #3f3f3f; transition: opacity 1s; white-space: pre-wrap; word-break: break-word; }
   #chat.open .msg { opacity: 1 !important; }
   #chat-input-row { position: fixed; left: 8px; right: 8px; bottom: 8px; pointer-events: auto; }
   #chat-input { width: 100%; background: rgba(0,0,0,0.6); border: none; font-size: 16px; padding: 8px; }
@@ -369,6 +376,6 @@
 </div>
 
 <div id="error" class="screen hidden"></div>
-<script type="module" src="js/main.js?v=munlh7vv"></script>
+<script type="module" src="js/main.js?v=munlpvny"></script>
 </body>
 </html>
