@@ -4,9 +4,9 @@ import {
   CHUNK, HEIGHT, PAD, PS, B, SHAPE, VF, TINT, TEX,
   OPAQUE, SHAPE_OF, TRANSLUCENT, EMIT, ATTEN, VFLAGS, CULL_SAME, TINT_OF, WATERLOGGED, VARIANT_MASK,
   FACING_SHIFT, AXIS_SHIFT, FACE_TEX, CROP_STAGES, CROP_TEX,
-} from '../data/blocks.js?v=muok06n3';
-import { BIOME_COLORS } from '../gen/biomes.js?v=muok06n3';
-import { up6, rotY, attach, FACE_OF_DIR6, OPP6, DIR2D_OF_6 } from '../data/orient.js?v=muok06n3';
+} from '../data/blocks.js?v=muono2ew';
+import { BIOME_COLORS } from '../gen/biomes.js?v=muono2ew';
+import { up6, rotY, attach, FACE_OF_DIR6, OPP6, DIR2D_OF_6 } from '../data/orient.js?v=muono2ew';
 
 export const H2 = HEIGHT + 2;
 export const VOLUME_SIZE = PS * PS * H2;
@@ -746,7 +746,9 @@ function special(bufO, bufT, i, id, m, shape, ox, oy, oz, x, y, z) {
       XA = (m >> 1) & 7;
       const top = texOf(id, m, 2), side = TEX.piston_side, arm = TEX.piston_top;
       tbox(buf, i, ox, oy, oz, XF_UP6, [0, 12, 0, 16, 16, 16], layersOf(side, side, top, TEX.piston_top, side, side), flags);
-      tbox(buf, i, ox, oy, oz, XF_UP6, [6, m & 16 ? 4 : 0, 6, 10, 12, 10], sixOf(arm), flags, { cull: false, uv: [[6, 0, 10, 12], [6, 0, 10, 12], null, null, [6, 0, 10, 12], [6, 0, 10, 12]] });
+      // The arm reaches 4 px back into the base block (the original's 16-long arm), so an extended
+      // piston has no gap between base and head; a retracting (short) head's arm stays in its block.
+      tbox(buf, i, ox, oy, oz, XF_UP6, [6, m & 16 ? 0 : -4, 6, 10, 12, 10], sixOf(arm), flags, { cull: false, uv: [[6, 0, 10, 16], [6, 0, 10, 16], null, null, [6, 0, 10, 16], [6, 0, 10, 16]] });
       break;
     }
     case SHAPE.DAYLIGHT: {

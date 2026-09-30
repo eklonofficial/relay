@@ -1,9 +1,9 @@
 // Procedural 16x16 pixel art for every non-block item, plus particle/effect sprites.
 // Icons are hand-drawn as pixel rows (px``) or auto-shaded silhouettes (sil), then given MC-style dark outlines.
-import { Painter, shade, mixHex, ramp } from './paint.js?v=muok06n3';
-import { ITEMS, I } from '../data/items.js?v=muok06n3';
-import { TEXTURES, TEX, BLOCKS, FACE_TEX, VARIANT_MASK, COLORS } from '../data/blocks.js?v=muok06n3';
-import { drawBlockTexture } from './blocktex.js?v=muok06n3';
+import { Painter, shade, mixHex, ramp } from './paint.js?v=muono2ew';
+import { ITEMS, I } from '../data/items.js?v=muono2ew';
+import { TEXTURES, TEX, BLOCKS, FACE_TEX, VARIANT_MASK, COLORS } from '../data/blocks.js?v=muono2ew';
+import { drawBlockTexture } from './blocktex.js?v=muono2ew';
 
 const N = 16;
 export const MAT = {
@@ -515,6 +515,8 @@ function book(p) {
 ....qqqqqqqqqq`, ['#3a1a0c', '#6a3018', '#8e4424', '#b0603a'], { s: '#4a2010', p: '#f0ece0', q: '#b8b0a0', y: '#d8b048' });
 }
 // Bow: limbs bulge towards the top-left, string along the other diagonal; drawing pulls it to the bottom-right.
+// Bow drawn from bottom-left to top-right; when pulled the string makes a V and an arrow is
+// nocked, its head at the top-left corner (like the original's pulling sprites).
 function bow(p, pull) {
   const wood = ['#3d2a12', '#6b4c24', '#9c7640', '#b8925a'];
   const A = [13, 2], B = [2, 13], C = [1.5 + pull * 0.8, 1.5 + pull * 0.8];
@@ -550,16 +552,21 @@ function arrow(p, tip = MAT.iron, fl = ['#8a8a8a', '#e8e8e8']) {
 ...ggg
 ....gg`, tip, { f: fl[1], g: fl[0] });
 }
-// Crossbow: diagonal stock, bowed limbs across its front end, string drawn back to the latch.
-function crossbow(p, loaded) {
+// Crossbow: diagonal stock, bowed limbs across its front end, string drawn back along the stock to
+// row `draw` (7 at rest, 10 fully drawn); `load` 'arrow' or 'rocket' when charged.
+function crossbow(p, draw = 7, load = null) {
   for (let y = 4; y <= 13; y++) { p.put(15 - y, y, HANDLE[2]); p.put(16 - y, y, HANDLE[1]); }
   const A = [5, 2], B = [13, 10], C = [12.5, 2.5];
   for (let k = 0; k <= 60; k++) { const t = k / 60, u = 1 - t, x = Math.round(u * u * A[0] + 2 * u * t * C[0] + t * t * B[0]), y = Math.round(u * u * A[1] + 2 * u * t * C[1] + t * t * B[1]); p.put(x, y, '#8a6a3a'); if (!p.alpha(x + 1, y)) p.put(x + 1, y, '#5a4020'); }
   p.put(12, 3, MAT.iron[2]); p.put(13, 2, MAT.iron[3]); p.put(13, 3, MAT.iron[1]); p.put(12, 2, MAT.iron[2]);
   outline(p);
-  const S = loaded ? [6, 9] : [8, 7];
+  const S = [15 - draw, draw];
   line(p, A[0], A[1] + 1, S[0], S[1], '#d0d0d0'); line(p, S[0], S[1], B[0] - 1, B[1], '#d0d0d0');
-  if (loaded) { line(p, 7, 8, 12, 3, '#c8c8c8'); p.put(13, 2, '#ffffff'); p.put(12, 2, '#e8e8e8'); p.put(13, 3, '#e8e8e8'); }
+  if (load === 'arrow') { line(p, S[0] + 1, S[1] - 1, 12, 3, '#c8c8c8'); p.put(13, 2, '#ffffff'); p.put(12, 2, '#e8e8e8'); p.put(13, 3, '#e8e8e8'); }
+  else if (load === 'rocket') {
+    line(p, S[0] + 1, S[1] - 1, 9, 6, '#8a6a3a');
+    for (const [x, y, c] of [[10, 5, '#a82020'], [11, 4, '#d03030'], [10, 4, '#f06060'], [11, 5, '#6a1010'], [12, 3, '#f0f0f0'], [11, 3, '#d03030'], [12, 4, '#a82020'], [13, 2, '#b0b0b0']]) p.put(x, y, c);
+  }
 }
 // Trident: shaft on the handle diagonal, crossbar and three prongs at the top-right (blade coordinates as in sword()).
 function trident(p) {
@@ -1293,7 +1300,9 @@ const G = {
   bucket: bucket('#6a6a6a', '#3a3a3a'), water_bucket: bucket('#4a7af0', '#2a4ad0'), lava_bucket: bucket('#ffb030', '#e0601a'),
   milk_bucket: bucket('#ffffff', '#e4e4e4'),
   fishing_rod: p => { for (let k = 0; k <= 10; k++) { p.put(2 + k, 13 - k, k % 3 ? HANDLE[2] : HANDLE[1]); } p.put(2, 13, '#3a3a3a'); p.put(3, 12, '#3a3a3a'); outline(p); line(p, 13, 3, 13, 11, '#d8d8d8'); p.put(12, 12, '#a8a8a8'); p.put(12, 11, '#a8a8a8'); p.put(13, 12, '#a8a8a8'); },
-  bow: p => bow(p, 0), crossbow: p => crossbow(p, false),
+  // Held while the line is out: the rod alone, the line leaves from its tip.
+  fishing_rod_cast_sprite: p => { for (let k = 0; k <= 10; k++) { p.put(2 + k, 13 - k, k % 3 ? HANDLE[2] : HANDLE[1]); } p.put(2, 13, '#3a3a3a'); p.put(3, 12, '#3a3a3a'); outline(p); },
+  bow: p => bow(p, 0), crossbow: p => crossbow(p),
   arrow: p => arrow(p), spectral_arrow: p => arrow(p, MAT.golden, ['#c8a018', '#fff0a0']),
   shield: p => sil(p, px`
 .
@@ -1553,7 +1562,7 @@ export const DYE_COLORS = {
 
 // Effect sprites share the item texture array. Most are tinted per particle, so they stay light and near-neutral.
 export const FX = ['smoke_0', 'smoke_1', 'smoke_2', 'flame', 'heart', 'crit', 'bubble', 'note', 'rain', 'snow', 'explosion_0', 'explosion_1', 'explosion_2', 'explosion_3',
-  'xp_0', 'xp_1', 'portal', 'splash', 'angry', 'happy', 'soul', 'lava_drip', 'water_drip', 'bow_pulling_0', 'bow_pulling_1', 'bow_pulling_2', 'crossbow_loaded', 'blank', 'spark', 'ash', 'end_rod', 'white', 'glint'];
+  'xp_0', 'xp_1', 'portal', 'splash', 'angry', 'happy', 'soul', 'lava_drip', 'water_drip', 'bow_pulling_0', 'bow_pulling_1', 'bow_pulling_2', 'crossbow_loaded', 'crossbow_pulling_0', 'crossbow_pulling_1', 'crossbow_pulling_2', 'crossbow_arrow', 'crossbow_firework', 'fishing_rod_cast', 'fishing_bobber', 'blank', 'spark', 'ash', 'end_rod', 'white', 'glint'];
 const GREY = ['#5a5a5a', '#808080', '#a8a8a8', '#cccccc'];
 // Plus-shaped sparkle: arm length a (and diagonal stubs of length d), bright core.
 const sparkle = (a, d) => shape((x, y) => { const dx = Math.abs(x - 7), dy = Math.abs(y - 7); return ((dx === 0 && dy <= a) || (dy === 0 && dx <= a) || (dx === dy && dx <= d)) && (dx + dy === 0 ? 'w' : dx + dy < 2 ? 'b' : 'a'); });
@@ -1669,7 +1678,23 @@ function drawFx(name, p) {
     case 'bow_pulling_0': bow(p, 1); break;
     case 'bow_pulling_1': bow(p, 2); break;
     case 'bow_pulling_2': bow(p, 3); break;
-    case 'crossbow_loaded': crossbow(p, true); break;
+    case 'crossbow_loaded': case 'crossbow_arrow': crossbow(p, 10, 'arrow'); break;
+    case 'crossbow_firework': crossbow(p, 10, 'rocket'); break;
+    case 'crossbow_pulling_0': crossbow(p, 8); break;
+    case 'crossbow_pulling_1': crossbow(p, 9); break;
+    case 'crossbow_pulling_2': crossbow(p, 10); break;
+    case 'fishing_rod_cast': G.fishing_rod_cast_sprite(p); break;
+    case 'fishing_bobber': sil(p, px`
+.
+.
+.
+.......k
+......rrr
+.....rrrrr
+.....rrrrr
+.....wwwww
+.....wwwww
+......www`, null, { k: '#303030', r: ['#6a1010', '#a82020', '#e03030', '#f06060'], w: ['#9a9a9a', '#d0d0d0', '#f0f0f0', '#ffffff'] }); break;
     case 'spark': sil(p, sparkle(2, 0), null, { a: '#ffe8a0', b: '#fff4d0' }, false); break;
     case 'ash': p.rect(7, 7, 2, 2, '#3a3a3a'); p.put(7, 7, '#5a5a5a'); break;
     case 'end_rod': sil(p, sparkle(2, 1), null, { a: '#d8d0f0', b: '#f0ecff' }, false); break;

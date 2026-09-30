@@ -1,8 +1,8 @@
 // Container GUIs (inventory, crafting, chest, furnace, creative, trading) and the HUD, laid out in GUI pixels
 // (1 unit = var(--u)) at the original's coordinates: 176x166 panels, 18x18 slots, 16x16 icons.
-import { I, ITEMS, TABS, maxStack, ARMOR_SLOTS } from '../data/items.js?v=muok06n3';
-import { findRecipe, allRecipes, matches, SMELTING, TAGS } from '../data/recipes.js?v=muok06n3';
-import { same } from './inventory.js?v=muok06n3';
+import { I, ITEMS, TABS, maxStack, ARMOR_SLOTS, iconKey } from '../data/items.js?v=muono2ew';
+import { findRecipe, allRecipes, matches, SMELTING, TAGS } from '../data/recipes.js?v=muono2ew';
+import { same } from './inventory.js?v=muono2ew';
 
 const $ = id => document.getElementById(id);
 const el = (tag, cls, parent) => { const e = document.createElement(tag); if (cls) e.className = cls; if (parent) parent.appendChild(e); return e; };
@@ -75,7 +75,7 @@ function fillItem(div, s, icons, ghost = null) {
   const show = s || ghost;
   if (!show) return;
   const img = el('img', ghost && !s ? 'ghost' : '', div);
-  img.src = icons[show.key] || sprites().missing;
+  img.src = icons[iconKey(show)] || sprites().missing;
   if (s && s.count > 1) el('span', 'count', div).textContent = s.count;
   const it = s && I[s.key];
   if (it && it.durability && s.dmg) {

@@ -7,7 +7,7 @@ const MATERIAL = {
 };
 // Mob voices: [base freq, type, duration, sweep, noise]
 
-import { MusicPlayer } from './music.js?v=muok06n3';
+import { MusicPlayer } from './music.js?v=muono2ew';
 
 const VOWEL = { a: [[730, 6, 1.2], [1090, 7, 0.9], [2440, 9, 0.3]], o: [[450, 6, 1.2], [800, 7, 0.9], [2800, 9, 0.2]], u: [[320, 6, 1.3], [870, 7, 0.7], [2250, 9, 0.2]] };
 const MOB_VOICE_ALIAS = { polar_bear: 'bear', zombified_piglin: 'zpiglin', wandering_trader: 'villager', pillager: 'illager', vindicator: 'illager', evoker: 'illager', iron_golem: 'golem', snow_golem: 'snowgolem', husk: 'zombie', drowned: 'zombie', zombie_villager: 'zombie', stray: 'skeleton', wither_skeleton: 'skeleton', cave_spider: 'spider', magma_cube: 'slime', mooshroom: 'cow', donkey: 'horse', camel: 'horse', mule: 'horse', endermite: 'silverfish', ender_dragon: 'dragon', glow_squid: 'squid', cod: 'fish', salmon: 'fish', tropical_fish: 'fish', pufferfish: 'fish' };
@@ -142,6 +142,10 @@ export class Sound {
       case 'dragon_death': this.noiseSweep(3000, 40, 6, 1, out); T(200, 40, 6, 0.5, 'sawtooth'); break;
       case 'bell': [880, 1320, 1760].forEach(f => this.tone(f, f, 2, 0.15, 'sine', out)); break;
       case 'chime': [1046, 1318, 1568].forEach((f, i) => this.tone(f, f, 1.2, 0.12, 'sine', out, i * 0.1)); break;
+      case 'xbow_start': this.creak(out, { dur: 0.35, f0: 180 * pitch, f1: 260 * pitch, gain: 0.25 }); break;
+      case 'xbow_mid': this.creak(out, { dur: 0.3, f0: 240 * pitch, f1: 320 * pitch, gain: 0.22 }); this.pulses(out, { t: 0.1, count: 2, gap: 0.08, freq: 1500, q: 3, gain: 0.25, len: 0.03 }); break;
+      case 'xbow_load': this.pulses(out, { count: 1, freq: 900, q: 1.5, gain: 0.6, len: 0.06, type: 'lowpass' }); this.pulses(out, { t: 0.04, count: 1, freq: 2600, q: 3, gain: 0.4, len: 0.03 }); break;
+      case 'xbow_shoot': this.noiseSweep(3200, 700, 0.18, 0.5, out, 'bandpass'); T(260, 90, 0.16, 0.3, 'triangle'); this.pulses(out, { count: 1, freq: 700, q: 1.2, gain: 0.5, len: 0.05, type: 'lowpass' }); break;
       case 'rs_click': this.pulses(out, { count: 1, freq: 2200 * pitch, q: 4, gain: 0.45, len: 0.03 }); T(900, 600, 0.04, 0.12, 'square'); break;
       case 'piston_out': this.noiseSweep(900 * pitch, 2400 * pitch, 0.16, 0.5, out, 'bandpass'); this.burst('wood', 0.1, 0.8, 1.1, pos); break;
       case 'piston_in': this.noiseSweep(2200 * pitch, 800 * pitch, 0.16, 0.45, out, 'bandpass'); this.burst('stone', 0.1, 0.6, 0.9, pos); break;

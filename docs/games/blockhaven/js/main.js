@@ -1,33 +1,33 @@
 // Blockhaven bootstrap: assets, menus, input, camera, frame loop.
-import { Demo, DEMO_SEED } from './demo.js?v=muok06n3';
-import { armorModel, armorSkinKey, ARMOR_MATERIALS, ARMOR_PIECES, elytraModel } from './data/armor.js?v=muok06n3';
-import { TEXTURES, TEX, B, BLOCKS, DIM, DIM_NAMES, SHAPE_OF, SHAPE, props } from './data/blocks.js?v=muok06n3';
-import { I, ITEMS } from './data/items.js?v=muok06n3';
-import { MOBS, PROFESSIONS, playerModel, saddleModel, PLAYER_SKINS } from './data/mobs.js?v=muok06n3';
-import { Net, cleanCode, cleanName, cleanKey, cleanChat, chatLine, MAX_PLAYERS } from './net/net.js?v=muok06n3';
-import { NameTags } from './net/nametags.js?v=muok06n3';
-import { BIOMES } from './gen/biomes.js?v=muok06n3';
-import { generateBlockTextures, drawBlockTexture } from './render/blocktex.js?v=muok06n3';
-import { generateItemTextures, ITEM_LAYER, FX_LAYER, ITEM_LAYER_COUNT } from './render/itemtex.js?v=muok06n3';
-import { packModel, paintModel, SKIN, faceRects } from './render/mobtex.js?v=muok06n3';
-import { buildMipChain } from './render/atlas.js?v=muok06n3';
-import { Renderer, Batch } from './render/renderer.js?v=muok06n3';
-import { World, UNLOADED } from './world/world.js?v=muok06n3';
-import { createGenerator } from './gen/index.js?v=muok06n3';
-import { Game } from './game/game.js?v=muok06n3';
-import { Interact } from './game/interact.js?v=muok06n3';
-import { Commands } from './game/commands.js?v=muok06n3';
-import { GUI, HUD } from './game/ui.js?v=muok06n3';
-import { buildIcons, hudSprites } from './game/icons.js?v=muok06n3';
-import { Sound } from './game/audio.js?v=muok06n3';
-import { buildLogo, buttonTexture, dirtTexture, iconDataURL } from './render/logo.js?v=muok06n3';
-import { computeEnv } from './game/env.js?v=muok06n3';
-import { guideSections } from './game/guide.js?v=muok06n3';
-import { listWorlds, loadWorld, saveWorld, deleteWorld } from './game/storage.js?v=muok06n3';
-import { drawModel, rootMatrix, M } from './entity/entity.js?v=muok06n3';
-import { itemMesh, emitItemMesh } from './entity/itemmesh.js?v=muok06n3';
-import { Lightning } from './entity/objects.js?v=muok06n3';
-import { compose, translation, rotationX, rotationY, rotationZ, scaling, forward, mat4 } from './core/math.js?v=muok06n3';
+import { Demo, DEMO_SEED } from './demo.js?v=muono2ew';
+import { armorModel, armorSkinKey, ARMOR_MATERIALS, ARMOR_PIECES, elytraModel } from './data/armor.js?v=muono2ew';
+import { TEXTURES, TEX, B, BLOCKS, DIM, DIM_NAMES, SHAPE_OF, SHAPE, props } from './data/blocks.js?v=muono2ew';
+import { I, ITEMS } from './data/items.js?v=muono2ew';
+import { MOBS, PROFESSIONS, playerModel, saddleModel, PLAYER_SKINS } from './data/mobs.js?v=muono2ew';
+import { Net, cleanCode, cleanName, cleanKey, cleanChat, chatLine, MAX_PLAYERS } from './net/net.js?v=muono2ew';
+import { NameTags } from './net/nametags.js?v=muono2ew';
+import { BIOMES } from './gen/biomes.js?v=muono2ew';
+import { generateBlockTextures, drawBlockTexture } from './render/blocktex.js?v=muono2ew';
+import { generateItemTextures, ITEM_LAYER, FX_LAYER, ITEM_LAYER_COUNT } from './render/itemtex.js?v=muono2ew';
+import { packModel, paintModel, SKIN, faceRects } from './render/mobtex.js?v=muono2ew';
+import { buildMipChain } from './render/atlas.js?v=muono2ew';
+import { Renderer, Batch } from './render/renderer.js?v=muono2ew';
+import { World, UNLOADED } from './world/world.js?v=muono2ew';
+import { createGenerator } from './gen/index.js?v=muono2ew';
+import { Game } from './game/game.js?v=muono2ew';
+import { Interact, CROSSBOW_CHARGE } from './game/interact.js?v=muono2ew';
+import { Commands } from './game/commands.js?v=muono2ew';
+import { GUI, HUD } from './game/ui.js?v=muono2ew';
+import { buildIcons, hudSprites } from './game/icons.js?v=muono2ew';
+import { Sound } from './game/audio.js?v=muono2ew';
+import { buildLogo, buttonTexture, dirtTexture, iconDataURL } from './render/logo.js?v=muono2ew';
+import { computeEnv } from './game/env.js?v=muono2ew';
+import { guideSections } from './game/guide.js?v=muono2ew';
+import { listWorlds, loadWorld, saveWorld, deleteWorld } from './game/storage.js?v=muono2ew';
+import { drawModel, rootMatrix, M } from './entity/entity.js?v=muono2ew';
+import { itemMesh, emitItemMesh } from './entity/itemmesh.js?v=muono2ew';
+import { Lightning } from './entity/objects.js?v=muono2ew';
+import { compose, translation, rotationX, rotationY, rotationZ, scaling, forward, mat4 } from './core/math.js?v=muono2ew';
 
 const $ = id => document.getElementById(id);
 const SETTINGS_KEY = 'blockhaven.settings.v2';
@@ -923,8 +923,10 @@ class App {
     const camBlock = g.world.getBlock(cam.pos[0], cam.pos[1], cam.pos[2]);
     const medium = g.mode === 'spectator' && SHAPE_OF[camBlock] === SHAPE.CUBE ? 0 : camBlock === B.WATER ? 1 : camBlock === B.LAVA ? 2 : 0;
     // FOV: sprint and flight widen it.
-    const fovTarget = settings.fov + (p.gliding ? Math.min(18, Math.hypot(p.vel[0], p.vel[1], p.vel[2]) * 0.5) : 0) + (p.sprinting ? (p.flying ? 14 : 9) : 0) - (medium === 1 ? 6 : 0) - (this.interact.using === 'bow' ? Math.min(1, this.interact.useT) * 12 : 0);
-    this.fovCur += (fovTarget - this.fovCur) * (1 - Math.exp(-dt * 8));
+    const fovTarget = settings.fov + (p.gliding ? Math.min(18, Math.hypot(p.vel[0], p.vel[1], p.vel[2]) * 0.5) : 0) + (p.sprinting ? (p.flying ? 14 : 9) : 0) - (medium === 1 ? 6 : 0) ;
+    // Drawing a bow zooms in like the original: the view narrows by up to 15%.
+    const bowZoom = this.interact.using === 'bow' ? 1 - 0.15 * Math.min(1, this.interact.useT) ** 2 : 1;
+    this.fovCur += (fovTarget * bowZoom - this.fovCur) * (1 - Math.exp(-dt * 8));
     this.sound.listener = { pos: cam.pos, yaw: cam.yaw };
     // Entity/particle batches.
     const B_ = this.batches;
@@ -978,14 +980,17 @@ class App {
       pos: p.renderPos || p.pos, yaw: p.yaw, pitch: p.pitch, walk: p.bobPhase * 1.6, walkAmt: p.bobAmount, swing: this.interact.swing,
       sneaking: p.sneaking, riding: !!g.riding, gliding: p.gliding, vel: p.vel, layer: this.mobLayer('player'), flash: this.post.hurt > 0.5 ? 0.6 : 0,
       armor: g.inv.armor.slots.map(s => s && s.key), held: g.inv.held && g.inv.held.key, off: g.inv.offhand.get(0) && g.inv.offhand.get(0).key,
-      bow: this.interact.using === 'bow' || this.interact.using === 'crossbow', trident: this.interact.using === 'trident', blocking: g.blocking,
+      bow: this.interact.using === 'bow', trident: this.interact.using === 'trident', blocking: g.blocking,
+      xbowCharge: this.interact.using === 'crossbow' ? Math.min(1, this.interact.useT / CROSSBOW_CHARGE) : -1,
+      xbowHold: !this.interact.using && g.inv.held && g.inv.held.key === 'crossbow' && !!(g.inv.held.tag && g.inv.held.tag.loaded),
     });
   }
   drawRemotePlayer(ctx, rp) {
     this.drawHumanoid(ctx, {
       pos: rp.pos, yaw: rp.yaw, pitch: rp.headPitch, walk: rp.walk, walkAmt: rp.walkAmt, swing: rp.swing, sneaking: rp.sneaking, riding: rp.riding,
       gliding: rp.gliding, vel: rp.vel, layer: this.mobLayer(`player_${rp.skin}`), flash: rp.hurtT > 0 ? 0.6 : 0,
-      armor: rp.armor, held: rp.held, off: rp.off, bow: rp.drawingBow, trident: rp.throwingTrident, blocking: rp.blocking,
+      armor: rp.armor, held: rp.held, off: rp.off, bow: rp.drawingBow && rp.held !== 'crossbow', trident: rp.throwingTrident, blocking: rp.blocking,
+      xbowCharge: rp.drawingBow && rp.held === 'crossbow' ? 1 : -1, xbowHold: rp.crossbowHold,
     });
   }
   // A player model in any pose: walking, sneaking, riding, gliding, drawing a bow, blocking.
@@ -997,6 +1002,9 @@ class App {
     const poses = { head: [s.pitch, 0, 0], rightLeg: [sw, 0, 0], leftLeg: [-sw, 0, 0], rightArm: [-sw * 0.8 + swing, 0, 0], leftArm: [sw * 0.8, 0, 0] };
     if (s.riding) { poses.rightLeg = [1.35, -0.25, 0]; poses.leftLeg = [1.35, 0.25, 0]; poses.rightArm = [0.55 + swing, 0, 0]; poses.leftArm = [0.55, 0, 0]; }
     if (s.bow) { poses.rightArm = [1.45 + s.pitch, -0.1, 0]; poses.leftArm = [1.45 + s.pitch, 0.45, 0]; }
+    // Crossbow poses (AnimationUtils.animateCrossbowCharge / animateCrossbowHold).
+    if (s.xbowCharge >= 0) { const f = s.xbowCharge; poses.rightArm = [0.9708, -0.8, 0]; poses.leftArm = [0.9708 + (Math.PI / 2 - 0.9708) * f, 0.4 + 0.45 * f, 0]; }
+    else if (s.xbowHold) { poses.rightArm = [Math.PI / 2 + s.pitch - 0.1, -0.3, 0]; poses.leftArm = [1.5 + s.pitch, 0.6, 0]; }
     if (s.blocking) poses.leftArm = [0.9, 0.55, 0];
     if (s.trident) poses.rightArm = [2.8, -0.2, 0];
     const lp = s.pos;
@@ -1135,14 +1143,38 @@ class App {
     if (item) {
       let m;
       const flatItem = (base) => M.chain(base, M.t(0.04, -0.02, 0.05), GRIP, M.s(0.54), M.t(-0.22, -0.22, 0));
-      if (using === 'bow' || using === 'crossbow') {
-        const pull = Math.min(1, it.useT);
-        const key = using === 'bow' ? (pull > 0.9 ? 'bow_pulling_2' : pull > 0.5 ? 'bow_pulling_1' : 'bow_pulling_0') : 'crossbow';
-        // Bow drawn across the body, pulled back as it charges.
-        const base = M.chain(sway, M.t(0.18, -0.38, -0.62 + pull * 0.08), M.ry(-12 * D2R), M.rx(-6 * D2R), M.rz(-10 * D2R + Math.sin(this.time * 40) * 0.01 * pull));
-        m = M.chain(base, M.ry(-90 * D2R), M.rz(40 * D2R), M.s(0.7), M.t(-0.5, -0.5, 0));
-        emitItemMesh(batch, itemMesh(key, this.itemTex[FX_LAYER[key] ?? ITEM_LAYER.bow]), FX_LAYER[key] ?? ITEM_LAYER[held.key], m, [light, light, light]);
+      // Bows and crossbows use the original's own first-person transforms (ItemInHandRenderer)
+      // and the display transforms from their item models.
+      const display = (rx, ry, rz, tx, ty, tz, sc) => M.chain(M.t(tx / 16, ty / 16, tz / 16), M.rx(rx * D2R), M.ry(ry * D2R), M.rz(rz * D2R), M.s(sc), M.t(-0.5, -0.5, 0));
+      const armT = M.chain(sway, M.t(0.56, -0.52 - equip * 0.6, -0.72));
+      const drawn = (base, ticks, f) => {
+        if (f > 0.1) base = M.chain(base, M.t(0, Math.sin((ticks - 0.1) * 1.3) * (f - 0.1) * 0.004, 0));
+        return M.chain(base, M.t(0, 0, f * 0.04), M.s(1, 1, 1 + f * 0.2), M.ry(-45 * D2R));
+      };
+      const fx = key => { emitItemMesh(batch, itemMesh(key, this.itemTex[FX_LAYER[key]]), FX_LAYER[key], m, [light, light, light]); return { batch, batchTex: 'item', light }; };
+      if (using === 'bow') {
+        const ticks = it.useT * 20, t = ticks / 20, f = Math.min(1, (t * t + t * 2) / 3);
+        m = M.chain(drawn(M.chain(armT, M.t(-0.2785682, 0.18344387, 0.15731531), M.rx(-13.935 * D2R), M.ry(35.3 * D2R), M.rz(-9.785 * D2R)), ticks, f), display(0, -90, 25, 1.13, 3.2, 1.13, 0.68));
+        return fx(t >= 0.9 ? 'bow_pulling_2' : t >= 0.65 ? 'bow_pulling_1' : 'bow_pulling_0');
+      }
+      if (using === 'crossbow') {
+        const ticks = it.useT * 20, f = Math.min(1, it.useT / CROSSBOW_CHARGE);
+        m = M.chain(drawn(M.chain(armT, M.t(-0.4785682, -0.094387, 0.05731531), M.rx(-11.935 * D2R), M.ry(65.3 * D2R), M.rz(-9.785 * D2R)), ticks, f), display(-90, 0, -55, 1.13, 3.2, 1.13, 0.68));
+        return fx(f >= 1 ? 'crossbow_pulling_2' : f >= 0.58 ? 'crossbow_pulling_1' : 'crossbow_pulling_0');
+      }
+      if (held.key === 'crossbow') {
+        if (held.tag && held.tag.loaded) {
+          // Charged: held out in front, ready to fire.
+          m = M.chain(armT, M.t(-0.641864, 0, 0), M.ry(10 * D2R), display(-90, 0, -55, 1.13, 3.2, 1.13, 0.68));
+          return fx(held.tag.rocket ? 'crossbow_firework' : 'crossbow_arrow');
+        }
+        m = M.chain(swingArm(), display(-90, 0, -55, 1.13, 3.2, 1.13, 0.68));
+        emitItemMesh(batch, itemMesh(held.key, this.itemPixels(held.key)), this.itemLayer(held.key), m, [light, light, light]);
         return { batch, batchTex: 'item', light };
+      }
+      if (held.key === 'fishing_rod' && it.fish) {
+        m = flatItem(swingArm());
+        return fx('fishing_rod_cast');
       }
       if (using === 'trident') {
         // Wound back over the shoulder, prongs forward, trembling once fully charged.
