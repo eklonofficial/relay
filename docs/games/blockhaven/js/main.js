@@ -1,30 +1,30 @@
 // Blockhaven bootstrap: assets, menus, input, camera, frame loop.
-import { Demo, DEMO_SEED } from './demo.js?v=munlh7vv';
-import { armorModel, armorSkinKey, ARMOR_MATERIALS, ARMOR_PIECES, elytraModel } from './data/armor.js?v=munlh7vv';
-import { TEXTURES, TEX, B, BLOCKS, DIM, DIM_NAMES, SHAPE_OF, SHAPE, props } from './data/blocks.js?v=munlh7vv';
-import { I, ITEMS } from './data/items.js?v=munlh7vv';
-import { MOBS, PROFESSIONS, playerModel, saddleModel } from './data/mobs.js?v=munlh7vv';
-import { BIOMES } from './gen/biomes.js?v=munlh7vv';
-import { generateBlockTextures } from './render/blocktex.js?v=munlh7vv';
-import { generateItemTextures, ITEM_LAYER, FX_LAYER, ITEM_LAYER_COUNT } from './render/itemtex.js?v=munlh7vv';
-import { packModel, paintModel, SKIN } from './render/mobtex.js?v=munlh7vv';
-import { buildMipChain } from './render/atlas.js?v=munlh7vv';
-import { Renderer, Batch } from './render/renderer.js?v=munlh7vv';
-import { World, UNLOADED } from './world/world.js?v=munlh7vv';
-import { createGenerator } from './gen/index.js?v=munlh7vv';
-import { Game } from './game/game.js?v=munlh7vv';
-import { Interact } from './game/interact.js?v=munlh7vv';
-import { Commands } from './game/commands.js?v=munlh7vv';
-import { GUI, HUD } from './game/ui.js?v=munlh7vv';
-import { buildIcons, hudSprites } from './game/icons.js?v=munlh7vv';
-import { Sound } from './game/audio.js?v=munlh7vv';
-import { computeEnv } from './game/env.js?v=munlh7vv';
-import { guideSections } from './game/guide.js?v=munlh7vv';
-import { listWorlds, loadWorld, saveWorld, deleteWorld } from './game/storage.js?v=munlh7vv';
-import { drawModel, rootMatrix, M } from './entity/entity.js?v=munlh7vv';
-import { itemMesh, emitItemMesh } from './entity/itemmesh.js?v=munlh7vv';
-import { Lightning } from './entity/objects.js?v=munlh7vv';
-import { compose, translation, rotationX, rotationY, rotationZ, scaling, forward, mat4 } from './core/math.js?v=munlh7vv';
+import { Demo, DEMO_SEED } from './demo.js?v=munlpvny';
+import { armorModel, armorSkinKey, ARMOR_MATERIALS, ARMOR_PIECES, elytraModel } from './data/armor.js?v=munlpvny';
+import { TEXTURES, TEX, B, BLOCKS, DIM, DIM_NAMES, SHAPE_OF, SHAPE, props } from './data/blocks.js?v=munlpvny';
+import { I, ITEMS } from './data/items.js?v=munlpvny';
+import { MOBS, PROFESSIONS, playerModel, saddleModel } from './data/mobs.js?v=munlpvny';
+import { BIOMES } from './gen/biomes.js?v=munlpvny';
+import { generateBlockTextures } from './render/blocktex.js?v=munlpvny';
+import { generateItemTextures, ITEM_LAYER, FX_LAYER, ITEM_LAYER_COUNT } from './render/itemtex.js?v=munlpvny';
+import { packModel, paintModel, SKIN } from './render/mobtex.js?v=munlpvny';
+import { buildMipChain } from './render/atlas.js?v=munlpvny';
+import { Renderer, Batch } from './render/renderer.js?v=munlpvny';
+import { World, UNLOADED } from './world/world.js?v=munlpvny';
+import { createGenerator } from './gen/index.js?v=munlpvny';
+import { Game } from './game/game.js?v=munlpvny';
+import { Interact } from './game/interact.js?v=munlpvny';
+import { Commands } from './game/commands.js?v=munlpvny';
+import { GUI, HUD } from './game/ui.js?v=munlpvny';
+import { buildIcons, hudSprites } from './game/icons.js?v=munlpvny';
+import { Sound } from './game/audio.js?v=munlpvny';
+import { computeEnv } from './game/env.js?v=munlpvny';
+import { guideSections } from './game/guide.js?v=munlpvny';
+import { listWorlds, loadWorld, saveWorld, deleteWorld } from './game/storage.js?v=munlpvny';
+import { drawModel, rootMatrix, M } from './entity/entity.js?v=munlpvny';
+import { itemMesh, emitItemMesh } from './entity/itemmesh.js?v=munlpvny';
+import { Lightning } from './entity/objects.js?v=munlpvny';
+import { compose, translation, rotationX, rotationY, rotationZ, scaling, forward, mat4 } from './core/math.js?v=munlpvny';
 
 const $ = id => document.getElementById(id);
 const SETTINGS_KEY = 'blockhaven.settings.v2';
@@ -33,9 +33,11 @@ const store = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } ca
 // Low-end machines (Chromebooks, 4-core / 4 GB devices) get lighter defaults; visuals stay the same.
 const LOW_END = /CrOS/.test(navigator.userAgent) || (navigator.deviceMemory && navigator.deviceMemory <= 4) || (navigator.hardwareConcurrency || 8) <= 4;
 const settings = Object.assign({
-  renderDistance: LOW_END ? 6 : 8, fov: 75, sensitivity: 100, brightness: 50, volume: 60, music: 40,
+  renderDistance: LOW_END ? 6 : 8, fov: 70, sensitivity: 100, brightness: 50, volume: 60, music: 40,
   bobbing: true, clouds: true, autoJump: true, particles: true, dynamicRes: true, graphics: LOW_END ? 1 : 2,
 }, load(SETTINGS_KEY) || {});
+// Minecraft's default FOV is 70; move anyone still on our old default (75) over once.
+if (!settings.fovMigrated) { if (settings.fov === 75) settings.fov = 70; settings.fovMigrated = true; store(SETTINGS_KEY, settings); }
 const SPLASHES = ['Now with the Nether!', 'Also try the End!', 'Creepers included!', '60 mobs!', 'Villagers will trade!', 'Wild worlds are wild!', 'Every pixel procedural!', 'Craft everything!', 'Spectator mode!', 'Runs on Chromebooks!', 'Mind the lava!', 'Floating islands!'];
 
 const smooth = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
@@ -534,6 +536,9 @@ class App {
     this.adaptResolution(realDt);
     const dpr = Math.min(window.devicePixelRatio || 1, LOW_END ? 1 : 2) * this.renderScale;
     this.renderer.resize(Math.floor(window.innerWidth * dpr), Math.floor(window.innerHeight * dpr));
+    // GUI scale like Minecraft's "Auto": the largest whole scale that keeps a 320x240 GUI on screen.
+    const gs = Math.max(1, Math.min(4, Math.floor(Math.min(window.innerWidth / 320, window.innerHeight / 240))));
+    if (gs !== this.guiScale) { this.guiScale = gs; document.documentElement.style.setProperty('--gs', gs); }
     if (!this.game) { this.framePanorama(dt); return; }
     this.frameGame(dt);
   }

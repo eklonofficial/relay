@@ -1,6 +1,6 @@
 // Procedural 16x16 block textures. Every name registered in data/blocks.js must be drawable here.
-import { Painter, ramp, shade, mixHex, hex } from './paint.js?v=munlh7vv';
-import { TEXTURES, COLORS } from '../data/blocks.js?v=munlh7vv';
+import { Painter, ramp, shade, mixHex, hex } from './paint.js?v=munlpvny';
+import { TEXTURES, COLORS } from '../data/blocks.js?v=munlpvny';
 
 const N = 16;
 
@@ -188,6 +188,18 @@ function oreOn(p, baseFn, colors) {
 }
 
 const toWhite = (hex, t) => { const n = parseInt(hex.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255].map(c => Math.round(c + (255 - c) * t)); };
+// Assigns palette colours by rank of a noise field, so the colour proportions are exact.
+function byRank(p, pal, cluster, after) {
+  const vn = p.valueNoise(3), vals = [];
+  for (let i = 0; i < N * N; i++) vals.push([(1 - cluster) * p.r() + cluster * vn(i % N, i / N | 0), i]);
+  vals.sort((a, b) => a[0] - b[0]);
+  const total = pal.reduce((a, c) => a + c[1], 0);
+  let k = 0, acc = pal[0][1] / total * N * N;
+  vals.forEach(([, i], r) => { while (r >= acc && k < pal.length - 1) { k++; acc += pal[k][1] / total * N * N; } p.put(i % N, i / N | 0, pal[k][0]); });
+  if (after) after();
+  return p;
+}
+function erfinv(x) { const a = 0.147, l = Math.log(1 - x * x), t = 2 / (Math.PI * a) + l / 2; return Math.sign(x) * Math.sqrt(Math.sqrt(t * t - l / a) - t); }
 function mineral(p, base, style) {
   const r = ramp(base, 0.12);
   p.noise(r.slice(1), { clump: 3, grain: 0.2 });
@@ -388,12 +400,8 @@ const G = {
   polished_basalt_top: p => polished(p, '#5a5a62'),
   magma_block: p => { p.noise(['#3a1409', '#4d1d0c', '#62250f'], { clump: 4, grain: 0.3 }); const vn = p.valueNoise(5); for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) { const v = vn(x, y); if (v > 0.47 && v < 0.53) p.put(x, y, '#ff8f1f'); else if (v > 0.44 && v < 0.56) p.put(x, y, '#c9480f'); } return p; },
   // dirt family
-  dirt: p => {
-    p.noise(['#6c4b33', '#866043', '#8e6848', '#79553a'], { clump: 3, grain: 0.6 });
-    p.speck(['#593d29', '#4f3524'], 16); p.speck(['#b9855c', '#a8794f'], 12);
-    for (let k = 0; k < 5; k++) { const x = p.rand(N), y = p.rand(N); p.wrapPut(x, y, p.pick(['#7a7a7a', '#8e8e8e', '#6a6a6a'])); } // little stones
-    return p;
-  },
+  // Four browns in the classic proportions, loosely clustered, plus a few grey pebbles.
+  dirt: p => byRank(p, [['#593d29', 34], ['#79553a', 107], ['#966c4a', 68], ['#b9855c', 39]], 0.3, () => { for (let k = 0; k < 7; k++) p.put(p.rand(N), p.rand(N), k % 2 ? '#878787' : '#6c6c6c'); }),
   coarse_dirt: p => { G.dirt(p); return p.speck(['#5a5a5a', '#747474', '#4a3526'], 22); },
   rooted_dirt: p => { G.dirt(p); for (let k = 0; k < 5; k++) { let x = p.rand(N), y = p.rand(N); for (let i = 0; i < 5; i++) { p.wrapPut(x, y, '#a88a64'); x += p.rand(3) - 1; y++; } } return p; },
   mud: p => p.noise(['#2f2a2c', '#3a3438', '#443d41', '#4e464a'], { clump: 4, grain: 0.3 }),
@@ -403,12 +411,21 @@ const G = {
   podzol_side: p => { G.dirt(p); for (let x = 0; x < N; x++) { const d = 2 + p.rand(3); for (let y = 0; y < d; y++) p.put(x, y, p.pick(['#5b3d1f', '#6d4a27', '#7a5530'])); } return p; },
   mycelium_top: p => { p.noise(['#6a5c64', '#76686f', '#82737b', '#5d5057'], { clump: 4, grain: 0.4 }); return p.speck(['#9d8c96', '#b8a8b2'], 12); },
   mycelium_side: p => { G.dirt(p); for (let x = 0; x < N; x++) { const d = 3 + p.rand(2); for (let y = 0; y < d; y++) p.put(x, y, p.pick(['#6a5c64', '#76686f', '#82737b'])); } return p; },
-  grass_block_top: p => { p.noise(['#7a7a7a', '#8a8a8a', '#979797', '#a6a6a6', '#b2b2b2'], { clump: 5, grain: 0.5 }); return p.tintMark(); },
+  // Fine per-pixel grey noise (tinted by the biome): a bell curve of ~60 shades around 145.
+  grass_block_top: p => {
+    const vn = p.valueNoise(3), vals = [];
+    for (let i = 0; i < N * N; i++) vals.push([0.78 * p.r() + 0.22 * vn(i % N, i / N | 0), i]);
+    vals.sort((a, b) => a[0] - b[0]);
+    vals.forEach(([, i], r) => { const q = (r + 0.5) / (N * N); const z = Math.sqrt(2) * erfinv(2 * q - 1); const g = Math.max(112, Math.min(195, Math.round(145 + z * 17))); p.put(i % N, i / N | 0, [g, g, g]); });
+    return p.tintMark();
+  },
   grass_block_side: p => {
     G.dirt(p);
+    // A ragged 1-4 pixel fringe of grass, each column on its own, with a shadow row under it.
     for (let x = 0; x < N; x++) {
-      const d = 2 + (p.chance(0.55) ? 1 : 0) + (p.chance(0.35) ? 1 : 0) + (p.chance(0.18) ? 2 : 0);
-      for (let y = 0; y < d; y++) p.put(x, y, y === d - 1 ? '#7a7a7a' : p.pick(['#8a8a8a', '#979797', '#a6a6a6']), 254);
+      const r = p.r(), d = r < 0.08 ? 1 : r < 0.33 ? 2 : r < 0.8 ? 3 : 4;
+      for (let y = 0; y < d; y++) { const g = y === d - 1 && p.chance(0.4) ? 125 + p.rand(20) : 145 + p.rand(34); p.put(x, y, [g, g, g], 254); }
+      if (p.chance(0.55)) p.put(x, d, '#593d29');
     }
     return p;
   },
