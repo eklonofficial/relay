@@ -4,9 +4,9 @@
 // state to the others, who draw a "puppet" copy. Hitting a puppet, picking up a puppet item or
 // right-clicking a puppet mob is forwarded to the owner. When the owner wanders off (or leaves)
 // the entity is handed to a player who is still near it, so the world keeps working for everyone.
-import { Mob } from '../entity/mob.js?v=muo2aap4';
-import { ItemEntity, XpOrb, Projectile, FallingBlock, PrimedTnt } from '../entity/objects.js?v=muo2aap4';
-import { EndCrystal } from '../entity/crystal.js?v=muo2aap4';
+import { Mob } from '../entity/mob.js?v=muo2mobr';
+import { ItemEntity, XpOrb, Projectile, FallingBlock, PrimedTnt } from '../entity/objects.js?v=muo2mobr';
+import { EndCrystal } from '../entity/crystal.js?v=muo2mobr';
 
 const SHARE_R = 96; // entities this close to another player are streamed to them
 const HAND_R = 48; // an entity this close to another player (and far from us) is handed over
@@ -49,6 +49,8 @@ function state(e, k) {
     if (e.fuse > 0) s.fu = r2(e.fuse);
     if (e.def.kind === 'boss' || e.health < e.maxHealth) s.h = r2(e.health);
     if (e.woolColor) s.wc = e.woolColor;
+    const lz = e.def.laser && e.laserInfo && e.laserInfo();
+    if (lz) s.lz = [...lz.to.map(r2), r2(lz.prog)];
   } else if (k === 'proj') { s.y = r2(e.yaw); s.pi = r2(e.pitch); s.v = e.vel.map(r2); if (e.inGround) s.g = 1; }
   else if (k === 'tnt') s.fu = r2(e.fuse);
   else if (k === 'item') s.c = e.stack.count;
@@ -241,6 +243,7 @@ export class EntitySync {
       e.swing = s.sw || Math.max(0, e.swing - dt * 3);
       e.fuse = s.fu || 0;
       if (s.wc) e.woolColor = s.wc;
+      if (s.lz) { e.laserTgt = s.lz.slice(0, 3); e.laserProg = s.lz[3]; } else e.laserTgt = null;
       if (s.h !== undefined) e.health = s.h;
       if (s.dt) { if (!dying) { e.deathT = 0.001; g.sound.mob(e.mobType, 'death', e.pos, e); } else e.deathT += dt; }
       if (!wasHurt && e.hurtT > 0 && !s.dt) g.sound.mob(e.mobType, 'hurt', e.pos, e);

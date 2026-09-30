@@ -1,6 +1,6 @@
 // Mob roster: stats, AI archetype, drops, box models and procedural skins.
 // Model space: 1 unit = 1/16 block, feet at y=0, the mob faces -Z.
-import { D, pal, shade as shadeHex } from '../render/mobtex.js?v=muo2aap4';
+import { D, pal, shade as shadeHex } from '../render/mobtex.js?v=muo2mobr';
 
 const box = (o, s, style, extra = {}) => ({ o, s, style, ...extra });
 const part = (pivot, boxes, extra = {}) => ({ pivot, boxes, ...extra });
@@ -227,6 +227,21 @@ mob('cod', { hw: 0.25, h: 0.3, health: 3, speed: 2.5, kind: 'water', ai: 'fish',
 mob('salmon', { hw: 0.35, h: 0.4, health: 3, speed: 2.8, kind: 'water', ai: 'fish', swim: true, egg: ['#a00f10', '#0e8474'], drops: [['salmon', 1, 1]], cooked: { salmon: 'cooked_salmon' }, xp: [1, 3], sound: 'fish', model: fishModel('#a83a3a', '#6a8a9a', 10, 5) });
 mob('tropical_fish', { hw: 0.25, h: 0.4, health: 3, speed: 2.5, kind: 'water', ai: 'fish', swim: true, egg: ['#ef6915', '#fff9ef'], drops: [['tropical_fish', 1, 1]], xp: [1, 3], sound: 'fish', model: () => { const m = fishModel('#f07a2a', '#ffffff', 6, 5)(); m.parts.body.boxes[0].style = S('#f07a2a', 'noise', { all: D.stripes('#ffffff', 3, true) }); return m; } });
 mob('pufferfish', { hw: 0.35, h: 0.6, health: 3, speed: 1.5, kind: 'water', ai: 'fish', swim: true, attack: { dmg: 2, cd: 1, poison: 3, touch: true }, egg: ['#f6b201', '#37c3f2'], drops: [['pufferfish', 1, 1]], xp: [1, 3], sound: 'fish', model: () => ({ anim: 'fish', eye: 4, parts: { body: part([0, 0, 0], [box([-4, 0, -4], [8, 8, 8], S('#d8c030', 'noise', { all: D.spots('#6a5a1a', 8, 1), front: D.all(D.spots('#6a5a1a', 4, 1), eyes({ c: '#1a1a1a', pupil: null, y: 0.35 })) }))]), tail: part([0, 4, 4], [box([0, -2, 0], [0.01, 4, 3], S('#d8c030'))]) } }) });
+// Guardians: a spiked, one-eyed box with a three-segment tail that fires a charging laser.
+const guardianModel = (col, spike, eyeC) => () => {
+  const body = S(col, 'noise', { front: D.all(D.rect(0.33, 0.33, 0.34, 0.34, '#f0ecd8'), D.rect(0.42, 0.42, 0.16, 0.16, eyeC)), all: D.spots(shadeHex(col, 0.8), 10, 1) }, 0.1);
+  const sp = S(spike, 'flat');
+  const spikes = [[[-1, 12.8, -1], [2, 4, 2]], [[-1, -3.2, -1], [2, 4, 2]], [[6, 5.8, -1], [4, 2, 2]], [[-10, 5.8, -1], [4, 2, 2]], [[-1, 5.8, -12], [2, 2, 4]],
+    [[4.5, 11.3, -6.5], [2, 3, 2]], [[-6.5, 11.3, -6.5], [2, 3, 2]], [[4.5, 11.3, 4.5], [2, 3, 2]], [[-6.5, 11.3, 4.5], [2, 3, 2]], [[4.5, -1.5, -6.5], [2, 3, 2]], [[-6.5, -1.5, 4.5], [2, 3, 2]]];
+  return {
+    anim: 'fish', eye: 7, parts: {
+      body: part([0, 0, 0], [box([-6, 0.8, -8], [12, 12, 16], body), ...spikes.map(([o, s]) => box(o, s, sp))]),
+      tail: part([0, 6.8, 8], [box([-2, -2, 0], [4, 4, 8], S(col)), box([-1.5, -1.5, 8], [3, 3, 7], S(col)), box([-1, -1, 15], [2, 2, 6], S(col)), box([0, -4.5, 19], [0.01, 9, 6], S(spike))]),
+    },
+  };
+};
+mob('guardian', { hw: 0.43, h: 0.85, health: 30, speed: 4, kind: 'hostile', ai: 'guardian', swim: true, amphibious: true, laser: { dmg: 6, time: 4 }, egg: ['#5a8272', '#f17d30'], drops: [['prismarine_shard', 0, 2], ['cod', 0, 1], ['prismarine_crystals', 0, 1, 0.4]], xp: [8, 10], sound: 'squid', model: guardianModel('#5a8a7a', '#d8cfb8', '#e07a2a') });
+mob('elder_guardian', { hw: 1.0, h: 2.0, scale: 2.35, health: 80, speed: 2.5, kind: 'hostile', ai: 'guardian', swim: true, amphibious: true, persistent: true, elder: true, laser: { dmg: 8, time: 3 }, egg: ['#ceccba', '#747693'], drops: [['wet_sponge', 1, 1], ['prismarine_shard', 0, 2], ['cod', 0, 1]], xp: [10, 10], sound: 'squid', model: guardianModel('#c8c4b0', '#8a86a0', '#8a6ab8') });
 mob('dolphin', {
   hw: 0.45, h: 0.6, health: 10, speed: 5, kind: 'water', ai: 'swimmer', swim: true, breathes: true, egg: ['#223b4d', '#f9f9f9'], drops: [['cod', 0, 1]], xp: [1, 3], sound: 'dolphin',
   model: () => ({
