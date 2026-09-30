@@ -1,7 +1,7 @@
 // First-person player movement: walking, sprinting, sneaking, swimming, climbing, flying and spectating.
-import { B, BLOCKS, SHAPE_OF, SHAPE, props } from '../data/blocks.js?v=munlblf6';
-import { moveEntity } from '../entity/physics.js?v=munlblf6';
-import { UNLOADED } from '../world/world.js?v=munlblf6';
+import { B, BLOCKS, SHAPE_OF, SHAPE, props } from '../data/blocks.js?v=munlh7vv';
+import { moveEntity } from '../entity/physics.js?v=munlh7vv';
+import { UNLOADED } from '../world/world.js?v=munlh7vv';
 
 export class Player {
   constructor(world) {

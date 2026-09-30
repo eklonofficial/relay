@@ -1,6 +1,6 @@
 // Procedural 16x16 block textures. Every name registered in data/blocks.js must be drawable here.
-import { Painter, ramp, shade, mixHex, hex } from './paint.js?v=munlblf6';
-import { TEXTURES, COLORS } from '../data/blocks.js?v=munlblf6';
+import { Painter, ramp, shade, mixHex, hex } from './paint.js?v=munlh7vv';
+import { TEXTURES, COLORS } from '../data/blocks.js?v=munlh7vv';
 
 const N = 16;
 
@@ -65,7 +65,7 @@ function cobble(p, base, moss) {
     const [px, py] = pts[id];
     const dx = x + 0.5 - px, dy = y + 0.5 - py;
     let c;
-    if (edge < 0.9) c = shade(base, 0.6);
+    if (edge < 0.9) c = shade(base, 0.7);
     else {
       c = shade(base, shadesArr[id] * 1.08);
       if (edge < 1.8 && (dx > 0 || dy > 0)) c = shade(c, 0.84);          // shadowed lower-right rim
@@ -176,7 +176,7 @@ function oreOn(p, baseFn, colors) {
   const quads = [[1, 1], [8, 1], [1, 8], [8, 8], [4, 5]].slice(0, 4 + p.rand(2));
   for (const [qx, qy] of quads) {
     const cx = qx + 1 + p.rand(4), cy = qy + 1 + p.rand(4);
-    const cells = [[0, 0], [1, 0], [0, 1], [1, 1], [-1, 0], [2, 1], [1, 2], [0, -1], [2, 0], [-1, 1]].slice(0, 5 + p.rand(5));
+    const cells = [[0, 0], [1, 0], [0, 1], [1, 1], [-1, 0], [2, 1], [1, 2], [0, -1], [2, 0], [-1, 1], [2, 2], [3, 1], [0, 2]].slice(0, 7 + p.rand(6));
     const set = new Set(cells.map(([a, b]) => a + ',' + b));
     for (const [dx, dy] of cells) {
       const lit = !set.has((dx - 1) + ',' + dy) && !set.has(dx + ',' + (dy - 1));
@@ -187,11 +187,16 @@ function oreOn(p, baseFn, colors) {
   return p;
 }
 
+const toWhite = (hex, t) => { const n = parseInt(hex.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255].map(c => Math.round(c + (255 - c) * t)); };
 function mineral(p, base, style) {
   const r = ramp(base, 0.12);
   p.noise(r.slice(1), { clump: 3, grain: 0.2 });
   if (style === 'lines') for (let y = 1; y < N; y += 4) p.hline(1, y, 14, r[3]);
-  if (style === 'facets') for (let i = 0; i < 16; i++) { p.put(i, (i * 2) % 16, r[3]); p.put((i * 3) % 16, i, r[0]); }
+  if (style === 'facets' || style === 'shiny') {
+    // Polished metal/gem: smooth fill with diagonal glints, like light catching a cut face.
+    p.noise([r[1], r[2], r[2]], { clump: 5, grain: 0.1 });
+    for (const [x0, y0, len] of [[3, 2, 5], [9, 5, 4], [4, 9, 6], [11, 11, 3]]) for (let i = 0; i < len; i++) { p.wrapPut(x0 + i, y0 + i, toWhite(base, 0.55)); p.wrapPut(x0 + i + 1, y0 + i, toWhite(base, 0.3)); }
+  }
   if (style === 'dots') p.speck([r[0], r[3]], 18);
   p.bevel(shade(base, 1.25), shade(base, 0.62));
   return p;
@@ -312,6 +317,7 @@ function glassTex(p, border, inside, alphaIn) {
 
 function sandstoneSide(p, base, top) {
   p.noise(ramp(base, 0.05).slice(1), { clump: 3, grain: 0.3 });
+  for (let y = 4; y < 11; y++) for (let x = 0; x < N; x++) if (Math.sin(x * 0.9 + y * 1.7) + Math.sin(x * 0.4 - y * 1.1) > 1.1) p.put(x, y, shade(base, 0.9));
   for (let x = 0; x < N; x++) {
     for (let y = 0; y < 3; y++) p.put(x, y, shade(top, p.chance(0.2) ? 0.95 : 1));
     p.put(x, 3, shade(base, 0.85));
@@ -337,10 +343,15 @@ const skull = (p, pal) => { p.noise(pal, { clump: 2, grain: 0.25 }); return p; }
 const skullFace = (p, dark) => { p.rect(5, 7, 2, 2, dark); p.rect(9, 7, 2, 2, dark); p.rect(7, 9, 2, 1, dark); for (let x = 5; x < 11; x += 2) p.rect(x, 11, 1, 1, dark); return p; };
 const G = {
   // stones
-  stone: p => stoneLike(p, '#7d7d7d', { streak: '#6a6a6a' }),
+  stone: p => {
+    stoneLike(p, '#7d7d7d', { spread: 0.1, clump: 3, grain: 0.35 });
+    // Horizontal streaks of lighter and darker stone, like the original's strata.
+    for (let k = 0; k < 9; k++) { const x = p.rand(N), y = p.rand(N), l = 2 + p.rand(4), c = k % 3 === 0 ? '#9a9a9a' : k % 3 === 1 ? '#686868' : '#747474'; for (let i = 0; i < l; i++) p.wrapPut(x + i, y, c); if (l > 3) p.wrapPut(x + 1, y + 1, c); }
+    return p;
+  },
   granite: p => stoneLike(p, '#9a6b57', { specks: ['#c49a86', '#6e4a3c', '#b0806c'] }),
   polished_granite: p => polished(p, '#9e6b58'),
-  diorite: p => stoneLike(p, '#bcbcbc', { spread: 0.08, specks: ['#7f7f7f', '#e8e8e8', '#9c9c9c', '#dcdcdc'] }),
+  diorite: p => { p.noise(['#8e8e8e', '#a8a8a8', '#d0d0d0', '#e6e6e6', '#f4f4f4'], { clump: 2, grain: 0.7 }); return p.speck(['#6e6e6e', '#ffffff'], 10); },
   polished_diorite: p => polished(p, '#c2c2c4'),
   andesite: p => stoneLike(p, '#888889', { specks: ['#a5a5a6', '#6b6b6c'] }),
   polished_andesite: p => polished(p, '#848687'),
@@ -358,7 +369,11 @@ const G = {
   cobblestone: p => cobble(p, '#808080'),
   mossy_cobblestone: p => cobble(p, '#7a7a7a', true),
   bedrock: p => p.noise(['#1f1f1f', '#3b3b3b', '#575757', '#7a7a7a'], { clump: 5, grain: 0.55 }),
-  obsidian: p => { p.noise(['#0d0a14', '#15101f', '#1c1530', '#231a3a'], { clump: 4, grain: 0.35 }); return p.speck(['#3b2a63', '#4d3a82'], 7); },
+  obsidian: p => {
+    p.noise(['#0d0a14', '#130e1c', '#191226', '#1e1630'], { clump: 4, grain: 0.3 });
+    for (let k = 0; k < 7; k++) { let x = p.rand(N), y = p.rand(N); const c = p.pick(['#2e2150', '#3b2a63', '#4a3780']); for (let i = 0; i < 3 + p.rand(4); i++) { p.wrapPut(x, y, c); x += p.rand(2); y += p.chance(0.5) ? 1 : 0; } }
+    return p.speck(['#5a4596'], 4);
+  },
   crying_obsidian: p => { G.obsidian(p); return p.speck(['#8a2be2', '#b35cff', '#d08cff'], 12); },
   netherrack: p => { p.noise(['#4f1f1f', '#6b2a2a', '#7a3333', '#8d3d3a'], { clump: 5, grain: 0.35 }); return p.speck(['#a65151', '#3f1717'], 10); },
   end_stone: p => { p.noise(['#cfd29a', '#dbde9f', '#e3e6ae', '#c5c88e'], { clump: 4, grain: 0.3 }); return p.speck(['#b7ba7e', '#eef0c4'], 12); },
@@ -373,7 +388,12 @@ const G = {
   polished_basalt_top: p => polished(p, '#5a5a62'),
   magma_block: p => { p.noise(['#3a1409', '#4d1d0c', '#62250f'], { clump: 4, grain: 0.3 }); const vn = p.valueNoise(5); for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) { const v = vn(x, y); if (v > 0.47 && v < 0.53) p.put(x, y, '#ff8f1f'); else if (v > 0.44 && v < 0.56) p.put(x, y, '#c9480f'); } return p; },
   // dirt family
-  dirt: p => { p.noise(['#79553a', '#866043', '#8e6848', '#7d5a3d'], { clump: 2, grain: 0.55 }); p.speck(['#593d29', '#5f422c'], 14); return p.speck(['#b9855c', '#a8794f'], 10); },
+  dirt: p => {
+    p.noise(['#6c4b33', '#866043', '#8e6848', '#79553a'], { clump: 3, grain: 0.6 });
+    p.speck(['#593d29', '#4f3524'], 16); p.speck(['#b9855c', '#a8794f'], 12);
+    for (let k = 0; k < 5; k++) { const x = p.rand(N), y = p.rand(N); p.wrapPut(x, y, p.pick(['#7a7a7a', '#8e8e8e', '#6a6a6a'])); } // little stones
+    return p;
+  },
   coarse_dirt: p => { G.dirt(p); return p.speck(['#5a5a5a', '#747474', '#4a3526'], 22); },
   rooted_dirt: p => { G.dirt(p); for (let k = 0; k < 5; k++) { let x = p.rand(N), y = p.rand(N); for (let i = 0; i < 5; i++) { p.wrapPut(x, y, '#a88a64'); x += p.rand(3) - 1; y++; } } return p; },
   mud: p => p.noise(['#2f2a2c', '#3a3438', '#443d41', '#4e464a'], { clump: 4, grain: 0.3 }),
@@ -400,7 +420,7 @@ const G = {
   dirt_path_side: p => { G.dirt(p); for (let x = 0; x < N; x++) { p.put(x, 0, '#9a8049'); p.put(x, 1, '#8d7542'); if (p.chance(0.5)) p.put(x, 2, '#7f6a3a'); } p.rect(0, 0, 16, 1, '#000000', 0); return p.bleed(); },
   sand: p => { p.noise(['#d2c994', '#dbd3a0', '#e3dbad', '#ece4b8'], { clump: 4, grain: 0.45 }); return p.speck(['#c7bd83'], 6); },
   red_sand: p => { p.noise(['#a4531d', '#b05b21', '#bd6427', '#c46c2f'], { clump: 4, grain: 0.45 }); return p.speck(['#8f4617'], 6); },
-  gravel: p => { p.noise(['#6f6a68', '#7d7875', '#8a8583', '#968f8c'], { clump: 3, grain: 0.35 }); for (let k = 0; k < 16; k++) { const x = p.rand(N), y = p.rand(N), c = p.pick(['#a8a09a', '#5f5a58', '#9d9896', '#6b6360', '#b3aca6']); p.wrapPut(x, y, c); p.wrapPut(x + 1, y, c); p.wrapPut(x, y + 1, shade(c, 0.85)); } return p; },
+  gravel: p => { p.noise(['#62605e', '#7d7875', '#8a8583', '#a29c99'], { clump: 2, grain: 0.5 }); for (let k = 0; k < 24; k++) { const x = p.rand(N), y = p.rand(N), c = p.pick(['#a8a09a', '#5f5a58', '#9d9896', '#6b6360', '#b3aca6']); p.wrapPut(x, y, c); p.wrapPut(x + 1, y, c); p.wrapPut(x, y + 1, shade(c, 0.85)); } return p; },
   soul_sand: p => { p.noise(['#3d2e25', '#4a382c', '#554134', '#5e4a3b'], { clump: 4, grain: 0.4 }); for (let k = 0; k < 4; k++) { const x = 2 + p.rand(11), y = 2 + p.rand(11); p.put(x, y, '#2a1e18'); p.put(x + 2, y, '#2a1e18'); p.hline(x, y + 2, 3, '#2a1e18'); } return p; },
   soul_soil: p => p.noise(['#3a2c24', '#44342a', '#4d3b30', '#574436'], { clump: 5, grain: 0.35 }),
   moss_block: p => p.noise(['#4e6b25', '#597a2b', '#648a31', '#6f9837'], { clump: 5, grain: 0.4 }),
@@ -478,7 +498,14 @@ const G = {
   crafting_table_front: p => { G.crafting_table_side(p); p.rect(4, 8, 8, 5, '#6e5433'); p.rect(5, 9, 2, 3, '#c0c0c0'); p.rect(9, 9, 2, 3, '#c0c0c0'); return p; },
   furnace_side: p => { stoneLike(p, '#737373', { spread: 0.08 }); p.frame(0, 0, 16, 16, '#5a5a5a'); return p; },
   furnace_top: p => { G.furnace_side(p); p.frame(2, 2, 12, 12, '#5f5f5f'); return p; },
-  furnace_front: p => { G.furnace_side(p); p.rect(3, 8, 10, 6, '#2a2a2a'); p.frame(3, 8, 10, 6, '#4a4a4a'); p.rect(4, 3, 8, 2, '#4a4a4a'); return p; },
+  furnace_front: p => {
+    G.furnace_side(p);
+    const arch = (y0, h, dark, rim) => { for (let y = y0; y < y0 + h; y++) for (let x = 3; x < 13; x++) { const inset = y === y0 ? 2 : y === y0 + 1 ? 1 : 0; if (x < 3 + inset || x > 12 - inset) continue; const edge = x === 3 + inset || x === 12 - inset || y === y0 || y === y0 + h - 1; p.put(x, y, edge ? rim : dark); } };
+    arch(2, 5, '#3a3a3a', '#555555');
+    arch(9, 5, '#1c1c1c', '#454545');
+    p.hline(3, 8, 10, '#5e5e5e');
+    return p;
+  },
   furnace_front_on: p => { G.furnace_front(p); p.rect(4, 9, 8, 4, '#3a1a08'); p.rect(5, 11, 6, 2, '#ff8f1f'); p.rect(6, 10, 4, 1, '#ffd24a'); p.put(7, 9, '#fff3a0'); return p; },
   chest_top: p => { planks(p, '#a1742e'); p.frame(0, 0, 16, 16, '#4a3312'); p.frame(1, 1, 14, 14, '#6e4f1f'); return p; },
   chest_side: p => { planks(p, '#a1742e'); p.frame(0, 0, 16, 16, '#4a3312'); p.hline(0, 5, 16, '#4a3312'); return p; },
@@ -627,7 +654,7 @@ function family(name, p) {
   if (name === 'ancient_debris_top') { p.noise(['#4a3a33', '#5a4840'], { clump: 3 }); for (let r = 1; r < 8; r += 2) p.frame(7 - r, 7 - r, r * 2 + 2, r * 2 + 2, '#3a2d27'); return p; }
   if ((m = name.match(/^block_(\w+)$/)) || (m = name.match(/^(coal|iron|gold|diamond|emerald|lapis|redstone|copper|amethyst|quartz|netherite|raw_iron|raw_gold|raw_copper)_block$/))) {
     const [c, style] = {
-      coal: ['#1a1a1a', 'dots'], iron: ['#d8d8d8', 'lines'], gold: ['#f5d53a', 'lines'], diamond: ['#5decf5', 'facets'], emerald: ['#2ac760', 'facets'],
+      coal: ['#1a1a1a', 'dots'], iron: ['#d8d8d8', 'lines'], gold: ['#f5d53a', 'shiny'], diamond: ['#5decf5', 'facets'], emerald: ['#2ac760', 'facets'],
       lapis: ['#2250b8', 'dots'], redstone: ['#b50f0f', 'dots'], copper: ['#c06a4a', 'lines'], amethyst: ['#8a5ad0', 'facets'], quartz: ['#ece6dc', ''],
       netherite: ['#3a3438', 'lines'], raw_iron: ['#b88a6c', 'dots'], raw_gold: ['#e0b52a', 'dots'], raw_copper: ['#b8613a', 'dots'],
     }[m[1]];
@@ -700,13 +727,20 @@ function CRACKS() {
 // Our generators are original; this only nudges each one's overall colour onto the familiar
 // look while keeping its own pixel detail.
 const REF_AVG = {
-  stone: [125, 125, 125], cobblestone: [122, 122, 122], dirt: [134, 96, 67], planks_oak: [162, 130, 78], log_oak: [109, 85, 50], log_oak_top: [151, 122, 73],
-  sand: [219, 211, 160], gravel: [131, 127, 126], bricks: [151, 98, 83], sandstone: [216, 203, 155], deepslate: [80, 80, 83], netherrack: [97, 38, 38],
-  end_stone: [219, 222, 158], obsidian: [15, 11, 25], ore_coal: [115, 115, 115], ore_iron: [136, 129, 123], ore_diamond: [125, 142, 141], ore_gold: [143, 140, 125],
-  snow: [249, 254, 254], clay: [160, 167, 179], terracotta: [152, 94, 67], planks_spruce: [114, 84, 48], planks_birch: [192, 175, 121], log_birch: [216, 215, 210],
-  stone_bricks: [122, 121, 122], bookshelf: [117, 94, 59], furnace_front: [110, 110, 110], crafting_table_top: [120, 73, 42],
-  soul_sand: [81, 62, 50], ice: [145, 183, 253], packed_ice: [141, 180, 250], quartz_block: [235, 229, 222], prismarine: [99, 156, 151],
-  mycelium_top: [111, 98, 101], podzol_top: [91, 63, 24],
+  stone: [126, 126, 126], cobblestone: [128, 127, 128], dirt: [134, 96, 67], planks_oak: [162, 131, 79], log_oak: [109, 85, 51], log_oak_top: [151, 122, 73],
+  sand: [219, 207, 163], gravel: [132, 127, 127], bricks: [151, 98, 83], sandstone: [216, 203, 156], deepslate: [80, 80, 83], netherrack: [98, 38, 38],
+  end_stone: [220, 223, 158], obsidian: [15, 11, 25], ore_coal: [106, 106, 105], ore_iron: [136, 129, 123], ore_diamond: [121, 141, 141], ore_gold: [145, 134, 107],
+  snow: [249, 254, 254], clay: [161, 166, 179], terracotta: [152, 94, 68], planks_spruce: [115, 85, 49], planks_birch: [192, 175, 121], log_birch: [217, 215, 210],
+  stone_bricks: [122, 122, 122], bookshelf: [117, 95, 60], furnace_front: [92, 91, 91], crafting_table_top: [120, 73, 42], soul_sand: [81, 62, 51], ice: [146, 184, 254],
+  packed_ice: [142, 180, 250], quartz_block: [236, 230, 223], prismarine: [99, 162, 146], mycelium_top: [111, 99, 101], podzol_top: [92, 63, 24], log_spruce: [59, 38, 17],
+  planks_jungle: [160, 115, 81], planks_acacia: [168, 90, 50], planks_dark_oak: [67, 43, 20], log_dark_oak: [60, 47, 26], log_jungle: [85, 68, 25], log_acacia: [103, 97, 87],
+  red_sand: [191, 103, 33], ore_redstone: [140, 110, 110], ore_lapis: [107, 118, 141], ore_emerald: [108, 136, 116], ore_copper: [125, 126, 120], mossy_cobblestone: [110, 119, 95],
+  andesite: [136, 136, 137], diorite: [189, 188, 189], granite: [149, 103, 86], calcite: [223, 224, 221], tuff: [108, 109, 103], blackstone: [42, 36, 41],
+  basalt_side: [73, 73, 78], crying_obsidian: [33, 10, 60], nether_bricks: [44, 22, 26], end_stone_bricks: [218, 224, 162], purpur_block: [170, 126, 170], mud: [60, 57, 61],
+  coarse_dirt: [119, 86, 59], iron_block: [220, 220, 220], gold_block: [246, 208, 62], diamond_block: [98, 237, 228], emerald_block: [42, 203, 88], lapis_block: [31, 67, 140],
+  coal_block: [16, 16, 16], hay_block_side: [166, 136, 38], pumpkin_side: [196, 115, 24], melon_side: [114, 146, 30], smooth_stone: [159, 159, 159], mossy_stone_bricks: [115, 121, 105],
+  cracked_stone_bricks: [118, 118, 118], dripstone_block: [134, 108, 93], amethyst_block: [134, 98, 191], magma_block: [142, 63, 31], bone_block_side: [229, 226, 208], soul_soil: [76, 58, 47],
+  planks_cherry: [227, 179, 173], planks_mangrove: [118, 54, 49],
 };
 function calibrate(d, ref) {
   let r = 0, g = 0, b = 0, n = 0;
