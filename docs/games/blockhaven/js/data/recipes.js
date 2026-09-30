@@ -1,6 +1,6 @@
 // Crafting (shaped / shapeless) and smelting recipes, with ingredient tags.
-import { WOODS, COLORS, SHAPED_MATERIALS } from './blocks.js?v=muo7rynu';
-import { I } from './items.js?v=muo7rynu';
+import { WOODS, COLORS, SHAPED_MATERIALS } from './blocks.js?v=muok06n3';
+import { I } from './items.js?v=muok06n3';
 
 const has = k => !!I[k];
 export const TAGS = {
@@ -95,6 +95,26 @@ shaped(['NNN', 'NTN', 'NNN'], { N: 'iron_nugget', T: 'soul_torch' }, 'soul_lante
 shaped(['XXX', 'X X', 'XXX'], { X: '#stone_tool' }, 'furnace');
 shaped(['GSG', 'SGS', 'GSG'], { G: 'gunpowder', S: '#sand' }, 'tnt');
 shaped(['I I', 'I#I', 'I I'], { I: 'iron_ingot', '#': 'stick' }, 'rail', 16);
+// ---- redstone ----
+shaped(['R', '#'], { R: 'redstone', '#': 'stick' }, 'redstone_torch');
+shaped(['TRT', 'SSS'], { T: 'redstone_torch', R: 'redstone', S: 'stone' }, 'repeater');
+shaped([' T ', 'TQT', 'SSS'], { T: 'redstone_torch', Q: 'quartz', S: 'stone' }, 'comparator');
+shaped(['#', 'C'], { '#': 'stick', C: 'cobblestone' }, 'lever');
+shapeless(['stone'], 'stone_button');
+shapeless(['polished_blackstone'], 'polished_blackstone_button');
+for (const w of ['oak', 'spruce', 'birch', 'jungle', 'acacia', 'dark_oak']) { shapeless([`${w}_planks`], `${w}_button`); }
+shaped(['SS'], { S: 'stone' }, 'stone_pressure_plate');
+shaped(['PP'], { P: '#planks' }, 'oak_pressure_plate');
+shaped(['GG'], { G: 'gold_ingot' }, 'light_weighted_pressure_plate');
+shaped(['II'], { I: 'iron_ingot' }, 'heavy_weighted_pressure_plate');
+shaped([' R ', 'RHR', ' R '], { R: 'redstone', H: 'hay_block' }, 'target');
+shaped(['CCC', 'RRQ', 'CCC'], { C: 'cobblestone', R: 'redstone', Q: 'quartz' }, 'observer');
+shaped(['GGG', 'QQQ', 'WWW'], { G: 'glass', Q: 'quartz', W: '#slabs_wood' }, 'daylight_detector');
+shaped(['PPP', 'CIC', 'CRC'], { P: '#planks', C: 'cobblestone', I: 'iron_ingot', R: 'redstone' }, 'piston');
+shaped(['S', 'P'], { S: 'slime_ball', P: 'piston' }, 'sticky_piston');
+shaped(['I I', 'ICI', ' I '], { I: 'iron_ingot', C: 'chest' }, 'hopper');
+shaped(['CCC', 'CBC', 'CRC'], { C: 'cobblestone', B: 'bow', R: 'redstone' }, 'dispenser');
+shaped(['CCC', 'C C', 'CRC'], { C: 'cobblestone', R: 'redstone' }, 'dropper');
 shaped([' R ', 'RGR', ' R '], { R: 'redstone', G: 'glowstone' }, 'redstone_lamp');
 shaped(['SCS', 'CCC', 'SCS'], { S: 'prismarine_shard', C: 'prismarine_crystals' }, 'sea_lantern');
 shaped(['B', 'C'], { B: 'blaze_rod', C: 'chorus_fruit' }, 'end_rod', 4);
@@ -106,7 +126,7 @@ shaped(['XX', 'XX'], { X: 'glowstone_dust' }, 'glowstone');
 // ---- storage blocks ----
 const STORAGE = [['iron_ingot', 'iron_block'], ['gold_ingot', 'gold_block'], ['diamond', 'diamond_block'], ['emerald', 'emerald_block'],
   ['lapis_lazuli', 'lapis_block'], ['redstone', 'redstone_block'], ['coal', 'coal_block'], ['copper_ingot', 'copper_block'], ['netherite_ingot', 'netherite_block'],
-  ['raw_iron', 'raw_iron_block'], ['raw_gold', 'raw_gold_block'], ['raw_copper', 'raw_copper_block'], ['wheat', 'hay_block'], ['bone_meal', 'bone_block'], ['melon_slice', 'melon']];
+  ['raw_iron', 'raw_iron_block'], ['raw_gold', 'raw_gold_block'], ['raw_copper', 'raw_copper_block'], ['wheat', 'hay_block'], ['bone_meal', 'bone_block'], ['melon_slice', 'melon'], ['slime_ball', 'slime_block']];
 for (const [item, block] of STORAGE) {
   shaped(['XXX', 'XXX', 'XXX'], { X: item }, block);
   if (block !== 'melon') shapeless([block], item, 9);

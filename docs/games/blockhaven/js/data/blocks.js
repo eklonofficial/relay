@@ -14,6 +14,7 @@ export const SHAPE = {
   NONE: 0, CUBE: 1, CROSS: 2, TORCH: 3, LIQUID: 4, SLAB: 5, STAIRS: 6, FENCE: 7, PANE: 8, DOOR: 9, TRAPDOOR: 10,
   LADDER: 11, CROP: 12, SNOW: 13, CARPET: 14, FARMLAND: 15, CACTUS: 16, CHEST: 17, BED: 18, LANTERN: 19, FLAT: 20,
   PORTAL: 21, END_PORTAL: 22, ENDFRAME: 23, FIRE: 24, VINE: 25, ROD: 26, RAIL: 27, CAMPFIRE: 28, SKULL: 29,
+  DUST: 30, DIODE: 31, LEVER: 32, BUTTON: 33, PLATE: 34, DIRCUBE: 35, PISTON: 36, PISTON_HEAD: 37, DAYLIGHT: 38, HOPPER: 39,
 };
 
 // Vertex flags read by the shaders.
@@ -130,7 +131,7 @@ def('nether_ore', { hardness: 3, tool: 'pickaxe', tier: 1, tab: 'natural' }, [
 ]);
 def('mineral_block', { hardness: 5, tool: 'pickaxe', tier: 2, sound: 'metal' }, [
   { key: 'coal_block', tier: 1 }, { key: 'iron_block' }, { key: 'gold_block', tier: 3 }, { key: 'diamond_block', tier: 3 },
-  { key: 'emerald_block', tier: 3 }, { key: 'lapis_block' }, { key: 'redstone_block', tier: 1 }, { key: 'copper_block' },
+  { key: 'emerald_block', tier: 3 }, { key: 'lapis_block' }, { key: 'legacy_redstone_block', tex: 'redstone_block', tier: 1, noItem: true, drop: 'redstone_block' }, { key: 'copper_block' },
   { key: 'amethyst_block', tier: 0, hardness: 1.5, sound: 'glass' }, { key: 'quartz_block', tier: 1, hardness: 0.8 },
   { key: 'netherite_block', tier: 4, hardness: 50 }, { key: 'raw_iron_block' }, { key: 'raw_gold_block', tier: 3 }, { key: 'raw_copper_block' },
 ]);
@@ -243,12 +244,12 @@ def('pointed_dripstone', { shape: SHAPE.CROSS, hardness: 1.5, tool: 'pickaxe', t
 def('campfire', { shape: SHAPE.CAMPFIRE, opaque: false, light: 15, hardness: 2, tool: 'axe', sound: 'wood', damage: 1, tab: 'functional', drop: 'charcoal*2' });
 def('misc', { hardness: 1, tab: 'building' }, [
   { key: 'jukebox', tex: { side: 'jukebox_side', top: 'jukebox_top' }, sound: 'wood', tool: 'axe' },
-  { key: 'note_block', sound: 'wood', tool: 'axe' },
+  { key: 'legacy_note_block', tex: 'note_block', sound: 'wood', tool: 'axe', noItem: true, drop: 'note_block' },
   { key: 'barrel', tex: { side: 'barrel_side', top: 'barrel_top' }, sound: 'wood', tool: 'axe' },
   { key: 'sea_lantern', light: 15, sound: 'glass', hardness: 0.3, drop: 'prismarine_crystals*2' },
-  { key: 'redstone_lamp', light: 15, sound: 'glass', hardness: 0.3 },
+  { key: 'legacy_redstone_lamp', tex: 'redstone_lamp', light: 15, sound: 'glass', hardness: 0.3, noItem: true, drop: 'redstone_lamp' },
   { key: 'sponge', sound: 'grass', hardness: 0.6 }, { key: 'wet_sponge', sound: 'grass', hardness: 0.6 },
-  { key: 'target', tex: { side: 'target_side', top: 'target_top' }, sound: 'grass', hardness: 0.5 },
+  { key: 'legacy_target', tex: { side: 'target_side', top: 'target_top' }, sound: 'grass', hardness: 0.5, noItem: true, drop: 'target' },
 ]);
 def('rail', { shape: SHAPE.RAIL, opaque: false, cutout: true, hardness: 0.7, tool: 'pickaxe', sound: 'metal', facingShift: 0, tab: 'functional' });
 def('seagrass', { shape: SHAPE.CROSS, hardness: 0, sound: 'grass', flags: VF.PLANT, waterlogged: true, replaceable: true, drop: 'none', tab: 'natural' }, [{ key: 'seagrass' }, { key: 'kelp' }]);
@@ -264,12 +265,65 @@ def('skull', { shape: SHAPE.SKULL, opaque: false, hardness: 1, sound: 'stone', f
   { key: 'wither_skeleton_skull', tex: { side: 'wither_skull_side', top: 'wither_skull_top', front: 'wither_skull_front' } },
 ]);
 
+// ----- redstone (behaviour after Java Edition lives in game/redstone.js) -----
+// Wire: power in bits 0-3, connected sides (by horizontal facing index) in bits 4-7.
+def('redstone_wire', { shape: SHAPE.DUST, opaque: false, solid: false, hardness: 0, sound: 'stone', noItem: true, drop: 'redstone', tex: 'redstone_dust_dot', tab: 'redstone' });
+// Torch: variant 0 lit / 1 unlit, attachment in bits 1-3 like the torch.
+def('redstone_torch', { shape: SHAPE.TORCH, opaque: false, solid: false, hardness: 0, sound: 'wood', drop: 'redstone_torch', tab: 'redstone' }, [
+  { key: 'redstone_torch', light: 7, tex: { side: 'redstone_torch', top: 'rs_torch_head_on' } },
+  { key: 'redstone_torch_off', light: 0, noItem: true, tex: { side: 'redstone_torch_off', top: 'rs_torch_head_off' } },
+]);
+// Repeater: facing (towards its input) bits 0-1, delay-1 bits 2-3, powered bit 4, locked bit 5.
+def('repeater', { shape: SHAPE.DIODE, opaque: false, solid: true, hardness: 0, sound: 'stone', tex: { side: 'smooth_stone', top: 'repeater' }, tab: 'redstone' });
+// Comparator: facing bits 0-1, subtract mode bit 2, powered bit 3 (its output lives in a block entity).
+def('comparator', { shape: SHAPE.DIODE, opaque: false, solid: true, hardness: 0, sound: 'stone', tex: { side: 'smooth_stone', top: 'comparator' }, tab: 'redstone' });
+// Lever and buttons: face (0 floor, 1 wall, 2 ceiling), facing and powered.
+def('lever', { shape: SHAPE.LEVER, opaque: false, solid: false, hardness: 0.5, sound: 'wood', tex: 'lever', tab: 'redstone' });
+def('button', { shape: SHAPE.BUTTON, opaque: false, solid: false, hardness: 0.5, sound: 'stone', tab: 'redstone' }, [
+  { key: 'stone_button', tex: 'stone' }, { key: 'oak_button', tex: 'planks_oak', sound: 'wood' }, { key: 'spruce_button', tex: 'planks_spruce', sound: 'wood' },
+  { key: 'birch_button', tex: 'planks_birch', sound: 'wood' }, { key: 'jungle_button', tex: 'planks_jungle', sound: 'wood' }, { key: 'acacia_button', tex: 'planks_acacia', sound: 'wood' },
+  { key: 'dark_oak_button', tex: 'planks_dark_oak', sound: 'wood' }, { key: 'polished_blackstone_button', tex: 'polished_blackstone' },
+]);
+// Pressure plates: variant bits 0-1, power bits 2-5.
+def('pressure_plate', { shape: SHAPE.PLATE, opaque: false, solid: false, hardness: 0.5, tool: 'pickaxe', tab: 'redstone' }, [
+  { key: 'stone_pressure_plate', tex: 'stone' }, { key: 'oak_pressure_plate', tex: 'planks_oak', sound: 'wood', tool: 'axe' },
+  { key: 'light_weighted_pressure_plate', tex: 'gold_block', sound: 'metal' }, { key: 'heavy_weighted_pressure_plate', tex: 'iron_block', sound: 'metal' },
+]);
+def('redstone_block', { hardness: 5, tool: 'pickaxe', tier: 1, sound: 'metal', tab: 'redstone' });
+def('redstone_lamp', { hardness: 0.3, sound: 'glass', drop: 'redstone_lamp', tab: 'redstone' }, [{ key: 'redstone_lamp' }, { key: 'redstone_lamp_on', light: 15, noItem: true }]);
+// Note block: note bits 0-4, powered bit 5.
+def('note_block', { hardness: 0.8, tool: 'axe', sound: 'wood', tab: 'redstone' });
+// Target: power bits 0-3.
+def('target', { hardness: 0.5, tool: 'hoe', sound: 'grass', tex: { side: 'target_side', top: 'target_top' }, tab: 'redstone' });
+// Observer, dispenser, dropper: six-way facing (Java order: down up north south west east) bits 0-2, powered/triggered bit 3.
+def('observer', { shape: SHAPE.DIRCUBE, opaque: true, hardness: 3, tool: 'pickaxe', tier: 1, tex: { side: 'observer_side', top: 'observer_top', front: 'observer_front' }, tab: 'redstone' });
+// Daylight detector: power bits 0-3, inverted bit 4.
+def('daylight_detector', { shape: SHAPE.DAYLIGHT, opaque: false, solid: true, hardness: 0.2, tool: 'axe', sound: 'wood', flammable: true, tex: { side: 'daylight_detector_side', top: 'daylight_detector_top' }, tab: 'redstone' });
+// Pistons: variant 0 normal / 1 sticky, six-way facing bits 1-3, extended bit 4. The head adds "short" in bit 4.
+def('piston', { shape: SHAPE.PISTON, opaque: false, solid: true, hardness: 1.5, tool: 'pickaxe', tab: 'redstone' }, [
+  { key: 'piston', tex: { side: 'piston_side', top: 'piston_top', bottom: 'piston_bottom' } },
+  { key: 'sticky_piston', tex: { side: 'piston_side', top: 'piston_top_sticky', bottom: 'piston_bottom' } },
+]);
+def('piston_head', { shape: SHAPE.PISTON_HEAD, opaque: false, solid: true, hardness: 1.5, tool: 'pickaxe', noItem: true, drop: 'none' }, [
+  { key: 'piston_head', tex: { side: 'piston_side', top: 'piston_top' } }, { key: 'sticky_piston_head', tex: { side: 'piston_side', top: 'piston_top_sticky' } },
+]);
+// A block in motion: drawn from its block entity, like the original's moving_piston.
+def('moving_piston', { shape: SHAPE.NONE, opaque: false, solid: false, hardness: Infinity, noItem: true, drop: 'none', tex: 'piston_side' });
+def('slime_block', { translucent: true, hardness: 0, sound: 'slime', cullSame: true, tab: 'redstone' });
+def('honey_block', { translucent: true, hardness: 0, sound: 'slime', cullSame: true, slow: 0.6, tex: { side: 'honey_block_side', top: 'honey_block_top' }, tab: 'redstone' });
+// Hopper: facing (0 down, 2-5 sideways; Java order) bits 0-2, disabled (powered) bit 3.
+def('hopper', { shape: SHAPE.HOPPER, opaque: false, solid: true, hardness: 3, tool: 'pickaxe', tier: 1, sound: 'metal', tex: { side: 'hopper_outside', top: 'hopper_top', bottom: 'hopper_outside' }, tab: 'redstone' });
+def('dispenser', { shape: SHAPE.DIRCUBE, opaque: true, hardness: 3.5, tool: 'pickaxe', tier: 1, tex: { side: 'furnace_side', top: 'furnace_top', front: 'dispenser_front' }, tab: 'redstone' });
+def('dropper', { shape: SHAPE.DIRCUBE, opaque: true, hardness: 3.5, tool: 'pickaxe', tier: 1, tex: { side: 'furnace_side', top: 'furnace_top', front: 'dropper_front' }, tab: 'redstone' });
+
 // Textures reached through state rather than a variant's default faces.
 for (let i = 0; i < 8; i++) tex(`wheat_stage${i}`);
 for (const c of ['carrots', 'potatoes', 'beetroots', 'nether_wart']) for (let i = 0; i < 4; i++) tex(`${c}_stage${i}`);
 for (const c of ['pumpkin_stem', 'melon_stem']) for (let i = 0; i < 8; i++) tex(`${c}_stage${i}`);
 for (let i = 0; i < 10; i++) tex(`destroy_${i}`);
 for (const t of ['bed_top_head', 'end_portal_frame_eye', 'water_flow', 'lava_flow', 'lantern_hanging']) tex(t);
+for (const t of ['redstone_dust_line', 'repeater_on', 'comparator_on', 'lever_base', 'observer_back', 'observer_back_on', 'daylight_detector_inverted_top',
+  'piston_inner', 'hopper_inside', 'dispenser_front_vertical', 'dropper_front_vertical', 'bedrock', 'cobblestone']) tex(t);
 export const CROP_STAGES = [8, 4, 4, 4, 8, 8, 4];
 export const CROP_TEX = ['wheat', 'carrots', 'potatoes', 'beetroots', 'pumpkin_stem', 'melon_stem', 'nether_wart'].map(c => TEX[`${c}_stage0`]);
 export const CROP_AGE_SHIFT = 3;

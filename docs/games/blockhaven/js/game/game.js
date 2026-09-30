@@ -1,25 +1,27 @@
 // The running game: world + dimensions, player survival state, entities, simulation, weather and saving.
-import { B, BLOCKS, SOLID, OPAQUE, DIM, DIM_NAMES, HEIGHT, SEA, props, st, SHAPE_OF, SHAPE } from '../data/blocks.js?v=muo7rynu';
-import { I, maxStack } from '../data/items.js?v=muo7rynu';
-import { SMELTING } from '../data/recipes.js?v=muo7rynu';
-import { MOBS } from '../data/mobs.js?v=muo7rynu';
-import { BIOMES, COLD } from '../gen/biomes.js?v=muo7rynu';
-import { World, UNLOADED, posKey } from '../world/world.js?v=muo7rynu';
-import { Player } from './player.js?v=muo7rynu';
-import { PlayerInventory, Container } from './inventory.js?v=muo7rynu';
-import { EntityManager } from '../entity/entity.js?v=muo7rynu';
-import { ItemEntity, XpOrb, FallingBlock, PrimedTnt, Lightning, Projectile } from '../entity/objects.js?v=muo7rynu';
-import { Mob, RIDEABLE } from '../entity/mob.js?v=muo7rynu';
-import { Particles } from './particles.js?v=muo7rynu';
-import { Sim } from './sim.js?v=muo7rynu';
-import { blockDrops } from './drops.js?v=muo7rynu';
-import { computeEnv } from './env.js?v=muo7rynu';
-import { fuelOf } from './ui.js?v=muo7rynu';
-import { unlockLevel } from './trades.js?v=muo7rynu';
-import { forward } from '../core/math.js?v=muo7rynu';
-import { EndCrystal } from '../entity/crystal.js?v=muo7rynu';
-import { migrateWorld } from './migrate.js?v=muo7rynu';
-import { ARMOR_BYPASS, armorReduce, applyInvul, isAxe, shieldFaces, applyKnockback, knockbackResist } from './combat.js?v=muo7rynu';
+import { B, BLOCKS, SOLID, OPAQUE, DIM, DIM_NAMES, HEIGHT, SEA, props, st, SHAPE_OF, SHAPE } from '../data/blocks.js?v=muok06n3';
+import { I, maxStack } from '../data/items.js?v=muok06n3';
+import { SMELTING } from '../data/recipes.js?v=muok06n3';
+import { MOBS } from '../data/mobs.js?v=muok06n3';
+import { BIOMES, COLD } from '../gen/biomes.js?v=muok06n3';
+import { World, UNLOADED, posKey } from '../world/world.js?v=muok06n3';
+import { Player } from './player.js?v=muok06n3';
+import { PlayerInventory, Container } from './inventory.js?v=muok06n3';
+import { EntityManager } from '../entity/entity.js?v=muok06n3';
+import { ItemEntity, XpOrb, FallingBlock, PrimedTnt, Lightning, Projectile } from '../entity/objects.js?v=muok06n3';
+import { Mob, RIDEABLE } from '../entity/mob.js?v=muok06n3';
+import { Particles } from './particles.js?v=muok06n3';
+import { Sim } from './sim.js?v=muok06n3';
+import { Redstone } from './redstone.js?v=muok06n3';
+import { blockDrops } from './drops.js?v=muok06n3';
+import { computeEnv } from './env.js?v=muok06n3';
+import { fuelOf } from './ui.js?v=muok06n3';
+import { unlockLevel } from './trades.js?v=muok06n3';
+import { forward } from '../core/math.js?v=muok06n3';
+import { EndCrystal } from '../entity/crystal.js?v=muok06n3';
+import { migrateWorld } from './migrate.js?v=muok06n3';
+import { ARMOR_BYPASS, armorReduce, applyInvul, isAxe, shieldFaces, applyKnockback, knockbackResist } from './combat.js?v=muok06n3';
+import { deathText } from '../net/net.js?v=muok06n3';
 
 export const DAY = 1200; // seconds per day
 const rnd = (a, b) => a + Math.random() * (b - a);
@@ -33,6 +35,7 @@ export class Game {
     this.particles = new Particles(this);
     this.entities = new EntityManager(this);
     this.sim = new Sim(this);
+    this.rs = new Redstone(this);
     this.inv = new PlayerInventory();
     this.tableGrid = new Container(9);
     this.tradeSlots = new Container(2);
@@ -142,7 +145,10 @@ export class Game {
         onMesh: (c, m) => this.renderer.uploadChunk(c, m), onUnload: c => this.renderer.freeChunk(c),
         onEntities: list => this.onGenEntities(list),
         onChunkLoaded: c => this.onChunkLoaded(c),
-        onBlockChange: (x, y, z) => this.sim.onChange(x, y, z),
+        // A state change of the same block (a wire's power, a door opening) matters to the liquid and
+        // support simulation only for liquids themselves.
+        onBlockChange: (x, y, z, old, id, oldM, m) => { if (old !== id || id === B.WATER || id === B.LAVA) this.sim.onChange(x, y, z); this.rs.onWorldChange(x, y, z, old, oldM, id, m); },
+        onRemoteChange: (x, y, z, old, oldM, id, m) => { this.rs.onWorldChange(x, y, z, old, oldM, id, m); if (old !== id) this.rs.placedBy(x, y, z); },
         onBlockEntityRemoved: (x, y, z, be) => this.onBlockEntityRemoved(x, y, z, be),
         onEdit: (x, y, z, id, m) => { if (this.net) this.net.onLocalEdit(dim, x, y, z, id, m); },
         onPopulate: key => { if (this.net) this.net.send({ t: 'pop', id: this.net.myId, d: dim, k: key }); },
@@ -150,6 +156,7 @@ export class Game {
     });
     this.entities.clear();
     if (this.chestAnims) this.chestAnims.clear();
+    this.rs.load(d.rs);
     for (const e of d.entities || []) this.loadEntity(e);
     this.app.onWorldOpened(this.world, dim);
     if (this.player) { this.player.world = this.world; }
@@ -174,7 +181,7 @@ export class Game {
     if (forSave && this.net && this.net.isHost) entities.push(...this.net.share.puppetsJSON());
     return {
       edits: this.world.serializeEdits(), populated: [...this.world.populated], popOld: this.world.serializePopOld(), blockEntities: this.world.serializeBlockEntities(),
-      entities,
+      entities, rs: this.rs.serialize(),
     };
   }
   serialize() {
@@ -353,6 +360,12 @@ export class Game {
   }
   applyRemoteBlockEntity(dim, k, data) {
     if (dim !== this.dim) { const d = this.dims[dim] || (this.dims[dim] = {}); (d.blockEntities || (d.blockEntities = {}))[k] = data; return; }
+    if (data && data.type === 'moving') {
+      // A block that already landed (its edit came first) keeps no moving record.
+      const [x, y, z] = k.split(',').map(Number);
+      if (this.world.getBlock(x, y, z) !== B.MOVING_PISTON) return;
+      this.rs.moving.add(k);
+    }
     const w = this.world, cur = w.blockEntities.get(k);
     if (!cur) { w.blockEntities.set(k, data); return; }
     for (const key of Object.keys(cur)) if (!(key in data)) delete cur[key];
@@ -390,7 +403,7 @@ export class Game {
     if (!be.container) {
       const c = new Container(size);
       c.load(be.items || []);
-      c.onChange = () => { be.items = c.toJSON(); this.onBlockEntityChanged(be); };
+      c.onChange = () => { be.items = c.toJSON(); this.onBlockEntityChanged(be); this.rs.onContainerChanged(be); };
       Object.defineProperty(be, 'container', { value: c, enumerable: false, writable: true });
     }
     return be.container;
@@ -561,34 +574,16 @@ export class Game {
     }
     return true;
   }
-  deathMessage(src) {
-    return this.deathMessageRaw(src).replace(/^Player/, this.playerName);
-  }
-  deathMessageRaw(src) {
-    const a = src.attacker, name = a && a.def ? a.displayName || a.def.name : null;
-    switch (src.kind) {
-      case 'fall': return 'Player fell from a high place';
-      case 'lava': return 'Player tried to swim in lava';
-      case 'fire': return 'Player burned to death';
-      case 'drown': return 'Player drowned';
-      case 'starve': return 'Player starved to death';
-      case 'void': return 'Player fell out of the world';
-      case 'explosion': return name ? `Player was blown up by ${name}` : 'Player blew up';
-      case 'projectile': return `Player was shot by ${name || 'an arrow'}`;
-      case 'magic': return 'Player was killed by magic';
-      case 'wither': return 'Player withered away';
-      case 'lightning': return 'Player was struck by lightning';
-      case 'kill': return 'Player was killed';
-      default: return name ? `Player was slain by ${name}` : 'Player died';
-    }
-  }
+  deathMessage(src) { return deathText(this.playerName, src.kind, this.deathBy(src)); }
+  deathBy(src) { const a = src.attacker; return a && a.def ? a.displayName || a.def.name : null; }
   die(src) {
     this.dismount();
     const s = this.stats;
     this.alive = false; s.health = 0;
     const msg = this.deathMessage(src);
     this.chat(msg, '#ff8080');
-    if (this.net) this.net.send({ t: 'chat', id: this.net.myId, text: msg, color: '#ff8080' });
+    // Others rebuild the line from our real name (see net.js deathText), so only the cause travels.
+    if (this.net) this.net.send({ t: 'death', id: this.net.myId, k: src.kind || '', by: this.deathBy(src) });
     if (!this.rules.keepInventory) {
       const p = this.player.pos;
       for (const st of this.inv.allStacks()) this.dropItem(p[0], p[1] + 1, p[2], st, [rnd(-3, 3), rnd(2, 5), rnd(-3, 3)]);
@@ -710,6 +705,7 @@ export class Game {
     this.updateWeather(dt);
     this.updateSurvival(dt);
     this.sim.update(dt);
+    this.rs.update(dt);
     this.entities.update(dt);
     this.particles.update(dt);
     this.tickBlockEntities(dt);

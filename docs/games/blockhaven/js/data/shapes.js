@@ -1,5 +1,6 @@
 // Collision and selection boxes per block state, in block units (0..1, fences reach 1.5).
-import { SHAPE, SHAPE_OF, SOLID, B } from './blocks.js?v=muo7rynu';
+import { SHAPE, SHAPE_OF, SOLID, B } from './blocks.js?v=muok06n3';
+import { boxUp6, boxAttach } from './orient.js?v=muok06n3';
 
 const P = 1 / 16;
 // Rotate a canonical (+Z-facing) box by `facing` quarter turns about the block centre.
@@ -47,6 +48,11 @@ export function collisionBoxes(id, m, out = []) {
     case SHAPE.SKULL: out.push([4 * P, 0, 4 * P, 12 * P, 8 * P, 12 * P]); break;
     case SHAPE.CROSS: if (id === B.COBWEB) break; out.push([2 * P, 0, 2 * P, 14 * P, 14 * P, 14 * P]); break;
     case SHAPE.CROP: break;
+    case SHAPE.DIODE: out.push([0, 0, 0, 1, 2 * P, 1]); break;
+    case SHAPE.DAYLIGHT: out.push([0, 0, 0, 1, 6 * P, 1]); break;
+    case SHAPE.PISTON: out.push(m & 16 ? boxUp6((m >> 1) & 7, [0, 0, 0, 16, 12, 16]) : FULL); break;
+    case SHAPE.PISTON_HEAD: { const d = (m >> 1) & 7; out.push(boxUp6(d, [0, 12, 0, 16, 16, 16]), boxUp6(d, [6, 0, 6, 10, 12, 10])); break; }
+    case SHAPE.HOPPER: out.push([0, 10 * P, 0, 1, 1, 1], [4 * P, 4 * P, 4 * P, 12 * P, 10 * P, 12 * P]); break;
     default: out.push(FULL);
   }
   return out;
@@ -71,6 +77,11 @@ export function selectionBoxes(id, m, out = []) {
     case SHAPE.ROD: out.push([6 * P, 0, 6 * P, 10 * P, 1, 10 * P]); return out;
     case SHAPE.FENCE: out.push([6 * P, 0, 6 * P, 10 * P, 1, 10 * P]); return out;
     case SHAPE.PANE: out.push([7 * P, 0, 7 * P, 9 * P, 1, 9 * P]); return out;
+    case SHAPE.DUST: out.push([0, 0, 0, 1, P, 1]); return out;
+    case SHAPE.PLATE: out.push([P, 0, P, 15 * P, ((m >> 2) & 15 ? 0.5 : 1) * P, 15 * P]); return out;
+    case SHAPE.LEVER: out.push(boxAttach(m & 3, (m >> 2) & 3, [5, 0, 4, 11, 6, 12])); return out;
+    case SHAPE.BUTTON: out.push(boxAttach((m >> 3) & 3, (m >> 5) & 3, [5, 0, 6, 11, m & 128 ? 1 : 2, 10])); return out;
+    case SHAPE.HOPPER: out.push(FULL); return out;
     default: {
       const saved = SOLID[id];
       if (!saved) { out.push(FULL); return out; }

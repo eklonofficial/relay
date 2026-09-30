@@ -1,10 +1,11 @@
 // Player actions: mining, placing, using items and blocks, attacking.
-import { meleeDamage, isCrit, knockStrength, isSword, SWEEP_DAMAGE, SHIELD_DELAY, SHIELD_DISABLE } from './combat.js?v=muo7rynu';
-import { B, BLOCKS, SOLID, OPAQUE, SHAPE_OF, SHAPE, props, st, DIM, FACING_SHIFT, AXIS_SHIFT, VARIANT_MASK } from '../data/blocks.js?v=muo7rynu';
-import { I, breakTime } from '../data/items.js?v=muo7rynu';
-import { collisionBoxes, selectionBoxes } from '../data/shapes.js?v=muo7rynu';
-import { UNLOADED, posKey } from '../world/world.js?v=muo7rynu';
-import { forward } from '../core/math.js?v=muo7rynu';
+import { meleeDamage, isCrit, knockStrength, isSword, SWEEP_DAMAGE, SHIELD_DELAY, SHIELD_DISABLE } from './combat.js?v=muok06n3';
+import { B, BLOCKS, SOLID, OPAQUE, SHAPE_OF, SHAPE, props, st, DIM, FACING_SHIFT, AXIS_SHIFT, VARIANT_MASK } from '../data/blocks.js?v=muok06n3';
+import { I, breakTime } from '../data/items.js?v=muok06n3';
+import { collisionBoxes, selectionBoxes } from '../data/shapes.js?v=muok06n3';
+import { UNLOADED, posKey } from '../world/world.js?v=muok06n3';
+import { forward } from '../core/math.js?v=muok06n3';
+import { KIND } from './redstone.js?v=muok06n3';
 
 const DIRS = [[0, 1], [-1, 0], [0, -1], [1, 0]];
 export const dirIndex = (x, z) => (Math.abs(x) > Math.abs(z) ? (x > 0 ? 3 : 1) : (z > 0 ? 0 : 2));
@@ -45,6 +46,7 @@ export class Interact {
     if (!g.alive || g.mode === 'spectator') { this.progress = 0; return; }
     // Attack / mine.
     if (input.attackClicked && this.entityTarget) this.attack(this.entityTarget);
+    if (input.attackClicked && this.target && this.target.id === B.NOTE_BLOCK) g.rs.attack(this.target.x, this.target.y, this.target.z);
     else if ((input.attack || input.attackClicked) && this.target && !this.using) this.mine(dt, input.attackClicked);
     else { this.progress = 0; this.breakKey = ''; if (input.attackClicked) this.swing = 1; }
     // Use.
@@ -163,7 +165,7 @@ export class Interact {
     }
     if (it.use) { this.useItem(it, held, t); this.acted = true; return; }
     if (it.place && t) { this.plantSeed(t, it, held); this.acted = true; return; }
-    if (it.block && t) { this.place(t, it, held); this.acted = true; }
+    if ((it.block || it.placeBlock) && t) { this.place(t, it, held); this.acted = true; }
     else if (it.key === 'carved_pumpkin' && !g.inv.armor.get(0)) { g.inv.armor.set(0, { ...held, count: 1 }); g.inv.consumeHeld(); }
   }
   // Right click: the main hand acts first; if it does nothing, the off-hand item gets a turn
@@ -244,6 +246,18 @@ export class Interact {
     const g = this.g, w = g.world, id = t.id, m = t.meta, b = BLOCKS[id];
     if (!b) return false;
     const key = props(id, m).key;
+    // Redstone parts: the host's simulation handles the click (guests ask the host).
+    if (g.rs.isUsable(id)) {
+      if (id === B.REDSTONE_WIRE && (m >> 4) !== 0 && (m >> 4) !== 15) return false;
+      if (g.net && !g.net.isHost) { g.net.send({ t: 'rsuse', id: g.net.myId, d: g.dim, p: [t.x, t.y, t.z] }); return true; }
+      return g.rs.use(t.x, t.y, t.z);
+    }
+    if (b.key === 'hopper' || b.key === 'dispenser' || b.key === 'dropper') {
+      let be = g.blockEntity(t.x, t.y, t.z);
+      if (!be) { be = { type: b.key === 'hopper' ? 'hopper' : 'chest', x: t.x, y: t.y, z: t.z, items: [] }; w.blockEntities.set(posKey(t.x, t.y, t.z), be); }
+      g.gui.openChest(g.containerOf(be, b.key === 'hopper' ? 5 : 9), b.name);
+      return true;
+    }
     switch (b.key) {
       case 'crafting_table': g.gui.openCrafting(); return true;
       case 'furnace': { let be = g.blockEntity(t.x, t.y, t.z); if (!be) { be = { type: 'furnace', x: t.x, y: t.y, z: t.z, items: [] }; w.blockEntities.set(posKey(t.x, t.y, t.z), be); } g.containerOf(be, 3); g.gui.openFurnace(be); return true; }
@@ -302,7 +316,7 @@ export class Interact {
   }
   place(t, it, held) {
     const g = this.g, w = g.world, p = g.player;
-    let [id, meta] = it.block;
+    let [id, meta] = it.block || it.placeBlock;
     // Slab stacking into a double slab.
     if (SHAPE_OF[id] === SHAPE.SLAB && t.id === id && (t.meta & 15) === meta) {
       const type = (t.meta >> 4) & 3;
@@ -312,6 +326,13 @@ export class Interact {
     if (!replaced && SHAPE_OF[id] === SHAPE.SLAB && w.getBlock(x, y, z) === id && (w.getMeta(x, y, z) & 15) === meta) { this.commit(x, y, z, id, meta | (2 << 4), held); return; }
     if (!this.canPlaceAt(x, y, z, id)) return;
     const f = forward(p.yaw, 0), look = dirIndex(f[0], f[2]), toward = (look + 2) % 4;
+    if (KIND[id] && id !== B.DOOR && id !== B.TRAPDOOR && id !== B.TNT) {
+      const s = g.rs.placementState(id, meta & VARIANT_MASK[id], x, y, z, t, look, forward(p.yaw, p.pitch));
+      if (s < 0) return;
+      this.commit(x, y, z, id, s >> 8, held);
+      g.rs.placedBy(x, y, z);
+      return;
+    }
     const shape = SHAPE_OF[id];
     const hitY = t.box ? 0 : 0;
     void hitY;

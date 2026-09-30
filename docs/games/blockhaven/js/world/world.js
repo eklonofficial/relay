@@ -1,8 +1,8 @@
 // Chunk storage, streaming, edits and queries for one dimension.
-import { CHUNK, HEIGHT, PAD, PS, B, OPAQUE, SOLID, EMIT, VARIANT_MASK, SHAPE_OF, SHAPE, DIM } from '../data/blocks.js?v=muo7rynu';
-import { VOLUME_SIZE } from '../mesh/mesher.js?v=muo7rynu';
-import { selectionBoxes, collisionBoxes } from '../data/shapes.js?v=muo7rynu';
-import { sinceOf } from '../gen/versions.js?v=muo7rynu';
+import { CHUNK, HEIGHT, PAD, PS, B, OPAQUE, SOLID, EMIT, ATTEN, VARIANT_MASK, SHAPE_OF, SHAPE, DIM } from '../data/blocks.js?v=muok06n3';
+import { VOLUME_SIZE } from '../mesh/mesher.js?v=muok06n3';
+import { selectionBoxes, collisionBoxes } from '../data/shapes.js?v=muok06n3';
+import { sinceOf } from '../gen/versions.js?v=muok06n3';
 
 export const UNLOADED = 255;
 export const chunkKey = (cx, cz) => `${cx},${cz}`;
@@ -16,6 +16,7 @@ export class World {
     this.worldType = opts.worldType || 'default';
     this.hasSky = this.dim === DIM.OVERWORLD;
     this.chunks = new Map();
+    this.chunkGen = 0; // bumped whenever a chunk unloads, so cached chunk lookups can be dropped
     this.edits = new Map();
     for (const [k, list] of Object.entries(opts.edits || {})) {
       const m = new Map();
@@ -37,7 +38,7 @@ export class World {
     const count = Math.max(1, Math.min(4, (navigator.hardwareConcurrency || 4) - 1));
     this.workers = [];
     for (let i = 0; i < count; i++) {
-      const w = new Worker(new URL('../worker.js?v=muo7rynu', import.meta.url), { type: 'module' });
+      const w = new Worker(new URL('../worker.js?v=muok06n3', import.meta.url), { type: 'module' });
       w.busy = 0;
       w.onmessage = e => this.onWorkerMessage(w, e.data);
       w.onerror = e => console.error('worker error', e.message);
@@ -47,8 +48,9 @@ export class World {
 
   dispose() {
     for (const w of this.workers) w.terminate();
-    for (const c of this.chunks.values()) this.cb.onUnload(c);
+    for (const c of this.chunks.values()) { this.cb.onUnload(c); c.dead = true; }
     this.chunks.clear();
+    this.chunkGen++;
   }
 
   pickWorker(max = 2) {
@@ -116,6 +118,8 @@ export class World {
       if (Math.max(Math.abs(c.cx - pcx), Math.abs(c.cz - pcz)) > radius + 3) {
         this.cb.onUnload(c);
         this.chunks.delete(c.key);
+        c.dead = true;
+        this.chunkGen++;
       }
     }
     const wanted = [];
@@ -246,10 +250,15 @@ export class World {
     if (id !== B.AIR && y > c.heights[hi]) c.heights[hi] = y;
     else if (id === B.AIR && y === c.heights[hi]) { let yy = y; while (yy > 0 && c.ids[hi + yy * CC] === B.AIR) yy--; c.heights[hi] = yy; }
     // Light can travel 14 blocks, so neighbours may need new meshes too; nearby ones first.
+    // A change that affects no light (a wire's power, a repeater's delay...) only touches the
+    // chunks that can see the block itself.
+    const lightChange = OPAQUE[old] !== OPAQUE[id] || ATTEN[old] !== ATTEN[id] ||
+      EMIT[(old << 4) | (oldM & VARIANT_MASK[old])] !== EMIT[(id << 4) | (m & VARIANT_MASK[id])];
     for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) {
-      const n = this.chunk(cx + dx, cz + dz);
-      if (!n) continue;
       const near = (dx === 0 || (dx < 0 && lx === 0) || (dx > 0 && lx === 15)) && (dz === 0 || (dz < 0 && lz === 0) || (dz > 0 && lz === 15));
+      if (!lightChange && !near) continue;
+      const n = dx === 0 && dz === 0 ? c : this.chunk(cx + dx, cz + dz);
+      if (!n) continue;
       n.version++;
       if ((dx === 0 && dz === 0) || near) n.priority = 1;
     }
@@ -264,7 +273,12 @@ export class World {
   setBlockRemote(x, y, z, id, m) {
     if (y < 0 || y >= HEIGHT) return;
     const cx = Math.floor(x / CHUNK), cz = Math.floor(z / CHUNK), c = this.chunk(cx, cz);
-    if (c && c.ids) { this.mirroring = true; try { this.setBlock(x, y, z, id, m, false); } finally { this.mirroring = false; } return; }
+    if (c && c.ids) {
+      const i = (x - cx * CHUNK) + (z - cz * CHUNK) * CHUNK + y * CC, old = c.ids[i], oldM = c.meta[i];
+      this.mirroring = true; try { this.setBlock(x, y, z, id, m, false); } finally { this.mirroring = false; }
+      if (this.cb.onRemoteChange && (old !== id || oldM !== m)) this.cb.onRemoteChange(x, y, z, old, oldM, id, m);
+      return;
+    }
     const key = chunkKey(cx, cz);
     if (!this.edits.has(key)) this.edits.set(key, new Map());
     this.edits.get(key).set((x - cx * CHUNK) + (z - cz * CHUNK) * CHUNK + y * CC, id | (m << 8));

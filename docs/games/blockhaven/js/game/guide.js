@@ -1,11 +1,11 @@
 // The in-game guide: features, commands, crafting, farming, combat, villagers, dimensions and graphics.
-import { MusicPlayer } from './music.js?v=muo7rynu';
-import { BLOCKS, BLOCK_ITEMS, TEXTURES } from '../data/blocks.js?v=muo7rynu';
-import { ITEMS, I } from '../data/items.js?v=muo7rynu';
-import { SHAPED, SHAPELESS, SMELTING } from '../data/recipes.js?v=muo7rynu';
-import { MOBS } from '../data/mobs.js?v=muo7rynu';
-import { BIOMES } from '../gen/biomes.js?v=muo7rynu';
-import { COMMANDS } from './commands.js?v=muo7rynu';
+import { MusicPlayer } from './music.js?v=muok06n3';
+import { BLOCKS, BLOCK_ITEMS, TEXTURES } from '../data/blocks.js?v=muok06n3';
+import { ITEMS, I } from '../data/items.js?v=muok06n3';
+import { SHAPED, SHAPELESS, SMELTING } from '../data/recipes.js?v=muok06n3';
+import { MOBS } from '../data/mobs.js?v=muok06n3';
+import { BIOMES } from '../gen/biomes.js?v=muok06n3';
+import { COMMANDS } from './commands.js?v=muok06n3';
 
 const esc = s => String(s).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
 
@@ -32,6 +32,7 @@ export function guideSections(icons) {
         <li><b>Farming & animals:</b> tilling, seven crops with growth stages, hydration, bone meal, saplings that grow into full trees, breeding, baby animals, taming wolves, shearing sheep, milking cows, egg-laying chickens, fishing.</li>
         <li><b>Villages & trading:</b> villagers with 13 professions, level-ups that unlock trades, iron golems, wandering traders, pillagers, vindicators, evokers and ravagers.</li>
         <li><b>World:</b> continents, rivers, mountains, badlands with hoodoos, cherry groves, jungles, deep cheese/spaghetti/noodle caves, ravines, lush and dripstone caves, geodes, ores, waterfalls, structures.</li>
+        <li><b>Redstone:</b> dust, torches, repeaters, comparators, pistons, observers, hoppers, droppers, dispensers and more, simulated like Java Edition.</li>
         <li><b>Simulation:</b> flowing water and lava with levels, obsidian and cobblestone generation, falling sand, fire spread, TNT and explosions, weather with rain, snow, thunder and lightning.</li>
         <li><b>Dimensions:</b> the Nether (portals, fortresses, five biomes) and the End (strongholds, eyes of ender, end crystals and the Ender Dragon).</li>
       </ul>
@@ -109,6 +110,22 @@ export function guideSections(icons) {
         <li><b>Creepers</b> hiss before they explode; back away! Endermen get angry if you look at their eyes (a carved pumpkin on your head protects you). Skeletons strafe while shooting; spiders are calm in daylight; zombies and skeletons burn in the sun.</li>
         <li>A <b>Totem of Undying</b> in either hand saves you from death once.</li>
       </ul>`,
+    Redstone: `
+      <p>Redstone runs the same way as Minecraft: Java Edition, at 20 game ticks a second with the original update order, so contraptions and timings you know carry over: clocks, BUD switches, quasi-connectivity, zero-tick pulses and "locational" wire quirks included. Everything is in the <b>Redstone</b> tab of the creative inventory, and all of it can be crafted.</p>
+      ${strip(['redstone', 'redstone_torch', 'repeater', 'comparator', 'lever', 'stone_button', 'stone_pressure_plate', 'observer', 'piston', 'sticky_piston', 'slime_block', 'hopper', 'dropper', 'dispenser', 'redstone_lamp', 'note_block', 'target', 'daylight_detector', 'redstone_block', 'tnt'])}
+      <h4>Power</h4>
+      <ul>
+        <li><b>Dust</b> carries a signal 15 blocks, losing one level per block; it climbs and drops one block. Right-click a lone dot to switch between a dot and a cross.</li>
+        <li><b>Torches</b> invert (2 ticks) and burn out if toggled more than 8 times in 3 seconds. <b>Repeaters</b> delay 1–4 redstone ticks (right-click) and lock when powered from the side. <b>Comparators</b> compare or subtract (right-click) and read containers.</li>
+        <li><b>Levers, buttons</b> (stone 1 s, wood 1.5 s; arrows hold wooden ones), <b>pressure plates</b> (weighted ones count entities), <b>targets</b>, <b>daylight detectors</b> (right-click to invert) and <b>redstone blocks</b> are power sources. <b>Observers</b> send a 2-tick pulse when the block they face changes.</li>
+      </ul>
+      <h4>Things it moves</h4>
+      <ul>
+        <li><b>Pistons</b> push up to 12 blocks; <b>sticky pistons</b> pull one back, and <b>slime</b> and <b>honey</b> blocks drag their neighbours along (but not each other). Obsidian and blocks with inventories don't move; plants, torches and redstone parts break.</li>
+        <li><b>Hoppers</b> move one item every 8 ticks and stop while powered; <b>droppers</b> and <b>dispensers</b> fire on a rising signal (dispensers shoot arrows, place water or lava, light TNT, use bone meal...).</li>
+        <li>Lamps, doors, trapdoors, note blocks and TNT respond to power. Note blocks change sound with the block below them.</li>
+      </ul>
+      <p>In multiplayer the host runs the circuits for everyone.</p>`,
     Structures: `
       <h4>Things to find</h4>
       <table>
@@ -145,9 +162,9 @@ export function guideSections(icons) {
         <tr><td>Wild</td><td>Amplified terrain: towering mountains, floating sky islands with waterfalls, giant stone pillars and natural stone arches.</td></tr>
         <tr><td>Superflat</td><td>Flat grassland for building.</td></tr>
       </table>
-      <h4>Graphics presets (Settings)</h4>
+      <h4>Graphics presets (Options)</h4>
       <table>
-        <tr><td>Disabled</td><td>Plain, fastest rendering for very weak devices.</td></tr>
+        <tr><td>Fast</td><td>Plain, fastest rendering for very weak devices.</td></tr>
         <tr><td>Regular</td><td>Smooth lighting, animated water and foliage, clouds, fog and colour grading. Made to run well on Chromebooks.</td></tr>
         <tr><td>High</td><td>Adds real-time sun shadows, god rays and bloom. For stronger laptops.</td></tr>
         <tr><td>PC</td><td>Everything at full quality: sharper, softer shadows, screen-space reflections on water, stronger god rays and bloom, and anti-aliasing. For gaming PCs.</td></tr>

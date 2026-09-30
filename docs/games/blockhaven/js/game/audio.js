@@ -3,10 +3,11 @@ const MATERIAL = {
   grass: { freq: 1900, q: 0.6, gain: 0.5 }, gravel: { freq: 1100, q: 0.9, gain: 0.6 }, stone: { freq: 2600, q: 1.6, gain: 0.55, click: 1200 },
   wood: { freq: 750, q: 2.4, gain: 0.6, knock: 220 }, sand: { freq: 3400, q: 0.5, gain: 0.45 }, snow: { freq: 4200, q: 0.4, gain: 0.35 },
   glass: { freq: 5200, q: 2.5, gain: 0.45, ring: 2100 }, cloth: { freq: 800, q: 0.5, gain: 0.4 }, metal: { freq: 3000, q: 3, gain: 0.45, ring: 1400 },
+  slime: { freq: 520, q: 1.2, gain: 0.55, knock: 150 },
 };
 // Mob voices: [base freq, type, duration, sweep, noise]
 
-import { MusicPlayer } from './music.js?v=muo7rynu';
+import { MusicPlayer } from './music.js?v=muok06n3';
 
 const VOWEL = { a: [[730, 6, 1.2], [1090, 7, 0.9], [2440, 9, 0.3]], o: [[450, 6, 1.2], [800, 7, 0.9], [2800, 9, 0.2]], u: [[320, 6, 1.3], [870, 7, 0.7], [2250, 9, 0.2]] };
 const MOB_VOICE_ALIAS = { polar_bear: 'bear', zombified_piglin: 'zpiglin', wandering_trader: 'villager', pillager: 'illager', vindicator: 'illager', evoker: 'illager', iron_golem: 'golem', snow_golem: 'snowgolem', husk: 'zombie', drowned: 'zombie', zombie_villager: 'zombie', stray: 'skeleton', wither_skeleton: 'skeleton', cave_spider: 'spider', magma_cube: 'slime', mooshroom: 'cow', donkey: 'horse', camel: 'horse', mule: 'horse', endermite: 'silverfish', ender_dragon: 'dragon', glow_squid: 'squid', cod: 'fish', salmon: 'fish', tropical_fish: 'fish', pufferfish: 'fish' };
@@ -141,7 +142,34 @@ export class Sound {
       case 'dragon_death': this.noiseSweep(3000, 40, 6, 1, out); T(200, 40, 6, 0.5, 'sawtooth'); break;
       case 'bell': [880, 1320, 1760].forEach(f => this.tone(f, f, 2, 0.15, 'sine', out)); break;
       case 'chime': [1046, 1318, 1568].forEach((f, i) => this.tone(f, f, 1.2, 0.12, 'sine', out, i * 0.1)); break;
+      case 'rs_click': this.pulses(out, { count: 1, freq: 2200 * pitch, q: 4, gain: 0.45, len: 0.03 }); T(900, 600, 0.04, 0.12, 'square'); break;
+      case 'piston_out': this.noiseSweep(900 * pitch, 2400 * pitch, 0.16, 0.5, out, 'bandpass'); this.burst('wood', 0.1, 0.8, 1.1, pos); break;
+      case 'piston_in': this.noiseSweep(2200 * pitch, 800 * pitch, 0.16, 0.45, out, 'bandpass'); this.burst('stone', 0.1, 0.6, 0.9, pos); break;
       default: this.pulses(out, { count: 1, freq: 1200, q: 2, gain: 0.15, len: 0.04 });
+    }
+  }
+  // Note blocks: the instrument comes from the block underneath; pitch 1 is F#4 like the original's samples.
+  note(inst, pitch, pos) {
+    if (!this.ctx) return;
+    const out = this.spatial(pos, 1); if (!out) return;
+    const f = 370 * pitch, T = (a, d, l, type, k = 1) => this.tone(f * a, f * a * k, d, l, type, out);
+    switch (inst) {
+      case 'bass': T(0.25, 0.7, 0.35, 'triangle'); T(0.5, 0.4, 0.1, 'sine'); break;
+      case 'didgeridoo': T(0.25, 1.1, 0.25, 'sawtooth'); break;
+      case 'guitar': T(0.5, 0.6, 0.18, 'sawtooth'); T(1, 0.4, 0.08, 'triangle'); break;
+      case 'flute': T(2, 0.9, 0.22, 'sine'); T(4, 0.3, 0.03, 'sine'); break;
+      case 'bell': this.ring(out, [f * 4, f * 4 * 2.76, f * 4 * 5.4], { decay: 1.8, gain: 0.14 }); break;
+      case 'chime': this.ring(out, [f * 4, f * 4 * 2.2, f * 4 * 3.9], { decay: 1.5, gain: 0.1 }); break;
+      case 'xylophone': T(4, 0.25, 0.28, 'sine'); this.ring(out, [f * 12], { decay: 0.15, gain: 0.05 }); break;
+      case 'iron_xylophone': T(1, 0.5, 0.2, 'square'); T(2, 0.4, 0.08, 'sine'); break;
+      case 'cow_bell': this.ring(out, [f * 2, f * 3], { decay: 0.35, gain: 0.18 }); break;
+      case 'bit': T(1, 0.45, 0.14, 'square'); break;
+      case 'banjo': T(1, 0.4, 0.2, 'square'); T(2, 0.25, 0.1, 'triangle'); break;
+      case 'pling': T(1, 1.2, 0.25, 'sine'); T(2, 1.0, 0.12, 'triangle'); break;
+      case 'basedrum': this.tone(140 * pitch, 50 * pitch, 0.25, 0.55, 'sine', out); break;
+      case 'snare': this.noiseSweep(4000 * pitch, 1500 * pitch, 0.15, 0.45, out, 'bandpass'); break;
+      case 'hat': this.noiseSweep(9000 * Math.min(1.5, pitch), 7000, 0.07, 0.3, out, 'highpass'); break;
+      default: T(1, 1.0, 0.3, 'triangle'); T(2, 0.6, 0.08, 'sine');
     }
   }
   // ---------------- voice synthesis ----------------

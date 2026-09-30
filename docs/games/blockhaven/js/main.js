@@ -1,33 +1,33 @@
 // Blockhaven bootstrap: assets, menus, input, camera, frame loop.
-import { Demo, DEMO_SEED } from './demo.js?v=muo7rynu';
-import { armorModel, armorSkinKey, ARMOR_MATERIALS, ARMOR_PIECES, elytraModel } from './data/armor.js?v=muo7rynu';
-import { TEXTURES, TEX, B, BLOCKS, DIM, DIM_NAMES, SHAPE_OF, SHAPE, props } from './data/blocks.js?v=muo7rynu';
-import { I, ITEMS } from './data/items.js?v=muo7rynu';
-import { MOBS, PROFESSIONS, playerModel, saddleModel, PLAYER_SKINS } from './data/mobs.js?v=muo7rynu';
-import { Net, cleanCode, cleanName, MAX_PLAYERS } from './net/net.js?v=muo7rynu';
-import { NameTags } from './net/nametags.js?v=muo7rynu';
-import { BIOMES } from './gen/biomes.js?v=muo7rynu';
-import { generateBlockTextures } from './render/blocktex.js?v=muo7rynu';
-import { generateItemTextures, ITEM_LAYER, FX_LAYER, ITEM_LAYER_COUNT } from './render/itemtex.js?v=muo7rynu';
-import { packModel, paintModel, SKIN, faceRects } from './render/mobtex.js?v=muo7rynu';
-import { buildMipChain } from './render/atlas.js?v=muo7rynu';
-import { Renderer, Batch } from './render/renderer.js?v=muo7rynu';
-import { World, UNLOADED } from './world/world.js?v=muo7rynu';
-import { createGenerator } from './gen/index.js?v=muo7rynu';
-import { Game } from './game/game.js?v=muo7rynu';
-import { Interact } from './game/interact.js?v=muo7rynu';
-import { Commands } from './game/commands.js?v=muo7rynu';
-import { GUI, HUD } from './game/ui.js?v=muo7rynu';
-import { buildIcons, hudSprites } from './game/icons.js?v=muo7rynu';
-import { Sound } from './game/audio.js?v=muo7rynu';
-import { buildLogo, buttonTexture, iconDataURL } from './render/logo.js?v=muo7rynu';
-import { computeEnv } from './game/env.js?v=muo7rynu';
-import { guideSections } from './game/guide.js?v=muo7rynu';
-import { listWorlds, loadWorld, saveWorld, deleteWorld } from './game/storage.js?v=muo7rynu';
-import { drawModel, rootMatrix, M } from './entity/entity.js?v=muo7rynu';
-import { itemMesh, emitItemMesh } from './entity/itemmesh.js?v=muo7rynu';
-import { Lightning } from './entity/objects.js?v=muo7rynu';
-import { compose, translation, rotationX, rotationY, rotationZ, scaling, forward, mat4 } from './core/math.js?v=muo7rynu';
+import { Demo, DEMO_SEED } from './demo.js?v=muok06n3';
+import { armorModel, armorSkinKey, ARMOR_MATERIALS, ARMOR_PIECES, elytraModel } from './data/armor.js?v=muok06n3';
+import { TEXTURES, TEX, B, BLOCKS, DIM, DIM_NAMES, SHAPE_OF, SHAPE, props } from './data/blocks.js?v=muok06n3';
+import { I, ITEMS } from './data/items.js?v=muok06n3';
+import { MOBS, PROFESSIONS, playerModel, saddleModel, PLAYER_SKINS } from './data/mobs.js?v=muok06n3';
+import { Net, cleanCode, cleanName, cleanKey, cleanChat, chatLine, MAX_PLAYERS } from './net/net.js?v=muok06n3';
+import { NameTags } from './net/nametags.js?v=muok06n3';
+import { BIOMES } from './gen/biomes.js?v=muok06n3';
+import { generateBlockTextures, drawBlockTexture } from './render/blocktex.js?v=muok06n3';
+import { generateItemTextures, ITEM_LAYER, FX_LAYER, ITEM_LAYER_COUNT } from './render/itemtex.js?v=muok06n3';
+import { packModel, paintModel, SKIN, faceRects } from './render/mobtex.js?v=muok06n3';
+import { buildMipChain } from './render/atlas.js?v=muok06n3';
+import { Renderer, Batch } from './render/renderer.js?v=muok06n3';
+import { World, UNLOADED } from './world/world.js?v=muok06n3';
+import { createGenerator } from './gen/index.js?v=muok06n3';
+import { Game } from './game/game.js?v=muok06n3';
+import { Interact } from './game/interact.js?v=muok06n3';
+import { Commands } from './game/commands.js?v=muok06n3';
+import { GUI, HUD } from './game/ui.js?v=muok06n3';
+import { buildIcons, hudSprites } from './game/icons.js?v=muok06n3';
+import { Sound } from './game/audio.js?v=muok06n3';
+import { buildLogo, buttonTexture, dirtTexture, iconDataURL } from './render/logo.js?v=muok06n3';
+import { computeEnv } from './game/env.js?v=muok06n3';
+import { guideSections } from './game/guide.js?v=muok06n3';
+import { listWorlds, loadWorld, saveWorld, deleteWorld } from './game/storage.js?v=muok06n3';
+import { drawModel, rootMatrix, M } from './entity/entity.js?v=muok06n3';
+import { itemMesh, emitItemMesh } from './entity/itemmesh.js?v=muok06n3';
+import { Lightning } from './entity/objects.js?v=muok06n3';
+import { compose, translation, rotationX, rotationY, rotationZ, scaling, forward, mat4 } from './core/math.js?v=muok06n3';
 
 const $ = id => document.getElementById(id);
 const SETTINGS_KEY = 'blockhaven.settings.v2';
@@ -43,6 +43,27 @@ const settings = Object.assign({
 if (!settings.fovMigrated) { if (settings.fov === 75) settings.fov = 70; settings.fovMigrated = true; store(SETTINGS_KEY, settings); }
 const SPLASHES = ['Random ahh edition!', 'Also try Minecraft!', 'Now with elytra!', 'Saddle up!', 'Now with the Nether!', 'Also try the End!', 'Creepers included!', '60 mobs!', 'Villagers will trade!', 'Wild worlds are wild!', 'Every pixel procedural!', 'Craft everything!', 'Spectator mode!', 'Runs on Chromebooks!', 'Mind the lava!', 'Floating islands!'];
 
+// What an uploaded world may say about itself (the create screen's choices, plus /gamemode's).
+const WORLD_MODES = ['survival', 'creative', 'hardcore', 'adventure', 'spectator'], WORLD_TYPES = ['default', 'wild', 'flat'], DIFFICULTIES = ['peaceful', 'easy', 'normal', 'hard'];
+const isObj = v => !!v && typeof v === 'object' && !Array.isArray(v);
+// Checks an uploaded save and fills in safe defaults; throws with a readable reason if it can't be used.
+function checkWorld(w) {
+  const bad = why => { throw new Error(`That file is not a Blockhaven world (${why}).`); };
+  if (!isObj(w) || typeof w.seed !== 'number' || !Number.isFinite(w.seed)) bad('no seed');
+  const pick = (k, list, def) => { if (w[k] === undefined || w[k] === null) w[k] = def; else if (!list.includes(w[k])) bad(`unknown ${k} "${String(w[k]).slice(0, 20)}"`); };
+  pick('mode', WORLD_MODES, 'survival'); pick('type', WORLD_TYPES, 'default'); pick('difficulty', DIFFICULTIES, 'normal');
+  if (w.dims !== undefined && (!isObj(w.dims) || Object.values(w.dims).some(d => d !== null && !isObj(d)))) bad('broken dimensions');
+  w.name = (typeof w.name === 'string' ? w.name.trim().slice(0, 32).trim() : '') || 'Uploaded World';
+  if (typeof w.seedText !== 'string') w.seedText = String(w.seed);
+  w.day = Number.isFinite(w.day) && w.day >= 0 ? Math.floor(w.day) : 0;
+  if (w.time !== undefined && !Number.isFinite(w.time)) delete w.time;
+  w.cheats = w.cheats !== false; w.hardcore = w.mode === 'hardcore' || w.hardcore === true;
+  for (const k of ['rules', 'players', 'weather', 'stats']) if (w[k] !== undefined && !isObj(w[k])) delete w[k];
+  if (w.palette !== undefined && !Array.isArray(w.palette)) delete w.palette;
+  if (typeof w.thumb !== 'string' || !w.thumb.startsWith('data:image/')) delete w.thumb;
+  delete w.demo; delete w.guest; // an upload is always a normal, saved, hostable world
+  return w;
+}
 const smooth = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 function hashSeed(text) {
   const t = text.trim();
@@ -71,6 +92,25 @@ function orient(d, n) {
 }
 const GRIP = orient([-0.42, 0.78, -0.46], [-0.5, 0.2, 0.85]);
 
+// ---------------- Minecraft-style widgets ----------------
+// Slider: wraps a range input in a button-like track with the label centred and an 8x20 handle;
+// the (invisible) input keeps handling the mouse, keyboard and 'input' events. Returns a refresh().
+function slider(id, label, fmt = v => v) {
+  const el = $(id), wrap = document.createElement('div'), lab = document.createElement('span'), knob = document.createElement('span');
+  wrap.className = 'slider'; lab.className = 'lab'; knob.className = 'knob';
+  el.replaceWith(wrap); wrap.append(el, lab, knob);
+  const refresh = () => { const v = Number(el.value); wrap.style.setProperty('--p', (v - el.min) / (el.max - el.min)); lab.textContent = `${label}: ${fmt(v)}`; };
+  el.addEventListener('input', refresh); refresh();
+  return refresh;
+}
+// Cycle button ("Difficulty: Normal"): each click moves to the next of opts = [[value, text], ...].
+function cycle(btn, label, opts, get, set) {
+  const draw = () => { const o = opts.find(o => o[0] === get()) || opts[0]; btn.textContent = `${label}: ${o[1]}`; };
+  btn.addEventListener('click', () => { const i = opts.findIndex(o => o[0] === get()); set(opts[(i + 1) % opts.length][0]); draw(); });
+  draw(); return draw;
+}
+const toggle = (btn, label, get, set) => cycle(btn, label, [[true, 'ON'], [false, 'OFF']], get, set);
+
 class App {
   constructor() {
     this.settings = settings;
@@ -88,6 +128,9 @@ class App {
   }
 
   init() {
+    // Menu textures first, so even the error screen has its dirt background.
+    const css = document.documentElement.style;
+    css.setProperty('--btn-tex', `url(${buttonTexture()})`); css.setProperty('--dirt-tex', `url(${dirtTexture(drawBlockTexture('dirt', 1))})`);
     try { this.renderer = new Renderer($('game')); } catch (e) { this.fatal(/WebGL 2 is not available/.test(e.message) ? 'Blockhaven needs WebGL 2, which this browser or device does not provide.' : `Graphics startup failed: ${e.message.split('\n')[0]}`); return false; }
     this.applyGraphics();
     // Textures.
@@ -117,6 +160,9 @@ class App {
     this.nametags = new NameTags($('nametags'));
     this.bindSettings(); this.bindMenus(); this.bindInput();
     $('splash').textContent = SPLASHES[Math.floor(Math.random() * SPLASHES.length)];
+    // Like Minecraft, the splash is scaled so it always spans about 100 GUI px (measured once the font is in).
+    const fitSplash = () => { const el = $('splash'), w = el.offsetWidth / (this.guiScale || 3) / (Number(getComputedStyle(el).getPropertyValue('--splash-scale')) || 1); el.style.setProperty('--splash-scale', Math.min(1.5, 110 / (w + 16)).toFixed(2)); };
+    fitSplash(); if (document.fonts && document.fonts.ready) document.fonts.ready.then(fitSplash);
     this.buildTitleArt();
     this.startPanorama();
     requestAnimationFrame(t => this.frame(t));
@@ -126,7 +172,6 @@ class App {
     const logo = buildLogo('BLOCKHAVEN', 'RANDOM AHH EDITION');
     $('logo').prepend(logo);
     $('logo').style.setProperty('--logo-w', logo.width);
-    document.documentElement.style.setProperty('--btn-tex', `url(${buttonTexture()})`);
     $('full-icon').src = iconDataURL('full');
     this.applyMute();
   }
@@ -135,7 +180,7 @@ class App {
     if (this.sound.setMusic) this.sound.setMusic(settings.muted ? 0 : settings.music / 100);
     $('mute-icon').src = iconDataURL(settings.muted ? 'mute' : 'sound');
   }
-  // Graphics presets: 0 Disabled, 1 Regular, 2 High, 3 PC.
+  // Graphics presets: 0 Fast, 1 Regular, 2 High, 3 PC.
   applyGraphics() {
     const q = Number(settings.graphics);
     this.renderer.setQuality(q);
@@ -145,7 +190,7 @@ class App {
     const secs = guideSections(this.icons), tabs = $('guide-tabs'), body = $('guide-body');
     tabs.textContent = '';
     const show = name => { body.innerHTML = secs[name]; body.scrollTop = 0; tabs.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.textContent === name)); };
-    for (const name of Object.keys(secs)) { const b = document.createElement('button'); b.textContent = name; b.addEventListener('click', () => { this.sound.click(); show(name); }); tabs.appendChild(b); }
+    for (const name of Object.keys(secs)) { const b = document.createElement('button'); b.className = 'small'; b.textContent = name; b.addEventListener('click', () => { this.sound.click(); show(name); }); tabs.appendChild(b); }
     show(Object.keys(secs)[0]);
   }
   fatal(msg) { $('title').classList.add('hidden'); $('error').classList.remove('hidden'); $('error').textContent = msg; }
@@ -181,6 +226,7 @@ class App {
   setMode(m) {
     this.mode = m;
     for (const id of ['title', 'worlds', 'create', 'loading', 'pause', 'death', 'mp']) $(id).classList.toggle('hidden', id !== m);
+    document.body.classList.toggle('ingame', !!this.game); // in a world, menus overlay the game instead of dirt
     if (m === 'pause') this.updatePauseMenu();
     $('hud').classList.toggle('hidden', !(m === 'play' || m === 'pause' || m === 'gui' || m === 'chat') || this.hudHidden);
     this.keys.clear(); this.mouse.left = this.mouse.right = false;
@@ -194,16 +240,21 @@ class App {
     $('btn-world-play').disabled = $('btn-world-delete').disabled = $('btn-world-download').disabled = true;
     if (!worlds.length) { const d = document.createElement('div'); d.className = 'empty-note'; d.textContent = 'No worlds yet — create one!'; list.appendChild(d); return; }
     for (const w of worlds) {
-      const e = document.createElement('div'); e.className = 'world-entry';
-      const th = document.createElement('div'); th.className = 'thumb'; if (w.thumb) th.style.backgroundImage = `url(${w.thumb})`;
-      const info = document.createElement('div');
-      const n = document.createElement('div'); n.className = 'name'; n.textContent = w.name;
-      const i = document.createElement('div'); i.className = 'info';
-      i.textContent = `${new Date(w.lastPlayed).toLocaleString()} · ${w.mode[0].toUpperCase() + w.mode.slice(1)} · ${w.type === 'wild' ? 'Wild' : w.type === 'flat' ? 'Superflat' : 'Default'} · Day ${(w.day || 0) + 1}`;
-      info.append(n, i); e.append(th, info);
-      e.addEventListener('click', () => { list.querySelectorAll('.sel').forEach(x => x.classList.remove('sel')); e.classList.add('sel'); this.selectedWorld = w.id; $('btn-world-play').disabled = $('btn-world-delete').disabled = $('btn-world-download').disabled = false; });
-      e.addEventListener('dblclick', () => this.playWorld(w.id));
-      list.appendChild(e);
+      // One damaged save must not hide the rest of the list.
+      try {
+        const e = document.createElement('div'); e.className = 'world-entry';
+        const th = document.createElement('div'); th.className = 'thumb'; if (typeof w.thumb === 'string' && w.thumb.startsWith('data:image/')) th.style.backgroundImage = `url(${w.thumb})`;
+        const info = document.createElement('div'); info.className = 'txt';
+        const n = document.createElement('div'); n.className = 'name'; n.textContent = String(w.name || 'Untitled World');
+        const i = document.createElement('div'), i2 = document.createElement('div'); i.className = i2.className = 'info';
+        const mode = typeof w.mode === 'string' && w.mode ? w.mode : 'survival', day = Number.isFinite(w.day) ? w.day : 0;
+        i.textContent = `(${new Date(w.lastPlayed || 0).toLocaleString()})`;
+        i2.textContent = `${mode[0].toUpperCase() + mode.slice(1)} Mode, ${w.type === 'wild' ? 'Wild' : w.type === 'flat' ? 'Superflat' : 'Default'}, Day ${day + 1}`;
+        info.append(n, i, i2); e.append(th, info);
+        e.addEventListener('click', () => { list.querySelectorAll('.sel').forEach(x => x.classList.remove('sel')); e.classList.add('sel'); this.selectedWorld = w.id; $('btn-world-play').disabled = $('btn-world-delete').disabled = $('btn-world-download').disabled = false; });
+        e.addEventListener('dblclick', () => this.playWorld(w.id));
+        list.appendChild(e);
+      } catch (err) { console.warn('skipping broken world', w && w.id, err); }
     }
   }
   // Worlds travel as .bhworld files: the save as JSON, gzipped when the browser can.
@@ -226,8 +277,7 @@ class App {
         if (!window.DecompressionStream) throw new Error('This browser cannot open compressed worlds.');
         text = await new Response(new Blob([buf]).stream().pipeThrough(new DecompressionStream('gzip'))).text();
       } else text = new TextDecoder().decode(buf);
-      const data = JSON.parse(text), w = data && (data.world || data);
-      if (!w || typeof w.seed !== 'number' || !w.name) throw new Error('That file is not a Blockhaven world.');
+      const data = JSON.parse(text), w = checkWorld(data && (data.world || data));
       const existing = await listWorlds();
       // Never overwrite: an upload is always added as its own world.
       w.id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
@@ -244,7 +294,7 @@ class App {
   }
   createWorld() {
     this.sound.unlock(); this.sound.click();
-    const opt = k => $('create').querySelector(`[data-opt=${k}] .on`).dataset.v;
+    const opt = k => $('create').querySelector(`[data-opt=${k}]`).dataset.v;
     const seedText = $('cw-seed').value;
     const meta = {
       id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
@@ -346,6 +396,14 @@ class App {
     if (!cleanName(settings.mpName)) { settings.mpName = `Player${100 + Math.floor(Math.random() * 900)}`; store(SETTINGS_KEY, settings); }
     return cleanName(settings.mpName);
   }
+  // Random per-browser secret: the host ties our saved progress in its world to it, not just to our name.
+  mpKey() {
+    if (!cleanKey(settings.mpKey)) {
+      const b = crypto.getRandomValues(new Uint8Array(24)), c = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
+      settings.mpKey = Array.from(b, x => c[x & 63]).join(''); store(SETTINGS_KEY, settings);
+    }
+    return settings.mpKey;
+  }
   saveMpSettings() {
     const n = cleanName($('mp-name').value);
     if (n) settings.mpName = n;
@@ -391,7 +449,7 @@ class App {
     this.joining = true; $('btn-mp-join').disabled = true;
     this.sound.unlock();
     try {
-      const { net, welcome } = await Net.join(this, code, name, settings.skin | 0, t => this.mpStatus(t));
+      const { net, welcome } = await Net.join(this, code, name, settings.skin | 0, this.mpKey(), t => this.mpStatus(t));
       if (this.mode !== 'mp') { net.close(); return; }
       this.mpStatus('Joined!', 'ok');
       this.startGuestGame(net, welcome);
@@ -522,24 +580,24 @@ class App {
   }
 
   bindSettings() {
-    const bind = (id, key, label, apply) => {
+    const bind = (id, key, label, fmt, apply) => {
       const el = $(id);
       el.value = settings[key];
-      if (label) $(label).textContent = settings[key];
-      el.addEventListener('input', () => { settings[key] = Number(el.value); if (label) $(label).textContent = settings[key]; if (apply) apply(); });
+      el.addEventListener('input', () => { settings[key] = Number(el.value); if (apply) apply(); });
+      slider(id, label, fmt);
     };
-    bind('set-rd', 'renderDistance', 'rd-val');
-    bind('set-fov', 'fov', 'fov-val');
-    bind('set-sens', 'sensitivity', 'sens-val');
-    bind('set-bright', 'brightness', 'bright-val');
-    bind('set-vol', 'volume', 'vol-val', () => { settings.muted = false; this.applyMute(); });
-    bind('set-music', 'music', 'music-val', () => { settings.muted = false; this.applyMute(); });
-    $('set-gfx').value = settings.graphics;
-    $('set-gfx').addEventListener('change', () => { settings.graphics = Number($('set-gfx').value); this.applyGraphics(); store(SETTINGS_KEY, settings); });
-    for (const [id, k] of [['set-bob', 'bobbing'], ['set-clouds', 'clouds'], ['set-autojump', 'autoJump'], ['set-particles', 'particles'], ['set-dynres', 'dynamicRes']]) {
-      $(id).checked = settings[k];
-      $(id).addEventListener('change', () => { settings[k] = $(id).checked; if (this.game) this.game.player.autoJump = settings.autoJump; });
+    const pct = v => `${v}%`, vol = v => (v ? `${v}%` : 'OFF'), unmute = () => { settings.muted = false; this.applyMute(); };
+    bind('set-rd', 'renderDistance', 'Render Distance', v => `${v} chunks`);
+    bind('set-fov', 'fov', 'FOV', v => (v === 70 ? 'Normal' : v === 110 ? 'Quake Pro' : v));
+    bind('set-sens', 'sensitivity', 'Sensitivity', pct);
+    bind('set-bright', 'brightness', 'Brightness', v => (v === 0 ? 'Moody' : v === 100 ? 'Bright' : pct(v)));
+    bind('set-vol', 'volume', 'Master Volume', vol, unmute);
+    bind('set-music', 'music', 'Music', vol, unmute);
+    cycle($('set-gfx'), 'Graphics', [[0, 'Fast'], [1, 'Regular'], [2, 'High'], [3, 'PC']], () => Number(settings.graphics), v => { settings.graphics = v; this.applyGraphics(); store(SETTINGS_KEY, settings); });
+    for (const [id, k, label] of [['set-bob', 'bobbing', 'View Bobbing'], ['set-clouds', 'clouds', 'Clouds'], ['set-autojump', 'autoJump', 'Auto-Jump'], ['set-particles', 'particles', 'Particles'], ['set-dynres', 'dynamicRes', 'Dynamic Resolution']]) {
+      toggle($(id), label, () => !!settings[k], v => { settings[k] = v; if (this.game) this.game.player.autoJump = settings.autoJump; });
     }
+    for (const b of $('settings').querySelectorAll('.opts button')) b.addEventListener('click', () => this.sound.click());
   }
   bindMenus() {
     const click = (id, fn) => $(id).addEventListener('click', () => { this.sound.unlock(); this.sound.click(); fn(); });
@@ -553,27 +611,29 @@ class App {
     click('btn-world-delete', async () => { if (this.selectedWorld && confirm('Delete this world forever?')) { await deleteWorld(this.selectedWorld); this.showWorlds(); } });
     click('btn-create', () => this.createWorld());
     click('btn-create-cancel', () => this.showWorlds());
-    for (const group of $('create').querySelectorAll('.opt')) {
-      group.addEventListener('click', e => {
-        const b = e.target.closest('button');
-        if (!b) return;
-        group.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
-        this.sound.click();
-        this.updateCreateHint();
-      });
+    // Create-screen choices are cycle buttons; the current value lives in data-v.
+    const choices = {
+      mode: ['Game Mode', [['survival', 'Survival'], ['creative', 'Creative'], ['hardcore', 'Hardcore']]],
+      difficulty: ['Difficulty', [['peaceful', 'Peaceful'], ['easy', 'Easy'], ['normal', 'Normal'], ['hard', 'Hard']]],
+      type: ['World Type', [['default', 'Default'], ['wild', 'Wild'], ['flat', 'Superflat']]],
+      cheats: ['Allow Cheats', [['on', 'ON'], ['off', 'OFF']]],
+    };
+    for (const b of $('create').querySelectorAll('[data-opt]')) {
+      const [label, opts] = choices[b.dataset.opt];
+      cycle(b, label, opts, () => b.dataset.v, v => { b.dataset.v = v; this.sound.click(); this.updateCreateHint(); });
     }
     click('btn-settings', () => this.openPanel('settings'));
     click('btn-settings2', () => this.openPanel('settings'));
-    click('btn-settings-done', () => { $('settings').classList.add('hidden'); store(SETTINGS_KEY, settings); });
+    click('btn-settings-done', () => { this.closePanel('settings'); store(SETTINGS_KEY, settings); });
     click('btn-guide', () => this.openGuide());
     click('btn-demo', () => this.startDemo());
     click('btn-guide2', () => this.openGuide());
-    click('btn-guide-done', () => $('guide').classList.add('hidden'));
+    click('btn-guide-done', () => this.closePanel('guide'));
     click('btn-controls', () => this.openPanel('controls'));
     click('btn-mute', () => { settings.muted = !settings.muted; this.applyMute(); store(SETTINGS_KEY, settings); });
     click('btn-full', () => { if (document.fullscreenElement) document.exitFullscreen?.(); else document.documentElement.requestFullscreen?.().catch(() => {}); });
     click('btn-controls2', () => this.openPanel('controls'));
-    click('btn-controls-done', () => $('controls').classList.add('hidden'));
+    click('btn-controls-done', () => this.closePanel('controls'));
     click('btn-resume', () => this.requestLock());
     click('btn-quit', () => this.quitToTitle());
     click('btn-open', () => this.openToFriends());
@@ -589,12 +649,13 @@ class App {
     $('cw-seed').addEventListener('keydown', e => { if (e.key === 'Enter') this.createWorld(); });
   }
   updateCreateHint() {
-    const opt = k => $('create').querySelector(`[data-opt=${k}] .on`).dataset.v;
-    const t = { default: 'Continents, oceans, rivers, 40+ biomes, deep caves, villages and structures.', wild: 'Wild: amplified mountains, floating islands with waterfalls, giant stone pillars and natural arches.', flat: 'Superflat: a flat grassland, perfect for building.' }[opt('type')];
-    const m = { survival: 'Survival: gather resources, craft, stay alive.', creative: 'Creative: unlimited blocks, flight, instant breaking.', hardcore: 'Hardcore: survival on hard difficulty with one life.' }[opt('mode')];
-    $('cw-hint').textContent = `${m} ${t}`;
+    const opt = k => $('create').querySelector(`[data-opt=${k}]`).dataset.v;
+    $('cw-hint').textContent = { survival: 'Gather resources, craft and stay alive.', creative: 'Unlimited blocks, flight, instant breaking.', hardcore: 'Survival on hard difficulty with one life.' }[opt('mode')];
+    $('cw-type-hint').textContent = { default: 'Continents, oceans, rivers, 40+ biomes, deep caves, villages and structures.', wild: 'Amplified mountains, floating islands with waterfalls, giant stone pillars and natural arches.', flat: 'A flat grassland, perfect for building.' }[opt('type')];
   }
-  openPanel(id) { $(id).classList.remove('hidden'); }
+  // Options/Controls/Guide replace the pause menu while open, like Minecraft's sub-screens.
+  openPanel(id) { $(id).classList.remove('hidden'); if (this.mode === 'pause') $('pause').classList.add('hidden'); }
+  closePanel(id) { $(id).classList.add('hidden'); if (this.mode === 'pause') $('pause').classList.remove('hidden'); }
 
   // ---------------- input ----------------
   bindInput() {
@@ -652,7 +713,7 @@ class App {
         if (v) {
           this.chatHistory.push(v);
           if (v.startsWith('/')) this.commands.run(v);
-          else { const text = `<${this.game.playerName}> ${v}`; this.chat(text); if (this.net) this.net.send({ t: 'chat', id: this.net.myId, text }); }
+          else { const msg = cleanChat(v); if (msg) { this.chat(chatLine(this.game.playerName, msg)); if (this.net) this.net.send({ t: 'chat', id: this.net.myId, msg }); } }
         }
         this.closeChat();
         return;
@@ -887,6 +948,8 @@ class App {
       const matrix = compose(translation(a.x + 0.5, a.y, a.z + 0.5), rotationY(-facing * Math.PI / 2), translation(-0.5, 0, -0.5), translation(0, 10 / 16, 1 / 16), rotationX(-e * Math.PI / 2), translation(0, -10 / 16, -1 / 16));
       ctx.blockModels.push({ id: B.CHEST, meta: 32, light, matrix });
     }
+    // Blocks being moved by pistons.
+    g.rs.render(ctx, (x, y, z) => { const l = g.world.lightAt(x, y, z); return Math.max(Math.pow(0.8, 15 - l.sky) * g.env.skyLight[0], Math.pow(0.82, 15 - l.blk) * 1.1, g.env.ambient[0]); });
     if (this.view > 0 && g.alive && g.mode !== 'spectator') this.drawPlayerModel(ctx);
     if (rain > 0.05) this.drawWeather(ctx, cam, rain);
     // Hand.

@@ -146,6 +146,26 @@ def test_coreutils_are_not_recognised():
     assert not has_desktop_entry("ls")
 
 
+def test_terminal_and_hidden_entries_are_not_windows(monkeypatch, tmp_path):
+    """Ubuntu's texinfo package ships `info.desktop` with Terminal=true, so
+    a bare "is there a .desktop file" check turned "open info" into a launch."""
+    from relay import fastpath
+
+    apps = tmp_path / "applications"
+    apps.mkdir()
+    (apps / "info.desktop").write_text("[Desktop Entry]\nName=Info\nExec=info\nTerminal=true\n")
+    (apps / "secret.desktop").write_text("[Desktop Entry]\nName=Secret\nExec=secret\nNoDisplay=true\n")
+    (apps / "paint.desktop").write_text("[Desktop Entry]\nName=Paint\nExec=paint\nTerminal=false\n")
+    monkeypatch.setattr(fastpath, "_application_dirs", lambda: [apps])
+    fastpath._desktop_entries.cache_clear()
+    try:
+        assert fastpath.has_desktop_entry("paint")
+        assert not fastpath.has_desktop_entry("info")
+        assert not fastpath.has_desktop_entry("secret")
+    finally:
+        fastpath._desktop_entries.cache_clear()
+
+
 def test_decorated_entry_names_still_match(monkeypatch):
     """Discord installs `discord-460807638964371468.desktop`, so an exact
     filename match would miss it."""
