@@ -1,4 +1,5 @@
 // Blockhaven bootstrap: assets, menus, input, camera, frame loop.
+import { armorModel, armorSkinKey, ARMOR_MATERIALS, ARMOR_PIECES } from './data/armor.js';
 import { TEXTURES, TEX, B, BLOCKS, DIM, DIM_NAMES, SHAPE_OF, SHAPE, props } from './data/blocks.js';
 import { I, ITEMS } from './data/items.js';
 import { MOBS, PROFESSIONS, playerModel } from './data/mobs.js';
@@ -46,6 +47,24 @@ function hashSeed(text) {
   return h;
 }
 
+// 3x4 row-major (entity M) to a 4x4 column-major matrix for the renderer.
+function toMat4(m) { const o = new Float32Array(16); o[0] = m[0]; o[1] = m[4]; o[2] = m[8]; o[4] = m[1]; o[5] = m[5]; o[6] = m[9]; o[8] = m[2]; o[9] = m[6]; o[10] = m[10]; o[12] = m[3]; o[13] = m[7]; o[14] = m[11]; o[15] = 1; return o; }
+
+// Rotation taking a sprite's diagonal (handle -> tip) to direction d with its face normal towards n.
+function orient(d, n) {
+  const norm = v => { const l = Math.hypot(v[0], v[1], v[2]) || 1; return [v[0] / l, v[1] / l, v[2] / l]; };
+  const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+  d = norm(d);
+  const dn = n[0] * d[0] + n[1] * d[1] + n[2] * d[2];
+  n = norm([n[0] - d[0] * dn, n[1] - d[1] * dn, n[2] - d[2] * dn]);
+  const A = [d, cross(n, d), n], s = Math.SQRT1_2;
+  const Bv = [[s, s, 0], [-s, s, 0], [0, 0, 1]];
+  const m = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+  for (let r = 0; r < 3; r++) for (let c = 0; c < 3; c++) m[r * 4 + c] = A[0][r] * Bv[0][c] + A[1][r] * Bv[1][c] + A[2][r] * Bv[2][c];
+  return m;
+}
+const GRIP = orient([-0.42, 0.78, -0.46], [-0.5, 0.2, 0.85]);
+
 class App {
   constructor() {
     this.settings = settings;
@@ -78,6 +97,7 @@ class App {
     for (const [k, d] of Object.entries(MOBS)) addSkin(k, d.model(), seed++);
     for (const p of PROFESSIONS) addSkin(`villager_${p}`, MOBS.villager.professionModel(p), seed++);
     addSkin('player', playerModel(), 777);
+    for (const mat of Object.keys(ARMOR_MATERIALS)) for (const piece of ARMOR_PIECES) for (const thin of [false, true]) addSkin(`armor_${mat}_${piece}${thin ? '_thin' : ''}`, armorModel(mat, piece, thin), seed++);
     this.renderer.setEntityTextures(buildMipChain(skins, SKIN, 7), skins.length);
     this.icons = buildIcons(this.blockTex, this.itemTex);
     this.sprites = hudSprites();
@@ -231,6 +251,7 @@ class App {
     this.hud.last = {};
     $('hotbar').parentElement.style.visibility = m === 'spectator' ? 'hidden' : 'visible';
   }
+  showAction(text, t = 1.6) { this.actionText = text; this.actionT = t; }
   summonLightning(x, y, z) { this.game.entities.add(new Lightning(this.game, x, y, z)); }
   hurtFlash() { this.post.hurt = 1; this.shakeAmt = Math.max(this.shakeAmt, 0.35); }
   flash(v) { this.post.flash = Math.max(this.post.flash, v); }
@@ -272,7 +293,14 @@ class App {
     this.suggestions = s;
   }
 
-  requestLock() { const r = $('game').requestPointerLock(); if (r && r.catch) r.catch(() => {}); }
+  // Raw (unaccelerated) mouse input where supported, like Minecraft's "Raw Input" option.
+  requestLock() {
+    const c = $('game');
+    let r;
+    try { r = c.requestPointerLock({ unadjustedMovement: true }); } catch { r = null; }
+    if (r && r.catch) r.catch(() => { const r2 = c.requestPointerLock(); if (r2 && r2.catch) r2.catch(() => {}); });
+    else if (!r && document.pointerLockElement !== c) { try { c.requestPointerLock(); } catch { /* ignore */ } }
+  }
 
   bindSettings() {
     const bind = (id, key, label, apply) => {
@@ -340,16 +368,27 @@ class App {
     const canvas = $('game');
     document.addEventListener('pointerlockchange', () => {
       this.locked = document.pointerLockElement === canvas;
+      if (this.locked) { this.lockedAt = performance.now(); this.mouseAvg = 0; }
       if (this.locked) { if (this.mode === 'pause') this.setMode('play'); }
       else if (this.mode === 'play' && !this.suppressPause) { this.setMode('pause'); this.saveGame(); }
       this.suppressPause = false;
     });
     canvas.addEventListener('click', () => { if ((this.mode === 'play' || this.mode === 'loading') && !this.locked) this.requestLock(); });
-    document.addEventListener('mousemove', e => {
+    // Pointer events carry fractional movement (mousemove rounds to whole pixels, which swallows
+    // slow, small motions and feels like a deadzone). pointerrawupdate is also delivered at the
+    // device's full rate instead of once per frame.
+    const moveEvent = 'onpointerrawupdate' in window ? 'pointerrawupdate' : 'onpointermove' in window ? 'pointermove' : 'mousemove';
+    document.addEventListener(moveEvent, e => {
       if (!this.locked || this.mode !== 'play' || !this.game) return;
+      let dx = e.movementX, dy = e.movementY;
+      // Some browsers occasionally report a huge bogus jump (especially right after locking or
+      // when the event queue stalls); drop deltas that are wildly out of line with recent motion.
+      const mag = Math.abs(dx) + Math.abs(dy), avg = this.mouseAvg || 0;
+      if (performance.now() - (this.lockedAt || 0) < 120 || (mag > 250 && mag > avg * 8 + 60)) { this.mouseAvg = avg * 0.9; return; }
+      this.mouseAvg = avg * 0.8 + mag * 0.2;
       const s = settings.sensitivity / 100 * 0.0022, p = this.game.player;
-      p.yaw -= e.movementX * s;
-      p.pitch = Math.max(-1.56, Math.min(1.56, p.pitch - e.movementY * s));
+      p.yaw -= dx * s;
+      p.pitch = Math.max(-1.56, Math.min(1.56, p.pitch - dy * s));
     });
     document.addEventListener('mousedown', e => {
       if (this.mode !== 'play' || !this.locked) return;
@@ -366,7 +405,7 @@ class App {
       this.select(g.inv.selected + Math.sign(e.deltaY));
     }, { passive: true });
     document.addEventListener('keydown', e => this.keyDown(e));
-    document.addEventListener('keyup', e => this.keys.delete(e.code));
+    document.addEventListener('keyup', e => { this.keys.delete(e.code); if (e.code === 'KeyW') this.tapSprint = false; });
     window.addEventListener('blur', () => { this.keys.clear(); this.mouse.left = this.mouse.right = false; });
     document.addEventListener('visibilitychange', () => { if (document.hidden) this.saveGame(); });
     window.addEventListener('beforeunload', () => this.saveGame());
@@ -409,6 +448,11 @@ class App {
     const g = this.game;
     if (this.mode !== 'play' || !g) return;
     this.keys.add(e.code);
+    if (e.code === 'KeyW' && !e.repeat) {
+      const now = performance.now();
+      if (now - (this.lastWTap || 0) < 300) this.tapSprint = true;
+      this.lastWTap = now;
+    }
     if (/^Digit[1-9]$/.test(e.code)) this.select(Number(e.code.slice(5)) - 1);
     if (e.code === 'Space' && !e.repeat) g.player.jumpPressed(this.time);
     if (e.code === 'KeyE' && g.mode !== 'spectator' && g.alive) this.gui.openInventory();
@@ -418,7 +462,10 @@ class App {
     if (e.code === 'KeyF' && g.mode !== 'spectator') { const a = g.inv.held, b = g.inv.offhand.get(0); g.inv.setHeld(b); g.inv.offhand.set(0, a); }
     if (e.code === 'F1') { this.hudHidden = !this.hudHidden; $('hud').classList.toggle('hidden', this.hudHidden); }
     if (e.code === 'F3') { this.debug = !this.debug; $('debug').classList.toggle('hidden', !this.debug); }
-    if (e.code === 'F5') this.view = (this.view + 1) % 3;
+    if ((e.code === 'F5' || e.code === 'KeyV') && !e.repeat) {
+      this.view = (this.view + 1) % 3;
+      this.showAction(['First person', 'Third person (behind)', 'Third person (front)'][this.view]);
+    }
     if (e.code === 'F4' && g.cheats) this.setGameMode(g.mode === 'spectator' ? 'creative' : 'spectator');
   }
 
@@ -462,12 +509,19 @@ class App {
   // Dynamic resolution keeps the frame rate smooth on slow GPUs, only touching resolution when truly needed.
   adaptResolution(realDt) {
     if (!settings.dynamicRes) { this.renderScale = 1; return; }
+    // Resizing reallocates every render target, so it must be rare: only after a sustained
+    // slowdown (or recovery) and never more than once every few seconds.
     this.frameTimes.push(realDt);
-    if (this.frameTimes.length < 45) return;
-    const avg = this.frameTimes.reduce((a, b) => a + b, 0) / this.frameTimes.length;
+    if (this.frameTimes.length < 60) return;
+    const sorted = this.frameTimes.slice().sort((a, b) => a - b);
+    const med = sorted[sorted.length >> 1];
     this.frameTimes.length = 0;
-    if (avg > 1 / 40 && this.renderScale > 0.7) this.renderScale = Math.max(0.7, this.renderScale - 0.1);
-    else if (avg < 1 / 57 && this.renderScale < 1) this.renderScale = Math.min(1, this.renderScale + 0.05);
+    const now = performance.now();
+    this.resSlow = med > 1 / 36 ? (this.resSlow || 0) + 1 : 0;
+    this.resFast = med < 1 / 55 ? (this.resFast || 0) + 1 : 0;
+    if (now - (this.resChangedAt || 0) < 6000) return;
+    if (this.resSlow >= 2 && this.renderScale > 0.7) { this.renderScale = Math.max(0.7, +(this.renderScale - 0.15).toFixed(2)); this.resChangedAt = now; this.resSlow = 0; }
+    else if (this.resFast >= 6 && this.renderScale < 1) { this.renderScale = Math.min(1, +(this.renderScale + 0.15).toFixed(2)); this.resChangedAt = now; this.resFast = 0; }
   }
   framePanorama(dt) {
     const pano = this.panorama;
@@ -499,7 +553,7 @@ class App {
     if (playing && this.mode !== 'pause') {
       const input = {
         forward: this.keys.has('KeyW'), back: this.keys.has('KeyS'), left: this.keys.has('KeyA'), right: this.keys.has('KeyD'),
-        jump: this.keys.has('Space'), sneak: this.keys.has('ShiftLeft') || this.keys.has('ShiftRight'), sprint: this.keys.has('ControlLeft') || this.keys.has('ControlRight') || this.keys.has('KeyR'),
+        jump: this.keys.has('Space'), sneak: this.keys.has('ShiftLeft') || this.keys.has('ShiftRight'), sprint: this.keys.has('ControlLeft') || this.keys.has('ControlRight') || this.keys.has('KeyR') || !!this.tapSprint,
       };
       if (this.mode !== 'play') for (const k of Object.keys(input)) input[k] = false;
       if (g.alive) {
@@ -579,7 +633,12 @@ class App {
     const light = g.world.lightAt(p.pos[0], p.pos[1] + 1, p.pos[2]);
     const b = Math.max(Math.pow(0.8, 15 - light.sky) * g.env.skyLight[0], Math.pow(0.82, 15 - light.blk), g.env.ambient[0]);
     const sneak = p.sneaking ? M.chain(M.t(0, -2, 0), M.rx(0)) : null;
-    const mats = drawModel(ctx.mobs, model, layer, rootMatrix(p.pos, p.yaw, 1, sneak), poses, [b, b, b], this.post.hurt > 0.5 ? 0.6 : 0);
+    const root = rootMatrix(p.pos, p.yaw, 1, sneak), flash = this.post.hurt > 0.5 ? 0.6 : 0;
+    const mats = drawModel(ctx.mobs, model, layer, root, poses, [b, b, b], flash);
+    for (const s of g.inv.armor.slots) {
+      const sk = s && armorSkinKey(s.key);
+      if (sk) drawModel(ctx.mobs, this.mobModel(sk), this.mobLayer(sk), root, poses, [b, b, b], flash);
+    }
     const held = g.inv.held;
     if (held && mats.rightArm) this.renderItemAt(ctx, held.key, M.chain(mats.rightArm, M.t(-3, -10, -1), M.rx(-Math.PI / 2), M.s(10)), [b, b, b]);
   }
@@ -621,48 +680,72 @@ class App {
   }
 
   // First-person hand/item in view space.
+  // First-person hand, following Minecraft's held-item renderer: the arm offset, the swing arc
+  // (sin(f^2*pi) / sin(sqrt(f)*pi) curves over 0.3 s) and per-type display transforms, so swords
+  // sit diagonally in the grip and chop down-and-across when swung.
   buildHand(dt, cam) {
     const g = this.game, p = g.player, it = this.interact;
-    const swing = Math.sin((1 - it.swing) * Math.PI) * (it.swing > 0 ? 1 : 0);
+    const D2R = Math.PI / 180;
+    const f = this.debugSwing ?? (it.swing > 0 ? 1 - it.swing : 0), sf = Math.sqrt(f);
     const bob = settings.bobbing ? p.bobAmount : 0, ph = p.bobPhase;
     let dyaw = p.yaw - this.bobLast[0];
     if (dyaw > Math.PI) dyaw -= Math.PI * 2; else if (dyaw < -Math.PI) dyaw += Math.PI * 2;
     this.swayX = (this.swayX || 0) + (Math.max(-0.2, Math.min(0.2, dyaw * 2.5)) - (this.swayX || 0)) * Math.min(1, dt * 10);
     this.swayY = (this.swayY || 0) + (Math.max(-0.2, Math.min(0.2, (p.pitch - this.bobLast[1]) * 2.5)) - (this.swayY || 0)) * Math.min(1, dt * 10);
     this.bobLast = [p.yaw, p.pitch];
-    const drop = Math.sin(it.equip * Math.PI / 2) * 0.55;
-    const ox = 0.56 + Math.sin(ph) * 0.03 * bob + this.swayX * 0.35 - swing * 0.2;
-    const oy = -0.52 - Math.abs(Math.cos(ph)) * 0.035 * bob - drop + this.swayY * 0.25 + swing * 0.12;
-    const oz = -0.9 - swing * 0.12;
+    const equip = Math.sin(it.equip * Math.PI / 2);
+    // View bob and sway, applied to the whole arm like the original's bobbing.
+    const sway = M.t(Math.sin(ph) * 0.03 * bob + this.swayX * 0.3, -Math.abs(Math.cos(ph)) * 0.035 * bob + this.swayY * 0.2, 0);
     const l = g.world.lightAt(p.pos[0], p.pos[1] + 1.6, p.pos[2]);
     const light = Math.max(Math.pow(0.8, 15 - l.sky) * g.env.skyLight[0], Math.pow(0.82, 15 - l.blk), g.env.ambient[0] + 0.05);
     const held = g.inv.held, item = held && I[held.key];
     const using = it.using;
-    const eatBob = using === 'eat' ? Math.sin(it.useT * 18) * 0.04 : 0;
     const batch = this.batches.hand;
     batch.reset();
+    // Arm position + attack swing (applyItemArmTransform / applyItemArmAttackTransform).
+    const swingArm = () => {
+      const g1 = Math.sin(f * f * Math.PI), h1 = Math.sin(sf * Math.PI);
+      return M.chain(sway,
+        M.t(-0.4 * Math.sin(sf * Math.PI), 0.2 * Math.sin(sf * Math.PI * 2), -0.2 * Math.sin(f * Math.PI)),
+        M.t(0.56, -0.52 - equip * 0.6, -0.72),
+        M.ry((45 - g1 * 20) * D2R), M.rz(-h1 * 20 * D2R), M.rx(-h1 * 80 * D2R), M.ry(-45 * D2R));
+    };
     if (item && item.block && !item.flat) {
-      const m = compose(translation(ox - (using ? 0.25 : 0), oy + eatBob + (using === 'eat' ? 0.25 : 0), oz), rotationY(-0.78 + swing * 0.5), rotationX(0.1 - swing * 0.9), rotationZ(0.04 + swing * 0.2), scaling(0.4, 0.4, 0.4), translation(-0.5, -0.5, -0.5));
-      return { block: { id: item.block[0], meta: item.block[1], matrix: m }, light };
+      let base = swingArm();
+      if (using === 'eat') base = M.chain(sway, M.t(0.3, -0.35 + Math.sin(it.useT * 18) * 0.04, -0.6));
+      const m = M.chain(base, M.t(-0.06, 0.17, -0.06), M.ry(45 * D2R), M.rx(-6 * D2R), M.s(0.25), M.t(-0.5, -0.5, -0.5));
+      return { block: { id: item.block[0], meta: item.block[1], matrix: toMat4(m) }, light };
     }
     if (item) {
       let m;
+      const flatItem = (base) => M.chain(base, M.t(0.04, -0.02, 0.05), GRIP, M.s(0.54), M.t(-0.22, -0.22, 0));
       if (using === 'bow' || using === 'crossbow') {
         const pull = Math.min(1, it.useT);
         const key = using === 'bow' ? (pull > 0.9 ? 'bow_pulling_2' : pull > 0.5 ? 'bow_pulling_1' : 'bow_pulling_0') : 'crossbow';
-        m = M.chain(M.t(0.15, -0.35, -0.6 + pull * 0.05), M.ry(-0.15), M.rz(0.8), M.s(0.7), M.t(-0.5, -0.5, 0));
+        // Bow drawn across the body, pulled back as it charges.
+        const base = M.chain(sway, M.t(0.18, -0.38, -0.62 + pull * 0.08), M.ry(-12 * D2R), M.rx(-6 * D2R), M.rz(-10 * D2R + Math.sin(this.time * 40) * 0.01 * pull));
+        m = M.chain(base, M.ry(-90 * D2R), M.rz(40 * D2R), M.s(0.7), M.t(-0.5, -0.5, 0));
         emitItemMesh(batch, itemMesh(key, this.itemTex[FX_LAYER[key] ?? ITEM_LAYER.bow]), FX_LAYER[key] ?? ITEM_LAYER[held.key], m, [light, light, light]);
         return { batch, batchTex: 'item', light };
       }
-      if (using === 'eat') m = M.chain(M.t(0.1, -0.35 + eatBob, -0.55), M.ry(0.9), M.s(0.5), M.t(-0.5, -0.5, 0));
-      else if (using === 'shield') m = M.chain(M.t(0.25, -0.4, -0.6), M.ry(-0.3), M.s(0.8), M.t(-0.5, -0.5, 0));
-      else m = M.chain(M.t(ox, oy + 0.05, oz + 0.1), M.ry(-1.15 + swing * 0.4), M.rx(swing * -0.9), M.rz(0.1 + swing * 0.3), M.s(0.62), M.t(-0.3, -0.25, 0));
+      if (using === 'eat') m = flatItem(M.chain(sway, M.t(0.18, -0.36 + Math.sin(it.useT * 18) * 0.04, -0.58), M.ry(-40 * D2R), M.rx(20 * D2R)));
+      else if (using === 'shield') m = M.chain(sway, M.t(0.25, -0.4, -0.6), M.ry(-0.3), M.s(0.8), M.t(-0.5, -0.5, 0));
+      else {
+        // Chop: the blade sweeps from upper right down across the crosshair, fast out, slower back.
+        const h1 = Math.sin(sf * Math.PI), g1 = Math.sin(f * f * Math.PI);
+        const base = M.chain(sway, M.t(0.56 - 0.2 * h1, -0.52 - equip * 0.6 + 0.2 * h1 - 0.1 * g1, -0.72 - 0.1 * h1), M.rz(h1 * 42 * D2R), M.rx(-h1 * 22 * D2R), M.ry(g1 * 12 * D2R));
+        m = flatItem(base);
+      }
       emitItemMesh(batch, itemMesh(held.key, this.itemPixels(held.key)), this.itemLayer(held.key), m, [light, light, light]);
       return { batch, batchTex: 'item', light };
     }
-    // Empty hand: the player's arm.
+    // Empty hand: the player's arm punching forward (renderPlayerArm curves).
+    const lm = Math.sin(f * f * Math.PI), mm = Math.sin(sf * Math.PI);
     const model = this.mobModel('player'), arm = { tex: model.tex, parts: { rightArm: { pivot: [0, 0, 0], boxes: model.parts.rightArm.boxes } } };
-    const root = M.chain(M.t(ox + 0.1, oy - 0.05, oz + 0.2), M.ry(-0.35 + swing * 0.3), M.rx(1.5 - swing * 0.9 + this.swayY), M.rz(-0.25), M.s(1 / 16 * 0.9));
+    const root = M.chain(sway,
+      M.t(0.6 - 0.3 * Math.sin(sf * Math.PI), -0.44 + 0.25 * Math.sin(sf * Math.PI * 2) - equip * 0.6, -0.72 - 0.3 * Math.sin(f * Math.PI)),
+      M.ry((mm * 70) * D2R * 0.5), M.rz(-lm * 20 * D2R),
+      M.t(0.04, 0.05, -0.02), M.ry(-0.35), M.rx(1.5 - mm * 0.35), M.rz(-0.25), M.s(1 / 16 * 0.9));
     drawModel(batch, arm, this.mobLayer('player'), root, {}, [light, light, light], 0);
     return { batch, batchTex: 'mob', light };
   }
@@ -679,6 +762,7 @@ class App {
     if (g.bossBar) { boss.querySelector('.n').textContent = g.bossBar.name; boss.querySelector('.b div').style.width = `${g.bossBar.frac * 100}%`; }
     const act = $('action');
     if (g.mode === 'spectator') { act.textContent = 'Spectator mode — fly through blocks · scroll to change speed · /gamemode to leave'; act.style.opacity = this.specHintT === undefined || this.specHintT > 0 ? 1 : 0; this.specHintT = (this.specHintT ?? 6) - dt; }
+    else if (this.actionT > 0) { this.actionT -= dt; act.textContent = this.actionText; act.style.opacity = Math.min(1, this.actionT); this.specHintT = undefined; }
     else { act.style.opacity = 0; this.specHintT = undefined; }
     this.sound.updateMusic(dt, g.dim === DIM.NETHER ? 'nether' : g.dim === DIM.END ? 'end' : p.pos[1] < 50 ? 'cave' : g.isDay() ? 'day' : 'night');
     if (this.debug) {

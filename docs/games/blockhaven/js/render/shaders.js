@@ -464,8 +464,11 @@ void main() {
     vec3 c = vec3(0.0);
     for (int y = 0; y < 2; y++) for (int x = 0; x < 2; x++) c += texture(uSrc, vUV + (vec2(x, y) - 0.5) * uTexel).rgb;
     c *= 0.25;
-    float l = dot(c, vec3(0.299, 0.587, 0.114));
-    outColor = vec4(c * smoothstep(0.62, 1.0, l), 1.0);
+    // Soft-knee threshold: only genuinely bright things (sun, lava, torches, glowstone) glow;
+    // bright-but-ordinary surfaces like daytime sky and snow stay crisp.
+    float l = dot(c, vec3(0.299, 0.587, 0.114)) * 0.6 + max(c.r, max(c.g, c.b)) * 0.4;
+    float k = clamp((l - 0.78) / 0.22, 0.0, 1.0);
+    outColor = vec4(c * k * k, 1.0);
     return;
   }
   vec2 d = uMode == 1 ? vec2(uTexel.x, 0.0) : vec2(0.0, uTexel.y);
@@ -529,7 +532,7 @@ void main() {
   if (uQuality >= 2 && uSun.z > 0.001) {
     vec2 toSun = uv - uSun.xy;
     vec2 asp = vec2(uTexel.y / uTexel.x, 1.0);
-    float fall = pow(max(0.0, 1.0 - length(toSun * asp) * 0.9), 2.2);
+    float fall = pow(max(0.0, 1.0 - length(toSun * asp) * 1.3), 2.6);
     if (fall > 0.0) {
       vec2 d = toSun / uGodSamples * 0.95;
       vec2 p = uv;
@@ -541,14 +544,14 @@ void main() {
         illum += sky * decay; wsum += decay;
         decay *= 0.97;
       }
-      c += uSunColor * (illum / wsum) * fall * uSun.z * 0.55;
+      c += uSunColor * (illum / wsum) * fall * uSun.z * 0.3;
     }
   }
   if (uQuality >= 2) c += texture(uBloom, uv).rgb * uBloomStrength;
   if (uMedium > 0.5 && uMedium < 1.5) c = mix(c, c * vec3(0.4, 0.62, 1.0), 0.55);
   float l = luma(c);
-  c = mix(vec3(l), c, uSaturation * (uQuality >= 2 ? 1.08 : 1.0));
-  c = (c - 0.5) * (uQuality >= 2 ? 1.08 : 1.05) + 0.5;
+  c = mix(vec3(l), c, uSaturation * (uQuality >= 2 ? 1.03 : 1.0));
+  c = (c - 0.5) * 1.05 + 0.5;
   // Soft shoulder so bloom and rays roll off instead of clipping.
   if (uQuality >= 2) c = mix(c, 0.82 + (1.0 - exp(-(c - 0.82) * 5.5)) * 0.18, step(0.82, c));
   if (uPortal > 0.0) c = mix(c, vec3(0.55, 0.2, 0.8), uPortal * 0.45);

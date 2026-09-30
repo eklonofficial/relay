@@ -1,4 +1,5 @@
 // Player actions: mining, placing, using items and blocks, attacking.
+import { meleeDamage, isCrit, knockStrength, isSword } from './combat.js';
 import { B, BLOCKS, SOLID, OPAQUE, SHAPE_OF, SHAPE, props, st, DIM, FACING_SHIFT, AXIS_SHIFT, VARIANT_MASK } from '../data/blocks.js';
 import { I, breakTime } from '../data/items.js';
 import { collisionBoxes, selectionBoxes } from '../data/shapes.js';
@@ -71,13 +72,14 @@ export class Interact {
     if (g.mode === 'creative') {
       if (!clicked && this.progress < 0) return;
       if (it && it.tool && it.tool.type === 'sword') return;
-      this.breakAt(t); this.cooldown = 0.2; this.swing = 1;
+      this.breakAt(t); this.cooldown = 0.2; if (this.swing < 0.5) this.swing = 1;
       return;
     }
     const time = breakTime(p, it, { onGround: g.player.onGround || g.player.flying, inWater: g.player.headInWater });
     if (time === Infinity) return;
     this.hitT -= dt;
-    if (this.hitT <= 0) { this.hitT = 0.25; this.swing = 1; g.sound.hit(p.sound, [t.x + 0.5, t.y + 0.5, t.z + 0.5]); g.particles.block(t.x, t.y, t.z, t.id, t.meta, 2); }
+    if (this.swing <= 0) this.swing = 1; // keep the arm swinging in a smooth loop while digging
+    if (this.hitT <= 0) { this.hitT = 0.25; g.sound.hit(p.sound, [t.x + 0.5, t.y + 0.5, t.z + 0.5]); g.particles.block(t.x, t.y, t.z, t.id, t.meta, 2); }
     this.progress += time === 0 ? 1 : dt / time;
     if (this.progress >= 1) { this.breakAt(t); this.cooldown = time === 0 ? 0.05 : 0.3; }
   }
@@ -96,26 +98,21 @@ export class Interact {
   attack(e) {
     const g = this.g, held = g.inv.held, it = held && I[held.key];
     this.swing = 1;
-    if (g.mode === 'adventure' && false) return;
-    const cd = g.attackCooldown;
-    let dmg = it && it.damage ? it.damage : 1;
-    dmg *= 0.2 + cd * cd * 0.8;
-    const p = g.player;
-    const crit = cd > 0.9 && !p.onGround && p.vel[1] < 0 && !p.inWater && !p.climbing;
-    if (crit) dmg *= 1.5;
-    if (g.stats.effects.strength) dmg += 3;
+    const cd = g.attackCooldown, p = g.player;
+    const crit = isCrit(p, cd) && !p.sprinting;
+    const dmg = meleeDamage(held && held.key, cd, { crit, strength: g.stats.effects.strength ? 1 : 0, weakness: g.stats.effects.weakness ? 1 : 0 });
     const f = forward(p.yaw, 0);
-    const knock = (p.sprinting && cd > 0.9 ? 9 : 5);
-    const ok = e.hurt(dmg, { kind: 'player', attacker: g.playerEntity, knock: [f[0], f[2]], knockStrength: knock });
+    const sprintHit = p.sprinting && cd > 0.9;
+    const ok = e.hurt(dmg, { kind: 'player', attacker: g.playerEntity, weapon: held && held.key, knock: [f[0], f[2]], knockStrength: knockStrength(sprintHit) });
     if (ok) {
       g.lastTarget = e;
-      if (crit) { g.sound.play('crit', e.pos, 0.7); g.particles.fx('crit', e.center(), 12, 0.4, 3); } else g.sound.play('attack', e.pos, 0.6);
+      if (crit) { g.sound.play('crit', e.pos, 0.7); g.particles.fx('crit', e.center(), 12, 0.4, 3); } else g.sound.play(cd > 0.9 ? 'attack' : 'attack', e.pos, cd > 0.9 ? 0.6 : 0.35);
       // Sweep attack with swords.
-      if (it && it.tool && it.tool.type === 'sword' && cd > 0.9 && p.onGround && !p.sprinting) {
+      if (isSword(held && held.key) && cd > 0.9 && p.onGround && !p.sprinting && !crit) {
         for (const o of g.entities.near(e.pos, 1.5, x => x.isLiving && x !== e && !x.tamed && x.mobType !== 'villager')) o.hurt(1 + dmg * 0.25, { kind: 'player', attacker: g.playerEntity, knock: [f[0], f[2]], knockStrength: 3 });
         g.sound.play('sweep', e.pos, 0.5);
       }
-      if (p.sprinting && cd > 0.9) p.sprinting = false;
+      if (sprintHit) p.sprinting = false;
       if (g.mode !== 'creative' && it && it.durability) if (g.inv.damageHeld(it.tool && it.tool.type === 'sword' ? 1 : 2)) g.sound.play('break_item', null, 0.8);
       g.exhaust(0.1);
     }

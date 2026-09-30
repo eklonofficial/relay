@@ -34,7 +34,7 @@ function humanoid(st, o = {}) {
     delete parts.rightArm; delete parts.leftArm;
     parts.arms = part([0, top - 3, -1], [box([-4, -4, -2], [8, 4, 4], st.arm || st.body), box([-8, -6, -2], [4, 8, 4], st.arm || st.body), box([4, -6, -2], [4, 8, 4], st.arm || st.body)], { rot: [-0.75, 0, 0] });
   }
-  return { anim: o.crossed ? 'villager' : 'biped', parts, eye: top + headH * 0.55 };
+  return { anim: o.crossed ? 'villager' : 'biped', parts, eye: top + headH * 0.55, thin: !!o.thin };
 }
 
 // Four-legged animal; dims in pixels.
@@ -280,10 +280,10 @@ const zombieLike = (skin, shirt, pants, eye = '#1a1a1a') => () => {
   m.anim = 'zombie'; return m;
 };
 const undead = { kind: 'hostile', ai: 'melee', undead: true, xp: [5, 5] };
-mob('zombie', { ...undead, hw: 0.3, h: 1.95, health: 20, speed: 2.3, attack: { dmg: 3, cd: 1 }, burns: true, egg: ['#00afaf', '#799c65'], drops: [['rotten_flesh', 0, 2], ['iron_ingot', 0, 1, 0.025], ['carrot', 0, 1, 0.025], ['potato', 0, 1, 0.025]], sound: 'zombie', breaksDoors: true, model: zombieLike(ZOMBIE_SKIN, '#2a8aa8', '#3a3a8a') });
-mob('husk', { ...undead, hw: 0.3, h: 1.95, health: 20, speed: 2.3, attack: { dmg: 3, cd: 1, hunger: 7 }, egg: ['#797061', '#e6cc94'], drops: [['rotten_flesh', 0, 2]], sound: 'zombie', model: zombieLike(HUSK, '#8a7a5a', '#6a5a3a') });
-mob('drowned', { ...undead, hw: 0.3, h: 1.95, health: 20, speed: 2.3, swim: true, amphibious: true, attack: { dmg: 3, cd: 1, trident: 0.06 }, burns: true, egg: ['#8ff1d7', '#799c65'], drops: [['rotten_flesh', 0, 2], ['copper_ingot', 0, 1, 0.11]], sound: 'zombie', model: zombieLike(DROWNED, '#3a8a6a', '#2a6a5a', '#9af0e8') });
-mob('zombie_villager', { ...undead, hw: 0.3, h: 1.95, health: 20, speed: 2.3, attack: { dmg: 3, cd: 1 }, burns: true, egg: ['#563c33', '#799c65'], drops: [['rotten_flesh', 0, 2]], sound: 'zombie', curable: true,
+mob('zombie', { ...undead, armor: 2, hw: 0.3, h: 1.95, health: 20, speed: 2.3, attack: { dmg: 3, cd: 1 }, burns: true, egg: ['#00afaf', '#799c65'], drops: [['rotten_flesh', 0, 2], ['iron_ingot', 0, 1, 0.025], ['carrot', 0, 1, 0.025], ['potato', 0, 1, 0.025]], sound: 'zombie', breaksDoors: true, model: zombieLike(ZOMBIE_SKIN, '#2a8aa8', '#3a3a8a') });
+mob('husk', { ...undead, armor: 2, hw: 0.3, h: 1.95, health: 20, speed: 2.3, attack: { dmg: 3, cd: 1, hunger: 7 }, egg: ['#797061', '#e6cc94'], drops: [['rotten_flesh', 0, 2]], sound: 'zombie', model: zombieLike(HUSK, '#8a7a5a', '#6a5a3a') });
+mob('drowned', { ...undead, armor: 2, hw: 0.3, h: 1.95, health: 20, speed: 2.3, swim: true, amphibious: true, attack: { dmg: 3, cd: 1, trident: 0.06 }, burns: true, egg: ['#8ff1d7', '#799c65'], drops: [['rotten_flesh', 0, 2], ['copper_ingot', 0, 1, 0.11]], sound: 'zombie', model: zombieLike(DROWNED, '#3a8a6a', '#2a6a5a', '#9af0e8') });
+mob('zombie_villager', { ...undead, armor: 2, hw: 0.3, h: 1.95, health: 20, speed: 2.3, attack: { dmg: 3, cd: 1 }, burns: true, egg: ['#563c33', '#799c65'], drops: [['rotten_flesh', 0, 2]], sound: 'zombie', curable: true,
   model: () => { const m = humanoid({ head: S(ZOMBIE_SKIN, 'noise', face(eyes({ c: '#b82020', pupil: '#1a1a1a', y: 0.35 }))), body: S('#6a4a3a'), robe: S('#6a4a3a'), arm: S(ZOMBIE_SKIN), leg: S('#5a4a3a'), nose: S(ZOMBIE_SKIN) }, { headH: 10, bodyD: 6, nose: true, robe: true }); m.anim = 'zombie'; return m; } });
 const skeletonModel = (bone, rag, eye = '#1a1a1a') => () => {
   const b = S(bone, 'noise', null, 0.08);
