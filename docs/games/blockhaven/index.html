@@ -23,39 +23,42 @@
   .dim { background: rgba(8, 10, 16, 0.55); backdrop-filter: blur(5px); }
   img { image-rendering: pixelated; }
 
+  /* Minecraft-style buttons, sized in GUI pixels (--bs): 200x20 face, black rim, bevelled stone. */
+  :root { --bs: 2; --btn-tex: none; }
+  #title, #pause, #death { --bs: var(--gs); }
   button {
-    font: 700 17px var(--ui-font); letter-spacing: 0.04em; color: #f2f2f2; text-shadow: var(--pixel-shadow);
-    width: 320px; max-width: 80vw; padding: 11px 16px; cursor: pointer;
-    background: linear-gradient(180deg, #7b7b7b 0%, #666 48%, #5a5a5a 52%, #525252 100%);
-    border: 2px solid #111; border-radius: 3px;
-    box-shadow: inset 0 2px 0 rgba(255,255,255,0.28), inset 0 -3px 0 rgba(0,0,0,0.35), 0 4px 14px rgba(0,0,0,0.35);
-    transition: transform 0.08s, filter 0.12s;
+    font: 400 calc(var(--bs) * 9px) / 1 var(--px-font); color: #e0e0e0; text-shadow: calc(var(--bs) * 1px) calc(var(--bs) * 1px) 0 #383838;
+    width: calc(var(--bs) * 200px); max-width: 92vw; height: calc(var(--bs) * 20px); padding: 0 calc(var(--bs) * 4px); cursor: pointer; white-space: nowrap;
+    background: #6f6f6f var(--btn-tex); background-size: calc(var(--bs) * 16px); image-rendering: pixelated;
+    border: calc(var(--bs) * 1px) solid #000; border-radius: 0;
+    box-shadow: inset calc(var(--bs) * 1px) calc(var(--bs) * 1px) 0 rgba(255,255,255,0.32), inset 0 calc(var(--bs) * -2px) 0 rgba(0,0,0,0.38);
   }
-  button:hover:not(:disabled) { background: linear-gradient(180deg, #8a9bd6 0%, #6f82c4 48%, #6477b8 52%, #5a6cab 100%); color: #ffffa0; }
-  button:active:not(:disabled) { transform: translateY(1px); }
-  button:disabled { filter: grayscale(1) brightness(0.6); cursor: default; }
-  button.small { width: auto; font-size: 14px; padding: 8px 14px; }
-  button.half { width: 155px; }
+  button:hover:not(:disabled), button:focus-visible { border-color: #fff; color: #ffffa0; outline: none; }
+  button:disabled { cursor: default; color: #a0a0a0; background-image: linear-gradient(rgba(0,0,0,0.55), rgba(0,0,0,0.55)), var(--btn-tex); box-shadow: none; }
+  button.on { background-image: linear-gradient(rgba(80,150,50,0.45), rgba(80,150,50,0.45)), var(--btn-tex); color: #ffffa0; }
+  button.small { width: auto; font-size: calc(var(--bs) * 8px); }
+  button.half { width: calc(var(--bs) * 98px); max-width: 45vw; }
+  #worlds button.half, #create button.half { width: calc(var(--bs) * 150px); }
+  .form .opt { flex-wrap: nowrap !important; }
+  button.sq { width: calc(var(--bs) * 20px); padding: 0; display: inline-flex; align-items: center; justify-content: center; }
+  button.sq img { width: calc(var(--bs) * 8px); height: calc(var(--bs) * 8px); }
   input[type=text], select { padding: 9px; font: 15px var(--ui-font); background: #000; color: #fff; border: 2px solid #a0a0a0; outline: none; }
   input[type=text]:focus { border-color: #fff; }
 
-  #title { background: radial-gradient(ellipse at center, rgba(0,0,0,0) 35%, rgba(0,0,0,0.45) 100%); }
-  .logo { position: relative; margin-bottom: 30px; text-align: center; }
-  .logo h1 {
-    margin: 0; font: 900 clamp(46px, 9vw, 112px) / 1 "Arial Black", Impact, var(--ui-font); letter-spacing: 0.06em; color: #e9e9e9;
-    text-shadow: 0 1px 0 #b3b3b3, 0 2px 0 #a3a3a3, 0 3px 0 #939393, 0 4px 0 #838383, 0 5px 0 #737373, 0 6px 0 #636363, 0 7px 0 #535353, 0 8px 0 #434343, 0 12px 18px rgba(0,0,0,0.6);
-    animation: float 6s ease-in-out infinite;
-  }
-  .logo h1 span { color: #8fd16a; text-shadow: 0 1px 0 #6aa84a, 0 2px 0 #5f9a42, 0 3px 0 #548c3a, 0 4px 0 #497e32, 0 5px 0 #3e702a, 0 6px 0 #336222, 0 7px 0 #28541a, 0 8px 0 #1d4612, 0 12px 18px rgba(0,0,0,0.6); }
-  .splash { position: absolute; right: -10px; bottom: -18px; color: #ffff55; font: 700 clamp(15px, 1.8vw, 22px) var(--ui-font); text-shadow: 2px 2px 0 #3f3f15; transform: rotate(-16deg); white-space: nowrap; animation: pulse 0.6s ease-in-out infinite alternate; }
-  @keyframes pulse { from { transform: rotate(-16deg) scale(1); } to { transform: rotate(-16deg) scale(1.08); } }
-  @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
-  .menu { display: flex; flex-direction: column; align-items: center; gap: 10px; }
-  .row { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
-  .footer { pointer-events: none; position: fixed; bottom: 14px; left: 0; right: 0; text-align: center; color: rgba(255,255,255,0.75); font-size: 13px; text-shadow: var(--pixel-shadow); }
+  #title { background: radial-gradient(ellipse at center, rgba(0,0,0,0) 45%, rgba(0,0,0,0.35) 100%); gap: 0; }
+  .logo { position: relative; margin-bottom: calc(var(--bs) * 18px); text-align: center; }
+  .logo canvas { display: block; width: calc(var(--bs) * var(--logo-w, 250) * 1px); max-width: 94vw; image-rendering: pixelated; filter: drop-shadow(0 calc(var(--bs) * 2px) calc(var(--bs) * 3px) rgba(0,0,0,0.35)); }
+  .splash { position: absolute; right: calc(var(--bs) * -34px); bottom: calc(var(--bs) * -4px); color: #ffff00; font: 400 calc(var(--bs) * 10px) var(--px-font); text-shadow: calc(var(--bs) * 1px) calc(var(--bs) * 1px) 0 #3f3f00; transform: rotate(-20deg); white-space: nowrap; animation: pulse 0.5s ease-in-out infinite alternate; transform-origin: center; }
+  @keyframes pulse { from { transform: rotate(-20deg) scale(1); } to { transform: rotate(-20deg) scale(1.08); } }
+  #title .menu { gap: calc(var(--bs) * 4px); }
+  #title .menu .row.bottom { margin-top: calc(var(--bs) * 8px); gap: calc(var(--bs) * 4px); align-items: center; flex-wrap: nowrap; }
+  .footer { pointer-events: none; position: fixed; bottom: calc(var(--bs) * 1px); left: calc(var(--bs) * 2px); right: calc(var(--bs) * 2px); display: flex; justify-content: space-between; gap: 12px; color: #fff; font: 400 calc(var(--bs) * 9px) var(--px-font); text-shadow: calc(var(--bs) * 1px) calc(var(--bs) * 1px) 0 #3f3f3f; }
+  .footer span:last-child { text-align: right; }
+  .menu { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
 
   .panel { background: rgba(20, 22, 30, 0.85); border: 2px solid #000; box-shadow: inset 0 0 0 2px rgba(255,255,255,0.08), 0 20px 50px rgba(0,0,0,0.5); padding: 22px 26px; border-radius: 4px; display: flex; flex-direction: column; gap: 12px; align-items: center; max-width: 94vw; max-height: 94vh; }
-  .panel h3, #pause h2 { margin: 0 0 6px; font-size: 26px; text-shadow: var(--pixel-shadow); letter-spacing: 0.04em; }
+  .panel h3, #pause h2 { margin: 0 0 6px; font-family: var(--px-font); font-weight: 400; font-size: 26px; text-shadow: var(--pixel-shadow); letter-spacing: 0.04em; }
   #world-list { width: min(560px, 90vw); height: min(46vh, 380px); overflow: auto; background: rgba(0,0,0,0.55); border: 2px solid #000; }
   .world-entry { display: flex; gap: 12px; align-items: center; padding: 10px 12px; border: 2px solid transparent; cursor: pointer; }
   .world-entry:hover { background: rgba(255,255,255,0.06); }
@@ -64,7 +67,7 @@
   .world-entry .name { font-weight: 700; font-size: 16px; }
   .world-entry .info { font-size: 12px; color: #bbb; margin-top: 3px; }
   .empty-note { color: #aaa; padding: 24px; text-align: center; }
-  .form { display: grid; grid-template-columns: 150px 260px; gap: 10px 12px; align-items: center; font-size: 14px; }
+  .form { display: grid; grid-template-columns: 150px 330px; gap: 10px 12px; align-items: center; font-size: 14px; }
   .form label { text-align: right; text-shadow: 1px 1px 0 #000; }
   .form .opt { display: flex; gap: 6px; flex-wrap: wrap; }
   .form .opt button { width: auto; flex: 1; font-size: 13px; padding: 7px 8px; }
@@ -238,14 +241,14 @@
 </div>
 
 <div id="title" class="screen">
-  <div class="logo"><h1>BLOCK<span>HAVEN</span></h1><div class="splash" id="splash"></div></div>
+  <div class="logo" id="logo" role="img" aria-label="Blockhaven: Random ahh edition"><div class="splash" id="splash"></div></div>
   <div class="menu">
     <button id="btn-play">Singleplayer</button>
-    <button id="btn-demo">&#9654; Watch the Demo</button>
+    <button id="btn-demo">Watch the Demo</button>
     <button id="btn-guide">Guide &amp; Features</button>
-    <div class="row"><button class="half" id="btn-settings">Settings</button><button class="half" id="btn-controls">Controls</button></div>
+    <div class="row bottom"><button class="sq" id="btn-mute" title="Sound on/off"><img id="mute-icon" alt=""></button><button class="half" id="btn-settings">Options...</button><button class="half" id="btn-controls">Controls</button><button class="sq" id="btn-full" title="Fullscreen"><img id="full-icon" alt=""></button></div>
   </div>
-  <div class="footer">An original voxel sandbox · every texture, sound, model and shader is generated in code</div>
+  <div class="footer"><span>Blockhaven 1.20.1</span><span>Every pixel made in code. Not affiliated with Mojang.</span></div>
 </div>
 
 <div id="worlds" class="screen dim hidden">
@@ -376,6 +379,6 @@
 </div>
 
 <div id="error" class="screen hidden"></div>
-<script type="module" src="js/main.js?v=munm0grh"></script>
+<script type="module" src="js/main.js?v=munmcvi9"></script>
 </body>
 </html>

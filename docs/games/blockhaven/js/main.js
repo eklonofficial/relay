@@ -1,30 +1,31 @@
 // Blockhaven bootstrap: assets, menus, input, camera, frame loop.
-import { Demo, DEMO_SEED } from './demo.js?v=munm0grh';
-import { armorModel, armorSkinKey, ARMOR_MATERIALS, ARMOR_PIECES, elytraModel } from './data/armor.js?v=munm0grh';
-import { TEXTURES, TEX, B, BLOCKS, DIM, DIM_NAMES, SHAPE_OF, SHAPE, props } from './data/blocks.js?v=munm0grh';
-import { I, ITEMS } from './data/items.js?v=munm0grh';
-import { MOBS, PROFESSIONS, playerModel, saddleModel } from './data/mobs.js?v=munm0grh';
-import { BIOMES } from './gen/biomes.js?v=munm0grh';
-import { generateBlockTextures } from './render/blocktex.js?v=munm0grh';
-import { generateItemTextures, ITEM_LAYER, FX_LAYER, ITEM_LAYER_COUNT } from './render/itemtex.js?v=munm0grh';
-import { packModel, paintModel, SKIN } from './render/mobtex.js?v=munm0grh';
-import { buildMipChain } from './render/atlas.js?v=munm0grh';
-import { Renderer, Batch } from './render/renderer.js?v=munm0grh';
-import { World, UNLOADED } from './world/world.js?v=munm0grh';
-import { createGenerator } from './gen/index.js?v=munm0grh';
-import { Game } from './game/game.js?v=munm0grh';
-import { Interact } from './game/interact.js?v=munm0grh';
-import { Commands } from './game/commands.js?v=munm0grh';
-import { GUI, HUD } from './game/ui.js?v=munm0grh';
-import { buildIcons, hudSprites } from './game/icons.js?v=munm0grh';
-import { Sound } from './game/audio.js?v=munm0grh';
-import { computeEnv } from './game/env.js?v=munm0grh';
-import { guideSections } from './game/guide.js?v=munm0grh';
-import { listWorlds, loadWorld, saveWorld, deleteWorld } from './game/storage.js?v=munm0grh';
-import { drawModel, rootMatrix, M } from './entity/entity.js?v=munm0grh';
-import { itemMesh, emitItemMesh } from './entity/itemmesh.js?v=munm0grh';
-import { Lightning } from './entity/objects.js?v=munm0grh';
-import { compose, translation, rotationX, rotationY, rotationZ, scaling, forward, mat4 } from './core/math.js?v=munm0grh';
+import { Demo, DEMO_SEED } from './demo.js?v=munmcvi9';
+import { armorModel, armorSkinKey, ARMOR_MATERIALS, ARMOR_PIECES, elytraModel } from './data/armor.js?v=munmcvi9';
+import { TEXTURES, TEX, B, BLOCKS, DIM, DIM_NAMES, SHAPE_OF, SHAPE, props } from './data/blocks.js?v=munmcvi9';
+import { I, ITEMS } from './data/items.js?v=munmcvi9';
+import { MOBS, PROFESSIONS, playerModel, saddleModel } from './data/mobs.js?v=munmcvi9';
+import { BIOMES } from './gen/biomes.js?v=munmcvi9';
+import { generateBlockTextures } from './render/blocktex.js?v=munmcvi9';
+import { generateItemTextures, ITEM_LAYER, FX_LAYER, ITEM_LAYER_COUNT } from './render/itemtex.js?v=munmcvi9';
+import { packModel, paintModel, SKIN } from './render/mobtex.js?v=munmcvi9';
+import { buildMipChain } from './render/atlas.js?v=munmcvi9';
+import { Renderer, Batch } from './render/renderer.js?v=munmcvi9';
+import { World, UNLOADED } from './world/world.js?v=munmcvi9';
+import { createGenerator } from './gen/index.js?v=munmcvi9';
+import { Game } from './game/game.js?v=munmcvi9';
+import { Interact } from './game/interact.js?v=munmcvi9';
+import { Commands } from './game/commands.js?v=munmcvi9';
+import { GUI, HUD } from './game/ui.js?v=munmcvi9';
+import { buildIcons, hudSprites } from './game/icons.js?v=munmcvi9';
+import { Sound } from './game/audio.js?v=munmcvi9';
+import { buildLogo, buttonTexture, iconDataURL } from './render/logo.js?v=munmcvi9';
+import { computeEnv } from './game/env.js?v=munmcvi9';
+import { guideSections } from './game/guide.js?v=munmcvi9';
+import { listWorlds, loadWorld, saveWorld, deleteWorld } from './game/storage.js?v=munmcvi9';
+import { drawModel, rootMatrix, M } from './entity/entity.js?v=munmcvi9';
+import { itemMesh, emitItemMesh } from './entity/itemmesh.js?v=munmcvi9';
+import { Lightning } from './entity/objects.js?v=munmcvi9';
+import { compose, translation, rotationX, rotationY, rotationZ, scaling, forward, mat4 } from './core/math.js?v=munmcvi9';
 
 const $ = id => document.getElementById(id);
 const SETTINGS_KEY = 'blockhaven.settings.v2';
@@ -38,7 +39,7 @@ const settings = Object.assign({
 }, load(SETTINGS_KEY) || {});
 // Minecraft's default FOV is 70; move anyone still on our old default (75) over once.
 if (!settings.fovMigrated) { if (settings.fov === 75) settings.fov = 70; settings.fovMigrated = true; store(SETTINGS_KEY, settings); }
-const SPLASHES = ['Now with the Nether!', 'Also try the End!', 'Creepers included!', '60 mobs!', 'Villagers will trade!', 'Wild worlds are wild!', 'Every pixel procedural!', 'Craft everything!', 'Spectator mode!', 'Runs on Chromebooks!', 'Mind the lava!', 'Floating islands!'];
+const SPLASHES = ['Random ahh edition!', 'Also try Minecraft!', 'Now with elytra!', 'Saddle up!', 'Now with the Nether!', 'Also try the End!', 'Creepers included!', '60 mobs!', 'Villagers will trade!', 'Wild worlds are wild!', 'Every pixel procedural!', 'Craft everything!', 'Spectator mode!', 'Runs on Chromebooks!', 'Mind the lava!', 'Floating islands!'];
 
 const smooth = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 function hashSeed(text) {
@@ -111,9 +112,23 @@ class App {
     this.batches = { mobs: new Batch(), items: new Batch(), itemFx: new Batch(), blockParticles: new Batch(), hand: new Batch() };
     this.bindSettings(); this.bindMenus(); this.bindInput();
     $('splash').textContent = SPLASHES[Math.floor(Math.random() * SPLASHES.length)];
+    this.buildTitleArt();
     this.startPanorama();
     requestAnimationFrame(t => this.frame(t));
     return true;
+  }
+  buildTitleArt() {
+    const logo = buildLogo('BLOCKHAVEN', 'RANDOM AHH EDITION');
+    $('logo').prepend(logo);
+    $('logo').style.setProperty('--logo-w', logo.width);
+    document.documentElement.style.setProperty('--btn-tex', `url(${buttonTexture()})`);
+    $('full-icon').src = iconDataURL('full');
+    this.applyMute();
+  }
+  applyMute() {
+    this.sound.setVolume(settings.muted ? 0 : settings.volume / 100);
+    if (this.sound.setMusic) this.sound.setMusic(settings.muted ? 0 : settings.music / 100);
+    $('mute-icon').src = iconDataURL(settings.muted ? 'mute' : 'sound');
   }
   // Graphics presets: 0 Disabled, 1 Regular, 2 High, 3 PC.
   applyGraphics() {
@@ -339,8 +354,8 @@ class App {
     bind('set-fov', 'fov', 'fov-val');
     bind('set-sens', 'sensitivity', 'sens-val');
     bind('set-bright', 'brightness', 'bright-val');
-    bind('set-vol', 'volume', 'vol-val', () => this.sound.setVolume(settings.volume / 100));
-    bind('set-music', 'music', 'music-val', () => this.sound.setMusic(settings.music / 100));
+    bind('set-vol', 'volume', 'vol-val', () => { settings.muted = false; this.applyMute(); });
+    bind('set-music', 'music', 'music-val', () => { settings.muted = false; this.applyMute(); });
     $('set-gfx').value = settings.graphics;
     $('set-gfx').addEventListener('change', () => { settings.graphics = Number($('set-gfx').value); this.applyGraphics(); store(SETTINGS_KEY, settings); });
     for (const [id, k] of [['set-bob', 'bobbing'], ['set-clouds', 'clouds'], ['set-autojump', 'autoJump'], ['set-particles', 'particles'], ['set-dynres', 'dynamicRes']]) {
@@ -374,6 +389,8 @@ class App {
     click('btn-guide2', () => this.openGuide());
     click('btn-guide-done', () => $('guide').classList.add('hidden'));
     click('btn-controls', () => this.openPanel('controls'));
+    click('btn-mute', () => { settings.muted = !settings.muted; this.applyMute(); store(SETTINGS_KEY, settings); });
+    click('btn-full', () => { if (document.fullscreenElement) document.exitFullscreen?.(); else document.documentElement.requestFullscreen?.().catch(() => {}); });
     click('btn-controls2', () => this.openPanel('controls'));
     click('btn-controls-done', () => $('controls').classList.add('hidden'));
     click('btn-resume', () => this.requestLock());
