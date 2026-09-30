@@ -1,10 +1,10 @@
 // Player actions: mining, placing, using items and blocks, attacking.
-import { meleeDamage, isCrit, knockStrength, isSword, SWEEP_DAMAGE, SHIELD_DELAY, SHIELD_DISABLE } from './combat.js?v=muo7rynu';
-import { B, BLOCKS, SOLID, OPAQUE, SHAPE_OF, SHAPE, props, st, DIM, FACING_SHIFT, AXIS_SHIFT, VARIANT_MASK } from '../data/blocks.js?v=muo7rynu';
-import { I, breakTime } from '../data/items.js?v=muo7rynu';
-import { collisionBoxes, selectionBoxes } from '../data/shapes.js?v=muo7rynu';
-import { UNLOADED, posKey } from '../world/world.js?v=muo7rynu';
-import { forward } from '../core/math.js?v=muo7rynu';
+import { meleeDamage, isCrit, knockStrength, isSword, SWEEP_DAMAGE, SHIELD_DELAY, SHIELD_DISABLE } from './combat.js?v=muoddtng';
+import { B, BLOCKS, SOLID, OPAQUE, SHAPE_OF, SHAPE, props, st, DIM, FACING_SHIFT, AXIS_SHIFT, VARIANT_MASK } from '../data/blocks.js?v=muoddtng';
+import { I, breakTime } from '../data/items.js?v=muoddtng';
+import { collisionBoxes, selectionBoxes } from '../data/shapes.js?v=muoddtng';
+import { UNLOADED, posKey } from '../world/world.js?v=muoddtng';
+import { forward } from '../core/math.js?v=muoddtng';
 
 const DIRS = [[0, 1], [-1, 0], [0, -1], [1, 0]];
 export const dirIndex = (x, z) => (Math.abs(x) > Math.abs(z) ? (x > 0 ? 3 : 1) : (z > 0 ? 0 : 2));

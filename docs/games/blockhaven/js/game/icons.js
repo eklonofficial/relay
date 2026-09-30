@@ -1,7 +1,7 @@
 // Inventory icons as data URLs: isometric cubes for blocks, crisp sprites for items.
-import { ITEMS } from '../data/items.js?v=muo7rynu';
-import { FACE_TEX, VARIANT_MASK, TINT_OF, TINT, SHAPE_OF, SHAPE, TRANSLUCENT } from '../data/blocks.js?v=muo7rynu';
-import { ITEM_LAYER } from '../render/itemtex.js?v=muo7rynu';
+import { ITEMS } from '../data/items.js?v=muoddtng';
+import { FACE_TEX, VARIANT_MASK, TINT_OF, TINT, SHAPE_OF, SHAPE, TRANSLUCENT } from '../data/blocks.js?v=muoddtng';
+import { ITEM_LAYER } from '../render/itemtex.js?v=muoddtng';
 
 const TINTS = { [TINT.GRASS]: [124, 189, 107], [TINT.FOLIAGE]: [72, 181, 24], [TINT.WATER]: [63, 118, 228] };
 

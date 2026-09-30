@@ -1,7 +1,7 @@
 // Worn-armor models: inflated boxes that share part names and pivots with the humanoid body,
 // so they follow every pose (walking, swinging, sneaking) automatically. One painted skin per
 // material and piece; `thin` matches skeleton-style limbs.
-import { D, pal } from '../render/mobtex.js?v=muo7rynu';
+import { D, pal } from '../render/mobtex.js?v=muoddtng';
 
 export const ARMOR_MATERIALS = {
   leather: { c: '#8e5a34', pattern: 'noise', trim: '#6a4024' },
