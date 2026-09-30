@@ -1,0 +1,406 @@
+// Multiplayer over WebRTC data channels.
+//
+// One player hosts: their saved world is the real one, and they relay everything between the
+// others (a star, so each guest only needs one connection). Friends join with a five-letter room
+// code; a free public PeerJS server only introduces the browsers to each other, after which data
+// flows directly between them. Up to five players per world.
+//
+// Sync model: every client simulates its own surroundings. Whoever causes a block change (their
+// own hands, or their own water/fire/sand simulation) broadcasts it once; everyone else mirrors it
+// silently, so nothing is applied twice. The host keeps the authoritative save, including each
+// guest's inventory and position, and owns the clock and the weather.
+import { RemotePlayer } from './remote.js?v=muo1hk09';
+
+export const MAX_PLAYERS = 5;
+const PREFIX = 'blockhaven-v1-';
+const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+const PROTOCOL = 1;
+const PART = 12000;
+const STATE_HZ = 20;
+// Guest messages the host passes on to every other guest.
+const RELAY = new Set(['st', 'ed', 'be', 'chat', 'fx']);
+
+export const cleanCode = s => String(s || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 5);
+export const cleanName = s => String(s || '').replace(/[^A-Za-z0-9_]/g, '').slice(0, 16);
+const r3 = v => Math.round(v * 1000) / 1000;
+
+let libPromise = null;
+function loadLib() {
+  if (window.Peer) return Promise.resolve();
+  if (!libPromise) {
+    libPromise = new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = new URL('../../vendor/peerjs.min.js?v=muo1hk09', import.meta.url).href;
+      s.onload = () => resolve();
+      s.onerror = () => { libPromise = null; reject(new Error('Could not load the multiplayer library. Check your connection.')); };
+      document.head.appendChild(s);
+    });
+  }
+  return libPromise;
+}
+function netConfig() {
+  let o = null;
+  try { o = JSON.parse(localStorage.getItem('blockhaven.net')); } catch { /* none */ }
+  return { ...(window.BLOCKHAVEN_NET || {}), ...(o || {}) };
+}
+function makePeer(id) {
+  const c = netConfig();
+  const opts = { ...(c.peer || {}), config: { iceServers: c.iceServers || [] }, debug: 1 };
+  return id ? new window.Peer(id, opts) : new window.Peer(opts);
+}
+const peerError = e => {
+  switch (e && e.type) {
+    case 'peer-unavailable': return 'No open world was found with that code. Check the code, and that your friend has pressed "Open to Friends".';
+    case 'network': case 'server-error': case 'socket-error': case 'socket-closed': return 'Could not reach the multiplayer server. Check your internet connection (some school or work networks block it).';
+    case 'browser-incompatible': return 'This browser does not support multiplayer (WebRTC).';
+    case 'webrtc': return 'A direct connection could not be made between your browsers. See MULTIPLAYER.md about adding a free TURN relay.';
+    default: return (e && e.message) || 'Connection failed.';
+  }
+};
+const timeout = (p, ms, msg) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error(msg)), ms))]);
+
+// One data connection. Messages are JSON; long ones are split so no browser drops them.
+class Link {
+  constructor(conn) {
+    this.conn = conn; this.parts = new Map(); this.nextPart = 1; this.seen = performance.now();
+    this.onMessage = null; this.onClose = null; this.closed = false;
+    conn.on('data', d => { this.seen = performance.now(); this.recv(d); });
+    const closed = () => { if (this.closed) return; this.closed = true; if (this.onClose) this.onClose(); };
+    conn.on('close', closed);
+    conn.on('error', closed);
+  }
+  get open() { return this.conn.open && !this.closed; }
+  send(m) {
+    if (!this.open) return;
+    const s = JSON.stringify(m);
+    try {
+      if (s.length <= PART) { this.conn.send(s); return; }
+      const id = this.nextPart++, n = Math.ceil(s.length / PART);
+      for (let i = 0; i < n; i++) this.conn.send(JSON.stringify({ t: 'part', id, i, n, d: s.slice(i * PART, (i + 1) * PART) }));
+    } catch (e) { console.warn('send failed', e); }
+  }
+  recv(d) {
+    let m;
+    try { m = typeof d === 'string' ? JSON.parse(d) : d; } catch { return; }
+    if (!m || typeof m !== 'object') return;
+    if (m.t === 'part') {
+      let p = this.parts.get(m.id);
+      if (!p) { p = { got: 0, list: [] }; this.parts.set(m.id, p); }
+      if (p.list[m.i] === undefined) { p.list[m.i] = m.d; p.got++; }
+      if (p.got === m.n) { this.parts.delete(m.id); try { m = JSON.parse(p.list.join('')); } catch { return; } } else return;
+    }
+    if (this.onMessage) this.onMessage(m);
+  }
+  close() { this.closed = true; try { this.conn.close(); } catch { /* already closed */ } }
+}
+
+export class Net {
+  constructor(app, role) {
+    this.app = app; this.role = role; // 'host' | 'guest'
+    this.players = new Map(); // id -> { id, name, skin, link?, rp }
+    this.myId = role === 'host' ? 0 : -1;
+    this.edits = []; this.beDirty = new Map();
+    this.stateT = 0; this.envT = 0; this.pdataT = 0; this.flushT = 0;
+    this.swingCount = 0; this.hurtCount = 0;
+    this.applying = false; this.closed = false;
+  }
+  get game() { return this.app.game; }
+  get isHost() { return this.role === 'host'; }
+  get count() { return this.players.size + 1; }
+
+  // ---------------- hosting ----------------
+  async host(name, skin) {
+    this.name = name; this.skin = skin;
+    await loadLib();
+    for (let attempt = 0; attempt < 6; attempt++) {
+      const code = Array.from({ length: 5 }, () => CODE_CHARS[Math.floor(Math.random() * CODE_CHARS.length)]).join('');
+      const peer = makePeer(PREFIX + code);
+      try {
+        await timeout(new Promise((resolve, reject) => {
+          peer.on('open', resolve);
+          peer.on('error', e => reject(e));
+        }), 15000, 'The multiplayer server did not answer. Check your internet connection.');
+      } catch (e) {
+        peer.destroy();
+        if (e && e.type === 'unavailable-id') continue;
+        throw new Error(e && e.type ? peerError(e) : e.message);
+      }
+      this.peer = peer; this.code = code;
+      peer.off('error');
+      peer.on('error', e => { if (e.type !== 'peer-unavailable') console.warn('peer error', e.type, e.message); });
+      // Keep accepting friends if the link to the signaling server drops.
+      peer.on('disconnected', () => { if (!this.closed) setTimeout(() => { if (!this.closed && peer.disconnected && !peer.destroyed) peer.reconnect(); }, 2000); });
+      peer.on('connection', conn => this.onIncoming(conn));
+      return code;
+    }
+    throw new Error('Could not create a room. Try again.');
+  }
+  onIncoming(conn) {
+    const link = new Link(conn);
+    let player = null;
+    const bail = reason => { link.send({ t: 'reject', reason }); setTimeout(() => link.close(), 500); };
+    const helloTimer = setTimeout(() => { if (!player) link.close(); }, 15000);
+    link.onClose = () => { clearTimeout(helloTimer); if (player) this.removePlayer(player.id, 'left the game'); };
+    link.onMessage = m => {
+      if (player) { this.onMessage(m, player); return; }
+      if (m.t !== 'hello') return;
+      clearTimeout(helloTimer);
+      const name = cleanName(m.name);
+      if (m.v !== PROTOCOL) { bail('Your game is a different version. Refresh the page (Ctrl+Shift+R) and try again.'); return; }
+      if (!this.game) { bail('The host is not in a world right now.'); return; }
+      if (this.count >= MAX_PLAYERS) { bail(`This world is full (${MAX_PLAYERS} players max).`); return; }
+      if (!name) { bail('Pick a name first.'); return; }
+      if (name.toLowerCase() === this.name.toLowerCase() || [...this.players.values()].some(p => p.name.toLowerCase() === name.toLowerCase())) { bail(`Someone called ${name} is already playing. Pick another name.`); return; }
+      let id = 1;
+      while (this.players.has(id)) id++;
+      player = { id, name, skin: m.skin | 0, link };
+      this.players.set(id, player);
+      link.send({ t: 'welcome', id, host: { id: 0, name: this.name, skin: this.skin }, meta: this.snapshot(name), players: [...this.players.values()].filter(p => p.id !== id).map(p => ({ id: p.id, name: p.name, skin: p.skin })) });
+      this.broadcast({ t: 'join', id, name, skin: player.skin }, id);
+      this.addRemote(player);
+      this.app.chat(`${name} joined the game`, '#ffff55');
+      this.app.onPlayersChanged();
+    };
+  }
+  // The world as a guest needs it: seed, settings, every edit and container, and their own data.
+  snapshot(name) {
+    const g = this.game, s = g.serialize();
+    const dims = {};
+    for (const [d, v] of Object.entries(s.dims || {})) dims[d] = { edits: v.edits, blockEntities: v.blockEntities };
+    const saved = (g.meta.players || {})[name] || null;
+    return {
+      name: s.name, seed: s.seed, seedText: s.seedText, type: s.type, mode: s.mode, difficulty: s.difficulty, cheats: s.cheats, rules: s.rules,
+      time: s.time, day: s.day, weather: s.weather, spawn: s.spawn, dragonKilled: s.dragonKilled, dims, saved,
+    };
+  }
+
+  // ---------------- joining ----------------
+  static async join(app, code, name, skin, status = () => {}) {
+    const net = new Net(app, 'guest');
+    net.name = name; net.skin = skin; net.code = code;
+    status('Loading…');
+    await loadLib();
+    status('Contacting the multiplayer server…');
+    const peer = makePeer();
+    net.peer = peer;
+    const fail = e => { peer.destroy(); throw new Error(e && e.type ? peerError(e) : (e && e.message) || String(e)); };
+    let lastError = null;
+    peer.on('error', e => { lastError = e; });
+    try {
+      await timeout(new Promise((resolve, reject) => { peer.on('open', resolve); peer.on('error', reject); }), 15000, 'The multiplayer server did not answer. Check your internet connection.');
+      status(`Connecting to world ${code}…`);
+      const conn = peer.connect(PREFIX + code, { reliable: true, serialization: 'raw' });
+      await timeout(new Promise((resolve, reject) => { conn.on('open', resolve); peer.on('error', reject); conn.on('error', reject); }), 20000, 'Could not connect. Check the code, or see MULTIPLAYER.md if you are on different networks.');
+      const link = new Link(conn);
+      net.hostLink = link;
+      status('Downloading the world…');
+      const welcome = await timeout(new Promise((resolve, reject) => {
+        link.onMessage = m => { if (m.t === 'welcome') resolve(m); else if (m.t === 'reject') reject(new Error(m.reason)); };
+        link.onClose = () => reject(new Error('The host closed the connection.'));
+        link.send({ t: 'hello', v: PROTOCOL, name, skin });
+      }), 60000, 'The host did not answer.');
+      net.myId = welcome.id;
+      link.onMessage = m => net.onMessage(m, null);
+      link.onClose = () => net.onHostLost();
+      net.pendingPlayers = [welcome.host, ...welcome.players];
+      return { net, welcome };
+    } catch (e) { return fail(lastError && lastError.type ? lastError : e); }
+  }
+  // Called once the guest's game has started.
+  attach() {
+    for (const p of this.pendingPlayers || []) { this.players.set(p.id, { ...p }); this.addRemote(this.players.get(p.id)); }
+    this.pendingPlayers = null;
+    this.app.onPlayersChanged();
+  }
+  onHostLost() {
+    if (this.closed) return;
+    this.closed = true;
+    this.app.onDisconnected('Connection to the host was lost.');
+  }
+
+  // ---------------- messaging ----------------
+  send(m) {
+    if (this.isHost) this.broadcast(m);
+    else if (this.hostLink) this.hostLink.send(m);
+  }
+  broadcast(m, except = -1) { for (const p of this.players.values()) if (p.id !== except && p.link) p.link.send(m); }
+  sendTo(id, m) {
+    if (this.isHost) { const p = this.players.get(id); if (p && p.link) p.link.send(m); }
+    else if (this.hostLink) this.hostLink.send({ ...m, to: id });
+  }
+  onMessage(m, from) {
+    // Host: relay guest traffic, or deliver messages addressed to someone else.
+    if (this.isHost && from) {
+      m.id = from.id;
+      if (m.to !== undefined && m.to !== 0) { const p = this.players.get(m.to); if (p && p.link) p.link.send(m); return; }
+      if (RELAY.has(m.t)) this.broadcast(m, from.id);
+    }
+    const g = this.game;
+    switch (m.t) {
+      case 'st': { const p = this.players.get(m.id); if (p && p.rp) p.rp.push(m); break; }
+      case 'ed': if (g) this.applyEdits(m.e); break;
+      case 'be': if (g) this.applyBlockEntity(m); break;
+      case 'chat': this.app.chat(m.text, m.color || '#ffffff'); break;
+      case 'fx': if (g) this.playFx(m); break;
+      case 'hit': if (g) this.onHit(m); break;
+      case 'env': if (g && !this.isHost) this.applyEnv(m); break;
+      case 'pdata': if (this.isHost && from && g) { g.meta.players = g.meta.players || {}; g.meta.players[from.name] = m.d; } break;
+      case 'join': this.players.set(m.id, { id: m.id, name: m.name, skin: m.skin }); this.addRemote(this.players.get(m.id)); this.app.chat(`${m.name} joined the game`, '#ffff55'); this.app.onPlayersChanged(); break;
+      case 'leave': this.removePlayer(m.id, m.reason || 'left the game'); break;
+      case 'bye': if (!this.isHost) { this.closed = true; this.app.onDisconnected('The host closed the world.'); } break;
+      default: break;
+    }
+  }
+  removePlayer(id, why) {
+    const p = this.players.get(id);
+    if (!p) return;
+    this.players.delete(id);
+    if (p.rp) p.rp.dead = true;
+    if (p.link) p.link.close();
+    if (this.isHost) this.broadcast({ t: 'leave', id, reason: why });
+    this.app.chat(`${p.name} ${why}`, '#ffff55');
+    this.app.onPlayersChanged();
+  }
+  addRemote(p) {
+    if (!this.game) return;
+    p.rp = new RemotePlayer(this.game, p);
+  }
+  remotePlayers() { return [...this.players.values()].map(p => p.rp).filter(Boolean); }
+  playerNames() { return [this.name, ...[...this.players.values()].map(p => p.name)]; }
+
+  // ---------------- per-frame ----------------
+  update(dt) {
+    const g = this.game;
+    if (!g || this.closed) return;
+    // Keep remote players in the entity list of whichever dimension they share with us.
+    let stray = false;
+    for (const rp of this.remotePlayers()) {
+      const here = rp.dim === g.dim && !rp.dead;
+      const inList = g.entities.list.includes(rp);
+      if (here && !inList) g.entities.list.push(rp);
+      else if (!here && inList) stray = true;
+    }
+    if (stray) g.entities.list = g.entities.list.filter(e => !(e.remote && e.dim !== g.dim));
+    this.stateT += dt;
+    if (this.stateT >= 1 / STATE_HZ) { this.stateT = 0; this.sendState(); }
+    this.flushT += dt;
+    if (this.flushT >= 0.05) { this.flushT = 0; this.flush(); }
+    if (this.isHost) {
+      this.envT += dt;
+      if (this.envT >= 1) { this.envT = 0; this.broadcast({ t: 'env', time: g.dayTime, day: g.day, w: g.weather, pvp: g.rules.pvp !== false }); }
+      // Drop guests whose connection silently died.
+      const now = performance.now();
+      for (const p of [...this.players.values()]) if (p.link && now - p.link.seen > 20000) this.removePlayer(p.id, 'timed out');
+    } else {
+      this.pdataT += dt;
+      if (this.pdataT >= 10) { this.pdataT = 0; this.sendPlayerData(); }
+      if (this.hostLink && performance.now() - this.hostLink.seen > 20000) this.onHostLost();
+    }
+  }
+  sendState() {
+    const g = this.game, p = g.player, it = this.app.interact;
+    if (!p) return;
+    const sw = it ? it.swing : 0;
+    if (sw > (this.lastSwing || 0) + 0.05) this.onSwing();
+    this.lastSwing = sw;
+    const inv = g.inv;
+    this.send({
+      t: 'st', id: this.myId, p: [r3(p.pos[0]), r3(p.pos[1]), r3(p.pos[2])], y: r3(p.yaw), pi: r3(p.pitch), d: g.dim,
+      v: [r3(p.vel[0]), r3(p.vel[1]), r3(p.vel[2])],
+      f: (p.sneaking ? 1 : 0) | (p.sprinting ? 2 : 0) | (p.gliding ? 4 : 0) | (g.riding ? 8 : 0) | (g.alive ? 0 : 16) | (g.mode === 'spectator' ? 32 : 0) | (g.blocking ? 64 : 0) | (p.flying ? 128 : 0) | (g.stats.fire > 0 ? 256 : 0) | (it && it.using === 'bow' ? 512 : 0),
+      h: inv.held ? inv.held.key : 0, o: inv.offhand.get(0) ? inv.offhand.get(0).key : 0,
+      a: inv.armor.slots.map(s => (s ? s.key : 0)),
+      sc: this.swingCount, hc: this.hurtCount, hp: Math.ceil(g.stats.health), m: g.mode,
+    });
+  }
+  // Local swing / hurt events show up on everyone else's copy of us.
+  onSwing() { this.swingCount = (this.swingCount + 1) % 1000; }
+  onHurt() { this.hurtCount = (this.hurtCount + 1) % 1000; }
+
+  // ---------------- blocks ----------------
+  // Every block change made on this machine (not ones we are mirroring) goes out once.
+  onLocalEdit(dim, x, y, z, id, m) { if (!this.applying) this.edits.push(dim, x, y, z, id, m); }
+  flush() {
+    if (this.edits.length) { this.send({ t: 'ed', id: this.myId, e: this.edits }); this.edits = []; }
+    if (this.beDirty.size) {
+      for (const [k, { dim, be }] of this.beDirty) this.send({ t: 'be', id: this.myId, d: dim, k, be: plainBE(be) });
+      this.beDirty.clear();
+    }
+  }
+  applyEdits(e) {
+    const g = this.game;
+    this.applying = true;
+    try {
+      for (let i = 0; i + 5 < e.length + 0; i += 6) {
+        const [dim, x, y, z, id, m] = [e[i], e[i + 1], e[i + 2], e[i + 3], e[i + 4], e[i + 5]];
+        if (dim === g.dim) g.world.setBlockRemote(x, y, z, id, m);
+        else g.storeRemoteEdit(dim, x, y, z, id, m);
+      }
+    } finally { this.applying = false; }
+  }
+  onLocalBlockEntity(dim, k, be) { if (!this.applying) this.beDirty.set(k, { dim, be }); }
+  applyBlockEntity(m) {
+    const g = this.game;
+    this.applying = true;
+    try { g.applyRemoteBlockEntity(m.d, m.k, m.be); } finally { this.applying = false; }
+  }
+
+  // ---------------- combat ----------------
+  hit(rp, amount, src) {
+    const g = this.game;
+    if (g.rules.pvp === false && (src.kind === 'player' || src.kind === 'projectile')) return false;
+    if (rp.mode === 'creative' || rp.mode === 'spectator' || rp.deadFlag) return false;
+    this.sendTo(rp.id, { t: 'hit', from: this.myId, dmg: amount, kind: src.kind || 'player', knock: src.knock || null, ks: src.knockStrength || 0, fire: src.fire || 0 });
+    return true;
+  }
+  onHit(m) {
+    const g = this.game;
+    const from = this.players.get(m.from);
+    if (m.fire) g.playerEntity.setFire(m.fire);
+    if (!m.dmg) return;
+    g.damagePlayer(m.dmg, { kind: m.kind, attacker: from ? from.rp : null, knock: m.knock, knockStrength: m.ks });
+  }
+  // Sounds and particles other players should hear/see (explosions, block breaks…).
+  fx(kind, pos, extra = {}) { this.send({ t: 'fx', id: this.myId, k: kind, p: pos.map(r3), ...extra }); }
+  playFx(m) {
+    const g = this.game;
+    if (m.d !== undefined && m.d !== g.dim) return;
+    if (m.k === 'sound') g.sound.play(m.s, m.p, m.v || 1);
+    else if (m.k === 'break') { g.sound.dig(m.s, m.p); g.particles.block(Math.floor(m.p[0]), Math.floor(m.p[1]), Math.floor(m.p[2]), m.b, m.bm || 0, 20); }
+    else if (m.k === 'explode') { g.sound.play('explode', m.p, 1.6); g.particles.explosion(m.p, m.pw || 4); }
+  }
+
+  // ---------------- world clock & saving ----------------
+  applyEnv(m) {
+    const g = this.game;
+    let d = m.time - g.dayTime;
+    if (d > 0.5) d -= 1; else if (d < -0.5) d += 1;
+    g.dayTime = Math.abs(d) > 0.01 ? m.time : (g.dayTime + d * 0.2 + 1) % 1;
+    g.day = m.day;
+    Object.assign(g.weather, m.w);
+    g.rules.pvp = m.pvp;
+  }
+  sendPlayerData() {
+    const g = this.game;
+    if (!g || this.isHost || !g.player) return;
+    this.hostLink && this.hostLink.send({ t: 'pdata', d: g.playerData() });
+  }
+  close() {
+    if (this.closed && !this.peer) return;
+    this.closed = true;
+    try {
+      if (this.isHost) this.broadcast({ t: 'bye' });
+      else this.sendPlayerData();
+    } catch { /* ignore */ }
+    setTimeout(() => {
+      for (const p of this.players.values()) if (p.link) p.link.close();
+      if (this.hostLink) this.hostLink.close();
+      if (this.peer) this.peer.destroy();
+      this.peer = null;
+    }, 300);
+    for (const p of this.players.values()) if (p.rp) p.rp.dead = true;
+  }
+}
+
+// Block entities travel as plain JSON (their live Container wrapper is not enumerable).
+function plainBE(be) { return JSON.parse(JSON.stringify(be)); }

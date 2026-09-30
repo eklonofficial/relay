@@ -1,24 +1,24 @@
 // The running game: world + dimensions, player survival state, entities, simulation, weather and saving.
-import { B, BLOCKS, SOLID, OPAQUE, DIM, DIM_NAMES, HEIGHT, SEA, props, st, SHAPE_OF, SHAPE } from '../data/blocks.js?v=munmlnfa';
-import { I, maxStack } from '../data/items.js?v=munmlnfa';
-import { SMELTING } from '../data/recipes.js?v=munmlnfa';
-import { MOBS } from '../data/mobs.js?v=munmlnfa';
-import { BIOMES, COLD } from '../gen/biomes.js?v=munmlnfa';
-import { World, UNLOADED, posKey } from '../world/world.js?v=munmlnfa';
-import { Player } from './player.js?v=munmlnfa';
-import { PlayerInventory, Container } from './inventory.js?v=munmlnfa';
-import { EntityManager } from '../entity/entity.js?v=munmlnfa';
-import { ItemEntity, XpOrb, FallingBlock, PrimedTnt, Lightning, Projectile } from '../entity/objects.js?v=munmlnfa';
-import { Mob, RIDEABLE } from '../entity/mob.js?v=munmlnfa';
-import { Particles } from './particles.js?v=munmlnfa';
-import { Sim } from './sim.js?v=munmlnfa';
-import { blockDrops } from './drops.js?v=munmlnfa';
-import { computeEnv } from './env.js?v=munmlnfa';
-import { fuelOf } from './ui.js?v=munmlnfa';
-import { unlockLevel } from './trades.js?v=munmlnfa';
-import { forward } from '../core/math.js?v=munmlnfa';
-import { EndCrystal } from '../entity/crystal.js?v=munmlnfa';
-import { ARMOR_BYPASS, armorReduce, applyInvul, isAxe } from './combat.js?v=munmlnfa';
+import { B, BLOCKS, SOLID, OPAQUE, DIM, DIM_NAMES, HEIGHT, SEA, props, st, SHAPE_OF, SHAPE } from '../data/blocks.js?v=muo1hk09';
+import { I, maxStack } from '../data/items.js?v=muo1hk09';
+import { SMELTING } from '../data/recipes.js?v=muo1hk09';
+import { MOBS } from '../data/mobs.js?v=muo1hk09';
+import { BIOMES, COLD } from '../gen/biomes.js?v=muo1hk09';
+import { World, UNLOADED, posKey } from '../world/world.js?v=muo1hk09';
+import { Player } from './player.js?v=muo1hk09';
+import { PlayerInventory, Container } from './inventory.js?v=muo1hk09';
+import { EntityManager } from '../entity/entity.js?v=muo1hk09';
+import { ItemEntity, XpOrb, FallingBlock, PrimedTnt, Lightning, Projectile } from '../entity/objects.js?v=muo1hk09';
+import { Mob, RIDEABLE } from '../entity/mob.js?v=muo1hk09';
+import { Particles } from './particles.js?v=muo1hk09';
+import { Sim } from './sim.js?v=muo1hk09';
+import { blockDrops } from './drops.js?v=muo1hk09';
+import { computeEnv } from './env.js?v=muo1hk09';
+import { fuelOf } from './ui.js?v=muo1hk09';
+import { unlockLevel } from './trades.js?v=muo1hk09';
+import { forward } from '../core/math.js?v=muo1hk09';
+import { EndCrystal } from '../entity/crystal.js?v=muo1hk09';
+import { ARMOR_BYPASS, armorReduce, applyInvul, isAxe } from './combat.js?v=muo1hk09';
 
 export const DAY = 1200; // seconds per day
 const rnd = (a, b) => a + Math.random() * (b - a);
@@ -141,6 +141,7 @@ export class Game {
         onChunkLoaded: c => this.onChunkLoaded(c),
         onBlockChange: (x, y, z) => this.sim.onChange(x, y, z),
         onBlockEntityRemoved: (x, y, z, be) => this.onBlockEntityRemoved(x, y, z, be),
+        onEdit: (x, y, z, id, m) => { if (this.net) this.net.onLocalEdit(dim, x, y, z, id, m); },
       },
     });
     this.entities.clear();
@@ -275,7 +276,7 @@ export class Game {
     const w = this.world, id = w.getBlock(x, y, z), m = w.getMeta(x, y, z);
     if (id === UNLOADED || id === B.AIR) return;
     const sh = SHAPE_OF[id];
-    if (!silent) { this.sound.dig(props(id, m).sound, [x + 0.5, y + 0.5, z + 0.5]); this.particles.block(x, y, z, id, m, 20); }
+    if (!silent) { this.sound.dig(props(id, m).sound, [x + 0.5, y + 0.5, z + 0.5]); this.particles.block(x, y, z, id, m, 20); if (this.net) this.net.fx('break', [x + 0.5, y + 0.5, z + 0.5], { d: this.dim, s: props(id, m).sound, b: id, bm: m }); }
     const be = w.blockEntities.get(posKey(x, y, z));
     let replace = B.AIR, replaceMeta = 0;
     if (id === B.ICE && player && this.mode !== 'creative' && SOLID[w.getBlock(x, y - 1, z)] && this.dim !== DIM.NETHER) replace = B.WATER;
@@ -305,13 +306,40 @@ export class Game {
     }
   }
   onBlockEntityRemoved() {}
+  onBlockEntityChanged(be) { if (this.net) this.net.onLocalBlockEntity(this.dim, posKey(be.x, be.y, be.z), be); }
+  // ---------------- multiplayer ----------------
+  get playerName() { return this.net ? this.net.name : 'Player'; }
+  // Another player's edit to a dimension we are not in: fold it into that dimension's saved edits.
+  storeRemoteEdit(dim, x, y, z, id, m) {
+    const d = this.dims[dim] || (this.dims[dim] = {});
+    const edits = d.edits || (d.edits = {});
+    const cx = Math.floor(x / 16), cz = Math.floor(z / 16), k = `${cx},${cz}`;
+    (edits[k] || (edits[k] = [])).push((x - cx * 16) + (z - cz * 16) * 16 + y * 256, id | (m << 8));
+    if (d.blockEntities && id !== B.AIR) delete d.blockEntities[posKey(x, y, z)];
+  }
+  applyRemoteBlockEntity(dim, k, data) {
+    if (dim !== this.dim) { const d = this.dims[dim] || (this.dims[dim] = {}); (d.blockEntities || (d.blockEntities = {}))[k] = data; return; }
+    const w = this.world, cur = w.blockEntities.get(k);
+    if (!cur) { w.blockEntities.set(k, data); return; }
+    for (const key of Object.keys(cur)) if (!(key in data)) delete cur[key];
+    Object.assign(cur, data);
+    if (cur.container) cur.container.load(data.items || []);
+    if (this.gui && this.gui.isOpen) this.gui.refresh && this.gui.refresh();
+  }
+  // What the host saves for a guest between sessions.
+  playerData() {
+    return {
+      inventory: this.inv.toJSON(), enderChest: this.enderChest.toJSON(), stats: this.stats, advancements: [...this.advancements], mode: this.mode,
+      spawn: this.spawn, player: { pos: this.player.pos, yaw: this.player.yaw, pitch: this.player.pitch, flying: this.player.flying, dim: this.dim },
+    };
+  }
   blockEntity(x, y, z) { return this.world.blockEntities.get(posKey(x, y, z)); }
   // Chest / furnace containers are plain slot lists in block entities; wrap them for the GUI.
   containerOf(be, size) {
     if (!be.container) {
       const c = new Container(size);
       c.load(be.items || []);
-      c.onChange = () => { be.items = c.toJSON(); };
+      c.onChange = () => { be.items = c.toJSON(); this.onBlockEntityChanged(be); };
       Object.defineProperty(be, 'container', { value: c, enumerable: false, writable: true });
     }
     return be.container;
@@ -343,6 +371,7 @@ export class Game {
     const w = this.world;
     this.sound.play('explode', pos, 1.6);
     this.particles.explosion(pos, power);
+    if (this.net) this.net.fx('explode', pos, { d: this.dim, pw: power });
     const broken = new Set();
     if (breakBlocks && !(source && source.inWater)) {
       for (let i = 0; i < 16; i++) for (let j = 0; j < 16; j++) for (let k = 0; k < 16; k++) {
@@ -452,7 +481,7 @@ export class Game {
     if (s.absorption > 0) { const a = Math.min(s.absorption, dmg); s.absorption -= a; dmg -= a; }
     s.health -= dmg;
     this.exhaust(0.1);
-    if (hit.fresh) { this.app.hurtFlash(src); this.sound.play('hurt', null, 0.8); }
+    if (hit.fresh) { this.app.hurtFlash(src); this.sound.play('hurt', null, 0.8); if (this.net) this.net.onHurt(); }
     if (hit.fresh && src.knock) { const k = src.knockStrength || 5; this.player.vel[0] += src.knock[0] * k; this.player.vel[2] += src.knock[1] * k; this.player.vel[1] = Math.max(this.player.vel[1], 4.5); }
     if (src.attacker && src.attacker.isLiving) this.lastAttackedBy = src.attacker;
     this.lastDamage = src;
@@ -471,6 +500,9 @@ export class Game {
     return true;
   }
   deathMessage(src) {
+    return this.deathMessageRaw(src).replace(/^Player/, this.playerName);
+  }
+  deathMessageRaw(src) {
     const a = src.attacker, name = a && a.def ? a.displayName || a.def.name : null;
     switch (src.kind) {
       case 'fall': return 'Player fell from a high place';
@@ -494,6 +526,7 @@ export class Game {
     this.alive = false; s.health = 0;
     const msg = this.deathMessage(src);
     this.chat(msg, '#ff8080');
+    if (this.net) this.net.send({ t: 'chat', id: this.net.myId, text: msg, color: '#ff8080' });
     if (!this.rules.keepInventory) {
       const p = this.player.pos;
       for (const st of this.inv.allStacks()) this.dropItem(p[0], p[1] + 1, p[2], st, [rnd(-3, 3), rnd(2, 5), rnd(-3, 3)]);
@@ -642,7 +675,7 @@ export class Game {
   // Furnaces smelt, spawners spawn.
   tickBlockEntities(dt) {
     for (const [k, be] of this.world.blockEntities) {
-      if (be.type === 'furnace') this.tickFurnace(k, be, dt);
+      if (be.type === 'furnace') { if (!(this.net && !this.net.isHost)) this.tickFurnace(k, be, dt); }
       else if (be.type === 'spawner') this.tickSpawner(be, dt);
     }
   }

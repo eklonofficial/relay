@@ -1,31 +1,33 @@
 // Blockhaven bootstrap: assets, menus, input, camera, frame loop.
-import { Demo, DEMO_SEED } from './demo.js?v=munmlnfa';
-import { armorModel, armorSkinKey, ARMOR_MATERIALS, ARMOR_PIECES, elytraModel } from './data/armor.js?v=munmlnfa';
-import { TEXTURES, TEX, B, BLOCKS, DIM, DIM_NAMES, SHAPE_OF, SHAPE, props } from './data/blocks.js?v=munmlnfa';
-import { I, ITEMS } from './data/items.js?v=munmlnfa';
-import { MOBS, PROFESSIONS, playerModel, saddleModel } from './data/mobs.js?v=munmlnfa';
-import { BIOMES } from './gen/biomes.js?v=munmlnfa';
-import { generateBlockTextures } from './render/blocktex.js?v=munmlnfa';
-import { generateItemTextures, ITEM_LAYER, FX_LAYER, ITEM_LAYER_COUNT } from './render/itemtex.js?v=munmlnfa';
-import { packModel, paintModel, SKIN } from './render/mobtex.js?v=munmlnfa';
-import { buildMipChain } from './render/atlas.js?v=munmlnfa';
-import { Renderer, Batch } from './render/renderer.js?v=munmlnfa';
-import { World, UNLOADED } from './world/world.js?v=munmlnfa';
-import { createGenerator } from './gen/index.js?v=munmlnfa';
-import { Game } from './game/game.js?v=munmlnfa';
-import { Interact } from './game/interact.js?v=munmlnfa';
-import { Commands } from './game/commands.js?v=munmlnfa';
-import { GUI, HUD } from './game/ui.js?v=munmlnfa';
-import { buildIcons, hudSprites } from './game/icons.js?v=munmlnfa';
-import { Sound } from './game/audio.js?v=munmlnfa';
-import { buildLogo, buttonTexture, iconDataURL } from './render/logo.js?v=munmlnfa';
-import { computeEnv } from './game/env.js?v=munmlnfa';
-import { guideSections } from './game/guide.js?v=munmlnfa';
-import { listWorlds, loadWorld, saveWorld, deleteWorld } from './game/storage.js?v=munmlnfa';
-import { drawModel, rootMatrix, M } from './entity/entity.js?v=munmlnfa';
-import { itemMesh, emitItemMesh } from './entity/itemmesh.js?v=munmlnfa';
-import { Lightning } from './entity/objects.js?v=munmlnfa';
-import { compose, translation, rotationX, rotationY, rotationZ, scaling, forward, mat4 } from './core/math.js?v=munmlnfa';
+import { Demo, DEMO_SEED } from './demo.js?v=muo1hk09';
+import { armorModel, armorSkinKey, ARMOR_MATERIALS, ARMOR_PIECES, elytraModel } from './data/armor.js?v=muo1hk09';
+import { TEXTURES, TEX, B, BLOCKS, DIM, DIM_NAMES, SHAPE_OF, SHAPE, props } from './data/blocks.js?v=muo1hk09';
+import { I, ITEMS } from './data/items.js?v=muo1hk09';
+import { MOBS, PROFESSIONS, playerModel, saddleModel, PLAYER_SKINS } from './data/mobs.js?v=muo1hk09';
+import { Net, cleanCode, cleanName, MAX_PLAYERS } from './net/net.js?v=muo1hk09';
+import { NameTags } from './net/nametags.js?v=muo1hk09';
+import { BIOMES } from './gen/biomes.js?v=muo1hk09';
+import { generateBlockTextures } from './render/blocktex.js?v=muo1hk09';
+import { generateItemTextures, ITEM_LAYER, FX_LAYER, ITEM_LAYER_COUNT } from './render/itemtex.js?v=muo1hk09';
+import { packModel, paintModel, SKIN, faceRects } from './render/mobtex.js?v=muo1hk09';
+import { buildMipChain } from './render/atlas.js?v=muo1hk09';
+import { Renderer, Batch } from './render/renderer.js?v=muo1hk09';
+import { World, UNLOADED } from './world/world.js?v=muo1hk09';
+import { createGenerator } from './gen/index.js?v=muo1hk09';
+import { Game } from './game/game.js?v=muo1hk09';
+import { Interact } from './game/interact.js?v=muo1hk09';
+import { Commands } from './game/commands.js?v=muo1hk09';
+import { GUI, HUD } from './game/ui.js?v=muo1hk09';
+import { buildIcons, hudSprites } from './game/icons.js?v=muo1hk09';
+import { Sound } from './game/audio.js?v=muo1hk09';
+import { buildLogo, buttonTexture, iconDataURL } from './render/logo.js?v=muo1hk09';
+import { computeEnv } from './game/env.js?v=muo1hk09';
+import { guideSections } from './game/guide.js?v=muo1hk09';
+import { listWorlds, loadWorld, saveWorld, deleteWorld } from './game/storage.js?v=muo1hk09';
+import { drawModel, rootMatrix, M } from './entity/entity.js?v=muo1hk09';
+import { itemMesh, emitItemMesh } from './entity/itemmesh.js?v=muo1hk09';
+import { Lightning } from './entity/objects.js?v=muo1hk09';
+import { compose, translation, rotationX, rotationY, rotationZ, scaling, forward, mat4 } from './core/math.js?v=muo1hk09';
 
 const $ = id => document.getElementById(id);
 const SETTINGS_KEY = 'blockhaven.settings.v2';
@@ -100,7 +102,9 @@ class App {
     let seed = 1;
     for (const [k, d] of Object.entries(MOBS)) addSkin(k, d.model(), seed++);
     for (const p of PROFESSIONS) addSkin(`villager_${p}`, MOBS.villager.professionModel(p), seed++);
-    addSkin('player', playerModel(), 777);
+    PLAYER_SKINS.forEach((_, i) => addSkin(`player_${i}`, playerModel(i), 777 + i * 31));
+    this.mobModels.set('player', this.mobModels.get('player_0'));
+    this.skinPixels = skins;
     addSkin('saddle', saddleModel(), 778);
     addSkin('elytra', elytraModel(), 779);
     for (const mat of Object.keys(ARMOR_MATERIALS)) for (const piece of ARMOR_PIECES) for (const thin of [false, true]) addSkin(`armor_${mat}_${piece}${thin ? '_thin' : ''}`, armorModel(mat, piece, thin), seed++);
@@ -110,6 +114,7 @@ class App {
     this.sound = new Sound();
     this.sound.volume = settings.volume / 100; this.sound.music = settings.music / 100;
     this.batches = { mobs: new Batch(), items: new Batch(), itemFx: new Batch(), blockParticles: new Batch(), hand: new Batch() };
+    this.nametags = new NameTags($('nametags'));
     this.bindSettings(); this.bindMenus(); this.bindInput();
     $('splash').textContent = SPLASHES[Math.floor(Math.random() * SPLASHES.length)];
     this.buildTitleArt();
@@ -150,7 +155,7 @@ class App {
   itemPixels(key) { const l = ITEM_LAYER[key]; return l === undefined ? this.itemTex[FX_LAYER.blank] : this.itemTex[l]; }
   fxLayer(name) { return FX_LAYER[name] ?? FX_LAYER.blank; }
   mobModel(key) { return this.mobModels.get(key) || this.mobModels.get('pig'); }
-  mobLayer(key) { return this.mobLayers.get(key) ?? 0; }
+  mobLayer(key) { return this.mobLayers.get(key === 'player' ? `player_${settings.skin | 0}` : key) ?? 0; }
   // Renders an item through a 3x4 world matrix whose unit square is the item's size.
   renderItemAt(ctx, key, m, light) {
     const it = I[key];
@@ -175,7 +180,8 @@ class App {
   // ---------------- menus ----------------
   setMode(m) {
     this.mode = m;
-    for (const id of ['title', 'worlds', 'create', 'loading', 'pause', 'death']) $(id).classList.toggle('hidden', id !== m);
+    for (const id of ['title', 'worlds', 'create', 'loading', 'pause', 'death', 'mp']) $(id).classList.toggle('hidden', id !== m);
+    if (m === 'pause') this.updatePauseMenu();
     $('hud').classList.toggle('hidden', !(m === 'play' || m === 'pause' || m === 'gui' || m === 'chat') || this.hudHidden);
     this.keys.clear(); this.mouse.left = this.mouse.right = false;
   }
@@ -266,12 +272,16 @@ class App {
   }
   async saveGame(quiet = true) {
     if (!this.game || !this.game.world || (this.game.meta && this.game.meta.demo)) return;
+    // Guests' progress is kept by the host.
+    if (this.net && !this.net.isHost) { this.net.sendPlayerData(); return; }
     const data = this.game.serialize();
     if (this.thumbNext) data.thumb = this.thumbNext;
     try { await saveWorld(data); if (!quiet) this.chat('Game saved', '#aaaaaa'); } catch (e) { console.warn('save failed', e); }
   }
   async quitToTitle() {
+    if (document.pointerLockElement) document.exitPointerLock();
     await this.saveGame();
+    this.leaveNet();
     if (this.game) { this.game.world.dispose(); this.game = null; }
     this.setMode('title');
     this.startPanorama();
@@ -300,6 +310,144 @@ class App {
   sleep(done) { this.sleeping = { t: 0, done }; }
   onGuiOpen() { this.setMode('gui'); this.suppressPause = true; document.exitPointerLock(); }
   onGuiClose() { this.setMode('play'); this.requestLock(); }
+
+  // ---------------- multiplayer ----------------
+  mpName() {
+    if (!cleanName(settings.mpName)) { settings.mpName = `Player${100 + Math.floor(Math.random() * 900)}`; store(SETTINGS_KEY, settings); }
+    return cleanName(settings.mpName);
+  }
+  saveMpSettings() {
+    const n = cleanName($('mp-name').value);
+    if (n) settings.mpName = n;
+    store(SETTINGS_KEY, settings);
+  }
+  showMultiplayer(status = '', kind = '') {
+    this.setMode('mp');
+    $('mp-name').value = this.mpName();
+    this.renderSkinPicker();
+    this.mpStatus(status, kind);
+  }
+  mpStatus(text, kind = '') { const el = $('mp-status'); el.textContent = text; el.className = `mp-status ${kind}`; }
+  // Front view of each default skin, cut out of the painted skin textures.
+  renderSkinPicker() {
+    const box = $('mp-skins');
+    box.textContent = '';
+    PLAYER_SKINS.forEach(([label], i) => {
+      const b = document.createElement('button');
+      b.className = `mp-skin${(settings.skin | 0) === i ? ' on' : ''}`;
+      b.appendChild(this.skinPreview(i));
+      const t = document.createElement('span'); t.textContent = label; b.appendChild(t);
+      b.addEventListener('click', () => { this.sound.click(); settings.skin = i; store(SETTINGS_KEY, settings); this.renderSkinPicker(); });
+      box.appendChild(b);
+    });
+  }
+  skinPreview(i) {
+    const src = document.createElement('canvas'); src.width = src.height = SKIN;
+    const img = src.getContext('2d').createImageData(SKIN, SKIN);
+    img.data.set(this.skinPixels[this.mobLayers.get(`player_${i}`)]);
+    src.getContext('2d').putImageData(img, 0, 0);
+    const out = document.createElement('canvas'); out.width = 16; out.height = 32;
+    const x = out.getContext('2d'); x.imageSmoothingEnabled = false;
+    const model = this.mobModels.get(`player_${i}`);
+    const put = (partName, dx, dy, dw, dh) => { const b = model.parts[partName].boxes[0], [u, v, w, h] = faceRects(b).front; x.drawImage(src, u, v, w, h, dx, dy, dw, dh); };
+    put('head', 4, 0, 8, 8); put('body', 4, 8, 8, 12); put('rightArm', 0, 8, 4, 12); put('leftArm', 12, 8, 4, 12); put('rightLeg', 4, 20, 4, 12); put('leftLeg', 8, 20, 4, 12);
+    return out;
+  }
+  async joinWorld() {
+    if (this.joining) return;
+    this.saveMpSettings();
+    const code = cleanCode($('mp-code').value), name = this.mpName();
+    if (code.length !== 5) { this.mpStatus('Enter the 5-character code your friend sees in their pause menu.', 'err'); return; }
+    this.joining = true; $('btn-mp-join').disabled = true;
+    this.sound.unlock();
+    try {
+      const { net, welcome } = await Net.join(this, code, name, settings.skin | 0, t => this.mpStatus(t));
+      if (this.mode !== 'mp') { net.close(); return; }
+      this.mpStatus('Joined!', 'ok');
+      this.startGuestGame(net, welcome);
+    } catch (e) {
+      this.mpStatus(e.message || String(e), 'err');
+    } finally { this.joining = false; $('btn-mp-join').disabled = false; }
+  }
+  startGuestGame(net, w) {
+    const m = w.meta, sv = m.saved || {};
+    const spawn = sv.spawn || m.spawn || [0, 100, 0];
+    const meta = {
+      id: `mp-${net.code}`, name: m.name, seed: m.seed, seedText: m.seedText, type: m.type,
+      mode: sv.mode || (m.mode === 'hardcore' ? 'survival' : m.mode), hardcore: m.mode === 'hardcore', difficulty: m.difficulty, cheats: m.cheats,
+      rules: { ...(m.rules || {}), doWeatherCycle: false }, time: m.time, day: m.day, weather: m.weather, spawn, dragonKilled: m.dragonKilled, dims: m.dims,
+      inventory: sv.inventory, enderChest: sv.enderChest, stats: sv.stats, advancements: sv.advancements,
+      player: sv.player || { pos: spawn.slice(), yaw: Math.PI * 0.75, pitch: 0, flying: false, dim: 0 }, guest: true,
+    };
+    this.net = net;
+    this.startGame(meta);
+    this.game.net = net;
+    net.attach();
+    this.chat(`Connected to ${net.players.get(0) ? net.players.get(0).name : 'the host'}'s world. Hold Tab to see who's online.`, '#55ff55');
+  }
+  async openToFriends() {
+    const g = this.game;
+    if (this.net || !g || (g.meta && g.meta.demo)) return;
+    const btn = $('btn-open');
+    btn.disabled = true; btn.textContent = 'Opening…';
+    const net = new Net(this, 'host');
+    try {
+      await net.host(this.mpName(), settings.skin | 0);
+      if (this.game !== g) { net.close(); return; }
+      this.net = net; g.net = net;
+      if (g.rules.pvp === undefined) g.rules.pvp = true;
+      this.chat(`Your world is open to friends! Room code: ${net.code}`, '#55ff55');
+      this.chat('Friends join from the title screen: Multiplayer → enter the code. Hold Tab to see who\'s online.', '#aaaaaa');
+    } catch (e) {
+      this.chat(`Could not open to friends: ${e.message}`, '#ff5555');
+    }
+    btn.disabled = false;
+    this.updatePauseMenu();
+  }
+  updatePauseMenu() {
+    const n = this.net, info = $('room-info'), open = $('btn-open');
+    const demo = this.game && this.game.meta && this.game.meta.demo;
+    open.classList.toggle('hidden', !!n || !!demo);
+    if (!n) open.textContent = 'Open to Friends';
+    $('btn-quit').textContent = n && !n.isHost ? 'Disconnect' : 'Save and Quit to Title';
+    info.classList.toggle('hidden', !n);
+    if (n) {
+      info.textContent = '';
+      const a = document.createElement('div');
+      a.append(n.isHost ? 'Room code: ' : 'Connected · code ', Object.assign(document.createElement('b'), { textContent: n.code }));
+      const b = document.createElement('div');
+      b.textContent = `${n.count}/${MAX_PLAYERS} players: ${n.playerNames().join(', ')}`;
+      info.append(a, b);
+    }
+  }
+  onPlayersChanged() { if (this.mode === 'pause') this.updatePauseMenu(); if (this.playerListShown) this.showPlayerList(true); }
+  showPlayerList(on) {
+    const el = $('playerlist');
+    this.playerListShown = on && !!this.net;
+    el.classList.toggle('hidden', !this.playerListShown);
+    if (!this.playerListShown) return;
+    const n = this.net;
+    el.textContent = '';
+    el.appendChild(Object.assign(document.createElement('div'), { className: 'h', textContent: `${n.isHost ? 'Your world' : 'Online'} · code ${n.code} · ${n.count}/${MAX_PLAYERS}` }));
+    const host = n.isHost ? n.name : (n.players.get(0) || {}).name;
+    for (const name of n.playerNames()) el.appendChild(Object.assign(document.createElement('div'), { className: 'p', textContent: `${name}${name === host ? ' (host)' : ''}${name === n.name ? ' (you)' : ''}` }));
+  }
+  leaveNet() {
+    if (!this.net) return;
+    this.net.close();
+    this.net = null;
+    if (this.game) this.game.net = null;
+    this.nametags.clear(); this.showPlayerList(false);
+  }
+  onDisconnected(msg) {
+    const wasGuest = this.net && !this.net.isHost;
+    this.leaveNet();
+    if (!wasGuest) return;
+    document.exitPointerLock();
+    if (this.game) { this.game.world.dispose(); this.game = null; }
+    this.startPanorama();
+    this.showMultiplayer(msg, 'err');
+  }
 
   chat(text, color = '#ffffff') {
     const div = document.createElement('div');
@@ -366,7 +514,7 @@ class App {
   bindMenus() {
     const click = (id, fn) => $(id).addEventListener('click', () => { this.sound.unlock(); this.sound.click(); fn(); });
     click('btn-play', () => this.showWorlds());
-    click('btn-world-back', () => this.setMode('title'));
+    click('btn-world-back', () => { if (this.hostAfterLoad) this.showMultiplayer(); else this.setMode('title'); });
     click('btn-world-new', () => { this.setMode('create'); $('cw-name').focus(); $('cw-name').select(); this.updateCreateHint(); });
     click('btn-world-play', () => this.selectedWorld && this.playWorld(this.selectedWorld));
     click('btn-world-delete', async () => { if (this.selectedWorld && confirm('Delete this world forever?')) { await deleteWorld(this.selectedWorld); this.showWorlds(); } });
@@ -395,6 +543,14 @@ class App {
     click('btn-controls-done', () => $('controls').classList.add('hidden'));
     click('btn-resume', () => this.requestLock());
     click('btn-quit', () => this.quitToTitle());
+    click('btn-open', () => this.openToFriends());
+    click('btn-mp', () => this.showMultiplayer());
+    click('btn-mp-back', () => { this.hostAfterLoad = false; this.setMode('title'); });
+    click('btn-mp-join', () => this.joinWorld());
+    click('btn-mp-host', () => { this.saveMpSettings(); this.hostAfterLoad = true; this.showWorlds(); });
+    $('mp-code').addEventListener('input', () => { const el = $('mp-code'), v = cleanCode(el.value); if (el.value !== v) el.value = v; });
+    $('mp-code').addEventListener('keydown', e => { if (e.key === 'Enter') this.joinWorld(); });
+    $('mp-name').addEventListener('input', () => { const el = $('mp-name'), v = cleanName(el.value); if (el.value !== v) el.value = v; });
     click('btn-respawn', () => { this.game.respawn(); this.setMode('play'); this.requestLock(); if (this.game.hardcore) this.setGameMode('spectator'); });
     click('btn-death-title', () => this.quitToTitle());
     $('cw-seed').addEventListener('keydown', e => { if (e.key === 'Enter') this.createWorld(); });
@@ -449,7 +605,7 @@ class App {
       this.select(g.inv.selected + Math.sign(e.deltaY));
     }, { passive: true });
     document.addEventListener('keydown', e => this.keyDown(e));
-    document.addEventListener('keyup', e => { this.keys.delete(e.code); if (e.code === 'KeyW') this.tapSprint = false; });
+    document.addEventListener('keyup', e => { this.keys.delete(e.code); if (e.code === 'KeyW') this.tapSprint = false; if (e.code === 'Tab') this.showPlayerList(false); });
     window.addEventListener('blur', () => { this.keys.clear(); this.mouse.left = this.mouse.right = false; });
     document.addEventListener('visibilitychange', () => { if (document.hidden) this.saveGame(); });
     window.addEventListener('beforeunload', () => this.saveGame());
@@ -460,7 +616,11 @@ class App {
       if (e.key === 'Escape') { this.closeChat(); return; }
       if (e.key === 'Enter') {
         const v = inp.value.trim();
-        if (v) { this.chatHistory.push(v); if (v.startsWith('/')) this.commands.run(v); else this.chat(`<Player> ${v}`); }
+        if (v) {
+          this.chatHistory.push(v);
+          if (v.startsWith('/')) this.commands.run(v);
+          else { const text = `<${this.game.playerName}> ${v}`; this.chat(text); if (this.net) this.net.send({ t: 'chat', id: this.net.myId, text }); }
+        }
         this.closeChat();
         return;
       }
@@ -509,6 +669,7 @@ class App {
     if (e.code === 'Slash' && !e.repeat) { e.preventDefault(); this.openChat('/'); }
     if (e.code === 'KeyQ' && g.inv.held && g.mode !== 'spectator') { const s = g.inv.held, n = e.ctrlKey ? s.count : 1; g.dropStack({ ...s, count: n }); g.inv.consumeHeld(n); }
     if (e.code === 'KeyF' && g.mode !== 'spectator') { const a = g.inv.held, b = g.inv.offhand.get(0); g.inv.setHeld(b); g.inv.offhand.set(0, a); }
+    if (e.code === 'Tab' && this.net) this.showPlayerList(true);
     if (e.code === 'F1') { this.hudHidden = !this.hudHidden; $('hud').classList.toggle('hidden', this.hudHidden); }
     if (e.code === 'F3') { this.debug = !this.debug; $('debug').classList.toggle('hidden', !this.debug); }
     if ((e.code === 'F5' || e.code === 'KeyV') && !e.repeat) {
@@ -601,11 +762,12 @@ class App {
         // Drop onto solid ground if the saved position is inside terrain.
         this.setMode(this.locked || this.demo ? 'play' : 'pause');
         this.setGameMode(g.mode);
+        if (this.hostAfterLoad) { this.hostAfterLoad = false; this.openToFriends(); }
         if (this.demo && this.demo.state === 'idle') { $('hud').classList.add('hidden'); this.demo.start(); }
       }
     }
-    const playing = this.mode === 'play' || this.mode === 'gui' || this.mode === 'chat' || this.mode === 'death';
-    if (playing && this.mode !== 'pause') {
+    const playing = this.mode === 'play' || this.mode === 'gui' || this.mode === 'chat' || this.mode === 'death' || (this.net && this.mode === 'pause');
+    if (playing) {
       const input = {
         forward: this.keys.has('KeyW'), back: this.keys.has('KeyS'), left: this.keys.has('KeyA'), right: this.keys.has('KeyD'),
         jump: this.keys.has('Space'), sneak: this.keys.has('ShiftLeft') || this.keys.has('ShiftRight'), sprint: this.keys.has('ControlLeft') || this.keys.has('ControlRight') || this.keys.has('KeyR') || !!this.tapSprint,
@@ -617,6 +779,7 @@ class App {
       }
       g.update(dt);
       if (g.riding) g.rideSync();
+      if (this.net) this.net.update(dt);
       if (this.demo) this.demo.update(dt);
       this.interact.update(dt, { attack: this.mouse.left && this.mode === 'play', attackClicked: this.mouse.leftClicked, use: this.mouse.right && this.mode === 'play', useClicked: this.mouse.rightClicked });
       this.mouse.leftClicked = this.mouse.rightClicked = false;
@@ -678,41 +841,60 @@ class App {
       blendBatches: [{ batch: B_.itemFx, tex: 'item' }],
       hand, post: { hurt: this.post.hurt, flash: this.post.flash + (g.stats.fire > 0 && this.view === 0 ? 0.03 : 0), portal: this.portalEffect, dark: this.post.dark, saturation: 1.1 },
     });
+    if (this.net && !this.hudHidden) this.nametags.update(cam, this.fovCur, this.net.remotePlayers(), g.world); else this.nametags.clear();
     if (this.wantThumb) { this.wantThumb = false; }
   }
 
   drawPlayerModel(ctx) {
     const g = this.game, p = g.player;
-    const model = this.mobModel('player'), layer = this.mobLayer('player');
-    const sw = Math.sin(p.bobPhase * 1.6) * 0.9 * p.bobAmount;
-    const swing = Math.sin(this.interact.swing * Math.PI) * 1.4;
-    const poses = { head: [p.pitch, 0, 0], rightLeg: [sw, 0, 0], leftLeg: [-sw, 0, 0], rightArm: [-sw * 0.8 + swing, 0, 0], leftArm: [sw * 0.8, 0, 0] };
-    if (g.riding) { poses.rightLeg = [1.35, -0.25, 0]; poses.leftLeg = [1.35, 0.25, 0]; poses.rightArm = [0.55 + swing, 0, 0]; poses.leftArm = [0.55, 0, 0]; }
-    const light = g.world.lightAt(p.pos[0], p.pos[1] + 1, p.pos[2]);
+    this.drawHumanoid(ctx, {
+      pos: p.renderPos || p.pos, yaw: p.yaw, pitch: p.pitch, walk: p.bobPhase * 1.6, walkAmt: p.bobAmount, swing: this.interact.swing,
+      sneaking: p.sneaking, riding: !!g.riding, gliding: p.gliding, vel: p.vel, layer: this.mobLayer('player'), flash: this.post.hurt > 0.5 ? 0.6 : 0,
+      armor: g.inv.armor.slots.map(s => s && s.key), held: g.inv.held && g.inv.held.key, off: g.inv.offhand.get(0) && g.inv.offhand.get(0).key,
+      bow: this.interact.using === 'bow', blocking: g.blocking,
+    });
+  }
+  drawRemotePlayer(ctx, rp) {
+    this.drawHumanoid(ctx, {
+      pos: rp.pos, yaw: rp.yaw, pitch: rp.headPitch, walk: rp.walk, walkAmt: rp.walkAmt, swing: rp.swing, sneaking: rp.sneaking, riding: rp.riding,
+      gliding: rp.gliding, vel: rp.vel, layer: this.mobLayer(`player_${rp.skin}`), flash: rp.hurtT > 0 ? 0.6 : 0,
+      armor: rp.armor, held: rp.held, off: rp.off, bow: rp.drawingBow, blocking: rp.blocking,
+    });
+  }
+  // A player model in any pose: walking, sneaking, riding, gliding, drawing a bow, blocking.
+  drawHumanoid(ctx, s) {
+    const g = this.game;
+    const model = this.mobModel('player');
+    const sw = Math.sin(s.walk) * 0.9 * s.walkAmt;
+    const swing = Math.sin(s.swing * Math.PI) * 1.4;
+    const poses = { head: [s.pitch, 0, 0], rightLeg: [sw, 0, 0], leftLeg: [-sw, 0, 0], rightArm: [-sw * 0.8 + swing, 0, 0], leftArm: [sw * 0.8, 0, 0] };
+    if (s.riding) { poses.rightLeg = [1.35, -0.25, 0]; poses.leftLeg = [1.35, 0.25, 0]; poses.rightArm = [0.55 + swing, 0, 0]; poses.leftArm = [0.55, 0, 0]; }
+    if (s.bow) { poses.rightArm = [1.45 + s.pitch, -0.1, 0]; poses.leftArm = [1.45 + s.pitch, 0.45, 0]; }
+    if (s.blocking) poses.leftArm = [0.9, 0.55, 0];
+    const lp = s.pos;
+    const light = g.world.lightAt(lp[0], lp[1] + 1, lp[2]);
     const b = Math.max(Math.pow(0.8, 15 - light.sky) * g.env.skyLight[0], Math.pow(0.82, 15 - light.blk), g.env.ambient[0]);
-    const sneak = p.sneaking ? M.chain(M.t(0, -2, 0), M.rx(0)) : null;
+    const sneak = s.sneaking ? M.chain(M.t(0, -2, 0), M.rx(0)) : null;
     // Gliding: the body lies along the flight path (feet at the tail), arms swept back.
     let glide = null;
-    if (p.gliding) {
-      const sp = Math.hypot(p.vel[0], p.vel[1], p.vel[2]) || 1, fp = Math.asin(Math.max(-1, Math.min(1, p.vel[1] / sp)));
+    if (s.gliding) {
+      const v = s.vel || [0, 0, 0], sp = Math.hypot(v[0], v[1], v[2]) || 1, fp = Math.asin(Math.max(-1, Math.min(1, v[1] / sp)));
       glide = M.chain(M.t(0, 12, 0), M.rx(-Math.PI / 2 - fp), M.t(0, -12, 0));
       poses.rightArm = [0.2, 0, 0.25]; poses.leftArm = [0.2, 0, -0.25]; poses.rightLeg = [0.05, 0, 0]; poses.leftLeg = [-0.05, 0, 0]; poses.head = [0.9, 0, 0];
     }
-    const root = rootMatrix(p.renderPos || p.pos, p.yaw, 1, glide || sneak), flash = this.post.hurt > 0.5 ? 0.6 : 0;
-    const mats = drawModel(ctx.mobs, model, layer, root, poses, [b, b, b], flash);
-    const chest = g.inv.armor.get(1);
-    if (chest && chest.key === 'elytra') {
-      const open = p.gliding ? 1 : 0, flap = p.gliding ? Math.sin(this.time * 3) * 0.05 : Math.sin(this.time * 1.2) * 0.03;
+    const root = rootMatrix(lp, s.yaw, 1, glide || sneak), flash = s.flash || 0;
+    const mats = drawModel(ctx.mobs, model, s.layer, root, poses, [b, b, b], flash);
+    const armor = s.armor || [];
+    if (armor[1] === 'elytra') {
+      const open = s.gliding ? 1 : 0, flap = s.gliding ? Math.sin(this.time * 3) * 0.05 : Math.sin(this.time * 1.2) * 0.03;
       drawModel(ctx.mobs, this.mobModel('elytra'), this.mobLayer('elytra'), root, { wingL: [0.26 + open * 0.2 + flap, 0, -0.26 - open * 1.1], wingR: [0.26 + open * 0.2 + flap, 0, 0.26 + open * 1.1] }, [b, b, b], flash);
     }
-    for (const s of g.inv.armor.slots) {
-      const sk = s && armorSkinKey(s.key);
+    for (const key of armor) {
+      const sk = key && armorSkinKey(key);
       if (sk) drawModel(ctx.mobs, this.mobModel(sk), this.mobLayer(sk), root, poses, [b, b, b], flash);
     }
-    const held = g.inv.held;
-    if (held && mats.rightArm) this.renderItemAt(ctx, held.key, M.chain(mats.rightArm, M.t(-3, -10, -1), M.rx(-Math.PI / 2), M.s(10)), [b, b, b]);
-    const offItem = g.inv.offhand.get(0);
-    if (offItem && mats.leftArm) this.renderItemAt(ctx, offItem.key, M.chain(mats.leftArm, M.t(3, -10, -1), M.rx(-Math.PI / 2), M.s(10)), [b, b, b]);
+    if (s.held && I[s.held] && mats.rightArm) this.renderItemAt(ctx, s.held, M.chain(mats.rightArm, M.t(-3, -10, -1), M.rx(-Math.PI / 2), M.s(10)), [b, b, b]);
+    if (s.off && I[s.off] && mats.leftArm) this.renderItemAt(ctx, s.off, M.chain(mats.leftArm, M.t(3, -10, -1), M.rx(-Math.PI / 2), M.s(10)), [b, b, b]);
   }
 
   drawWeather(ctx, cam, rain) {
