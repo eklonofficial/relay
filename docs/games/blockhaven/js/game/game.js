@@ -1,24 +1,24 @@
 // The running game: world + dimensions, player survival state, entities, simulation, weather and saving.
-import { B, BLOCKS, SOLID, OPAQUE, DIM, DIM_NAMES, HEIGHT, SEA, props, st, SHAPE_OF, SHAPE } from '../data/blocks.js?v=munkcr3r';
-import { I, maxStack } from '../data/items.js?v=munkcr3r';
-import { SMELTING } from '../data/recipes.js?v=munkcr3r';
-import { MOBS } from '../data/mobs.js?v=munkcr3r';
-import { BIOMES, COLD } from '../gen/biomes.js?v=munkcr3r';
-import { World, UNLOADED, posKey } from '../world/world.js?v=munkcr3r';
-import { Player } from './player.js?v=munkcr3r';
-import { PlayerInventory, Container } from './inventory.js?v=munkcr3r';
-import { EntityManager } from '../entity/entity.js?v=munkcr3r';
-import { ItemEntity, XpOrb, FallingBlock, PrimedTnt, Lightning, Projectile } from '../entity/objects.js?v=munkcr3r';
-import { Mob } from '../entity/mob.js?v=munkcr3r';
-import { Particles } from './particles.js?v=munkcr3r';
-import { Sim } from './sim.js?v=munkcr3r';
-import { blockDrops } from './drops.js?v=munkcr3r';
-import { computeEnv } from './env.js?v=munkcr3r';
-import { fuelOf } from './ui.js?v=munkcr3r';
-import { unlockLevel } from './trades.js?v=munkcr3r';
-import { forward } from '../core/math.js?v=munkcr3r';
-import { EndCrystal } from '../entity/crystal.js?v=munkcr3r';
-import { ARMOR_BYPASS, armorReduce, applyInvul, isAxe } from './combat.js?v=munkcr3r';
+import { B, BLOCKS, SOLID, OPAQUE, DIM, DIM_NAMES, HEIGHT, SEA, props, st, SHAPE_OF, SHAPE } from '../data/blocks.js?v=munkil2j';
+import { I, maxStack } from '../data/items.js?v=munkil2j';
+import { SMELTING } from '../data/recipes.js?v=munkil2j';
+import { MOBS } from '../data/mobs.js?v=munkil2j';
+import { BIOMES, COLD } from '../gen/biomes.js?v=munkil2j';
+import { World, UNLOADED, posKey } from '../world/world.js?v=munkil2j';
+import { Player } from './player.js?v=munkil2j';
+import { PlayerInventory, Container } from './inventory.js?v=munkil2j';
+import { EntityManager } from '../entity/entity.js?v=munkil2j';
+import { ItemEntity, XpOrb, FallingBlock, PrimedTnt, Lightning, Projectile } from '../entity/objects.js?v=munkil2j';
+import { Mob } from '../entity/mob.js?v=munkil2j';
+import { Particles } from './particles.js?v=munkil2j';
+import { Sim } from './sim.js?v=munkil2j';
+import { blockDrops } from './drops.js?v=munkil2j';
+import { computeEnv } from './env.js?v=munkil2j';
+import { fuelOf } from './ui.js?v=munkil2j';
+import { unlockLevel } from './trades.js?v=munkil2j';
+import { forward } from '../core/math.js?v=munkil2j';
+import { EndCrystal } from '../entity/crystal.js?v=munkil2j';
+import { ARMOR_BYPASS, armorReduce, applyInvul, isAxe } from './combat.js?v=munkil2j';
 
 export const DAY = 1200; // seconds per day
 const rnd = (a, b) => a + Math.random() * (b - a);
@@ -339,7 +339,7 @@ export class Game {
     if (this.blocking && src.attacker && src.kind !== 'explosion' && !bypass) {
       const a = src.attacker.pos, p = this.player.pos, f = this.lookDir();
       const dx = a[0] - p[0], dz = a[2] - p[2], n = Math.hypot(dx, dz) || 1;
-      if ((dx * f[0] + dz * f[2]) / n > 0.2 && !(src.attacker.equipment && isAxe(src.attacker.equipment.hand))) { this.sound.play('arrow_hit', p, 0.8); if (src.attacker.vel && src.kind === 'mob') { src.attacker.vel[0] += dx / n * -6; src.attacker.vel[2] += dz / n * -6; } this.inv.damageHeld(1); return false; }
+      if ((dx * f[0] + dz * f[2]) / n > 0.2 && !(src.attacker.equipment && isAxe(src.attacker.equipment.hand))) { this.sound.play('arrow_hit', p, 0.8); if (src.attacker.vel && src.kind === 'mob') { src.attacker.vel[0] += dx / n * -6; src.attacker.vel[2] += dz / n * -6; } const h = this.inv.hand; this.inv.hand = (this.app.interact && this.app.interact.usingHand) || 'main'; this.inv.damageHeld(1); this.inv.hand = h; return false; }
     }
     // Invulnerability frames: a harder hit still lands for the difference.
     const hit = applyInvul(this, amount);
