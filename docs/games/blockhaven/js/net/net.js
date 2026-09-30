@@ -9,8 +9,8 @@
 // own hands, or their own water/fire/sand simulation) broadcasts it once; everyone else mirrors it
 // silently, so nothing is applied twice. The host keeps the authoritative save, including each
 // guest's inventory and position, and owns the clock and the weather.
-import { RemotePlayer } from './remote.js?v=muo7rynu';
-import { EntitySync } from './share.js?v=muo7rynu';
+import { RemotePlayer } from './remote.js?v=muody1g5';
+import { EntitySync } from './share.js?v=muody1g5';
 
 export const MAX_PLAYERS = 5;
 const PREFIX = 'blockhaven-v1-';
@@ -31,7 +31,7 @@ function loadLib() {
   if (!libPromise) {
     libPromise = new Promise((resolve, reject) => {
       const s = document.createElement('script');
-      s.src = new URL('../../vendor/peerjs.min.js?v=muo7rynu', import.meta.url).href;
+      s.src = new URL('../../vendor/peerjs.min.js?v=muody1g5', import.meta.url).href;
       s.onload = () => resolve();
       s.onerror = () => { libPromise = null; reject(new Error('Could not load the multiplayer library. Check your connection.')); };
       document.head.appendChild(s);
@@ -253,6 +253,7 @@ export class Net {
       case 'own': if (g) this.share.onOwn(m); break;
       case 'handover': if (g && this.isHost) this.share.onHandover(m); break;
       case 'pop': if (g) g.applyRemotePopulated(m.d, m.k); break;
+      case 'rsuse': if (g && this.isHost && m.d === g.dim && Array.isArray(m.p)) g.rs.use(m.p[0] | 0, m.p[1] | 0, m.p[2] | 0); break;
       case 'hit': if (g) this.onHit(m); break;
       case 'env': if (g && !this.isHost) this.applyEnv(m); break;
       case 'pdata': if (this.isHost && from && g) { g.meta.players = g.meta.players || {}; g.meta.players[from.name] = m.d; } break;

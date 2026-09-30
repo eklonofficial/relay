@@ -1,9 +1,9 @@
 // Procedural 16x16 pixel art for every non-block item, plus particle/effect sprites.
 // Icons are painted with a few primitives, then given MC-style dark outlines automatically.
-import { Painter, shade, mixHex, ramp } from './paint.js?v=muo7rynu';
-import { ITEMS, I } from '../data/items.js?v=muo7rynu';
-import { TEXTURES, TEX, BLOCKS, FACE_TEX, VARIANT_MASK, COLORS } from '../data/blocks.js?v=muo7rynu';
-import { drawBlockTexture } from './blocktex.js?v=muo7rynu';
+import { Painter, shade, mixHex, ramp } from './paint.js?v=muody1g5';
+import { ITEMS, I } from '../data/items.js?v=muody1g5';
+import { TEXTURES, TEX, BLOCKS, FACE_TEX, VARIANT_MASK, COLORS } from '../data/blocks.js?v=muody1g5';
+import { drawBlockTexture } from './blocktex.js?v=muody1g5';
 
 const N = 16;
 export const MAT = {
@@ -283,7 +283,19 @@ function book(p) {
 }
 function orb(p, pal, rim) { blob(p, 8, 8, 4.8, 4.8, pal); if (rim) { p.rect(6, 6, 4, 4, rim); p.rect(7, 7, 2, 2, '#000000'); } outline(p); }
 
+// Redstone items drawn as sprites (like the original's item textures).
+function rsTorch(p, x, y, lit = true) { p.rect(x, y + 2, 2, 3, '#6e4f2a'); p.rect(x, y, 2, 2, lit ? '#ff2a1a' : '#6a1212'); if (lit) p.put(x, y, '#ffa08a'); }
+function diodeItem(p, torches) {
+  p.rect(1, 10, 14, 4, '#9e9e9e'); p.hline(1, 10, 14, '#c6c6c6'); p.hline(1, 13, 14, '#6a6a6a');
+  p.hline(3, 11, 10, '#a01010');
+  for (const [x, y] of torches) rsTorch(p, x, y);
+  outline(p);
+}
 const G = {
+  repeater: p => diodeItem(p, [[3, 5], [11, 5]]),
+  comparator: p => diodeItem(p, [[2, 6], [7, 4], [12, 6]]),
+  lever: p => { p.rect(4, 11, 8, 3, '#7a7a7a'); p.hline(4, 11, 8, '#9a9a9a'); p.hline(4, 13, 8, '#4f4f4f'); for (let i = 0; i < 8; i++) { p.put(5 + i, 11 - i, '#8a6a44'); p.put(6 + i, 11 - i, '#6e5234'); } p.put(12, 3, '#b0b0b0'); outline(p); },
+  hopper: p => { p.rect(1, 2, 14, 4, '#4a4a4a'); p.hline(1, 2, 14, '#6a6a6a'); p.rect(3, 3, 10, 2, '#262626'); p.rect(4, 6, 8, 4, '#3e3e3e'); p.rect(6, 10, 4, 4, '#353535'); p.hline(4, 6, 8, '#5a5a5a'); outline(p); },
   stick: p => stick(p),
   coal: lump(['#111111', '#1f1f1f', '#303030', '#4a4a4a']), charcoal: lump(['#1a140e', '#2e241a', '#453628', '#5e4a38']),
   raw_iron: lump(['#6e5446', '#a68268', '#c8a488', '#e6c8ac'], ['#8a6a55']), raw_gold: lump(['#8a6a10', '#c89a20', '#e6c040', '#fff090']),
@@ -463,7 +475,7 @@ export function generateItemTextures() {
   for (const it of ITEMS) {
     if (it.block && !it.flat) continue;
     const p = new Painter(N, N, it.id + 7);
-    if (it.block) {
+    if (it.block && !G[it.key]) {
       const name = it.key.endsWith('_door') ? `door_${it.key.slice(0, -5)}_top` : flatTexFor(it);
       p.d.set(drawBlockTexture(name, it.id + 3));
       // Plants and vines are grey + biome tinted in the world; give their icons a fixed green.

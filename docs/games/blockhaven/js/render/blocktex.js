@@ -1,6 +1,6 @@
 // Procedural 16x16 block textures. Every name registered in data/blocks.js must be drawable here.
-import { Painter, ramp, shade, mixHex, hex } from './paint.js?v=muo7rynu';
-import { TEXTURES, COLORS } from '../data/blocks.js?v=muo7rynu';
+import { Painter, ramp, shade, mixHex, hex } from './paint.js?v=muody1g5';
+import { TEXTURES, COLORS } from '../data/blocks.js?v=muody1g5';
 
 const N = 16;
 
@@ -320,6 +320,42 @@ function torchTex(p, flame, stick = '#6e4f2a') {
   return p.bleed();
 }
 
+// ---------- redstone helpers ----------
+// Repeater/comparator top: smooth stone with the dust track; the output side is the top edge.
+function diodeTop(p, on, kind) {
+  p.noise(ramp('#a6a6a6', 0.035).slice(1), { clump: 2, grain: 0.25 });
+  p.frame(0, 0, 16, 16, '#8a8a8a');
+  const dust = on ? ['#ff2a1a', '#d01010'] : ['#6a0e0e', '#4e0808'];
+  const chev = '#c9c9c9';
+  if (kind === 'repeater') {
+    for (let i = 0; i < 5; i++) { p.put(3 + i, 6 - i, chev); p.put(12 - i, 6 - i, chev); p.put(3 + i, 7 - i, '#8c8c8c'); p.put(12 - i, 7 - i, '#8c8c8c'); }
+    for (let y = 2; y < 15; y++) { p.put(7, y, dust[0]); p.put(8, y, dust[1]); }
+  } else {
+    for (let y = 3; y < 13; y++) { p.put(7, y, dust[0]); p.put(8, y, dust[1]); }
+    p.hline(3, 12, 10, dust[0]); p.hline(3, 13, 10, dust[1]);
+    for (let i = 0; i < 4; i++) { p.put(4 + i, 11 - i * 2, chev); p.put(11 - i, 11 - i * 2, chev); }
+  }
+  return p;
+}
+function pistonFace(p, sticky) {
+  planks(p, '#b08e5a');
+  p.frame(0, 0, 16, 16, '#7a6040');
+  for (const [x, y] of [[0, 0], [14, 0], [0, 14], [14, 14]]) p.rect(x, y, 2, 2, '#cfcfcf');
+  p.frame(5, 5, 6, 6, '#8e8e8e'); p.rect(6, 6, 4, 4, '#b8b8b8');
+  if (sticky) {
+    const vn = p.valueNoise(4);
+    for (let y = 1; y < 15; y++) for (let x = 1; x < 15; x++) if (vn(x, y) > 0.42) p.put(x, y, vn(x, y) > 0.62 ? '#9ade74' : vn(x, y) > 0.52 ? '#6fbf4f' : '#4f9a36');
+  }
+  return p;
+}
+function observerBase(p) { stoneLike(p, '#5c5c5c', { spread: 0.09, clump: 3 }); p.frame(0, 0, 16, 16, '#3a3a3a'); return p; }
+function daylightTop(p, glass) {
+  p.fill('#4b3a26');
+  for (const cy of [1, 6, 11]) for (const cx of [1, 6, 11]) { p.rect(cx, cy, 4, 4, glass[0]); p.rect(cx, cy, 3, 3, glass[1]); p.put(cx, cy, glass[2]); }
+  return p;
+}
+function lampGrid(p, c) { p.frame(0, 0, 16, 16, c); p.hline(0, 7, 16, c); p.vline(7, 0, 16, c); for (let i = 2; i < 14; i += 4) { p.put(i, i, c); p.put(15 - i, i, c); } return p; }
+
 function glassTex(p, border, inside, alphaIn) {
   p.fill(inside, alphaIn);
   p.frame(0, 0, 16, 16, border);
@@ -569,11 +605,55 @@ const G = {
   barrel_side: p => { planks(p, '#7a5a36'); p.hline(0, 2, 16, '#4a4a4a'); p.hline(0, 13, 16, '#4a4a4a'); return p; },
   barrel_top: p => { planks(p, '#8a6a42'); p.frame(0, 0, 16, 16, '#4a4a4a'); p.rect(6, 6, 4, 4, '#3a2a1a'); return p; },
   sea_lantern: p => { p.noise(['#b8d8d0', '#d0ece6', '#e6f8f4'], { clump: 3, grain: 0.3 }); p.frame(0, 0, 16, 16, '#8ab8ae'); p.frame(3, 3, 10, 10, '#f6fffd'); return p; },
-  redstone_lamp: p => { p.noise(['#d99a3f', '#f0b85a', '#ffd88a'], { clump: 3, grain: 0.35 }); p.frame(0, 0, 16, 16, '#8a4f1f'); p.hline(0, 7, 16, '#8a4f1f'); p.vline(7, 0, 16, '#8a4f1f'); return p; },
+  redstone_lamp: p => { p.noise(['#6e3e1c', '#86502a', '#9c6436'], { clump: 3, grain: 0.35 }); return lampGrid(p, '#3e2210'); },
   sponge: p => { p.noise(['#c7b83a', '#d4c64a', '#b8a92c'], { clump: 3 }); return p.speck(['#8a7a1a', '#9e8f22'], 20); },
   wet_sponge: p => { p.noise(['#9a9a3a', '#a8a84a', '#8a8a2c'], { clump: 3 }); return p.speck(['#5a5a1a'], 20); },
   target_side: p => { G.hay_block_side(p); for (const r of [2, 5]) p.frame(7 - r, 7 - r, r * 2 + 2, r * 2 + 2, '#d94a3a'); p.rect(7, 7, 2, 2, '#d94a3a'); return p; },
   target_top: p => G.target_side(p),
+  // ---- redstone ----
+  redstone_dust_dot: p => { p.clear(); const pts = [[6, 5, 4, 1], [5, 6, 6, 1], [5, 7, 6, 1], [5, 8, 6, 1], [5, 9, 6, 1], [6, 10, 4, 1]]; for (const [x, y, w] of pts) for (let i = 0; i < w; i++) p.put(x + i, y, p.pick(['#ffffff', '#e2e2e2', '#c8c8c8'])); p.put(4, 7, '#bdbdbd'); p.put(11, 8, '#bdbdbd'); p.put(7, 4, '#d0d0d0'); p.put(8, 11, '#d0d0d0'); return p.tintMark().bleed(); },
+  redstone_dust_line: p => { p.clear(); for (let y = 0; y < N; y++) { const w = (y >> 2) % 2 ? 1 : 0; p.put(6 - w, y, '#bdbdbd'); p.put(7 - w, y, '#e6e6e6'); p.put(8 - w, y, '#ffffff'); p.put(9 - w, y, '#d2d2d2'); if (p.chance(0.35)) p.put(10 - w, y, '#b0b0b0'); } return p.tintMark().bleed(); },
+  redstone_torch: p => { torchTex(p, ['#ff8a8a', '#ff2a1a', '#c80000']); p.put(6, 6, '#ff5a4a'); p.put(9, 7, '#ff5a4a'); return p; },
+  redstone_torch_off: p => torchTex(p, ['#8a2020', '#6a1212', '#4a0a0a']),
+  rs_torch_head_on: p => { p.fill('#ff3020'); p.rect(6, 6, 4, 4, '#ff9a8a'); return p; },
+  rs_torch_head_off: p => { p.fill('#5a1010'); p.rect(6, 6, 4, 4, '#7a1a1a'); return p; },
+  repeater: p => diodeTop(p, false, 'repeater'),
+  repeater_on: p => diodeTop(p, true, 'repeater'),
+  comparator: p => diodeTop(p, false, 'comparator'),
+  comparator_on: p => diodeTop(p, true, 'comparator'),
+  lever: p => { p.clear(); for (let y = 6; y < 16; y++) { p.put(7, y, shade('#8a6a44', 1.1)); p.put(8, y, '#6e5234'); } p.put(7, 6, '#9a9a9a'); p.put(8, 6, '#7a7a7a'); return p.bleed(); },
+  lever_base: p => cobble(p, '#808080'),
+  piston_side: p => {
+    cobble(p, '#7a7a7a');
+    const wood = '#b08e5a';
+    for (let y = 0; y < 4; y++) for (let x = 0; x < N; x++) p.put(x, y, y === 3 ? shade(wood, 0.62) : x % 8 === 7 ? shade(wood, 0.78) : shade(wood, y === 0 ? 1.08 : 1));
+    for (const x of [0, 15]) for (let y = 0; y < 4; y++) p.put(x, y, '#c8c8c8');
+    p.vline(0, 4, 12, '#5a5a5a'); p.vline(15, 4, 12, '#4a4a4a'); p.hline(0, 15, 16, '#4a4a4a');
+    return p;
+  },
+  piston_top: p => pistonFace(p, false),
+  piston_top_sticky: p => pistonFace(p, true),
+  piston_bottom: p => { cobble(p, '#6f6f6f'); p.frame(0, 0, 16, 16, '#4c4c4c'); p.frame(3, 3, 10, 10, '#5c5c5c'); return p; },
+  piston_inner: p => { cobble(p, '#707070'); p.frame(0, 0, 16, 16, '#4c4c4c'); p.rect(5, 5, 6, 6, '#2e2e2e'); p.frame(5, 5, 6, 6, '#a8a8a8'); return p; },
+  observer_front: p => { observerBase(p); p.rect(1, 3, 14, 3, '#9e9e9e'); p.hline(1, 3, 14, '#c2c2c2'); p.rect(3, 8, 3, 3, '#1c1c1c'); p.rect(10, 8, 3, 3, '#1c1c1c'); p.put(4, 9, '#3c3c3c'); p.put(11, 9, '#3c3c3c'); p.rect(4, 12, 8, 1, '#2a2a2a'); return p; },
+  observer_back: p => { observerBase(p); p.vline(7, 5, 9, '#555555'); p.vline(8, 5, 9, '#474747'); p.rect(6, 6, 4, 4, '#2a2a2a'); p.rect(7, 7, 2, 2, '#5a0a0a'); return p; },
+  observer_back_on: p => { observerBase(p); p.vline(7, 5, 9, '#555555'); p.vline(8, 5, 9, '#474747'); p.rect(6, 6, 4, 4, '#6a1010'); p.rect(7, 7, 2, 2, '#ff2a1a'); p.put(6, 6, '#b01a10'); return p; },
+  observer_side: p => { observerBase(p); for (const y of [4, 8, 12]) { p.hline(1, y, 14, '#2e2e2e'); p.hline(1, y + 1, 14, '#6a6a6a'); } return p; },
+  observer_top: p => { observerBase(p); for (let i = 0; i < 6; i++) { p.put(7 - i, 3 + i, '#a8a8a8'); p.put(8 + i, 3 + i, '#a8a8a8'); } p.rect(7, 3, 2, 10, '#8e8e8e'); return p; },
+  hopper_outside: p => { stoneLike(p, '#474747', { spread: 0.1, clump: 3 }); for (const y of [0, 5, 10]) p.hline(0, y, 16, '#5c5c5c'); p.frame(0, 0, 16, 16, '#2f2f2f'); return p; },
+  hopper_top: p => { stoneLike(p, '#4a4a4a', { spread: 0.08, clump: 3 }); p.frame(0, 0, 16, 16, '#2a2a2a'); p.frame(1, 1, 14, 14, '#606060'); p.rect(2, 2, 12, 12, '#1e1e1e'); return p; },
+  hopper_inside: p => { stoneLike(p, '#2a2a2a', { spread: 0.1, clump: 3 }); p.rect(6, 6, 4, 4, '#121212'); return p; },
+  dispenser_front: p => { G.furnace_side(p); p.rect(4, 3, 8, 3, '#8a8a8a'); p.rect(5, 8, 2, 2, '#1f1f1f'); p.rect(9, 8, 2, 2, '#1f1f1f'); p.rect(6, 11, 4, 3, '#141414'); p.frame(6, 11, 4, 3, '#2c2c2c'); return p; },
+  dispenser_front_vertical: p => { G.furnace_side(p); p.rect(5, 5, 6, 6, '#141414'); p.frame(4, 4, 8, 8, '#3a3a3a'); return p; },
+  dropper_front: p => { G.furnace_side(p); p.rect(4, 3, 8, 3, '#8a8a8a'); p.rect(5, 8, 2, 2, '#1f1f1f'); p.rect(9, 8, 2, 2, '#1f1f1f'); p.rect(4, 11, 8, 2, '#141414'); p.hline(5, 13, 6, '#141414'); return p; },
+  dropper_front_vertical: p => { G.furnace_side(p); p.rect(6, 6, 4, 4, '#141414'); p.frame(5, 5, 6, 6, '#3a3a3a'); return p; },
+  daylight_detector_top: p => daylightTop(p, ['#d8c8a8', '#efe2c4', '#fff6e0']),
+  daylight_detector_inverted_top: p => daylightTop(p, ['#7e98b8', '#98b2d2', '#b8d0ec']),
+  daylight_detector_side: p => { planks(p, '#4b3a26'); p.hline(0, 10, 16, '#2e2216'); p.hline(0, 15, 16, '#2e2216'); return p; },
+  redstone_lamp_on: p => { p.noise(['#f2b04a', '#ffd070', '#fff0b0'], { clump: 3, grain: 0.35 }); lampGrid(p, '#9a5a1e'); p.rect(6, 6, 4, 4, '#fff8d8'); return p; },
+  slime_block: p => { p.fill('#79c05a', 170); p.frame(0, 0, 16, 16, '#5a9a40'); p.rect(3, 3, 10, 10, '#8bd06c', 220); p.frame(3, 3, 10, 10, '#6aa84e'); p.rect(4, 4, 2, 2, '#b8f0a0', 230); return p; },
+  honey_block_side: p => { p.noise(['#e8a01e', '#f2b33a', '#f8c65c'], { clump: 3, grain: 0.3 }); for (let i = 0; i < N * N; i++) p.d[i * 4 + 3] = 200; p.frame(0, 0, 16, 16, '#c77e10'); return p; },
+  honey_block_top: p => { G.honey_block_side(p); p.rect(3, 3, 10, 10, '#f6bf4c', 215); return p; },
   end_portal_frame_side: p => { G.end_stone(p); p.rect(0, 0, 16, 4, '#3a6b5a'); p.hline(0, 4, 16, '#2a4a3f'); return p; },
   end_portal_frame_top: p => { p.noise(['#3a6b5a', '#447a68', '#2f5a4a'], { clump: 3 }); p.frame(0, 0, 16, 16, '#2a4a3f'); p.rect(4, 4, 8, 8, '#16302a'); return p; },
   end_portal_frame_eye: p => { p.clear(); p.rect(4, 4, 8, 8, '#2a8a6a'); p.rect(5, 5, 6, 6, '#3aba8a'); p.rect(6, 6, 4, 4, '#0a2a1a'); p.rect(7, 7, 2, 2, '#50e0a0'); return p.bleed(); },

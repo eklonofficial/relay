@@ -1,14 +1,14 @@
 // Living mobs: physics, AI archetypes, combat, breeding/taming, trading and animation.
-import { Entity, drawModel, rootMatrix, M } from './entity.js?v=muo7rynu';
-import { Projectile, renderStack } from './objects.js?v=muo7rynu';
-import { MOBS, PROFESSIONS } from '../data/mobs.js?v=muo7rynu';
-import { B, BLOCKS, SOLID } from '../data/blocks.js?v=muo7rynu';
-import { UNLOADED } from '../world/world.js?v=muo7rynu';
-import { villagerTrades } from '../game/trades.js?v=muo7rynu';
-import { findPath, clearWalk } from './pathfind.js?v=muo7rynu';
-import { ARMOR_BYPASS, armorStats, armorReduce, applyInvul } from '../game/combat.js?v=muo7rynu';
-import { armorSkinKey } from '../data/armor.js?v=muo7rynu';
-import { I } from '../data/items.js?v=muo7rynu';
+import { Entity, drawModel, rootMatrix, M } from './entity.js?v=muody1g5';
+import { Projectile, renderStack } from './objects.js?v=muody1g5';
+import { MOBS, PROFESSIONS } from '../data/mobs.js?v=muody1g5';
+import { B, BLOCKS, SOLID } from '../data/blocks.js?v=muody1g5';
+import { UNLOADED } from '../world/world.js?v=muody1g5';
+import { villagerTrades } from '../game/trades.js?v=muody1g5';
+import { findPath, clearWalk } from './pathfind.js?v=muody1g5';
+import { ARMOR_BYPASS, armorStats, armorReduce, applyInvul } from '../game/combat.js?v=muody1g5';
+import { armorSkinKey } from '../data/armor.js?v=muody1g5';
+import { I } from '../data/items.js?v=muody1g5';
 
 const rnd = (a, b) => a + Math.random() * (b - a);
 const rint = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
@@ -1084,7 +1084,7 @@ export class Mob extends Entity {
 }
 
 // Moves an entity without gravity handling (fliers/swimmers).
-import { moveEntity } from './physics.js?v=muo7rynu';
+import { moveEntity } from './physics.js?v=muody1g5';
 function import_move(e, dt) { moveEntity(e.world, e, e.vel[0] * dt, e.vel[1] * dt, e.vel[2] * dt); }
 
 // Renders a held item using a part matrix (model units).
