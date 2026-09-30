@@ -1,0 +1,30 @@
+name: Blockhaven
+
+on:
+  push:
+    paths:
+      - 'docs/games/blockhaven/**'
+      - '.github/workflows/blockhaven.yml'
+  pull_request:
+    paths:
+      - 'docs/games/blockhaven/**'
+      - '.github/workflows/blockhaven.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      # Every relative module import must carry the same ?v= stamp, or a deploy mixes cached and
+      # fresh modules. Fix a failure with: node docs/games/blockhaven/tools/stamp.mjs
+      - name: Cache-busting stamps
+        run: node docs/games/blockhaven/tools/stamp.mjs --check
+      - name: Tests
+        run: node --test 'docs/games/blockhaven/tests/*.test.mjs'

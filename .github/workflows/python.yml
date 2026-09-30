@@ -1,0 +1,56 @@
+name: Python
+
+on:
+  push:
+    paths:
+      - 'relay/**'
+      - 'tests/**'
+      - 'pyproject.toml'
+      - 'uv.lock'
+      - '.github/workflows/python.yml'
+  pull_request:
+    paths:
+      - 'relay/**'
+      - 'tests/**'
+      - 'pyproject.toml'
+      - 'uv.lock'
+      - '.github/workflows/python.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: '3.12'
+          enable-cache: true
+      # Core + dev only: the audio/speech extras need PortAudio and model downloads, and the
+      # tests that use them skip themselves when those are missing.
+      - name: Install
+        run: uv sync --locked --extra dev
+      # The deselected tests check the developer's own machine, not the code: a signed-in
+      # ~/.claude/.credentials.json (agent_auth) and installed desktop apps such as kitty and
+      # zen-browser (fastpath). A CI runner has neither.
+      # HF_HUB_OFFLINE keeps the run hermetic: the semantic-search tests would otherwise download
+      # bge-small from Hugging Face; offline they skip themselves (see tests/test_search_semantic.py).
+      - name: Tests
+        env:
+          HF_HUB_OFFLINE: '1'
+        run: >-
+          uv run --locked pytest -q
+          --deselect tests/test_agent_auth.py::test_subscription_mode_removes_a_stray_api_key
+          --deselect tests/test_agent_auth.py::test_subscription_without_token_reports_cli_login
+          --deselect tests/test_agent_auth.py::test_opt_in_alone_does_not_enable_paid_api
+          --deselect tests/test_fastpath.py::test_launch_a_real_binary
+          --deselect tests/test_fastpath.py::test_role_words_resolve_through_machine_facts
+          --deselect tests/test_fastpath.py::test_launch_onto_a_named_workspace
+          --deselect tests/test_fastpath.py::test_move_window_to_workspace
+          --deselect tests/test_fastpath.py::test_failed_tool_defers_to_the_model
+          --deselect tests/test_fastpath.py::test_explicit_alias_beats_guessing
+          --deselect tests/test_fastpath.py::test_spoken_launch_with_wake_word_hits_the_fast_path
+          --deselect tests/test_fastpath_safety.py::test_real_applications_are_recognised
