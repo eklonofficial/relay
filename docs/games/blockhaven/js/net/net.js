@@ -9,8 +9,9 @@
 // own hands, or their own water/fire/sand simulation) broadcasts it once; everyone else mirrors it
 // silently, so nothing is applied twice. The host keeps the authoritative save, including each
 // guest's inventory and position, and owns the clock and the weather.
-import { RemotePlayer } from './remote.js?v=muody1g5';
-import { EntitySync } from './share.js?v=muody1g5';
+import { RemotePlayer } from './remote.js?v=muoe9fcb';
+import { EntitySync } from './share.js?v=muoe9fcb';
+import { hostRoom, joinRoom } from './transport.js?v=muoe9fcb';
 
 export const MAX_PLAYERS = 5;
 const PREFIX = 'blockhaven-v1-';
@@ -31,7 +32,7 @@ function loadLib() {
   if (!libPromise) {
     libPromise = new Promise((resolve, reject) => {
       const s = document.createElement('script');
-      s.src = new URL('../../vendor/peerjs.min.js?v=muody1g5', import.meta.url).href;
+      s.src = new URL('../../vendor/peerjs.min.js?v=muoe9fcb', import.meta.url).href;
       s.onload = () => resolve();
       s.onerror = () => { libPromise = null; reject(new Error('Could not load the multiplayer library. Check your connection.')); };
       document.head.appendChild(s);
@@ -46,7 +47,7 @@ function netConfig() {
 }
 function makePeer(id) {
   const c = netConfig();
-  const opts = { ...(c.peer || {}), config: { iceServers: c.iceServers || [] }, debug: 1 };
+  const opts = { ...(c.peer || {}), config: { iceServers: c.iceServers || [] }, debug: 0 };
   return id ? new window.Peer(id, opts) : new window.Peer(opts);
 }
 const peerError = e => {
@@ -105,37 +106,48 @@ export class Net {
     this.swingCount = 0; this.hurtCount = 0;
     this.applying = false; this.closed = false;
     this.share = new EntitySync(this);
+    // Keep-alive on a timer, not the frame loop: a browser pauses the game while its tab is in
+    // the background, and the others must not mistake that for a lost connection.
+    this.kaTimer = setInterval(() => { if (this.closed) return; if (this.isHost) this.broadcast({ t: 'ka' }); else if (this.hostLink) this.hostLink.send({ t: 'ka' }); }, 2000);
   }
   get game() { return this.app.game; }
   get isHost() { return this.role === 'host'; }
   get count() { return this.players.size + 1; }
 
   // ---------------- hosting ----------------
+  // Rooms are registered two independent ways at once (the PeerJS server and the MQTT brokers
+  // in transport.js); friends can join through whichever answers them.
   async host(name, skin) {
     this.name = name; this.skin = skin;
-    await loadLib();
-    for (let attempt = 0; attempt < 6; attempt++) {
-      const code = Array.from({ length: 5 }, () => CODE_CHARS[Math.floor(Math.random() * CODE_CHARS.length)]).join('');
-      const peer = makePeer(PREFIX + code);
-      try {
-        await timeout(new Promise((resolve, reject) => {
-          peer.on('open', resolve);
-          peer.on('error', e => reject(e));
-        }), 15000, 'The multiplayer server did not answer. Check your internet connection.');
-      } catch (e) {
-        peer.destroy();
-        if (e && e.type === 'unavailable-id') continue;
-        throw new Error(e && e.type ? peerError(e) : e.message);
-      }
-      this.peer = peer; this.code = code;
-      peer.off('error');
-      peer.on('error', e => { if (e.type !== 'peer-unavailable') console.warn('peer error', e.type, e.message); });
-      // Keep accepting friends if the link to the signaling server drops.
-      peer.on('disconnected', () => { if (!this.closed) setTimeout(() => { if (!this.closed && peer.disconnected && !peer.destroyed) peer.reconnect(); }, 2000); });
-      peer.on('connection', conn => this.onIncoming(conn));
-      return code;
+    const cfg = netConfig();
+    const code = Array.from({ length: 5 }, () => CODE_CHARS[Math.floor(Math.random() * CODE_CHARS.length)]).join('');
+    this.code = code;
+    const peerP = loadLib().then(() => this.registerPeer(code));
+    const roomP = cfg.brokers && cfg.brokers.length
+      ? hostRoom(code, cfg, ch => { if (!this.closed) this.onIncoming(ch); }).then(r => { if (this.closed) r.close(); else this.room = r; return r; })
+      : Promise.reject(new Error('no brokers'));
+    try { await Promise.any([peerP, roomP]); }
+    catch (e) {
+      const why = e.errors ? e.errors.map(x => x && x.message).filter(Boolean).join(' / ') : e.message;
+      throw new Error(`Could not open the world to friends: the multiplayer servers could not be reached. Check your internet connection. (${why})`);
     }
-    throw new Error('Could not create a room. Try again.');
+    peerP.catch(e => console.warn('PeerJS room unavailable; using the relay servers only.', e && e.message));
+    roomP.catch(e => console.warn('Relay servers unavailable; using PeerJS only.', e && e.message));
+    return code;
+  }
+  async registerPeer(code) {
+    const peer = makePeer(PREFIX + code);
+    try {
+      await timeout(new Promise((resolve, reject) => { peer.on('open', resolve); peer.on('error', e => reject(e)); }), 15000, 'The PeerJS server did not answer.');
+    } catch (e) { peer.destroy(); throw new Error(e && e.type ? peerError(e) : e.message); }
+    if (this.closed) { peer.destroy(); return null; }
+    this.peer = peer;
+    peer.off('error');
+    peer.on('error', e => { if (e.type !== 'peer-unavailable') console.warn('peer error', e.type, e.message); });
+    // Keep accepting friends if the link to the signaling server drops.
+    peer.on('disconnected', () => { if (!this.closed) setTimeout(() => { if (!this.closed && peer.disconnected && !peer.destroyed) peer.reconnect(); }, 2000); });
+    peer.on('connection', conn => this.onIncoming(conn));
+    return peer;
   }
   onIncoming(conn) {
     const link = new Link(conn);
@@ -177,36 +189,52 @@ export class Net {
   }
 
   // ---------------- joining ----------------
+  // Both ways of finding the room are tried at once; the first channel that opens is used.
   static async join(app, code, name, skin, status = () => {}) {
     const net = new Net(app, 'guest');
     net.name = name; net.skin = skin; net.code = code;
-    status('Loading…');
-    await loadLib();
-    status('Contacting the multiplayer server…');
-    const peer = makePeer();
-    net.peer = peer;
-    const fail = e => { peer.destroy(); throw new Error(e && e.type ? peerError(e) : (e && e.message) || String(e)); };
-    let lastError = null;
-    peer.on('error', e => { lastError = e; });
-    try {
-      await timeout(new Promise((resolve, reject) => { peer.on('open', resolve); peer.on('error', reject); }), 15000, 'The multiplayer server did not answer. Check your internet connection.');
-      status(`Connecting to world ${code}…`);
-      const conn = peer.connect(PREFIX + code, { reliable: true, serialization: 'raw' });
-      await timeout(new Promise((resolve, reject) => { conn.on('open', resolve); peer.on('error', reject); conn.on('error', reject); }), 20000, 'Could not connect. Check the code, or see MULTIPLAYER.md if you are on different networks.');
-      const link = new Link(conn);
-      net.hostLink = link;
-      status('Downloading the world…');
-      const welcome = await timeout(new Promise((resolve, reject) => {
-        link.onMessage = m => { if (m.t === 'welcome') resolve(m); else if (m.t === 'reject') reject(new Error(m.reason)); };
-        link.onClose = () => reject(new Error('The host closed the connection.'));
-        link.send({ t: 'hello', v: PROTOCOL, name, skin });
-      }), 60000, 'The host did not answer.');
-      net.myId = welcome.id;
-      link.onMessage = m => net.onMessage(m, null);
-      link.onClose = () => net.onHostLost();
-      net.pendingPlayers = [welcome.host, ...welcome.players];
-      return { net, welcome };
-    } catch (e) { return fail(lastError && lastError.type ? lastError : e); }
+    const cfg = netConfig();
+    status('Contacting the multiplayer servers…');
+    let winner = null;
+    const claim = (conn, how) => { if (winner) { try { conn.close(); } catch { /* ignore */ } return false; } winner = { conn, how }; return true; };
+    const viaPeer = (async () => {
+      await loadLib();
+      const peer = makePeer();
+      let lastError = null;
+      peer.on('error', e => { lastError = e; });
+      try {
+        await timeout(new Promise((resolve, reject) => { peer.on('open', resolve); peer.on('error', reject); }), 15000, 'The PeerJS server did not answer.');
+        const conn = peer.connect(PREFIX + code, { reliable: true, serialization: 'raw' });
+        await timeout(new Promise((resolve, reject) => { conn.on('open', resolve); peer.on('error', reject); conn.on('error', reject); }), 20000, 'Could not connect directly.');
+        if (!claim(conn, 'direct')) { peer.destroy(); return; }
+        net.peer = peer;
+      } catch (e) { peer.destroy(); const err = new Error(peerError(lastError && lastError.type ? lastError : e)); err.notFound = (lastError || e).type === 'peer-unavailable'; throw err; }
+    })();
+    const viaRoom = cfg.brokers && cfg.brokers.length ? (async () => {
+      const r = await joinRoom(code, cfg, s => { if (!winner) status(s); });
+      claim(r.channel, r.relayed ? 'relay' : 'direct');
+    })() : Promise.reject(new Error('no brokers'));
+    try { await Promise.any([viaPeer, viaRoom]); }
+    catch (e) {
+      const errs = (e.errors || [e]).filter(Boolean);
+      const nf = errs.find(x => x.notFound);
+      throw new Error(nf ? nf.message : errs.map(x => x.message).join(' — ') || 'Connection failed.');
+    }
+    // A slower path that connects later is closed by claim().
+    viaPeer.catch(() => {}); viaRoom.catch(() => {});
+    const link = new Link(winner.conn);
+    net.hostLink = link; net.relayed = winner.how === 'relay';
+    status(net.relayed ? 'Connected through the relay servers. Downloading the world…' : 'Downloading the world…');
+    const welcome = await timeout(new Promise((resolve, reject) => {
+      link.onMessage = m => { if (m.t === 'welcome') resolve(m); else if (m.t === 'reject') reject(new Error(m.reason)); };
+      link.onClose = () => reject(new Error('The host closed the connection.'));
+      link.send({ t: 'hello', v: PROTOCOL, name, skin });
+    }), 90000, 'The host did not answer.');
+    net.myId = welcome.id;
+    link.onMessage = m => net.onMessage(m, null);
+    link.onClose = () => net.onHostLost();
+    net.pendingPlayers = [welcome.host, ...welcome.players];
+    return { net, welcome };
   }
   // Called once the guest's game has started.
   attach() {
@@ -304,11 +332,11 @@ export class Net {
       if (this.envT >= 1) { this.envT = 0; this.broadcast({ t: 'env', time: g.dayTime, day: g.day, w: g.weather, pvp: g.rules.pvp !== false }); }
       // Drop guests whose connection silently died.
       const now = performance.now();
-      for (const p of [...this.players.values()]) if (p.link && now - p.link.seen > 20000) this.removePlayer(p.id, 'timed out');
+      for (const p of [...this.players.values()]) if (p.link && now - p.link.seen > 70000) this.removePlayer(p.id, 'timed out');
     } else {
       this.pdataT += dt;
       if (this.pdataT >= 10) { this.pdataT = 0; this.sendPlayerData(); }
-      if (this.hostLink && performance.now() - this.hostLink.seen > 20000) this.onHostLost();
+      if (this.hostLink && performance.now() - this.hostLink.seen > 70000) this.onHostLost();
     }
   }
   sendState() {
@@ -406,17 +434,19 @@ export class Net {
     this.hostLink && this.hostLink.send({ t: 'pdata', d: g.playerData() });
   }
   close() {
-    if (this.closed && !this.peer) return;
+    if (this.closed && !this.peer && !this.room) return;
     this.closed = true;
     try {
       if (this.isHost) this.broadcast({ t: 'bye' });
       else { this.share.handoverAll(); this.sendPlayerData(); }
     } catch { /* ignore */ }
+    clearInterval(this.kaTimer);
     setTimeout(() => {
       for (const p of this.players.values()) if (p.link) p.link.close();
       if (this.hostLink) this.hostLink.close();
       if (this.peer) this.peer.destroy();
-      this.peer = null;
+      if (this.room) this.room.close();
+      this.peer = null; this.room = null;
     }, 300);
     for (const p of this.players.values()) if (p.rp) p.rp.dead = true;
   }

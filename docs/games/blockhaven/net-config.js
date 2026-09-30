@@ -13,5 +13,13 @@ window.BLOCKHAVEN_NET = {
     { urls: 'stun:stun.l.google.com:19302' },
     { urls: 'stun:stun1.l.google.com:19302' },
     { urls: 'stun:stun.cloudflare.com:3478' },
+    { urls: 'stun:global.stun.twilio.com:3478' },
+  ],
+  // Free public MQTT brokers, used at the same time as the PeerJS server to find rooms, and to
+  // carry the game when no direct connection is possible. Any one of them being up is enough.
+  brokers: [
+    'wss://broker.emqx.io:8084/mqtt',
+    'wss://broker.hivemq.com:8884/mqtt',
+    'wss://test.mosquitto.org:8081/mqtt',
   ],
 };
