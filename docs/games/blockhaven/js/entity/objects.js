@@ -1,10 +1,10 @@
 // Non-living entities: dropped items, XP orbs, projectiles, falling blocks, primed TNT, lightning.
-import { Entity, M } from './entity.js?v=muoe9fcb';
-import { itemMesh, emitItemMesh } from './itemmesh.js?v=muoe9fcb';
-import { I } from '../data/items.js?v=muoe9fcb';
-import { B, BLOCKS, SOLID, OPAQUE } from '../data/blocks.js?v=muoe9fcb';
-import { compose, translation, rotationX, rotationY, rotationZ, scaling } from '../core/math.js?v=muoe9fcb';
-import { maxStack } from '../data/items.js?v=muoe9fcb';
+import { Entity, M } from './entity.js?v=muolvs1g';
+import { itemMesh, emitItemMesh } from './itemmesh.js?v=muolvs1g';
+import { I } from '../data/items.js?v=muolvs1g';
+import { B, BLOCKS, SOLID, OPAQUE } from '../data/blocks.js?v=muolvs1g';
+import { compose, translation, rotationX, rotationY, rotationZ, scaling } from '../core/math.js?v=muolvs1g';
+import { maxStack } from '../data/items.js?v=muolvs1g';
 
 // Billboarded sprite quad facing the camera.
 export function billboard(batch, ctx, x, y, z, size, layer, color, uv = [0, 0, 1, 1]) {
@@ -125,7 +125,7 @@ export class Projectile extends Entity {
     this.hw = 0.12; this.h = 0.25;
     this.inGround = false;
     this.damage = kind === 'arrow' ? 2 : kind === 'trident' ? 8 : 0;
-    this.gravity = kind === 'arrow' || kind === 'trident' ? 20 : kind.includes('fireball') || kind === 'dragon_fireball' || kind === 'wither_skull' ? 0 : 12;
+    this.gravity = kind === 'arrow' || kind === 'trident' ? 20 : kind.includes('fireball') || kind === 'dragon_fireball' || kind === 'wither_skull' || kind === 'firework' ? 0 : 12;
     this.pickup = false;
     this.crit = false;
     this.power = 1;
@@ -182,6 +182,7 @@ export class Projectile extends Entity {
     if (this.crit && Math.random() < 0.5) g.particles.fx('crit', this.pos, 1, 0.1);
     if (this.kind.includes('fireball')) g.particles.fx('flame', this.pos, 1, 0.15);
     if (this.kind === 'ender_eye') this.eyeUpdate(dt);
+    if (this.kind === 'firework') { g.particles.fx('spark', this.pos, 1, 0.05, 0.3); this.fuse = (this.fuse ?? 1.2) - dt; if (this.fuse <= 0) this.impact(null, this.pos, null); }
   }
   onBlock(hit, hp) {
     const g = this.game;
@@ -235,6 +236,10 @@ export class Projectile extends Entity {
         g.explode(hp, 1.5, { breakBlocks: false, source: this.shooter });
         g.particles.fx('portal', hp, 40, 2);
         break;
+      case 'firework':
+        // A rocket without firework stars just bursts: sparks and a bang, no damage.
+        g.particles.fx('spark', hp, 30, 0.6, 3); g.sound.play('firework_blast', hp, 0.8);
+        break;
       case 'wither_skull':
         if (e && e.hurt) { e.hurt(8, { kind: 'projectile', attacker: this.shooter, projectile: this }); if (e.addEffect) e.addEffect('wither', 10); }
         g.explode(hp, 1, { source: this.shooter, breakBlocks: g.rules.mobGriefing });
@@ -261,6 +266,11 @@ export class Projectile extends Entity {
       const m = M.chain(M.t(this.pos[0], this.pos[1], this.pos[2]), M.ry(this.yaw + Math.PI / 2), M.rz(this.pitch), M.s(this.kind === 'trident' ? 1.4 : 0.9), M.rz(-Math.PI / 4), M.t(-0.5, -0.5, 0));
       const key = this.kind === 'trident' ? 'trident' : 'arrow';
       emitItemMesh(ctx.items, itemMesh(key, g.itemPixels(key)), g.itemLayer(key), m, light);
+      return;
+    }
+    if (this.kind === 'firework') {
+      const m = M.chain(M.t(this.pos[0], this.pos[1], this.pos[2]), M.ry(this.yaw + Math.PI / 2), M.rz(this.pitch), M.s(0.8), M.rz(-Math.PI / 4), M.t(-0.5, -0.5, 0));
+      emitItemMesh(ctx.items, itemMesh('firework_rocket', g.itemPixels('firework_rocket')), g.itemLayer('firework_rocket'), m, [1.2, 1.2, 1.2]);
       return;
     }
     const key = { snowball: 'snowball', egg: 'egg', ender_pearl: 'ender_pearl', ender_eye: 'ender_eye', fireball: 'fire_charge', small_fireball: 'fire_charge', dragon_fireball: 'dragon_breath', wither_skull: 'coal' }[this.kind] || 'snowball';
