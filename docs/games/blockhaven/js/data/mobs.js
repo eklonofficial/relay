@@ -1,6 +1,6 @@
 // Mob roster: stats, AI archetype, drops, box models and procedural skins.
 // Model space: 1 unit = 1/16 block, feet at y=0, the mob faces -Z.
-import { D, pal, shade as shadeHex } from '../render/mobtex.js?v=munkil2j';
+import { D, pal, shade as shadeHex } from '../render/mobtex.js?v=munkyndc';
 
 const box = (o, s, style, extra = {}) => ({ o, s, style, ...extra });
 const part = (pivot, boxes, extra = {}) => ({ pivot, boxes, ...extra });
@@ -438,6 +438,17 @@ export function playerModel() {
     body: S('#2aa8a8', 'noise', null, 0.07), arm: S(skin, 'noise', { all: D.band(0, 0.3, '#2aa8a8') }, 0.06), leg: S('#3a3aa8', 'noise', { all: D.band(0.85, 1, '#5a5a5a') }, 0.07),
   });
   return m;
+}
+
+// Saddle drawn on top of a saddled horse or donkey (shares the body pivot).
+export function saddleModel() {
+  const leather = S('#6a3e1e', 'noise', { all: D.frame('#4a2a12') }, 0.08), iron = S('#b8b8b8', 'flat');
+  return { anim: 'quadruped', eye: 0, parts: { body: part([0, 11, 0], [
+    box([-5, 10, -6], [10, 1, 9], leather, { inflate: 0.3 }),   // seat
+    box([-2, 11, -6], [4, 2, 2], leather),                      // pommel
+    box([-5.4, 1, -3], [0.6, 9, 2], leather), box([4.8, 1, -3], [0.6, 9, 2], leather), // girth strap
+    box([-6, -1, -2.5], [1, 2, 1], iron), box([5, -1, -2.5], [1, 2, 1], iron),          // stirrups
+  ]) } };
 }
 
 // Which mobs get spawn eggs.

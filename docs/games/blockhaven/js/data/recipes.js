@@ -1,6 +1,6 @@
 // Crafting (shaped / shapeless) and smelting recipes, with ingredient tags.
-import { WOODS, COLORS, SHAPED_MATERIALS } from './blocks.js?v=munkil2j';
-import { I } from './items.js?v=munkil2j';
+import { WOODS, COLORS, SHAPED_MATERIALS } from './blocks.js?v=munkyndc';
+import { I } from './items.js?v=munkyndc';
 
 const has = k => !!I[k];
 export const TAGS = {
@@ -40,6 +40,7 @@ function smelt(input, out, xp = 0.1, count = 1) {
 WOODS.forEach((w, i) => {
   const log = TAGS.logs[i], planks = `${w}_planks`;
   shapeless([log], planks, 4);
+  shapeless(['paper', 'gunpowder'], 'firework_rocket', 3);
   if (has(`${w}_door`)) shaped(['XX', 'XX', 'XX'], { X: planks }, `${w}_door`, 3);
   if (has(`${w}_trapdoor`)) shaped(['XXX', 'XXX'], { X: planks }, `${w}_trapdoor`, 2);
   if (has(`${w}_fence`)) shaped(['X#X', 'X#X'], { X: planks, '#': 'stick' }, `${w}_fence`, 3);

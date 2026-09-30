@@ -1,7 +1,7 @@
 // Container GUIs (inventory, crafting, chest, furnace, creative, trading) and the HUD.
-import { I, ITEMS, TABS, maxStack, ARMOR_SLOTS } from '../data/items.js?v=munkil2j';
-import { findRecipe, allRecipes, matches, SMELTING, TAGS } from '../data/recipes.js?v=munkil2j';
-import { same } from './inventory.js?v=munkil2j';
+import { I, ITEMS, TABS, maxStack, ARMOR_SLOTS } from '../data/items.js?v=munkyndc';
+import { findRecipe, allRecipes, matches, SMELTING, TAGS } from '../data/recipes.js?v=munkyndc';
+import { same } from './inventory.js?v=munkyndc';
 
 const $ = id => document.getElementById(id);
 const el = (tag, cls, parent) => { const e = document.createElement(tag); if (cls) e.className = cls; if (parent) parent.appendChild(e); return e; };
@@ -629,6 +629,14 @@ export class HUD {
       $('xp-fill').style.width = `${st.xpProgress * 100}%`;
       $('xp-level').textContent = st.level > 0 ? st.level : '';
     }
+    // Riding: the mount's health replaces hunger and the jump charge replaces the XP bar.
+    const mount = g.riding && g.riding.saddled ? g.riding : null;
+    if (mount) {
+      const mh = Math.ceil(mount.maxHealth / 2), hp = Math.ceil(mount.health);
+      this.row('food-row', Math.min(10, mh), S.heart, S.heartHalf || S.heart, S.heartEmpty, Math.round(hp * Math.min(10, mh) / mh));
+      $('xp-fill').style.width = `${(g.jumpCharge || 0) * 100}%`; $('xp-fill').style.background = '#e8a030'; $('xp-level').textContent = '';
+      this.wasRiding = true;
+    } else if (this.wasRiding) { this.wasRiding = false; $('xp-fill').style.background = ''; this.last = {}; }
     const cd = g.attackCooldown;
     const ind = $('attack-ind');
     ind.classList.toggle('hidden', !(survival && cd < 1 && cd > 0));

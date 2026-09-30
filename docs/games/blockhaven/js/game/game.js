@@ -1,24 +1,24 @@
 // The running game: world + dimensions, player survival state, entities, simulation, weather and saving.
-import { B, BLOCKS, SOLID, OPAQUE, DIM, DIM_NAMES, HEIGHT, SEA, props, st, SHAPE_OF, SHAPE } from '../data/blocks.js?v=munkil2j';
-import { I, maxStack } from '../data/items.js?v=munkil2j';
-import { SMELTING } from '../data/recipes.js?v=munkil2j';
-import { MOBS } from '../data/mobs.js?v=munkil2j';
-import { BIOMES, COLD } from '../gen/biomes.js?v=munkil2j';
-import { World, UNLOADED, posKey } from '../world/world.js?v=munkil2j';
-import { Player } from './player.js?v=munkil2j';
-import { PlayerInventory, Container } from './inventory.js?v=munkil2j';
-import { EntityManager } from '../entity/entity.js?v=munkil2j';
-import { ItemEntity, XpOrb, FallingBlock, PrimedTnt, Lightning, Projectile } from '../entity/objects.js?v=munkil2j';
-import { Mob } from '../entity/mob.js?v=munkil2j';
-import { Particles } from './particles.js?v=munkil2j';
-import { Sim } from './sim.js?v=munkil2j';
-import { blockDrops } from './drops.js?v=munkil2j';
-import { computeEnv } from './env.js?v=munkil2j';
-import { fuelOf } from './ui.js?v=munkil2j';
-import { unlockLevel } from './trades.js?v=munkil2j';
-import { forward } from '../core/math.js?v=munkil2j';
-import { EndCrystal } from '../entity/crystal.js?v=munkil2j';
-import { ARMOR_BYPASS, armorReduce, applyInvul, isAxe } from './combat.js?v=munkil2j';
+import { B, BLOCKS, SOLID, OPAQUE, DIM, DIM_NAMES, HEIGHT, SEA, props, st, SHAPE_OF, SHAPE } from '../data/blocks.js?v=munkyndc';
+import { I, maxStack } from '../data/items.js?v=munkyndc';
+import { SMELTING } from '../data/recipes.js?v=munkyndc';
+import { MOBS } from '../data/mobs.js?v=munkyndc';
+import { BIOMES, COLD } from '../gen/biomes.js?v=munkyndc';
+import { World, UNLOADED, posKey } from '../world/world.js?v=munkyndc';
+import { Player } from './player.js?v=munkyndc';
+import { PlayerInventory, Container } from './inventory.js?v=munkyndc';
+import { EntityManager } from '../entity/entity.js?v=munkyndc';
+import { ItemEntity, XpOrb, FallingBlock, PrimedTnt, Lightning, Projectile } from '../entity/objects.js?v=munkyndc';
+import { Mob, RIDEABLE } from '../entity/mob.js?v=munkyndc';
+import { Particles } from './particles.js?v=munkyndc';
+import { Sim } from './sim.js?v=munkyndc';
+import { blockDrops } from './drops.js?v=munkyndc';
+import { computeEnv } from './env.js?v=munkyndc';
+import { fuelOf } from './ui.js?v=munkyndc';
+import { unlockLevel } from './trades.js?v=munkyndc';
+import { forward } from '../core/math.js?v=munkyndc';
+import { EndCrystal } from '../entity/crystal.js?v=munkyndc';
+import { ARMOR_BYPASS, armorReduce, applyInvul, isAxe } from './combat.js?v=munkyndc';
 
 export const DAY = 1200; // seconds per day
 const rnd = (a, b) => a + Math.random() * (b - a);
@@ -104,6 +104,30 @@ export class Game {
     p.onLand = (dist, water) => this.onLand(dist, water);
     p.onJump = () => this.exhaust(p.sprinting ? 0.2 : 0.05);
     p.autoJump = this.settings.autoJump;
+    const chest = () => this.inv.armor.get(1);
+    p.hasElytra = () => { const c = chest(); return !!(c && c.key === 'elytra' && (c.dmg || 0) < I.elytra.durability - 1); };
+    p.onKinetic = dmg => {
+      // Only real walls hurt, not the edge of terrain that hasn't streamed in yet.
+      const d = Math.hypot(p.preVel ? p.preVel[0] : 0, p.preVel ? p.preVel[2] : 0) || 1;
+      const ax = p.pos[0] + (p.preVel ? p.preVel[0] / d : 0) * 0.8, az = p.pos[2] + (p.preVel ? p.preVel[2] / d : 0) * 0.8;
+      if (!this.world.isLoaded(ax, az)) return;
+      this.damagePlayer(dmg, { kind: 'fall' });
+    };
+    p.onGlideSecond = () => {
+      const c = chest();
+      if (!c || this.mode === 'creative') return;
+      c.dmg = (c.dmg || 0) + 1; this.inv.armor.changed();
+      if (c.dmg >= I.elytra.durability - 1) { p.gliding = false; this.sound.play('break_item', p.pos, 0.6); }
+    };
+  }
+  // A firework rocket fired from the ground: climbs, then bursts into coloured sparks.
+  launchFirework(pos) {
+    const cols = [[1, 0.3, 0.3], [0.3, 0.6, 1], [1, 0.9, 0.3], [0.5, 1, 0.4], [1, 0.4, 1]];
+    const col = cols[Math.floor(Math.random() * cols.length)];
+    this.sound.play('firework', pos, 0.8);
+    const p = pos.slice();
+    for (let i = 0; i < 12; i++) this.later(i * 0.09, () => { p[1] += 1.4; this.particles.fx('smoke', p, 2, 0.1, 0.2); this.particles.fx('crit', p, 2, 0.1, 0.4); });
+    this.later(1.15, () => { this.particles.fx('white', p, 60, 0.3, 9, col); this.sound.play('firework_blast', p, 1); });
   }
   openWorld(dim) {
     if (this.world) this.world.dispose();
@@ -167,6 +191,79 @@ export class Game {
   get raining() { return this.dim === DIM.OVERWORLD && this.weather.rain > 0.5; }
   lookDir() { return forward(this.player.yaw, this.player.pitch); }
   biomeTemp(p) { const b = BIOMES[this.world.biomeAt(p[0], p[2])]; return b ? b.temp - Math.max(0, p[1] - 90) * 0.0125 : 0.5; }
+  // ---------------- riding ----------------
+  mount(m) {
+    if (this.riding) this.dismount();
+    this.riding = m; m.rider = true; m.target = null; m.path = null;
+    this.player.flying = false; this.player.sneaking = false;
+    this.rideSneak = true; this.jumpCharge = 0; this.buckT = m.tamed ? null : 1 + Math.random() * 2.5;
+    this.sound.mob(m.mobType, 'ambient', m.pos, m);
+    if (this.app.showAction) this.app.showAction(m.tamed && !m.saddled && RIDEABLE[m.mobType] ? 'Needs a saddle to steer · Shift to dismount' : 'Shift to dismount', 2.5);
+  }
+  dismount(thrown = false) {
+    const m = this.riding;
+    if (!m) return;
+    this.riding = null; m.rider = false;
+    const p = this.player, w = this.world;
+    // Step off to the side onto open ground.
+    const side = [Math.cos(m.yaw), -Math.sin(m.yaw)];
+    let pos = [m.pos[0] + side[0] * 1.2, m.pos[1], m.pos[2] + side[1] * 1.2];
+    for (const s of [1, -1]) { const x = m.pos[0] + side[0] * 1.2 * s, z = m.pos[2] + side[1] * 1.2 * s; if (w.getBlock(x, m.pos[1], z) === B.AIR && w.getBlock(x, m.pos[1] + 1, z) === B.AIR) { pos = [x, m.pos[1], z]; break; } }
+    p.pos = pos; p.vel = thrown ? [side[0] * 4, 5, side[1] * 4] : [0, 0, 0]; p.fallStart = null;
+    this.jumpCharge = 0;
+  }
+  // Before the world ticks: steer the mount from the rider's input.
+  rideControl(dt, input) {
+    const m = this.riding, p = this.player;
+    if (!m || m.dead || m.deathT > 0 || !this.alive) { this.dismount(); return; }
+    if (input.sneak && !this.rideSneak) { this.dismount(); return; }
+    this.rideSneak = input.sneak;
+    const R = RIDEABLE[m.mobType];
+    if (!m.tamed) {
+      // Bucking: the horse fights the rider, then either gives in or throws them off.
+      this.buckT -= dt;
+      if (Math.random() < dt * 3) { m.yaw += (Math.random() - 0.5) * 1.6; if (m.onGround) m.vel[1] = 4; }
+      m.vel[0] *= 0.9; m.vel[2] *= 0.9;
+      if (this.buckT <= 0) {
+        if (Math.random() * 100 < m.temper) {
+          m.tamed = true; m.persistent = true;
+          this.particles.fx('heart', m.center(), 7, 0.6); this.toast('Tamed!', 'Put a saddle on it to ride', 'saddle');
+          this.advance('tame_horse', 'Horsin\' Around', 'Tame a horse', 'saddle');
+          this.buckT = null;
+        } else {
+          m.temper = Math.min(100, (m.temper || 0) + 5);
+          this.particles.smoke(m.center(), 8); this.sound.mob(m.mobType, 'hurt', m.pos, m);
+          this.dismount(true);
+        }
+      }
+      return;
+    }
+    const steer = R ? m.saddled : false;
+    if (!steer) return; // unsaddled (or a pig without a carrot): it wanders with you on top
+    m.yaw = m.bodyYaw = p.yaw;
+    const f = (input.forward ? 1 : 0) - (input.back ? 0.25 : 0), s = ((input.right ? 1 : 0) - (input.left ? 1 : 0)) * 0.5;
+    const fx = -Math.sin(p.yaw), fz = -Math.cos(p.yaw), rx = Math.cos(p.yaw), rz = -Math.sin(p.yaw);
+    const sp = m.rideSpeed * (m.inWater ? 0.3 : 1);
+    const tx = (fx * f + rx * s) * sp, tz = (fz * f + rz * s) * sp;
+    const k = 1 - Math.exp(-(m.onGround ? 7 : 1.5) * dt);
+    m.vel[0] += (tx - m.vel[0]) * k; m.vel[2] += (tz - m.vel[2]) * k;
+    m.walk += Math.hypot(m.vel[0], m.vel[2]) * dt * 1.2; m.walkAmt = Math.min(1, Math.hypot(m.vel[0], m.vel[2]) / 4);
+    // Step up single blocks while riding.
+    if (m.collidedH && m.onGround && (f || s)) m.vel[1] = 7.5;
+    // Charged jump: hold Space to fill the bar, release to leap.
+    if (input.jump) this.jumpCharge = Math.min(1, (this.jumpCharge || 0) + dt / 0.9);
+    else if (this.jumpCharge > 0) {
+      if (m.onGround) { const c = this.jumpCharge >= 0.9 ? 1 : 0.4 + this.jumpCharge * 0.6; m.vel[1] = m.jumpStrength * c * 20; const b = 2 * c; m.vel[0] += fx * b; m.vel[2] += fz * b; this.sound.mob(m.mobType, 'ambient', m.pos, m); }
+      this.jumpCharge = 0;
+    }
+  }
+  // After the world ticks: sit the rider in the saddle.
+  rideSync() {
+    const m = this.riding, p = this.player;
+    if (!m) return;
+    const seat = (RIDEABLE[m.mobType] && RIDEABLE[m.mobType].seat) || m.h * 0.75;
+    p.pos = [m.pos[0], m.pos[1] + seat, m.pos[2]]; p.vel = [0, 0, 0]; p.fallStart = null; p.onGround = true;
+  }
   toast(a, b, icon) { if (this.hud) this.hud.toast(a, b, icon); }
   chat(msg, color) { this.app.chat(msg, color); }
   advance(key, title, text, icon) { if (this.advancements.has(key)) return; this.advancements.add(key); this.toast(`Advancement Made!`, title, icon); this.chat(`Advancement made: [${title}] — ${text}`, '#ffff55'); this.sound.play('chime', null, 0.6); }
@@ -392,6 +489,7 @@ export class Game {
     }
   }
   die(src) {
+    this.dismount();
     const s = this.stats;
     this.alive = false; s.health = 0;
     const msg = this.deathMessage(src);
@@ -711,6 +809,7 @@ export class Game {
     } else { this.portalT = Math.max(0, this.portalT - dt * 2); this.app.portalEffect = this.portalT / 4; }
   }
   changeDimension(dim, pos, { portal = false } = {}) {
+    this.dismount();
     this.dims[this.dim] = this.serializeDim();
     this.openWorld(dim);
     this.player.world = this.world;

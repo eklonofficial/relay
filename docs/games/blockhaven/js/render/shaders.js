@@ -1,4 +1,4 @@
-import { VF } from '../data/blocks.js?v=munkil2j';
+import { VF } from '../data/blocks.js?v=munkyndc';
 
 const HEADER = `#version 300 es
 precision highp float;
@@ -235,25 +235,41 @@ uniform mat4 uViewProj;
 uniform vec2 uNearFar;
 uniform vec2 uScreen;
 float linDepth(float d) { float z = d * 2.0 - 1.0; return 2.0 * uNearFar.x * uNearFar.y / (uNearFar.y + uNearFar.x - z * (uNearFar.y - uNearFar.x)); }
+// Screen-space reflection: march the reflected ray with geometrically growing steps (so a
+// handful of steps reach hills far across a lake), then binary-search the hit for a sharp image.
+vec2 ssrProject(vec3 q, out float rd, out float ok) {
+  vec4 c = uViewProj * vec4(q, 1.0);
+  ok = c.w > 0.0 ? 1.0 : 0.0;
+  vec3 ndc = c.xyz / max(c.w, 1e-4);
+  rd = linDepth(ndc.z * 0.5 + 0.5);
+  return ndc.xy * 0.5 + 0.5;
+}
 vec3 traceSSR(vec3 P, vec3 R, out float hit) {
   hit = 0.0;
-  float t = 0.4;
+  float grow = uSSR < 30.0 ? 1.34 : uSSR < 50.0 ? 1.22 : 1.14;
+  float t = 0.5, prev = 0.0;
   for (int i = 0; i < 64; i++) {
     if (float(i) >= uSSR) break;
-    vec3 q = P + R * t;
-    vec4 c = uViewProj * vec4(q, 1.0);
-    if (c.w <= 0.0) break;
-    vec3 ndc = c.xyz / c.w;
-    vec2 uv = ndc.xy * 0.5 + 0.5;
-    if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) break;
+    float rd, ok;
+    vec2 uv = ssrProject(P + R * t, rd, ok);
+    if (ok < 0.5 || uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) break;
     float sd = texture(uOpaqueDepth, uv).r;
-    float rd = linDepth(ndc.z * 0.5 + 0.5), sdl = linDepth(sd);
-    if (rd > sdl && rd - sdl < 1.2 + t * 0.12 && sd < 0.99999) {
+    float sdl = linDepth(sd);
+    if (sd < 0.99999 && rd > sdl && rd - sdl < max(1.5, (t - prev) * 1.5)) {
+      float a = prev, b = t;
+      for (int k = 0; k < 5; k++) {
+        float m = (a + b) * 0.5, rm, okm;
+        vec2 um = ssrProject(P + R * m, rm, okm);
+        if (rm > linDepth(texture(uOpaqueDepth, um).r)) b = m; else a = m;
+      }
+      float rb, okb;
+      uv = ssrProject(P + R * b, rb, okb);
       vec2 e = abs(uv - 0.5) * 2.0;
-      hit = 1.0 - smoothstep(0.75, 1.0, max(e.x, e.y));
+      hit = (1.0 - smoothstep(0.8, 1.0, max(e.x, e.y))) * (1.0 - smoothstep(0.7, 1.0, float(i) / uSSR));
       return texture(uOpaque, uv).rgb;
     }
-    t = t * 1.16 + 0.25;
+    prev = t;
+    t = t * grow + 0.35;
   }
   return vec3(0.0);
 }
@@ -313,7 +329,10 @@ void main() {
   float alpha = uMedium > 0.5 ? 0.55 : mix(0.66, 0.94, fres);
   if (uSSR > 0.5 && vFlags == F_WATER_TOP && uMedium < 0.5) {
     float hit;
-    vec3 sr = traceSSR(vWorld, reflect(-V, N), hit);
+    // Reflect off a calmer normal: full-strength ripples scatter the ray into the shore and bed.
+    vec3 Nr = normalize(mix(vec3(0.0, 1.0, 0.0), N, 0.3));
+    vec3 Rr = reflect(-V, Nr); Rr.y = max(Rr.y, 0.02);
+    vec3 sr = traceSSR(vWorld + vec3(0.0, 0.05, 0.0), Rr, hit);
     refl = mix(refl, sr, hit);
     // Refraction: see the bottom through the water, bent by the waves.
     vec2 suv = gl_FragCoord.xy / uScreen + N.xz * 0.03;

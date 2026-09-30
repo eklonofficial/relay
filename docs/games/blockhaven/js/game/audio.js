@@ -6,7 +6,7 @@ const MATERIAL = {
 };
 // Mob voices: [base freq, type, duration, sweep, noise]
 
-import { MusicPlayer } from './music.js?v=munkil2j';
+import { MusicPlayer } from './music.js?v=munkyndc';
 
 const VOWEL = { a: [[730, 6, 1.2], [1090, 7, 0.9], [2440, 9, 0.3]], o: [[450, 6, 1.2], [800, 7, 0.9], [2800, 9, 0.2]], u: [[320, 6, 1.3], [870, 7, 0.7], [2250, 9, 0.2]] };
 const MOB_VOICE_ALIAS = { polar_bear: 'bear', zombified_piglin: 'zpiglin', wandering_trader: 'villager', pillager: 'illager', vindicator: 'illager', evoker: 'illager', iron_golem: 'golem', snow_golem: 'snowgolem', husk: 'zombie', drowned: 'zombie', zombie_villager: 'zombie', stray: 'skeleton', wither_skeleton: 'skeleton', cave_spider: 'spider', magma_cube: 'slime', mooshroom: 'cow', donkey: 'horse', camel: 'horse', mule: 'horse', endermite: 'silverfish', ender_dragon: 'dragon', glow_squid: 'squid', cod: 'fish', salmon: 'fish', tropical_fish: 'fish', pufferfish: 'fish' };
@@ -104,6 +104,8 @@ export class Sound {
       case 'crit': this.pulses(out, { count: 1, freq: 600, q: 1, gain: 0.55, len: 0.1, type: 'lowpass' }); this.noiseSweep(6000, 2000, 0.12, 0.3, out, 'highpass'); this.ring(out, [2400, 3700], { decay: 0.25, gain: 0.06 }); break;
       case 'sweep': this.noiseSweep(5000, 1200, 0.2, 0.35, out, 'bandpass'); break;
       case 'explode': this.noiseSweep(1800, 40, 1.8, 1.4, out); T(80, 30, 1.2, 0.8, 'sine'); break;
+      case 'firework': this.noiseSweep(1800, 5000, 0.6, 0.3, out, 'bandpass'); break;
+      case 'firework_blast': this.noiseSweep(2500, 120, 1.2, 0.9, out); this.pulses(out, { t: 0.25, count: 12, gap: 0.06, freq: 4000, q: 2, gain: 0.25, len: 0.03 }); break;
       case 'fuse': this.noiseSweep(6000, 3000, 1.5, 0.35, out, 'highpass'); break;
       case 'fizz': this.noiseSweep(6000, 2000, 0.5, 0.3, out, 'highpass'); break;
       case 'fire': this.noiseSweep(900, 300, 0.4, 0.2, out); break;
