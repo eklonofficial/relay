@@ -1,24 +1,24 @@
 // The running game: world + dimensions, player survival state, entities, simulation, weather and saving.
-import { B, BLOCKS, SOLID, OPAQUE, DIM, DIM_NAMES, HEIGHT, SEA, props, st, SHAPE_OF, SHAPE } from '../data/blocks.js?v=muo2mobr';
-import { I, maxStack } from '../data/items.js?v=muo2mobr';
-import { SMELTING } from '../data/recipes.js?v=muo2mobr';
-import { MOBS } from '../data/mobs.js?v=muo2mobr';
-import { BIOMES, COLD } from '../gen/biomes.js?v=muo2mobr';
-import { World, UNLOADED, posKey } from '../world/world.js?v=muo2mobr';
-import { Player } from './player.js?v=muo2mobr';
-import { PlayerInventory, Container } from './inventory.js?v=muo2mobr';
-import { EntityManager } from '../entity/entity.js?v=muo2mobr';
-import { ItemEntity, XpOrb, FallingBlock, PrimedTnt, Lightning, Projectile } from '../entity/objects.js?v=muo2mobr';
-import { Mob, RIDEABLE } from '../entity/mob.js?v=muo2mobr';
-import { Particles } from './particles.js?v=muo2mobr';
-import { Sim } from './sim.js?v=muo2mobr';
-import { blockDrops } from './drops.js?v=muo2mobr';
-import { computeEnv } from './env.js?v=muo2mobr';
-import { fuelOf } from './ui.js?v=muo2mobr';
-import { unlockLevel } from './trades.js?v=muo2mobr';
-import { forward } from '../core/math.js?v=muo2mobr';
-import { EndCrystal } from '../entity/crystal.js?v=muo2mobr';
-import { ARMOR_BYPASS, armorReduce, applyInvul, isAxe, shieldFaces, applyKnockback, knockbackResist } from './combat.js?v=muo2mobr';
+import { B, BLOCKS, SOLID, OPAQUE, DIM, DIM_NAMES, HEIGHT, SEA, props, st, SHAPE_OF, SHAPE } from '../data/blocks.js?v=muo2sewa';
+import { I, maxStack } from '../data/items.js?v=muo2sewa';
+import { SMELTING } from '../data/recipes.js?v=muo2sewa';
+import { MOBS } from '../data/mobs.js?v=muo2sewa';
+import { BIOMES, COLD } from '../gen/biomes.js?v=muo2sewa';
+import { World, UNLOADED, posKey } from '../world/world.js?v=muo2sewa';
+import { Player } from './player.js?v=muo2sewa';
+import { PlayerInventory, Container } from './inventory.js?v=muo2sewa';
+import { EntityManager } from '../entity/entity.js?v=muo2sewa';
+import { ItemEntity, XpOrb, FallingBlock, PrimedTnt, Lightning, Projectile } from '../entity/objects.js?v=muo2sewa';
+import { Mob, RIDEABLE } from '../entity/mob.js?v=muo2sewa';
+import { Particles } from './particles.js?v=muo2sewa';
+import { Sim } from './sim.js?v=muo2sewa';
+import { blockDrops } from './drops.js?v=muo2sewa';
+import { computeEnv } from './env.js?v=muo2sewa';
+import { fuelOf } from './ui.js?v=muo2sewa';
+import { unlockLevel } from './trades.js?v=muo2sewa';
+import { forward } from '../core/math.js?v=muo2sewa';
+import { EndCrystal } from '../entity/crystal.js?v=muo2sewa';
+import { ARMOR_BYPASS, armorReduce, applyInvul, isAxe, shieldFaces, applyKnockback, knockbackResist } from './combat.js?v=muo2sewa';
 
 export const DAY = 1200; // seconds per day
 const rnd = (a, b) => a + Math.random() * (b - a);
@@ -38,6 +38,7 @@ export class Game {
     this.time = 0;
     this.timers = [];
     this.itemCooldowns = {};
+    this.chestAnims = new Map();
     this.env = computeEnv(0, 0.3, [0, 0, -1]);
     this.inv.main.onChange = () => { this.invDirty = true; };
     this.inv.armor.onChange = () => { this.invDirty = true; };
@@ -147,6 +148,7 @@ export class Game {
       },
     });
     this.entities.clear();
+    if (this.chestAnims) this.chestAnims.clear();
     for (const e of d.entities || []) this.loadEntity(e);
     this.app.onWorldOpened(this.world, dim);
     if (this.player) { this.player.world = this.world; }
@@ -314,6 +316,29 @@ export class Game {
     }
   }
   onBlockEntityRemoved() {}
+  // ---------------- chest lids ----------------
+  // A chest's lid swings open while anyone (here or another player) has it open, like the
+  // original: about 0.5 s to open with a creak, and it thumps shut as the last viewer leaves.
+  chestViewer(x, y, z, delta, local = false) {
+    const k = posKey(x, y, z);
+    let a = this.chestAnims.get(k);
+    if (!a) { if (delta < 0) return; a = { x, y, z, viewers: 0, open: 0, prev: 0, linger: 0 }; this.chestAnims.set(k, a); }
+    const was = a.viewers;
+    a.viewers = Math.max(0, a.viewers + delta);
+    if (!was && a.viewers) { this.world.setChestOpen(x, y, z, true); this.sound.play('chest_open', [x + 0.5, y + 0.5, z + 0.5], 0.7, 0.95 + Math.random() * 0.1); }
+    if (local && this.net) this.net.send({ t: 'fx', id: this.net.myId, k: 'chest', p: [x, y, z], d: this.dim, o: delta });
+  }
+  updateChests(dt) {
+    for (const [k, a] of this.chestAnims) {
+      if (this.world.getBlock(a.x, a.y, a.z) !== B.CHEST) { this.world.setChestOpen(a.x, a.y, a.z, false); this.chestAnims.delete(k); continue; }
+      a.prev = a.open;
+      a.open = a.viewers ? Math.min(1, a.open + dt / 0.5) : Math.max(0, a.open - dt / 0.5);
+      if (a.prev >= 0.5 && a.open < 0.5 && !a.viewers) this.sound.play('chest_close', [a.x + 0.5, a.y + 0.5, a.z + 0.5], 0.7, 0.95 + Math.random() * 0.1);
+      // Once shut, keep drawing the lid briefly so the re-meshed full chest has arrived.
+      if (!a.viewers && a.open === 0) { a.linger += dt; if (a.linger > 0.05 && this.world.openChests.has(k)) this.world.setChestOpen(a.x, a.y, a.z, false); if (a.linger > 0.4) this.chestAnims.delete(k); }
+      else a.linger = 0;
+    }
+  }
   onBlockEntityChanged(be) { if (this.net) this.net.onLocalBlockEntity(this.dim, posKey(be.x, be.y, be.z), be); }
   // ---------------- multiplayer ----------------
   get playerName() { return this.net ? this.net.name : 'Player'; }
@@ -687,6 +712,7 @@ export class Game {
     this.entities.update(dt);
     this.particles.update(dt);
     this.tickBlockEntities(dt);
+    this.updateChests(dt);
     this.spawnTick(dt);
     this.portalTick(dt);
     if (this.stats.health > 0 && this.stats.effects.night_vision) this.nightVision = 1; else this.nightVision = 0;

@@ -9,8 +9,8 @@
 // own hands, or their own water/fire/sand simulation) broadcasts it once; everyone else mirrors it
 // silently, so nothing is applied twice. The host keeps the authoritative save, including each
 // guest's inventory and position, and owns the clock and the weather.
-import { RemotePlayer } from './remote.js?v=muo2mobr';
-import { EntitySync } from './share.js?v=muo2mobr';
+import { RemotePlayer } from './remote.js?v=muo2sewa';
+import { EntitySync } from './share.js?v=muo2sewa';
 
 export const MAX_PLAYERS = 5;
 const PREFIX = 'blockhaven-v1-';
@@ -31,7 +31,7 @@ function loadLib() {
   if (!libPromise) {
     libPromise = new Promise((resolve, reject) => {
       const s = document.createElement('script');
-      s.src = new URL('../../vendor/peerjs.min.js?v=muo2mobr', import.meta.url).href;
+      s.src = new URL('../../vendor/peerjs.min.js?v=muo2sewa', import.meta.url).href;
       s.onload = () => resolve();
       s.onerror = () => { libPromise = null; reject(new Error('Could not load the multiplayer library. Check your connection.')); };
       document.head.appendChild(s);
@@ -385,6 +385,7 @@ export class Net {
     if (m.d !== undefined && m.d !== g.dim) return;
     if (m.k === 'sound') g.sound.play(m.s, m.p, m.v || 1);
     else if (m.k === 'break') { g.sound.dig(m.s, m.p); g.particles.block(Math.floor(m.p[0]), Math.floor(m.p[1]), Math.floor(m.p[2]), m.b, m.bm || 0, 20); }
+    else if (m.k === 'chest') g.chestViewer(m.p[0], m.p[1], m.p[2], m.o);
     else if (m.k === 'explode') { g.sound.play('explode', m.p, 1.6); g.particles.explosion(m.p, m.pw || 4); }
   }
 

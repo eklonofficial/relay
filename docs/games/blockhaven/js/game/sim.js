@@ -1,7 +1,7 @@
 // Block simulation: liquids, gravity, support, random ticks (crops, saplings, grass, fire, cacti).
-import { B, BLOCKS, SOLID, OPAQUE, SHAPE_OF, SHAPE, CROP_STAGES, CROP_AGE_SHIFT, props, st, DIM } from '../data/blocks.js?v=muo2mobr';
-import { UNLOADED } from '../world/world.js?v=muo2mobr';
-import * as T from '../gen/trees.js?v=muo2mobr';
+import { B, BLOCKS, SOLID, OPAQUE, SHAPE_OF, SHAPE, CROP_STAGES, CROP_AGE_SHIFT, props, st, DIM } from '../data/blocks.js?v=muo2sewa';
+import { UNLOADED } from '../world/world.js?v=muo2sewa';
+import * as T from '../gen/trees.js?v=muo2sewa';
 
 const NB4 = [[1, 0], [-1, 0], [0, 1], [0, -1]];
 const k3 = (x, y, z) => `${x},${y},${z}`;

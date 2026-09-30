@@ -1,10 +1,10 @@
 // Non-living entities: dropped items, XP orbs, projectiles, falling blocks, primed TNT, lightning.
-import { Entity, M } from './entity.js?v=muo2mobr';
-import { itemMesh, emitItemMesh } from './itemmesh.js?v=muo2mobr';
-import { I } from '../data/items.js?v=muo2mobr';
-import { B, BLOCKS, SOLID, OPAQUE } from '../data/blocks.js?v=muo2mobr';
-import { compose, translation, rotationX, rotationY, rotationZ, scaling } from '../core/math.js?v=muo2mobr';
-import { maxStack } from '../data/items.js?v=muo2mobr';
+import { Entity, M } from './entity.js?v=muo2sewa';
+import { itemMesh, emitItemMesh } from './itemmesh.js?v=muo2sewa';
+import { I } from '../data/items.js?v=muo2sewa';
+import { B, BLOCKS, SOLID, OPAQUE } from '../data/blocks.js?v=muo2sewa';
+import { compose, translation, rotationX, rotationY, rotationZ, scaling } from '../core/math.js?v=muo2sewa';
+import { maxStack } from '../data/items.js?v=muo2sewa';
 
 // Billboarded sprite quad facing the camera.
 export function billboard(batch, ctx, x, y, z, size, layer, color, uv = [0, 0, 1, 1]) {
