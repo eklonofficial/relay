@@ -1,0 +1,350 @@
+// Chunk storage, streaming, edits and queries for one dimension.
+import { CHUNK, HEIGHT, PAD, PS, B, OPAQUE, SOLID, EMIT, VARIANT_MASK, SHAPE_OF, SHAPE, DIM } from '../data/blocks.js';
+import { VOLUME_SIZE } from '../mesh/mesher.js';
+import { selectionBoxes, collisionBoxes } from '../data/shapes.js';
+
+export const UNLOADED = 255;
+export const chunkKey = (cx, cz) => `${cx},${cz}`;
+export const posKey = (x, y, z) => `${x},${y},${z}`;
+const CC = CHUNK * CHUNK;
+
+export class World {
+  constructor(opts) {
+    this.seed = opts.seed;
+    this.dim = opts.dim ?? DIM.OVERWORLD;
+    this.worldType = opts.worldType || 'default';
+    this.hasSky = this.dim === DIM.OVERWORLD;
+    this.chunks = new Map();
+    this.edits = new Map();
+    for (const [k, list] of Object.entries(opts.edits || {})) {
+      const m = new Map();
+      for (let i = 0; i < list.length; i += 2) m.set(list[i], list[i + 1]);
+      this.edits.set(k, m);
+    }
+    this.populated = new Set(opts.populated || []);
+    this.blockEntities = new Map(Object.entries(opts.blockEntities || {}));
+    this.cb = opts.callbacks;
+    this.nextJob = 1;
+    this.pendingLocates = new Map();
+    this.uploads = new Map();
+    // Per-frame time budget for GPU mesh uploads so streaming chunks never causes hitches.
+    this.uploadBudget = /CrOS/.test(navigator.userAgent) || (navigator.hardwareConcurrency || 8) <= 4 ? 2.5 : 5;
+    const count = Math.max(1, Math.min(4, (navigator.hardwareConcurrency || 4) - 1));
+    this.workers = [];
+    for (let i = 0; i < count; i++) {
+      const w = new Worker(new URL('../worker.js', import.meta.url), { type: 'module' });
+      w.busy = 0;
+      w.onmessage = e => this.onWorkerMessage(w, e.data);
+      w.onerror = e => console.error('worker error', e.message);
+      this.workers.push(w);
+    }
+  }
+
+  dispose() {
+    for (const w of this.workers) w.terminate();
+    for (const c of this.chunks.values()) this.cb.onUnload(c);
+    this.chunks.clear();
+  }
+
+  pickWorker(max = 2) {
+    let best = null;
+    for (const w of this.workers) if (w.busy < max && (!best || w.busy < best.busy)) best = w;
+    return best;
+  }
+
+  chunk(cx, cz) { return this.chunks.get(chunkKey(cx, cz)); }
+  chunkAt(x, z) { return this.chunks.get(chunkKey(Math.floor(x / CHUNK), Math.floor(z / CHUNK))); }
+
+  onWorkerMessage(w, m) {
+    if (m.type !== 'locate') w.busy--;
+    if (m.type === 'error') { console.error(`worker ${m.kind} failed`, m.cx, m.cz, m.message); const c = this.chunk(m.cx, m.cz); if (c) { c.genPending = false; c.meshPending = false; c.failed = (c.failed || 0) + 1; } return; }
+    if (m.type === 'locate') { const cb = this.pendingLocates.get(m.job); this.pendingLocates.delete(m.job); if (cb) cb(m.result); return; }
+    if (m.dim !== this.dim) return;
+    const c = this.chunk(m.cx, m.cz);
+    if (!c) return;
+    if (m.type === 'gen') {
+      c.ids = m.ids; c.meta = m.meta; c.biomes = m.biomes; c.heights = m.heights;
+      c.genPending = false;
+      const edits = this.edits.get(c.key);
+      if (edits) for (const [i, v] of edits) { c.ids[i] = v & 255; c.meta[i] = v >> 8; }
+      if (!this.populated.has(c.key)) {
+        this.populated.add(c.key);
+        for (const be of m.blockEntities) { const k = posKey(be.x, be.y, be.z); if (!this.blockEntities.has(k)) this.blockEntities.set(k, be); }
+        if (m.entities.length && this.cb.onEntities) this.cb.onEntities(m.entities);
+      }
+      if (this.cb.onChunkLoaded) this.cb.onChunkLoaded(c);
+    } else if (m.type === 'mesh') {
+      c.meshPending = false;
+      c.light = new Uint8Array(m.light);
+      if (m.version !== c.version) return;
+      c.meshedVersion = m.version;
+      c.maxY = m.maxY;
+      if (c.urgentVersion === m.version) { this.uploads.delete(c.key); this.cb.onMesh(c, m); }
+      else this.uploads.set(c.key, [c, m]);
+    }
+  }
+
+  update(px, pz, radius) {
+    const pcx = Math.floor(px / CHUNK), pcz = Math.floor(pz / CHUNK);
+    if (this.uploads.size) {
+      const t0 = performance.now();
+      // Nearest first.
+      const list = [...this.uploads.values()].sort((a, b) => Math.hypot(a[0].cx - pcx, a[0].cz - pcz) - Math.hypot(b[0].cx - pcx, b[0].cz - pcz));
+      for (const [c, m] of list) {
+        this.uploads.delete(c.key);
+        if (this.chunks.get(c.key) === c) this.cb.onMesh(c, m);
+        if (performance.now() - t0 > this.uploadBudget) break;
+      }
+    }
+    for (const c of this.chunks.values()) {
+      if (Math.max(Math.abs(c.cx - pcx), Math.abs(c.cz - pcz)) > radius + 3) {
+        this.cb.onUnload(c);
+        this.chunks.delete(c.key);
+      }
+    }
+    const wanted = [];
+    for (let dz = -radius - 1; dz <= radius + 1; dz++) for (let dx = -radius - 1; dx <= radius + 1; dx++) {
+      if (dx * dx + dz * dz > (radius + 1.5) ** 2) continue;
+      wanted.push([pcx + dx, pcz + dz, dx * dx + dz * dz]);
+    }
+    wanted.sort((a, b) => a[2] - b[2]);
+    for (const [cx, cz] of wanted) {
+      let c = this.chunk(cx, cz);
+      if (!c) {
+        c = { cx, cz, key: chunkKey(cx, cz), ids: null, meta: null, biomes: null, heights: null, light: null, genPending: false, meshPending: false, version: 1, meshedVersion: 0, maxY: 0, gpu: null, priority: 0, failed: 0 };
+        this.chunks.set(c.key, c);
+      }
+      if (!c.ids && !c.genPending && c.failed < 3) {
+        const w = this.pickWorker();
+        if (!w) break;
+        c.genPending = true;
+        w.busy++;
+        w.postMessage({ type: 'gen', job: this.nextJob++, seed: this.seed, dim: this.dim, worldType: this.worldType, cx, cz });
+      }
+    }
+    const toMesh = [];
+    for (const [cx, cz, d2] of wanted) {
+      if (d2 > (radius + 0.5) ** 2) continue;
+      const c = this.chunk(cx, cz);
+      if (!c || !c.ids || c.meshPending || c.meshedVersion === c.version) continue;
+      if (!this.neighboursReady(cx, cz)) continue;
+      toMesh.push([c, c.priority ? -1 : d2]);
+    }
+    toMesh.sort((a, b) => a[1] - b[1]);
+    for (const [c] of toMesh) {
+      const w = this.pickWorker(c.priority ? 3 : 2);
+      if (!w) break;
+      c.meshPending = true;
+      if (c.priority) c.urgentVersion = c.version;
+      c.priority = 0;
+      w.busy++;
+      const job = this.buildVolume(c.cx, c.cz);
+      w.postMessage({ type: 'mesh', job: this.nextJob++, cx: c.cx, cz: c.cz, dim: this.dim, version: c.version, sky: this.hasSky || this.dim === DIM.END, ...job },
+        [job.ids.buffer, job.meta.buffer, job.biomes.buffer]);
+    }
+  }
+
+  neighboursReady(cx, cz) {
+    for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) {
+      const n = this.chunk(cx + dx, cz + dz);
+      if (!n || !n.ids) return false;
+    }
+    return true;
+  }
+
+  buildVolume(cx, cz) {
+    const S = PS, SS = S * S;
+    const ids = new Uint8Array(VOLUME_SIZE), meta = new Uint8Array(VOLUME_SIZE), biomes = new Uint8Array(SS);
+    ids.fill(B.BEDROCK, 0, SS);
+    for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) {
+      const src = this.chunk(cx + dx, cz + dz);
+      const x0 = Math.max(0, PAD + dx * CHUNK), x1 = Math.min(S, PAD + dx * CHUNK + CHUNK);
+      const z0 = Math.max(0, PAD + dz * CHUNK), z1 = Math.min(S, PAD + dz * CHUNK + CHUNK);
+      const lx0 = x0 - (PAD + dx * CHUNK), len = x1 - x0;
+      for (let pz = z0; pz < z1; pz++) {
+        const lz = pz - (PAD + dz * CHUNK);
+        biomes.set(src.biomes.subarray(lx0 + lz * CHUNK, lx0 + lz * CHUNK + len), x0 + pz * S);
+      }
+      for (let y = 0; y < HEIGHT; y++) {
+        for (let pz = z0; pz < z1; pz++) {
+          const s = lx0 + (pz - (PAD + dz * CHUNK)) * CHUNK + y * CC, d = x0 + pz * S + (y + 1) * SS;
+          ids.set(src.ids.subarray(s, s + len), d);
+          meta.set(src.meta.subarray(s, s + len), d);
+        }
+      }
+    }
+    return { ids, meta, biomes };
+  }
+
+  getBlock(x, y, z) {
+    x = Math.floor(x); y = Math.floor(y); z = Math.floor(z);
+    if (y < 0) return B.BEDROCK;
+    if (y >= HEIGHT) return B.AIR;
+    const cx = Math.floor(x / CHUNK), cz = Math.floor(z / CHUNK);
+    const c = this.chunks.get(chunkKey(cx, cz));
+    if (!c || !c.ids) return UNLOADED;
+    return c.ids[(x - cx * CHUNK) + (z - cz * CHUNK) * CHUNK + y * CC];
+  }
+  getMeta(x, y, z) {
+    x = Math.floor(x); y = Math.floor(y); z = Math.floor(z);
+    if (y < 0 || y >= HEIGHT) return 0;
+    const cx = Math.floor(x / CHUNK), cz = Math.floor(z / CHUNK);
+    const c = this.chunks.get(chunkKey(cx, cz));
+    if (!c || !c.ids) return 0;
+    return c.meta[(x - cx * CHUNK) + (z - cz * CHUNK) * CHUNK + y * CC];
+  }
+  isLoaded(x, z) { const c = this.chunkAt(x, z); return !!(c && c.ids); }
+
+  // Sets a block; returns false if the chunk isn't loaded. Fires onBlockChange for simulation.
+  setBlock(x, y, z, id, m = 0, notify = true) {
+    x = Math.floor(x); y = Math.floor(y); z = Math.floor(z);
+    if (y < 0 || y >= HEIGHT) return false;
+    const cx = Math.floor(x / CHUNK), cz = Math.floor(z / CHUNK);
+    const c = this.chunk(cx, cz);
+    if (!c || !c.ids) return false;
+    const lx = x - cx * CHUNK, lz = z - cz * CHUNK;
+    const i = lx + lz * CHUNK + y * CC;
+    const old = c.ids[i], oldM = c.meta[i];
+    if (old === id && oldM === m) return true;
+    c.ids[i] = id; c.meta[i] = m;
+    if (!this.edits.has(c.key)) this.edits.set(c.key, new Map());
+    this.edits.get(c.key).set(i, id | (m << 8));
+    const hi = lx + lz * CHUNK;
+    if (id !== B.AIR && y > c.heights[hi]) c.heights[hi] = y;
+    else if (id === B.AIR && y === c.heights[hi]) { let yy = y; while (yy > 0 && c.ids[hi + yy * CC] === B.AIR) yy--; c.heights[hi] = yy; }
+    // Light can travel 14 blocks, so neighbours may need new meshes too; nearby ones first.
+    for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) {
+      const n = this.chunk(cx + dx, cz + dz);
+      if (!n) continue;
+      const near = (dx === 0 || (dx < 0 && lx === 0) || (dx > 0 && lx === 15)) && (dz === 0 || (dz < 0 && lz === 0) || (dz > 0 && lz === 15));
+      n.version++;
+      if ((dx === 0 && dz === 0) || near) n.priority = 1;
+    }
+    if (old !== id && this.blockEntities.has(posKey(x, y, z)) && this.cb.onBlockEntityRemoved) this.cb.onBlockEntityRemoved(x, y, z, this.blockEntities.get(posKey(x, y, z)));
+    if (old !== id) this.blockEntities.delete(posKey(x, y, z));
+    if (notify && this.cb.onBlockChange) this.cb.onBlockChange(x, y, z, old, id, oldM, m);
+    return true;
+  }
+
+  serializeEdits() {
+    const out = {};
+    for (const [k, m] of this.edits) {
+      const list = [];
+      for (const [i, v] of m) list.push(i, v);
+      if (list.length) out[k] = list;
+    }
+    return out;
+  }
+  serializeBlockEntities() { return Object.fromEntries(this.blockEntities); }
+
+  heightAt(x, z) {
+    const c = this.chunkAt(x, z);
+    if (!c || !c.heights) return -1;
+    return c.heights[(Math.floor(x) - c.cx * CHUNK) + (Math.floor(z) - c.cz * CHUNK) * CHUNK];
+  }
+  biomeAt(x, z) {
+    const c = this.chunkAt(x, z);
+    if (!c || !c.biomes) return 0;
+    return c.biomes[(Math.floor(x) - c.cx * CHUNK) + (Math.floor(z) - c.cz * CHUNK) * CHUNK];
+  }
+
+  // Light at a block from the last mesh; estimates when the chunk has not been meshed yet.
+  lightAt(x, y, z) {
+    x = Math.floor(x); y = Math.floor(y); z = Math.floor(z);
+    if (y >= HEIGHT) return { sky: this.hasSky ? 15 : 0, blk: 0 };
+    if (y < 0) return { sky: 0, blk: 0 };
+    const c = this.chunkAt(x, z);
+    if (c && c.light) {
+      const v = c.light[(x - c.cx * CHUNK) + (z - c.cz * CHUNK) * CHUNK + y * CC];
+      return { sky: v >> 4, blk: v & 15 };
+    }
+    const h = this.heightAt(x, z);
+    return { sky: this.hasSky && y > h ? 15 : 4, blk: 0 };
+  }
+
+  isReadyAround(x, z, r) {
+    const pcx = Math.floor(x / CHUNK), pcz = Math.floor(z / CHUNK);
+    for (let dz = -r; dz <= r; dz++) for (let dx = -r; dx <= r; dx++) {
+      const c = this.chunk(pcx + dx, pcz + dz);
+      if (!c || c.meshedVersion === 0) return false;
+    }
+    return true;
+  }
+
+  // DDA through blocks, testing each block's selection boxes. Returns the hit block and face normal.
+  raycast(o, d, maxDist, { liquids = false } = {}) {
+    let x = Math.floor(o[0]), y = Math.floor(o[1]), z = Math.floor(o[2]);
+    const sx = Math.sign(d[0]), sy = Math.sign(d[1]), sz = Math.sign(d[2]);
+    const tdx = sx ? Math.abs(1 / d[0]) : Infinity, tdy = sy ? Math.abs(1 / d[1]) : Infinity, tdz = sz ? Math.abs(1 / d[2]) : Infinity;
+    let tx = sx ? (sx > 0 ? x + 1 - o[0] : o[0] - x) * tdx : Infinity;
+    let ty = sy ? (sy > 0 ? y + 1 - o[1] : o[1] - y) * tdy : Infinity;
+    let tz = sz ? (sz > 0 ? z + 1 - o[2] : o[2] - z) * tdz : Infinity;
+    const boxes = [];
+    for (let steps = 0; steps < 200; steps++) {
+      const id = this.getBlock(x, y, z);
+      if (id !== B.AIR && id !== UNLOADED) {
+        if (liquids && (id === B.WATER || id === B.LAVA)) {
+          const t = this.rayBox(o, d, [x, y, z, x + 1, y + 1, z + 1]);
+          if (t && t.t <= maxDist) return { x, y, z, nx: t.n[0], ny: t.n[1], nz: t.n[2], id, meta: this.getMeta(x, y, z), t: t.t };
+        }
+        const m = this.getMeta(x, y, z);
+        selectionBoxes(id, m, boxes);
+        let best = null;
+        for (const b of boxes) {
+          const t = this.rayBox(o, d, [x + b[0], y + b[1], z + b[2], x + b[3], y + b[4], z + b[5]]);
+          if (t && (!best || t.t < best.t)) best = t;
+        }
+        if (best && best.t <= maxDist) return { x, y, z, nx: best.n[0], ny: best.n[1], nz: best.n[2], id, meta: m, t: best.t, box: boxes[0] };
+      }
+      const t = Math.min(tx, ty, tz);
+      if (t > maxDist + 1) break;
+      if (tx < ty && tx < tz) { x += sx; tx += tdx; }
+      else if (ty < tz) { y += sy; ty += tdy; }
+      else { z += sz; tz += tdz; }
+    }
+    return null;
+  }
+
+  // Slab test; returns entry distance and face normal.
+  rayBox(o, d, b) {
+    let tmin = -Infinity, tmax = Infinity, n = null;
+    for (let a = 0; a < 3; a++) {
+      if (Math.abs(d[a]) < 1e-9) { if (o[a] < b[a] || o[a] > b[a + 3]) return null; continue; }
+      let t1 = (b[a] - o[a]) / d[a], t2 = (b[a + 3] - o[a]) / d[a];
+      let s = -1;
+      if (t1 > t2) { const t = t1; t1 = t2; t2 = t; s = 1; }
+      if (t1 > tmin) { tmin = t1; n = [0, 0, 0]; n[a] = s; }
+      tmax = Math.min(tmax, t2);
+      if (tmin > tmax) return null;
+    }
+    if (tmax < 0 || !n) return null;
+    return { t: Math.max(0, tmin), n };
+  }
+
+  // Collision boxes (world space) of blocks overlapping an AABB.
+  collide(x0, y0, z0, x1, y1, z1, out = []) {
+    out.length = 0;
+    const tmp = [];
+    for (let y = Math.floor(y0) - 1; y <= Math.floor(y1); y++) for (let z = Math.floor(z0); z <= Math.floor(z1); z++) for (let x = Math.floor(x0); x <= Math.floor(x1); x++) {
+      const id = this.getBlock(x, y, z);
+      if (id === UNLOADED) { out.push([x, y, z, x + 1, y + 1, z + 1]); continue; }
+      if (!SOLID[id]) continue;
+      collisionBoxes(id, this.getMeta(x, y, z), tmp);
+      for (const b of tmp) {
+        const bb = [x + b[0], y + b[1], z + b[2], x + b[3], y + b[4], z + b[5]];
+        if (bb[3] > x0 && bb[0] < x1 && bb[4] > y0 && bb[1] < y1 && bb[5] > z0 && bb[2] < z1) out.push(bb);
+      }
+    }
+    return out;
+  }
+
+  locate(kind, x, z, cb) {
+    const w = this.workers[0], job = this.nextJob++;
+    this.pendingLocates.set(job, cb);
+    w.postMessage({ type: 'locate', job, seed: this.seed, dim: this.dim, worldType: this.worldType, kind, x, z });
+  }
+
+  emitAt(x, y, z) { const id = this.getBlock(x, y, z); return id === UNLOADED ? 0 : EMIT[(id << 4) | (this.getMeta(x, y, z) & VARIANT_MASK[id])]; }
+  isOpaque(x, y, z) { const id = this.getBlock(x, y, z); return id === UNLOADED || OPAQUE[id] === 1; }
+  shapeAt(x, y, z) { const id = this.getBlock(x, y, z); return id === UNLOADED ? SHAPE.CUBE : SHAPE_OF[id]; }
+}

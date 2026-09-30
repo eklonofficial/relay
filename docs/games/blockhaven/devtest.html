@@ -1,0 +1,30 @@
+<!doctype html><html><body style="margin:0;overflow:hidden"><canvas id="c" style="width:100vw;height:100vh;display:block"></canvas>
+<script type="module">
+import { TEXTURES, DIM } from './js/data/blocks.js';
+import { generateBlockTextures } from './js/render/blocktex.js';
+import { buildMipChain } from './js/render/atlas.js';
+import { Renderer } from './js/render/renderer.js';
+import { World } from './js/world/world.js';
+import { computeEnv } from './js/game/env.js';
+import { forward } from './js/core/math.js';
+const q = new URLSearchParams(location.search);
+const seed = Number(q.get('seed') || 2024), type = q.get('type') || 'default', dim = Number(q.get('dim') || 0);
+const cam = (q.get('cam') || '0,120,0,0.8,-0.3').split(',').map(Number);
+const time = Number(q.get('time') || 0.08), rd = Number(q.get('rd') || 6);
+const r = new Renderer(document.getElementById('c'));
+r.setBlockTextures(buildMipChain(generateBlockTextures()), TEXTURES.length);
+const world = new World({ seed, dim, worldType: type, callbacks: { onMesh: (c, m) => r.uploadChunk(c, m), onUnload: c => r.freeChunk(c) } });
+window.errors = [];
+let t0 = performance.now();
+function frame(now) {
+  requestAnimationFrame(frame);
+  r.resize(innerWidth, innerHeight);
+  world.update(cam[0], cam[2], rd);
+  const fwd = forward(cam[3], cam[4]);
+  const env = computeEnv(dim, time, fwd, 0, 0);
+  r.render({ camPos: cam.slice(0, 3), yaw: cam[3], pitch: cam[4], roll: 0, fov: 75, time: (now - t0) / 1000, env, medium: 0, renderDistance: rd, clouds: true, chunks: world.chunks.values(), dim });
+  let meshed = 0; for (const c of world.chunks.values()) if (c.meshedVersion) meshed++;
+  window.meshed = meshed;
+}
+requestAnimationFrame(frame);
+</script></body></html>

@@ -109,4 +109,15 @@ export class Simplex {
     }
     return sum / norm;
   }
+
+  fbm3(x, y, z, octaves, lacunarity = 2, gain = 0.5) {
+    let sum = 0, amp = 1, norm = 0;
+    for (let o = 0; o < octaves; o++) {
+      sum += this.noise3(x, y, z) * amp;
+      norm += amp;
+      amp *= gain;
+      x *= lacunarity; y *= lacunarity; z *= lacunarity;
+    }
+    return sum / norm;
+  }
 }
