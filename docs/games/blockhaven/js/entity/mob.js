@@ -1,14 +1,14 @@
 // Living mobs: physics, AI archetypes, combat, breeding/taming, trading and animation.
-import { Entity, drawModel, rootMatrix, M } from './entity.js?v=munko4yf';
-import { Projectile, renderStack } from './objects.js?v=munko4yf';
-import { MOBS, PROFESSIONS } from '../data/mobs.js?v=munko4yf';
-import { B, BLOCKS, SOLID } from '../data/blocks.js?v=munko4yf';
-import { UNLOADED } from '../world/world.js?v=munko4yf';
-import { villagerTrades } from '../game/trades.js?v=munko4yf';
-import { findPath, clearWalk } from './pathfind.js?v=munko4yf';
-import { ARMOR_BYPASS, armorStats, armorReduce, applyInvul } from '../game/combat.js?v=munko4yf';
-import { armorSkinKey } from '../data/armor.js?v=munko4yf';
-import { I } from '../data/items.js?v=munko4yf';
+import { Entity, drawModel, rootMatrix, M } from './entity.js?v=munkt0s5';
+import { Projectile, renderStack } from './objects.js?v=munkt0s5';
+import { MOBS, PROFESSIONS } from '../data/mobs.js?v=munkt0s5';
+import { B, BLOCKS, SOLID } from '../data/blocks.js?v=munkt0s5';
+import { UNLOADED } from '../world/world.js?v=munkt0s5';
+import { villagerTrades } from '../game/trades.js?v=munkt0s5';
+import { findPath, clearWalk } from './pathfind.js?v=munkt0s5';
+import { ARMOR_BYPASS, armorStats, armorReduce, applyInvul } from '../game/combat.js?v=munkt0s5';
+import { armorSkinKey } from '../data/armor.js?v=munkt0s5';
+import { I } from '../data/items.js?v=munkt0s5';
 
 const rnd = (a, b) => a + Math.random() * (b - a);
 const rint = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
@@ -34,6 +34,14 @@ function rollEquipment(type, difficulty) {
   return eq.hand || eq.armor.some(Boolean) ? eq : null;
 }
 
+// Rideable animals: speed range (blocks/s), jump strength range, whether they need taming,
+// saddle height (where the rider sits, in blocks above the animal's feet).
+export const RIDEABLE = {
+  horse: { speed: [4.8, 14.5], jump: [0.4, 1.0], seat: 0.85 },
+  donkey: { speed: [7.5, 7.5], jump: [0.5, 0.5], seat: 0.8 },
+  camel: { speed: [6.8, 6.8], jump: [0.42, 0.42], seat: 1.55, tame: false },
+};
+
 const QUIET = new Set(['creeper', 'cod', 'salmon', 'tropical_fish', 'pufferfish', 'squid', 'glow_squid', 'turtle', 'axolotl']);
 
 export class Mob extends Entity {
@@ -45,6 +53,15 @@ export class Mob extends Entity {
     this.baby = !!opts.baby;
     this.equipment = opts.equipment || rollEquipment(type, game.difficulty);
     this.fresh = !!opts.fresh;
+    this.saddled = !!opts.saddled;
+    if (RIDEABLE[type]) {
+      // Per-animal stats, as in the original: horses vary, donkeys are steady.
+      const R = RIDEABLE[type];
+      this.rideSpeed = opts.rideSpeed ?? (R.speed[0] + Math.random() * (R.speed[1] - R.speed[0]));
+      this.jumpStrength = opts.jumpStrength ?? (R.jump[0] + Math.random() * (R.jump[1] - R.jump[0]));
+      this.temper = opts.temper ?? 0;
+      if (R.tame === false) this.tamed = true;
+    }
     const sc = (d.scale || 1) * (d.sizes ? this.size : 1) * (this.baby ? 0.5 : 1);
     this.scale = sc;
     this.hw = d.hw * (d.sizes ? this.size : 1) * (this.baby ? 0.5 : 1);
@@ -423,6 +440,7 @@ export class Mob extends Entity {
 
   ai(dt) {
     const d = this.def, g = this.game;
+    if (this.rider) return; // steered by (or bucking) its rider
     if (this.target && (this.target.dead || this.target.deathT > 0 || (this.target === g.playerEntity && !this.playerTargetable()) || this.distTo(this.target.pos) > 40)) this.target = null;
     switch (d.ai) {
       case 'animal': return this.aiAnimal(dt);
@@ -863,7 +881,16 @@ export class Mob extends Entity {
     }
     if (this.mobType === 'zombie_villager' && key === 'golden_apple') { g.inv.consumeHeld(); this.curing = 5; g.sound.play('cure', this.pos, 0.8); g.later(5, () => { if (!this.dead) { this.dead = true; g.spawnMob('villager', this.pos[0], this.pos[1], this.pos[2]); } }); return true; }
     if (this.mobType === 'iron_golem' && key === 'iron_ingot' && this.health < this.maxHealth) { this.health = Math.min(this.maxHealth, this.health + 25); g.inv.consumeHeld(); g.sound.play('anvil', this.pos, 0.5); return true; }
-    if (key === 'saddle' && (this.mobType === 'pig' || this.mobType === 'horse' || this.mobType === 'strider')) { this.saddled = true; g.inv.consumeHeld(); return true; }
+    if (key === 'saddle' && !this.saddled && !this.baby && (this.mobType === 'pig' || this.mobType === 'strider' || (RIDEABLE[this.mobType] && this.tamed))) {
+      this.saddled = true; g.inv.consumeHeld(); g.sound.play('equip', this.pos, 0.7); return true;
+    }
+    // Horses: feeding calms them (temper); an empty hand (or any non-food item) mounts.
+    if (RIDEABLE[this.mobType] && !this.baby) {
+      const calm = { wheat: 3, sugar: 3, apple: 3, hay_block: 3, golden_carrot: 5, golden_apple: 10 }[key];
+      if (calm && !this.tamed) { this.temper = Math.min(100, (this.temper || 0) + calm); g.inv.consumeHeld(g.mode === 'creative' ? 0 : 1); g.sound.play('eat', this.pos, 0.5); return true; }
+      if (!g.player.sneaking) { g.mount(this); return true; }
+    }
+    if ((this.mobType === 'pig' || this.mobType === 'strider') && this.saddled && !key) { g.mount(this); return true; }
     return false;
   }
 
@@ -963,6 +990,7 @@ export class Mob extends Entity {
     const flash = this.hurtT > 0 || (this.mobType === 'creeper' && this.fuse > 0 && Math.floor(this.fuse * 8) % 2 === 0) ? 0.8 : 0;
     this.lastPose = this.pose();
     const mats = drawModel(ctx.mobs, this.model, this.layer, root, this.lastPose, light, flash);
+    if (this.saddled && (this.mobType === 'horse' || this.mobType === 'donkey')) drawModel(ctx.mobs, g.mobModel('saddle'), g.mobLayer('saddle'), root, { body: this.lastPose.body || [0, 0, 0] }, light, flash);
     // Worn armor follows the same pose.
     if (this.equipment) for (const k of this.equipment.armor) {
       const sk = k && armorSkinKey(k, !!this.model.thin);
@@ -985,7 +1013,7 @@ export class Mob extends Entity {
   toJSON() {
     if (this.deathT > 0) return null;
     return {
-      t: 'mob', type: this.mobType, p: this.pos, yaw: this.yaw, health: this.health, baby: this.baby, size: this.size, tamed: this.tamed, sitting: this.sitting,
+      t: 'mob', type: this.mobType, p: this.pos, yaw: this.yaw, health: this.health, baby: this.baby, size: this.size, tamed: this.tamed, sitting: this.sitting, saddled: this.saddled, rideSpeed: this.rideSpeed, jumpStrength: this.jumpStrength, temper: this.temper,
       sheared: this.sheared, woolColor: this.woolColor, name: this.name, persistent: this.persistent, home: this.home, charged: this.charged,
       profession: this.profession, level: this.level, xp: this.xp, trades: this.trades, equipment: this.equipment,
     };
@@ -993,7 +1021,7 @@ export class Mob extends Entity {
 }
 
 // Moves an entity without gravity handling (fliers/swimmers).
-import { moveEntity } from './physics.js?v=munko4yf';
+import { moveEntity } from './physics.js?v=munkt0s5';
 function import_move(e, dt) { moveEntity(e.world, e, e.vel[0] * dt, e.vel[1] * dt, e.vel[2] * dt); }
 
 // Renders a held item using a part matrix (model units).

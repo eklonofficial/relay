@@ -1,30 +1,30 @@
 // Blockhaven bootstrap: assets, menus, input, camera, frame loop.
-import { Demo, DEMO_SEED } from './demo.js?v=munko4yf';
-import { armorModel, armorSkinKey, ARMOR_MATERIALS, ARMOR_PIECES } from './data/armor.js?v=munko4yf';
-import { TEXTURES, TEX, B, BLOCKS, DIM, DIM_NAMES, SHAPE_OF, SHAPE, props } from './data/blocks.js?v=munko4yf';
-import { I, ITEMS } from './data/items.js?v=munko4yf';
-import { MOBS, PROFESSIONS, playerModel } from './data/mobs.js?v=munko4yf';
-import { BIOMES } from './gen/biomes.js?v=munko4yf';
-import { generateBlockTextures } from './render/blocktex.js?v=munko4yf';
-import { generateItemTextures, ITEM_LAYER, FX_LAYER, ITEM_LAYER_COUNT } from './render/itemtex.js?v=munko4yf';
-import { packModel, paintModel, SKIN } from './render/mobtex.js?v=munko4yf';
-import { buildMipChain } from './render/atlas.js?v=munko4yf';
-import { Renderer, Batch } from './render/renderer.js?v=munko4yf';
-import { World, UNLOADED } from './world/world.js?v=munko4yf';
-import { createGenerator } from './gen/index.js?v=munko4yf';
-import { Game } from './game/game.js?v=munko4yf';
-import { Interact } from './game/interact.js?v=munko4yf';
-import { Commands } from './game/commands.js?v=munko4yf';
-import { GUI, HUD } from './game/ui.js?v=munko4yf';
-import { buildIcons, hudSprites } from './game/icons.js?v=munko4yf';
-import { Sound } from './game/audio.js?v=munko4yf';
-import { computeEnv } from './game/env.js?v=munko4yf';
-import { guideSections } from './game/guide.js?v=munko4yf';
-import { listWorlds, loadWorld, saveWorld, deleteWorld } from './game/storage.js?v=munko4yf';
-import { drawModel, rootMatrix, M } from './entity/entity.js?v=munko4yf';
-import { itemMesh, emitItemMesh } from './entity/itemmesh.js?v=munko4yf';
-import { Lightning } from './entity/objects.js?v=munko4yf';
-import { compose, translation, rotationX, rotationY, rotationZ, scaling, forward, mat4 } from './core/math.js?v=munko4yf';
+import { Demo, DEMO_SEED } from './demo.js?v=munkt0s5';
+import { armorModel, armorSkinKey, ARMOR_MATERIALS, ARMOR_PIECES } from './data/armor.js?v=munkt0s5';
+import { TEXTURES, TEX, B, BLOCKS, DIM, DIM_NAMES, SHAPE_OF, SHAPE, props } from './data/blocks.js?v=munkt0s5';
+import { I, ITEMS } from './data/items.js?v=munkt0s5';
+import { MOBS, PROFESSIONS, playerModel, saddleModel } from './data/mobs.js?v=munkt0s5';
+import { BIOMES } from './gen/biomes.js?v=munkt0s5';
+import { generateBlockTextures } from './render/blocktex.js?v=munkt0s5';
+import { generateItemTextures, ITEM_LAYER, FX_LAYER, ITEM_LAYER_COUNT } from './render/itemtex.js?v=munkt0s5';
+import { packModel, paintModel, SKIN } from './render/mobtex.js?v=munkt0s5';
+import { buildMipChain } from './render/atlas.js?v=munkt0s5';
+import { Renderer, Batch } from './render/renderer.js?v=munkt0s5';
+import { World, UNLOADED } from './world/world.js?v=munkt0s5';
+import { createGenerator } from './gen/index.js?v=munkt0s5';
+import { Game } from './game/game.js?v=munkt0s5';
+import { Interact } from './game/interact.js?v=munkt0s5';
+import { Commands } from './game/commands.js?v=munkt0s5';
+import { GUI, HUD } from './game/ui.js?v=munkt0s5';
+import { buildIcons, hudSprites } from './game/icons.js?v=munkt0s5';
+import { Sound } from './game/audio.js?v=munkt0s5';
+import { computeEnv } from './game/env.js?v=munkt0s5';
+import { guideSections } from './game/guide.js?v=munkt0s5';
+import { listWorlds, loadWorld, saveWorld, deleteWorld } from './game/storage.js?v=munkt0s5';
+import { drawModel, rootMatrix, M } from './entity/entity.js?v=munkt0s5';
+import { itemMesh, emitItemMesh } from './entity/itemmesh.js?v=munkt0s5';
+import { Lightning } from './entity/objects.js?v=munkt0s5';
+import { compose, translation, rotationX, rotationY, rotationZ, scaling, forward, mat4 } from './core/math.js?v=munkt0s5';
 
 const $ = id => document.getElementById(id);
 const SETTINGS_KEY = 'blockhaven.settings.v2';
@@ -98,6 +98,7 @@ class App {
     for (const [k, d] of Object.entries(MOBS)) addSkin(k, d.model(), seed++);
     for (const p of PROFESSIONS) addSkin(`villager_${p}`, MOBS.villager.professionModel(p), seed++);
     addSkin('player', playerModel(), 777);
+    addSkin('saddle', saddleModel(), 778);
     for (const mat of Object.keys(ARMOR_MATERIALS)) for (const piece of ARMOR_PIECES) for (const thin of [false, true]) addSkin(`armor_${mat}_${piece}${thin ? '_thin' : ''}`, armorModel(mat, piece, thin), seed++);
     this.renderer.setEntityTextures(buildMipChain(skins, SKIN, 7), skins.length);
     this.icons = buildIcons(this.blockTex, this.itemTex);
@@ -589,9 +590,10 @@ class App {
       if (this.mode !== 'play') for (const k of Object.keys(input)) input[k] = false;
       if (g.alive) {
         if (g.mode === 'spectator') p.speedMul = this.specSpeed || 1;
-        p.update(dt, input);
+        if (g.riding) g.rideControl(dt, input); else p.update(dt, input);
       }
       g.update(dt);
+      if (g.riding) g.rideSync();
       if (this.demo) this.demo.update(dt);
       this.interact.update(dt, { attack: this.mouse.left && this.mode === 'play', attackClicked: this.mouse.leftClicked, use: this.mouse.right && this.mode === 'play', useClicked: this.mouse.rightClicked });
       this.mouse.leftClicked = this.mouse.rightClicked = false;
@@ -662,6 +664,7 @@ class App {
     const sw = Math.sin(p.bobPhase * 1.6) * 0.9 * p.bobAmount;
     const swing = Math.sin(this.interact.swing * Math.PI) * 1.4;
     const poses = { head: [p.pitch, 0, 0], rightLeg: [sw, 0, 0], leftLeg: [-sw, 0, 0], rightArm: [-sw * 0.8 + swing, 0, 0], leftArm: [sw * 0.8, 0, 0] };
+    if (g.riding) { poses.rightLeg = [-1.4, 0.3, 0]; poses.leftLeg = [-1.4, -0.3, 0]; poses.rightArm = [-0.6 + swing, 0, 0]; poses.leftArm = [-0.6, 0, 0]; }
     const light = g.world.lightAt(p.pos[0], p.pos[1] + 1, p.pos[2]);
     const b = Math.max(Math.pow(0.8, 15 - light.sky) * g.env.skyLight[0], Math.pow(0.82, 15 - light.blk), g.env.ambient[0]);
     const sneak = p.sneaking ? M.chain(M.t(0, -2, 0), M.rx(0)) : null;

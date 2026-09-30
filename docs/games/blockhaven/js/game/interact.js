@@ -1,10 +1,10 @@
 // Player actions: mining, placing, using items and blocks, attacking.
-import { meleeDamage, isCrit, knockStrength, isSword } from './combat.js?v=munko4yf';
-import { B, BLOCKS, SOLID, OPAQUE, SHAPE_OF, SHAPE, props, st, DIM, FACING_SHIFT, AXIS_SHIFT, VARIANT_MASK } from '../data/blocks.js?v=munko4yf';
-import { I, breakTime } from '../data/items.js?v=munko4yf';
-import { collisionBoxes, selectionBoxes } from '../data/shapes.js?v=munko4yf';
-import { UNLOADED, posKey } from '../world/world.js?v=munko4yf';
-import { forward } from '../core/math.js?v=munko4yf';
+import { meleeDamage, isCrit, knockStrength, isSword } from './combat.js?v=munkt0s5';
+import { B, BLOCKS, SOLID, OPAQUE, SHAPE_OF, SHAPE, props, st, DIM, FACING_SHIFT, AXIS_SHIFT, VARIANT_MASK } from '../data/blocks.js?v=munkt0s5';
+import { I, breakTime } from '../data/items.js?v=munkt0s5';
+import { collisionBoxes, selectionBoxes } from '../data/shapes.js?v=munkt0s5';
+import { UNLOADED, posKey } from '../world/world.js?v=munkt0s5';
+import { forward } from '../core/math.js?v=munkt0s5';
 
 const DIRS = [[0, 1], [-1, 0], [0, -1], [1, 0]];
 export const dirIndex = (x, z) => (Math.abs(x) > Math.abs(z) ? (x > 0 ? 3 : 1) : (z > 0 ? 0 : 2));
@@ -25,7 +25,7 @@ export class Interact {
     const g = this.g, p = g.player, eye = p.eyePos(), dir = forward(p.yaw, p.pitch);
     this.target = g.mode === 'spectator' ? null : g.world.raycast(eye, dir, this.reach);
     let best = null, bt = this.target ? this.target.t : this.reach;
-    if (g.mode !== 'spectator') for (const e of g.entities.near(eye, this.reach + 3, o => o.isLiving && !o.dead && !(o.deathT > 0))) {
+    if (g.mode !== 'spectator') for (const e of g.entities.near(eye, this.reach + 3, o => o.isLiving && !o.dead && !(o.deathT > 0) && o !== g.riding)) {
       const pad = 0.1;
       const t = g.world.rayBox(eye, dir, [e.pos[0] - e.hw - pad, e.pos[1] - pad, e.pos[2] - e.hw - pad, e.pos[0] + e.hw + pad, e.pos[1] + e.h + pad, e.pos[2] + e.hw + pad]);
       if (t && t.t < bt) { best = e; bt = t.t; }
