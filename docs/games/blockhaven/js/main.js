@@ -1,33 +1,33 @@
 // Blockhaven bootstrap: assets, menus, input, camera, frame loop.
-import { Demo, DEMO_SEED } from './demo.js?v=muo2sewa';
-import { armorModel, armorSkinKey, ARMOR_MATERIALS, ARMOR_PIECES, elytraModel } from './data/armor.js?v=muo2sewa';
-import { TEXTURES, TEX, B, BLOCKS, DIM, DIM_NAMES, SHAPE_OF, SHAPE, props } from './data/blocks.js?v=muo2sewa';
-import { I, ITEMS } from './data/items.js?v=muo2sewa';
-import { MOBS, PROFESSIONS, playerModel, saddleModel, PLAYER_SKINS } from './data/mobs.js?v=muo2sewa';
-import { Net, cleanCode, cleanName, MAX_PLAYERS } from './net/net.js?v=muo2sewa';
-import { NameTags } from './net/nametags.js?v=muo2sewa';
-import { BIOMES } from './gen/biomes.js?v=muo2sewa';
-import { generateBlockTextures } from './render/blocktex.js?v=muo2sewa';
-import { generateItemTextures, ITEM_LAYER, FX_LAYER, ITEM_LAYER_COUNT } from './render/itemtex.js?v=muo2sewa';
-import { packModel, paintModel, SKIN, faceRects } from './render/mobtex.js?v=muo2sewa';
-import { buildMipChain } from './render/atlas.js?v=muo2sewa';
-import { Renderer, Batch } from './render/renderer.js?v=muo2sewa';
-import { World, UNLOADED } from './world/world.js?v=muo2sewa';
-import { createGenerator } from './gen/index.js?v=muo2sewa';
-import { Game } from './game/game.js?v=muo2sewa';
-import { Interact } from './game/interact.js?v=muo2sewa';
-import { Commands } from './game/commands.js?v=muo2sewa';
-import { GUI, HUD } from './game/ui.js?v=muo2sewa';
-import { buildIcons, hudSprites } from './game/icons.js?v=muo2sewa';
-import { Sound } from './game/audio.js?v=muo2sewa';
-import { buildLogo, buttonTexture, iconDataURL } from './render/logo.js?v=muo2sewa';
-import { computeEnv } from './game/env.js?v=muo2sewa';
-import { guideSections } from './game/guide.js?v=muo2sewa';
-import { listWorlds, loadWorld, saveWorld, deleteWorld } from './game/storage.js?v=muo2sewa';
-import { drawModel, rootMatrix, M } from './entity/entity.js?v=muo2sewa';
-import { itemMesh, emitItemMesh } from './entity/itemmesh.js?v=muo2sewa';
-import { Lightning } from './entity/objects.js?v=muo2sewa';
-import { compose, translation, rotationX, rotationY, rotationZ, scaling, forward, mat4 } from './core/math.js?v=muo2sewa';
+import { Demo, DEMO_SEED } from './demo.js?v=muo4kot4';
+import { armorModel, armorSkinKey, ARMOR_MATERIALS, ARMOR_PIECES, elytraModel } from './data/armor.js?v=muo4kot4';
+import { TEXTURES, TEX, B, BLOCKS, DIM, DIM_NAMES, SHAPE_OF, SHAPE, props } from './data/blocks.js?v=muo4kot4';
+import { I, ITEMS } from './data/items.js?v=muo4kot4';
+import { MOBS, PROFESSIONS, playerModel, saddleModel, PLAYER_SKINS } from './data/mobs.js?v=muo4kot4';
+import { Net, cleanCode, cleanName, MAX_PLAYERS } from './net/net.js?v=muo4kot4';
+import { NameTags } from './net/nametags.js?v=muo4kot4';
+import { BIOMES } from './gen/biomes.js?v=muo4kot4';
+import { generateBlockTextures } from './render/blocktex.js?v=muo4kot4';
+import { generateItemTextures, ITEM_LAYER, FX_LAYER, ITEM_LAYER_COUNT } from './render/itemtex.js?v=muo4kot4';
+import { packModel, paintModel, SKIN, faceRects } from './render/mobtex.js?v=muo4kot4';
+import { buildMipChain } from './render/atlas.js?v=muo4kot4';
+import { Renderer, Batch } from './render/renderer.js?v=muo4kot4';
+import { World, UNLOADED } from './world/world.js?v=muo4kot4';
+import { createGenerator } from './gen/index.js?v=muo4kot4';
+import { Game } from './game/game.js?v=muo4kot4';
+import { Interact } from './game/interact.js?v=muo4kot4';
+import { Commands } from './game/commands.js?v=muo4kot4';
+import { GUI, HUD } from './game/ui.js?v=muo4kot4';
+import { buildIcons, hudSprites } from './game/icons.js?v=muo4kot4';
+import { Sound } from './game/audio.js?v=muo4kot4';
+import { buildLogo, buttonTexture, iconDataURL } from './render/logo.js?v=muo4kot4';
+import { computeEnv } from './game/env.js?v=muo4kot4';
+import { guideSections } from './game/guide.js?v=muo4kot4';
+import { listWorlds, loadWorld, saveWorld, deleteWorld } from './game/storage.js?v=muo4kot4';
+import { drawModel, rootMatrix, M } from './entity/entity.js?v=muo4kot4';
+import { itemMesh, emitItemMesh } from './entity/itemmesh.js?v=muo4kot4';
+import { Lightning } from './entity/objects.js?v=muo4kot4';
+import { compose, translation, rotationX, rotationY, rotationZ, scaling, forward, mat4 } from './core/math.js?v=muo4kot4';
 
 const $ = id => document.getElementById(id);
 const SETTINGS_KEY = 'blockhaven.settings.v2';
@@ -710,9 +710,9 @@ class App {
     const dt = Math.min(0.05, realDt);
     this.lastFrame = now;
     this.time += dt;
-    this.frames++; this.fpsT += realDt;
+    this.fpsT += realDt;
     if (this.fpsT >= 0.5) { this.fps = Math.round(this.frames / this.fpsT); this.frames = 0; this.fpsT = 0; }
-    this.adaptResolution(realDt);
+    if (!this.game) { this.frames++; this.adaptResolution(realDt); }
     const dpr = Math.min(window.devicePixelRatio || 1, LOW_END ? 1 : 2) * this.renderScale;
     this.renderer.resize(Math.floor(window.innerWidth * dpr), Math.floor(window.innerHeight * dpr));
     // GUI scale like Minecraft's "Auto": the largest whole scale that keeps a 320x240 GUI on screen.
@@ -720,6 +720,27 @@ class App {
     if (gs !== this.guiScale) { this.guiScale = gs; document.documentElement.style.setProperty('--gs', gs); }
     if (!this.game) { this.framePanorama(dt); return; }
     this.frameGame(dt);
+  }
+  // Low-latency frame pacing. When the GPU can't keep up, the browser quietly queues finished
+  // frames, so what you see (and every mouse/key press) lags two or three frames behind. A fence
+  // after each frame lets us skip drawing while the GPU is still busy with the last one: the game
+  // keeps simulating with the newest input, and the next frame drawn is always a fresh one.
+  gpuReady() {
+    const gl = this.renderer.gl;
+    if (!this.fence) return true;
+    const st = gl.getSyncParameter(this.fence, gl.SYNC_STATUS);
+    if (st !== gl.SIGNALED && (this.gpuSkips = (this.gpuSkips || 0) + 1) <= 3) return false;
+    gl.deleteSync(this.fence); this.fence = null; this.gpuSkips = 0;
+    return true;
+  }
+  gpuSubmitted() {
+    const gl = this.renderer.gl, now = performance.now();
+    // Frame rate and dynamic resolution follow frames actually drawn, not animation callbacks.
+    this.frames++;
+    if (this.lastDrawn) this.adaptResolution(Math.min(0.25, (now - this.lastDrawn) / 1000));
+    this.lastDrawn = now;
+    this.fence = gl.fenceSync(gl.SYNC_GPU_COMMANDS_COMPLETE, 0);
+    gl.flush();
   }
   // Dynamic resolution keeps the frame rate smooth on slow GPUs, only touching resolution when truly needed.
   adaptResolution(realDt) {
@@ -735,7 +756,8 @@ class App {
     this.resSlow = med > 1 / 36 ? (this.resSlow || 0) + 1 : 0;
     this.resFast = med < 1 / 55 ? (this.resFast || 0) + 1 : 0;
     if (now - (this.resChangedAt || 0) < 6000) return;
-    if (this.resSlow >= 2 && this.renderScale > 0.7) { this.renderScale = Math.max(0.7, +(this.renderScale - 0.15).toFixed(2)); this.resChangedAt = now; this.resSlow = 0; }
+    const minScale = LOW_END ? 0.6 : 0.7;
+    if (this.resSlow >= 2 && this.renderScale > minScale) { this.renderScale = Math.max(minScale, +(this.renderScale - 0.15).toFixed(2)); this.resChangedAt = now; this.resSlow = 0; }
     else if (this.resFast >= 6 && this.renderScale < 1) { this.renderScale = Math.min(1, +(this.renderScale + 0.15).toFixed(2)); this.resChangedAt = now; this.resFast = 0; }
   }
   framePanorama(dt) {
@@ -793,7 +815,7 @@ class App {
       this.post.dark = Math.min(1, this.sleeping.t / 1.5);
       if (this.sleeping.t > 2) { this.sleeping.done(); this.sleeping = null; }
     } else this.post.dark = Math.max(0, this.post.dark - dt);
-    this.render(dt);
+    if (this.gpuReady()) { this.render(dt); this.gpuSubmitted(); }
     this.updateHud(dt);
   }
 

@@ -1,7 +1,7 @@
 // Chunk storage, streaming, edits and queries for one dimension.
-import { CHUNK, HEIGHT, PAD, PS, B, OPAQUE, SOLID, EMIT, VARIANT_MASK, SHAPE_OF, SHAPE, DIM } from '../data/blocks.js?v=muo2sewa';
-import { VOLUME_SIZE } from '../mesh/mesher.js?v=muo2sewa';
-import { selectionBoxes, collisionBoxes } from '../data/shapes.js?v=muo2sewa';
+import { CHUNK, HEIGHT, PAD, PS, B, OPAQUE, SOLID, EMIT, VARIANT_MASK, SHAPE_OF, SHAPE, DIM } from '../data/blocks.js?v=muo4kot4';
+import { VOLUME_SIZE } from '../mesh/mesher.js?v=muo4kot4';
+import { selectionBoxes, collisionBoxes } from '../data/shapes.js?v=muo4kot4';
 
 export const UNLOADED = 255;
 export const chunkKey = (cx, cz) => `${cx},${cz}`;
@@ -33,7 +33,7 @@ export class World {
     const count = Math.max(1, Math.min(4, (navigator.hardwareConcurrency || 4) - 1));
     this.workers = [];
     for (let i = 0; i < count; i++) {
-      const w = new Worker(new URL('../worker.js?v=muo2sewa', import.meta.url), { type: 'module' });
+      const w = new Worker(new URL('../worker.js?v=muo4kot4', import.meta.url), { type: 'module' });
       w.busy = 0;
       w.onmessage = e => this.onWorkerMessage(w, e.data);
       w.onerror = e => console.error('worker error', e.message);
@@ -67,7 +67,7 @@ export class World {
       c.ids = m.ids; c.meta = m.meta; c.biomes = m.biomes; c.heights = m.heights;
       c.genPending = false;
       const edits = this.edits.get(c.key);
-      if (edits) for (const [i, v] of edits) { c.ids[i] = v & 255; c.meta[i] = v >> 8; }
+      if (edits) for (const [i, v] of edits) { c.ids[i] = v & 255; c.meta[i] = v >> 8; const hi = i & 255, y = i >> 8; if ((v & 255) !== B.AIR && y > c.heights[hi]) c.heights[hi] = y; }
       if (!this.populated.has(c.key)) {
         this.populated.add(c.key);
         if (this.cb.onPopulate) this.cb.onPopulate(c.key);
@@ -158,6 +158,10 @@ export class World {
     const S = PS, SS = S * S;
     const ids = new Uint8Array(VOLUME_SIZE), meta = new Uint8Array(VOLUME_SIZE), biomes = new Uint8Array(SS);
     ids.fill(B.BEDROCK, 0, SS);
+    // Only copy up to the tallest column around (everything above is air, already zero).
+    let top = 0;
+    for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) { const hs = this.chunk(cx + dx, cz + dz).heights; for (let i = 0; i < hs.length; i++) if (hs[i] > top) top = hs[i]; }
+    top = Math.min(HEIGHT, top + 2);
     for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) {
       const src = this.chunk(cx + dx, cz + dz);
       const x0 = Math.max(0, PAD + dx * CHUNK), x1 = Math.min(S, PAD + dx * CHUNK + CHUNK);
@@ -167,7 +171,7 @@ export class World {
         const lz = pz - (PAD + dz * CHUNK);
         biomes.set(src.biomes.subarray(lx0 + lz * CHUNK, lx0 + lz * CHUNK + len), x0 + pz * S);
       }
-      for (let y = 0; y < HEIGHT; y++) {
+      for (let y = 0; y < top; y++) {
         for (let pz = z0; pz < z1; pz++) {
           const s = lx0 + (pz - (PAD + dz * CHUNK)) * CHUNK + y * CC, d = x0 + pz * S + (y + 1) * SS;
           ids.set(src.ids.subarray(s, s + len), d);
