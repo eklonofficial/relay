@@ -1,10 +1,10 @@
 // Player actions: mining, placing, using items and blocks, attacking.
-import { meleeDamage, isCrit, knockStrength, isSword } from './combat.js?v=munl5eht';
-import { B, BLOCKS, SOLID, OPAQUE, SHAPE_OF, SHAPE, props, st, DIM, FACING_SHIFT, AXIS_SHIFT, VARIANT_MASK } from '../data/blocks.js?v=munl5eht';
-import { I, breakTime } from '../data/items.js?v=munl5eht';
-import { collisionBoxes, selectionBoxes } from '../data/shapes.js?v=munl5eht';
-import { UNLOADED, posKey } from '../world/world.js?v=munl5eht';
-import { forward } from '../core/math.js?v=munl5eht';
+import { meleeDamage, isCrit, knockStrength, isSword } from './combat.js?v=munlh7vv';
+import { B, BLOCKS, SOLID, OPAQUE, SHAPE_OF, SHAPE, props, st, DIM, FACING_SHIFT, AXIS_SHIFT, VARIANT_MASK } from '../data/blocks.js?v=munlh7vv';
+import { I, breakTime } from '../data/items.js?v=munlh7vv';
+import { collisionBoxes, selectionBoxes } from '../data/shapes.js?v=munlh7vv';
+import { UNLOADED, posKey } from '../world/world.js?v=munlh7vv';
+import { forward } from '../core/math.js?v=munlh7vv';
 
 const DIRS = [[0, 1], [-1, 0], [0, -1], [1, 0]];
 export const dirIndex = (x, z) => (Math.abs(x) > Math.abs(z) ? (x > 0 ? 3 : 1) : (z > 0 ? 0 : 2));
@@ -134,7 +134,7 @@ export class Interact {
     if (!it) return;
     if (t && !repeat && this.toolUse(t)) { this.acted = true; return; }
     // Held-use items.
-    if (it.food) { if (g.stats.food < 20 || it.key === 'golden_apple' || it.key === 'enchanted_golden_apple' || it.key === 'chorus_fruit' || it.food.milk || g.mode === 'creative' || g.difficulty === 'peaceful') { this.using = 'eat'; this.useT = 0; this.acted = true; } return; }
+    if (it.food) { if (g.stats.food < 20 || it.key === 'golden_apple' || it.key === 'enchanted_golden_apple' || it.key === 'chorus_fruit' || it.food.milk || g.mode === 'creative' || g.difficulty === 'peaceful') { this.using = 'eat'; this.useT = 0; this.acted = true; } else if (!repeat && g.app.showAction) g.app.showAction("You're full — hold right click to eat when your hunger bar isn't full", 2); return; }
     if (it.kind === 'bow') {
       if (it.crossbow && held.tag && held.tag.loaded) { this.fireArrow(1, true); held.tag = null; g.inv.main.changed(); g.inv.offhand.changed(); this.acted = true; return; }
       if (g.mode === 'creative' || g.inv.main.count('arrow') > 0 || g.inv.main.count('spectral_arrow') > 0) { this.using = it.crossbow ? 'crossbow' : 'bow'; this.useT = 0; g.sound.play('bow_draw', null, 0.5); this.acted = true; }
