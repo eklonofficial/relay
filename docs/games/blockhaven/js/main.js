@@ -1,4 +1,5 @@
 // Blockhaven bootstrap: assets, menus, input, camera, frame loop.
+import { Demo, DEMO_SEED } from './demo.js';
 import { armorModel, armorSkinKey, ARMOR_MATERIALS, ARMOR_PIECES } from './data/armor.js';
 import { TEXTURES, TEX, B, BLOCKS, DIM, DIM_NAMES, SHAPE_OF, SHAPE, props } from './data/blocks.js';
 import { I, ITEMS } from './data/items.js';
@@ -197,6 +198,20 @@ class App {
     };
     this.startGame(meta);
   }
+  // Cinematic showcase: a real (unsaved) world driven by scripted camera shots.
+  startDemo() {
+    this.sound.unlock(); this.sound.click();
+    this.demo = new Demo(this);
+    this.startGame({ id: 'demo', name: 'Demo', seed: DEMO_SEED, seedText: String(DEMO_SEED), mode: 'creative', type: 'default', difficulty: 'normal', cheats: true, demo: true, created: Date.now() });
+    this.hudHidden = true; $('hud').classList.add('hidden');
+    $('demo-fade').style.opacity = 1;
+  }
+  exitDemo() {
+    if (!this.demo) return;
+    this.demo.stop(); this.demo = null;
+    this.hudHidden = false;
+    this.quitToTitle();
+  }
   startGame(meta) {
     this.stopPanorama();
     this.generator = createGenerator(meta.seed, 0, meta.type);
@@ -209,22 +224,23 @@ class App {
     this.game.start(meta);
     this.chatLines = []; $('chat').textContent = '';
     this.setMode('loading');
-    $('loading-label').textContent = meta.dims ? 'Loading world…' : 'Generating world…';
+    $('loading-label').textContent = meta.demo ? 'Preparing the demo…' : meta.dims ? 'Loading world…' : 'Generating world…';
     this.loadingFor = 0;
-    this.requestLock();
-    this.chat(`Welcome to ${meta.name}! Press T or / for chat and commands (try /help).`, '#aaaaaa');
+    if (!meta.demo) this.requestLock();
+    if (!meta.demo) this.chat(`Welcome to ${meta.name}! Press T or / for chat and commands (try /help).`, '#aaaaaa');
     this.saveT = 0;
     // The controls hint only appears briefly in brand-new worlds.
-    this.hintUntil = meta.dims ? 0 : performance.now() + 10000;
-    $('hint').style.opacity = meta.dims ? 0 : 1;
+    this.hintUntil = meta.dims || meta.demo ? 0 : performance.now() + 10000;
+    $('hint').style.opacity = meta.dims || meta.demo ? 0 : 1;
   }
   onWorldOpened() {}
   onDimensionChange(dim) {
+    if (this.demo) return;
     this.setMode('loading');
     $('loading-label').textContent = dim === DIM.NETHER ? 'Entering the Nether…' : dim === DIM.END ? 'Entering the End…' : 'Returning to the Overworld…';
   }
   async saveGame(quiet = true) {
-    if (!this.game || !this.game.world) return;
+    if (!this.game || !this.game.world || (this.game.meta && this.game.meta.demo)) return;
     const data = this.game.serialize();
     if (this.thumbNext) data.thumb = this.thumbNext;
     try { await saveWorld(data); if (!quiet) this.chat('Game saved', '#aaaaaa'); } catch (e) { console.warn('save failed', e); }
@@ -344,6 +360,7 @@ class App {
     click('btn-settings2', () => this.openPanel('settings'));
     click('btn-settings-done', () => { $('settings').classList.add('hidden'); store(SETTINGS_KEY, settings); });
     click('btn-guide', () => this.openGuide());
+    click('btn-demo', () => this.startDemo());
     click('btn-guide2', () => this.openGuide());
     click('btn-guide-done', () => $('guide').classList.add('hidden'));
     click('btn-controls', () => this.openPanel('controls'));
@@ -370,10 +387,10 @@ class App {
       this.locked = document.pointerLockElement === canvas;
       if (this.locked) { this.lockedAt = performance.now(); this.mouseAvg = 0; }
       if (this.locked) { if (this.mode === 'pause') this.setMode('play'); }
-      else if (this.mode === 'play' && !this.suppressPause) { this.setMode('pause'); this.saveGame(); }
+      else if (this.mode === 'play' && !this.suppressPause && !this.demo) { this.setMode('pause'); this.saveGame(); }
       this.suppressPause = false;
     });
-    canvas.addEventListener('click', () => { if ((this.mode === 'play' || this.mode === 'loading') && !this.locked) this.requestLock(); });
+    canvas.addEventListener('click', () => { if (!this.demo && (this.mode === 'play' || this.mode === 'loading') && !this.locked) this.requestLock(); });
     // Pointer events carry fractional movement (mousemove rounds to whole pixels, which swallows
     // slow, small motions and feels like a deadzone). pointerrawupdate is also delivered at the
     // device's full rate instead of once per frame.
@@ -442,6 +459,11 @@ class App {
     this.nameT = 2;
   }
   keyDown(e) {
+    if (this.demo) {
+      if (e.code === 'Escape') { e.preventDefault(); this.exitDemo(); }
+      else if (e.code === 'Space') { e.preventDefault(); this.demo.skip(); }
+      return;
+    }
     if (e.target.tagName === 'INPUT' && e.target.id !== 'chat-input') return;
     if (['Space', 'F1', 'F3', 'F5', 'Tab', 'Slash', 'Quote'].includes(e.code) || (e.ctrlKey && ['KeyW', 'KeyD', 'KeyS', 'KeyQ'].includes(e.code))) e.preventDefault();
     if (this.mode === 'gui') { if (this.gui.key(e)) e.preventDefault(); return; }
@@ -472,6 +494,7 @@ class App {
   // ---------------- camera ----------------
   camera(dt) {
     const g = this.game, p = g.player;
+    if (this.demo && this.demo.cam && this.demo.state === 'play') { const c = this.demo.cam; return { pos: c.pos.slice(), yaw: c.yaw, pitch: c.pitch, roll: c.roll }; }
     const bob = settings.bobbing && g.mode !== 'spectator' ? p.bobAmount : 0, ph = p.bobPhase;
     const eye = p.eyePos();
     const rx = Math.cos(p.yaw), rz = -Math.sin(p.yaw);
@@ -546,8 +569,9 @@ class App {
       this.loadingFor += dt;
       if (ready === total && !g.pendingArrival) {
         // Drop onto solid ground if the saved position is inside terrain.
-        this.setMode(this.locked ? 'play' : 'pause');
+        this.setMode(this.locked || this.demo ? 'play' : 'pause');
         this.setGameMode(g.mode);
+        if (this.demo && this.demo.state === 'idle') { $('hud').classList.add('hidden'); this.demo.start(); }
       }
     }
     const playing = this.mode === 'play' || this.mode === 'gui' || this.mode === 'chat' || this.mode === 'death';
@@ -562,6 +586,7 @@ class App {
         p.update(dt, input);
       }
       g.update(dt);
+      if (this.demo) this.demo.update(dt);
       this.interact.update(dt, { attack: this.mouse.left && this.mode === 'play', attackClicked: this.mouse.leftClicked, use: this.mouse.right && this.mode === 'play', useClicked: this.mouse.rightClicked });
       this.mouse.leftClicked = this.mouse.rightClicked = false;
       if (this.gui.isOpen) this.gui.update();

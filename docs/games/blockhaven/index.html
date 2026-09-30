@@ -122,6 +122,17 @@
       radial-gradient(ellipse 9% 72% at 94% 100%, rgba(255,235,140,0.85), rgba(255,140,30,0.55) 45%, transparent 70%);
     animation: flick 0.45s steps(4) infinite; image-rendering: pixelated; }
   @keyframes flick { 0% { transform: scale(1, 1); } 25% { transform: scale(1.02, 1.1); } 50% { transform: scale(0.99, 0.94); } 75% { transform: scale(1.01, 1.05); } 100% { transform: scale(1, 1); } }
+  #demo { position: fixed; inset: 0; pointer-events: none; z-index: 20; }
+  #demo .bar { position: absolute; left: 0; right: 0; height: 9vh; background: #000; }
+  #demo .bar.top { top: 0; } #demo .bar.bottom { bottom: 0; }
+  #demo-caption { position: absolute; left: 6vw; bottom: 14vh; max-width: 70vw; opacity: 0; transform: translateY(12px); transition: opacity 0.9s, transform 0.9s; text-shadow: 0 2px 12px rgba(0,0,0,0.8), 2px 2px 0 #000; }
+  #demo-caption.show { opacity: 1; transform: none; }
+  #demo-title { font-size: clamp(28px, 5.5vw, 64px); font-weight: 900; letter-spacing: 0.06em; color: #fff; }
+  #demo-sub { font-size: clamp(13px, 1.6vw, 20px); color: #e8e8e8; margin-top: 6px; }
+  #demo-dots { position: absolute; bottom: 3.2vh; left: 50%; transform: translateX(-50%); display: flex; gap: 8px; }
+  #demo-dots i { width: 8px; height: 8px; border-radius: 50%; background: rgba(255,255,255,0.3); } #demo-dots i.on { background: #fff; }
+  #demo-help { position: absolute; top: 3vh; right: 3vw; font-size: 12px; color: rgba(255,255,255,0.7); }
+  #demo-fade { position: absolute; inset: 0; background: #000; opacity: 1; }
   #hint { position: absolute; top: 58px; left: 50%; transform: translateX(-50%); max-width: 92vw; text-align: center; font-size: 13px; line-height: 1.6; background: rgba(0,0,0,0.5); padding: 8px 14px; border-radius: 4px; transition: opacity 1.2s; text-shadow: 1px 1px 0 #000; pointer-events: none; }
   #toast { position: absolute; top: 14px; right: 14px; width: 300px; background: #212121; border: 2px solid #000; box-shadow: inset 0 0 0 2px #555; padding: 10px 12px; display: flex; gap: 10px; align-items: center; transform: translateX(340px); transition: transform 0.5s; }
   #toast.show { transform: translateX(0); }
@@ -211,10 +222,19 @@
 <body>
 <canvas id="game"></canvas>
 
+<div id="demo" class="hidden">
+  <div class="bar top"></div><div class="bar bottom"></div>
+  <div id="demo-caption"><div id="demo-title"></div><div id="demo-sub"></div></div>
+  <div id="demo-dots"></div>
+  <div id="demo-help">Esc exit · Space next shot</div>
+  <div id="demo-fade"></div>
+</div>
+
 <div id="title" class="screen">
   <div class="logo"><h1>BLOCK<span>HAVEN</span></h1><div class="splash" id="splash"></div></div>
   <div class="menu">
     <button id="btn-play">Singleplayer</button>
+    <button id="btn-demo">&#9654; Watch the Demo</button>
     <button id="btn-guide">Guide &amp; Features</button>
     <div class="row"><button class="half" id="btn-settings">Settings</button><button class="half" id="btn-controls">Controls</button></div>
   </div>
