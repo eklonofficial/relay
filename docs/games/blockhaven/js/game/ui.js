@@ -1,7 +1,7 @@
 // Container GUIs (inventory, crafting, chest, furnace, creative, trading) and the HUD.
-import { I, ITEMS, TABS, maxStack, ARMOR_SLOTS } from '../data/items.js?v=muoe9fcb';
-import { findRecipe, allRecipes, matches, SMELTING, TAGS } from '../data/recipes.js?v=muoe9fcb';
-import { same } from './inventory.js?v=muoe9fcb';
+import { I, ITEMS, TABS, maxStack, ARMOR_SLOTS, iconKey } from '../data/items.js?v=muolvs1g';
+import { findRecipe, allRecipes, matches, SMELTING, TAGS } from '../data/recipes.js?v=muolvs1g';
+import { same } from './inventory.js?v=muolvs1g';
 
 const $ = id => document.getElementById(id);
 const el = (tag, cls, parent) => { const e = document.createElement(tag); if (cls) e.className = cls; if (parent) parent.appendChild(e); return e; };
@@ -42,7 +42,7 @@ export class GUI {
     const show = s || ghost;
     if (!show) return;
     const img = el('img', ghost && !s ? 'ghost' : '', div);
-    img.src = this.icon(show.key);
+    img.src = this.icon(iconKey(show));
     if (s && s.count > 1) el('span', 'count', div).textContent = s.count;
     const it = s && I[s.key];
     if (it && it.durability && s.dmg) {
@@ -576,7 +576,7 @@ export class HUD {
   fillSlot(div, s) {
     div.textContent = '';
     if (!s) return;
-    const img = el('img', '', div); img.src = this.game.icons[s.key] || '';
+    const img = el('img', '', div); img.src = this.game.icons[iconKey(s)] || '';
     if (s.count > 1) el('span', 'count', div).textContent = s.count;
     const it = I[s.key];
     if (it && it.durability && s.dmg) {

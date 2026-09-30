@@ -1,6 +1,6 @@
 // Item registry: every block item plus tools, weapons, armor, food and materials.
-import { BLOCK_ITEMS, BLOCKS, COLORS, SHAPE, st } from './blocks.js?v=muoe9fcb';
-import { EGG_MOBS } from './mobs.js?v=muoe9fcb';
+import { BLOCK_ITEMS, BLOCKS, COLORS, SHAPE, st } from './blocks.js?v=muolvs1g';
+import { EGG_MOBS } from './mobs.js?v=muolvs1g';
 
 export const ITEMS = [];
 export const I = {};          // key -> item
@@ -140,6 +140,8 @@ export const itemOf = key => I[key];
 export const blockItem = (id, meta) => ITEMS.find(it => it.block && it.block[0] === id && it.block[1] === meta);
 
 // Maximum stack for an item key; tools and armor never stack.
+// The icon a stack shows: a charged crossbow shows what it holds.
+export const iconKey = s => (s.key === 'crossbow' && s.tag && s.tag.loaded ? (s.tag.rocket ? 'crossbow_firework' : 'crossbow_arrow') : s.key);
 export const maxStack = key => (I[key] ? I[key].stack : 64);
 
 // Mining: seconds to break a block state with an item (null item = hand).

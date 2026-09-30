@@ -1,13 +1,14 @@
 // Player actions: mining, placing, using items and blocks, attacking.
-import { meleeDamage, isCrit, knockStrength, isSword, SWEEP_DAMAGE, SHIELD_DELAY, SHIELD_DISABLE } from './combat.js?v=muoe9fcb';
-import { B, BLOCKS, SOLID, OPAQUE, SHAPE_OF, SHAPE, props, st, DIM, FACING_SHIFT, AXIS_SHIFT, VARIANT_MASK } from '../data/blocks.js?v=muoe9fcb';
-import { I, breakTime } from '../data/items.js?v=muoe9fcb';
-import { collisionBoxes, selectionBoxes } from '../data/shapes.js?v=muoe9fcb';
-import { UNLOADED, posKey } from '../world/world.js?v=muoe9fcb';
-import { forward } from '../core/math.js?v=muoe9fcb';
-import { KIND } from './redstone.js?v=muoe9fcb';
+import { meleeDamage, isCrit, knockStrength, isSword, SWEEP_DAMAGE, SHIELD_DELAY, SHIELD_DISABLE } from './combat.js?v=muolvs1g';
+import { B, BLOCKS, SOLID, OPAQUE, SHAPE_OF, SHAPE, props, st, DIM, FACING_SHIFT, AXIS_SHIFT, VARIANT_MASK } from '../data/blocks.js?v=muolvs1g';
+import { I, breakTime } from '../data/items.js?v=muolvs1g';
+import { collisionBoxes, selectionBoxes } from '../data/shapes.js?v=muolvs1g';
+import { UNLOADED, posKey } from '../world/world.js?v=muolvs1g';
+import { forward } from '../core/math.js?v=muolvs1g';
+import { KIND } from './redstone.js?v=muolvs1g';
 
 const DIRS = [[0, 1], [-1, 0], [0, -1], [1, 0]];
+export const CROSSBOW_CHARGE = 1.25; // seconds (25 ticks)
 export const dirIndex = (x, z) => (Math.abs(x) > Math.abs(z) ? (x > 0 ? 3 : 1) : (z > 0 ? 0 : 2));
 const CROP_OF = { wheat: 0, carrots: 1, potatoes: 2, beetroots: 3, pumpkin_stem: 4, melon_stem: 5, nether_wart: 6 };
 const INTERACTIVE = new Set(['crafting_table', 'furnace', 'chest', 'bed', 'door', 'trapdoor', 'misc', 'end_portal_frame', 'tnt', 'campfire']);
@@ -152,8 +153,14 @@ export class Interact {
     // Held-use items.
     if (it.food) { if (g.stats.food < 20 || it.key === 'golden_apple' || it.key === 'enchanted_golden_apple' || it.key === 'chorus_fruit' || it.food.milk || g.mode === 'creative' || g.difficulty === 'peaceful') { this.using = 'eat'; this.useT = 0; this.acted = true; } else if (!repeat && g.app.showAction) g.app.showAction("You're full — hold right click to eat when your hunger bar isn't full", 2); return; }
     if (it.kind === 'bow') {
-      if (it.crossbow && held.tag && held.tag.loaded) { this.fireArrow(1, true); held.tag = null; g.inv.main.changed(); g.inv.offhand.changed(); this.acted = true; return; }
-      if (g.mode === 'creative' || g.inv.main.count('arrow') > 0 || g.inv.main.count('spectral_arrow') > 0) { this.using = it.crossbow ? 'crossbow' : 'bow'; this.useT = 0; g.sound.play('bow_draw', null, 0.5); this.acted = true; }
+      // A charged crossbow fires at once; otherwise start drawing (bow) or loading (crossbow).
+      if (it.crossbow && held.tag && held.tag.loaded) { this.fireCrossbow(held); this.acted = true; return; }
+      const rocket = it.crossbow && this.offhandRocket();
+      if (g.mode === 'creative' || rocket || g.inv.main.count('arrow') > 0 || g.inv.main.count('spectral_arrow') > 0) {
+        this.using = it.crossbow ? 'crossbow' : 'bow'; this.useT = 0; this.xbowSounds = 0;
+        if (!it.crossbow) g.sound.play('bow_draw', null, 0.5);
+        this.acted = true;
+      }
       return;
     }
     if (it.kind === 'shield') { if (!g.onCooldown('shield')) { this.using = 'shield'; this.blockT = 0; } this.acted = true; return; }
@@ -193,11 +200,11 @@ export class Interact {
         if (g.mode !== 'creative') { g.inv.consumeHeld(); if (key === 'milk_bucket') g.inv.add({ key: 'bucket', count: 1 }); }
         this.using = null;
       }
-    } else if (this.using === 'crossbow' && this.useT >= 1.25) {
-      held.tag = { loaded: true }; g.inv.main.changed();
-      if (g.mode !== 'creative') g.inv.main.remove(k => k === 'arrow', 1);
-      g.sound.play('bow_draw', null, 0.6);
-      this.using = null;
+    } else if (this.using === 'crossbow') {
+      // Loading sounds at 20% and 50% of the charge, like the original; it loads on release.
+      const f = this.useT / CROSSBOW_CHARGE;
+      if (f >= 0.2 && this.xbowSounds < 1) { this.xbowSounds = 1; g.sound.play('xbow_start', null, 0.6); }
+      if (f >= 0.5 && this.xbowSounds < 2) { this.xbowSounds = 2; g.sound.play('xbow_mid', null, 0.6); }
     }
   }
   useRelease() {
@@ -206,6 +213,17 @@ export class Interact {
       const t = Math.min(1, this.useT / 1);
       const power = Math.min(1, (t * t + t * 2) / 3);
       if (power >= 0.1) this.fireArrow(power, false);
+    }
+    if (this.using === 'crossbow' && held && held.key === 'crossbow' && this.useT >= CROSSBOW_CHARGE && !(held.tag && held.tag.loaded)) {
+      // Load: a firework rocket from the off-hand takes priority, then arrows.
+      const creative = g.mode === 'creative';
+      let rocket = false;
+      const off = this.offhandRocket();
+      if (off) { rocket = true; if (!creative) { off.count--; g.inv.offhand.set(0, off.count ? off : null); } }
+      else if (!creative) { const k = g.inv.main.count('arrow') ? 'arrow' : 'spectral_arrow'; g.inv.main.remove(x => x === k, 1); }
+      held.tag = { loaded: true, rocket };
+      g.inv.main.changed(); g.inv.offhand.changed();
+      g.sound.play('xbow_load', null, 0.7);
     }
     if (this.using === 'trident' && held && this.useT > 0.5) {
       // Thrown at 2.5 blocks/tick plus the thrower's motion; the throw costs 1 durability.
@@ -237,6 +255,24 @@ export class Interact {
     void pr;
     g.sound.play('bow', null, 0.7, 0.9 + power * 0.3);
     if (!creative && g.inv.damageHeld(1)) g.sound.play('break_item', null, 0.8);
+    this.advanceShot();
+  }
+  offhandRocket() { const o = this.g.inv.offhand.get(0); return o && o.key === 'firework_rocket' ? o : null; }
+  // Crossbow: arrows at 3.15 blocks/tick (always critical), rockets at 1.6, spread 1.
+  fireCrossbow(held) {
+    const g = this.g, p = g.player, f = forward(p.yaw, p.pitch), e = p.eyePos();
+    const rocket = !!(held.tag && held.tag.rocket);
+    held.tag = null; g.inv.main.changed(); g.inv.offhand.changed();
+    const gauss = () => { let u = 0; for (let k = 0; k < 6; k++) u += Math.random(); return (u - 3) / Math.SQRT2; };
+    const d = [f[0] + gauss() * 0.0075, f[1] + gauss() * 0.0075, f[2] + gauss() * 0.0075], dl = Math.hypot(...d);
+    const speed = (rocket ? 1.6 : 3.15) * 20;
+    const from = [e[0] + f[0] * 0.3, e[1] - 0.1, e[2] + f[2] * 0.3];
+    const vel = [d[0] / dl * speed + p.vel[0], d[1] / dl * speed + (p.onGround ? 0 : p.vel[1]), d[2] / dl * speed + p.vel[2]];
+    if (rocket) g.shootProjectile('firework', from, vel, g.playerEntity, { fuse: 1.2 + Math.random() * 0.4 });
+    else g.shootProjectile('arrow', from, vel, g.playerEntity, { crit: true, pickup: g.mode !== 'creative', power: 1 });
+    g.sound.play('xbow_shoot', null, 0.8, 0.9 + Math.random() * 0.2);
+    if (g.mode !== 'creative' && g.inv.damageHeld(rocket ? 3 : 1)) g.sound.play('break_item', null, 0.8);
+    this.swing = 0;
     this.advanceShot();
   }
   advanceShot() { this.g.advance('shoot', 'Take Aim', 'Shoot something with an arrow', 'bow'); }
