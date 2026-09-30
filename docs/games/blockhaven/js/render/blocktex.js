@@ -1,6 +1,6 @@
 // Procedural 16x16 block textures. Every name registered in data/blocks.js must be drawable here.
-import { Painter, ramp, shade, mixHex, hex } from './paint.js?v=muolvs1g';
-import { TEXTURES, COLORS } from '../data/blocks.js?v=muolvs1g';
+import { Painter, ramp, shade, mixHex, hex } from './paint.js?v=muono2ew';
+import { TEXTURES, COLORS } from '../data/blocks.js?v=muono2ew';
 
 const N = 16;
 
@@ -35,10 +35,12 @@ const WOOD = {
 
 // ---------- families ----------
 
-function stoneLike(p, base, { spread = 0.12, clump = 4, grain = 0.4, specks = null, streak = null } = {}) {
-  p.noise(ramp(base, spread), { clump, grain });
-  if (specks) p.speck(specks, 10);
-  if (streak) for (let k = 0; k < 4; k++) { const x = p.rand(N), y = p.rand(N), l = 2 + p.rand(3); for (let i = 0; i < l; i++) p.wrapPut(x + i, y, streak); }
+// Soft blotchy 4-tone stone (dark / mid-dark / mid / light in vanilla-ish proportions) with a few lone flecks.
+function stoneLike(p, base, { spread = 0.12, clump = 4, grain = 0.3, specks = null, streak = null, weights = [14, 34, 36, 16], fleckN = 6 } = {}) {
+  p.dither(ramp(base, spread), weights, { cells: clump, grain });
+  if (fleckN) p.flecks([shade(base, 1 + spread * 1.6), shade(base, 1 - spread * 2.6), shade(base, 1 + spread * 1.6)], fleckN);
+  if (specks) p.flecks(specks, 10);
+  if (streak) p.streaks([streak], 4, 2, 4);
   return p;
 }
 
@@ -50,79 +52,92 @@ function polished(p, base) {
   return p;
 }
 
-function cobble(p, base, moss) {
-  const pts = Array.from({ length: 10 }, () => [p.r() * N, p.r() * N]);
-  const shadesArr = [1.1, 1.0, 0.92, 1.18, 0.86, 1.05, 0.97, 1.12, 0.9, 1.0];
+const MOSS = ['#6b8a4a', '#5e7b40', '#78955a', '#527036'];
+// Rounded stones (a jittered 3x3 grid of Voronoi seeds, one or two dropped so sizes vary) set in 1px dark
+// mortar; each stone has its own tone, a lit upper-left rim and a shadowed lower-right rim.
+function cobble(p, base, moss, { mortar = 0.62, cells = 3 } = {}) {
+  const pts = [];
+  for (let j = 0; j < cells; j++) for (let i = 0; i < cells; i++) pts.push([(i + 0.15 + p.r() * 0.7) * N / cells, (j + 0.15 + p.r() * 0.7) * N / cells]);
+  if (p.chance(0.7)) pts.splice(p.rand(pts.length), 1);
+  const tone = pts.map(() => p.pick([1.1, 1.0, 0.92, 1.05, 0.96, 1.12, 0.88]));
+  const vn = p.valueNoise(4);
   for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
-    let d1 = 1e9, d2 = 1e9, id = 0;
+    let d1 = 1e9, d2 = 1e9, id = 0, ddx = 0, ddy = 0;
     pts.forEach(([px, py], i) => {
       for (let oy = -1; oy <= 1; oy++) for (let ox = -1; ox <= 1; ox++) {
-        const d = Math.hypot(x + 0.5 - px - ox * N, y + 0.5 - py - oy * N);
-        if (d < d1) { d2 = d1; d1 = d; id = i; } else if (d < d2) d2 = d;
+        const dx = x + 0.5 - px - ox * N, dy = y + 0.5 - py - oy * N, d = Math.hypot(dx, dy);
+        if (d < d1) { d2 = d1; d1 = d; id = i; ddx = dx; ddy = dy; } else if (d < d2) d2 = d;
       }
     });
     const edge = d2 - d1;
-    const [px, py] = pts[id];
-    const dx = x + 0.5 - px, dy = y + 0.5 - py;
     let c;
-    if (edge < 0.9) c = shade(base, 0.7);
+    if (edge < 0.9) c = shade(base, mortar * (vn(x, y) > 0.5 ? 1 : 0.9));
     else {
-      c = shade(base, shadesArr[id] * 1.08);
-      if (edge < 1.8 && (dx > 0 || dy > 0)) c = shade(c, 0.84);          // shadowed lower-right rim
-      else if (edge < 2.2 && dx < 0 && dy < 0) c = shade(c, 1.16);      // lit upper-left rim
-      if (p.chance(0.1)) c = shade(c, 0.93);
+      c = shade(base, tone[id] * (vn(x, y) > 0.6 ? 1.05 : vn(x, y) < 0.3 ? 0.95 : 1));
+      if (edge < 2.1 && (ddx > 0.3 || ddy > 0.3)) c = shade(c, 0.86);          // shadowed lower-right rim
+      else if (edge < 2.4 && ddx < 0 && ddy < 0) c = shade(c, 1.14);          // lit upper-left rim
     }
     p.put(x, y, c);
   }
   if (moss) {
-    const vn = p.valueNoise(4);
-    for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) if (vn(x, y) > 0.56) p.put(x, y, p.pick(['#5a7a2a', '#4d6b24', '#6b8c38', '#43611f']));
+    const mn = p.fbm(3);
+    for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) if (mn(x, y) > 0.55 || (mn(x, y) > 0.48 && p.chance(0.4))) p.put(x, y, p.pick(MOSS));
   }
   return p;
 }
 
+// Running-bond bricks: each brick has its own tone plus soft in-brick blotches, mortar is a lightly noisy line.
 function bricks(p, brick, mortar, { rowH = 4, w = 8, bevel = true } = {}) {
+  const vn = p.fbm(4);
   for (let y = 0; y < N; y++) {
     const row = Math.floor(y / rowH), ly = y % rowH;
     const off = row % 2 ? w / 2 : 0;
     for (let x = 0; x < N; x++) {
       const lx = (x + off) % w;
-      if (ly === rowH - 1 || lx === w - 1) { p.put(x, y, shade(mortar, p.chance(0.3) ? 0.93 : 1)); continue; }
+      if (ly === rowH - 1 || lx === w - 1) { p.put(x, y, shade(mortar, p.chance(0.25) ? 0.9 : p.chance(0.2) ? 1.06 : 1)); continue; }
       const id = Math.floor((x + off) / w) + row * 7;
       let c = shade(brick, [1, 0.94, 1.06, 0.9, 1.03][id % 5]);
-      if (bevel && ly === 0) c = shade(c, 1.1);
+      const v = vn(x, y); c = shade(c, v > 0.62 ? 1.06 : v < 0.38 ? 0.93 : 1);
+      if (bevel && ly === 0) c = shade(c, 1.08);
       if (bevel && ly === rowH - 2) c = shade(c, 0.9);
-      p.put(x, y, p.chance(0.12) ? shade(c, 0.92) : c);
+      p.put(x, y, c);
     }
   }
   return p;
 }
 
+// Four big 8x8-ish bricks (second row offset by half a brick), each with soft stone blotches, a lit top-left
+// bevel and a dark bottom-right bevel, separated by 1px dark mortar.
 function bigBricks(p, base, mortar) {
+  const vn = p.fbm(4);
   for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
     const top = y < 8, ly = y % 8, seams = top ? [7, 15] : [3, 11];
     let c;
-    if (ly === 7 || seams.includes(x)) c = mortar;
-    else if (ly === 0 || seams.includes((x + 15) % 16)) c = shade(base, 1.12);
-    else if (ly === 6 || seams.includes((x + 1) % 16)) c = shade(base, 0.84);
-    else c = shade(base, p.pick([1, 0.97, 1.03, 0.95]));
+    const v = vn(x, y), b = shade(base, v > 0.64 ? 1.05 : v < 0.36 ? 0.94 : 1);
+    if (ly === 7 || seams.includes(x)) c = shade(mortar, p.chance(0.25) ? 0.9 : 1);
+    else if (ly === 0 || seams.includes((x + 15) % 16)) c = shade(b, 1.12);
+    else if (ly === 6 || seams.includes((x + 1) % 16)) c = shade(b, 0.84);
+    else c = p.chance(0.05) ? shade(b, 0.9) : b;
     p.put(x, y, c);
   }
   return p;
 }
 
+// Four 4-row boards: a 1px dark seam under each, one vertical butt joint per board (staggered), two dark nail
+// pixels beside the joint, a lit top row and short horizontal grain runs of slightly lighter/darker wood.
 function planks(p, base) {
-  const shades = [1, 0.93, 1.06, 0.97];
+  const shades = [1, 0.94, 1.05, 0.97], joints = [3, 11, 7, 14];
   for (let y = 0; y < N; y++) {
-    const board = y >> 2, c0 = shade(base, shades[board]);
+    const board = y >> 2, ly = y & 3, c0 = shade(base, shades[board]), jx = joints[board];
     for (let x = 0; x < N; x++) {
       let c = c0;
-      if (y % 4 === 3) c = shade(base, 0.68);
-      else if (x === (board * 5 + 3) % 16) c = shade(base, 0.75);
-      else if (y % 4 === 0) c = shade(c0, 1.06);
-      else if (p.chance(0.12)) c = shade(c0, 0.9);
+      if (ly === 3) c = shade(base, x === jx ? 0.5 : p.chance(0.2) ? 0.58 : 0.64);
+      else if (x === jx) c = shade(base, 0.62);
+      else if (ly === 1 && (x === (jx + 2) % 16 || x === (jx + 14) % 16)) c = shade(base, 0.7);   // nails
+      else if (ly === 0) c = shade(c0, x === (jx + 1) % 16 ? 1.12 : 1.06);
       p.put(x, y, c);
     }
+    for (let k = 0; k < 3; k++) { const x = p.rand(N), l = 2 + p.rand(4), ly2 = board * 4 + 1 + p.rand(2), f = p.chance(0.5) ? 0.9 : 1.07; for (let i = 0; i < l; i++) { const xx = (x + i) % 16; if ((xx - jx + 16) % 16 > 2 && (jx - xx + 16) % 16 > 2) p.put(xx, ly2, shade(c0, f)); } }
   }
   return p;
 }
@@ -130,96 +145,116 @@ function planks(p, base) {
 function logSide(p, w) {
   const W = WOOD[w];
   if (W.birch) {
-    p.noise(['#c9c7bf', '#d8d7d2', '#e4e3de', '#d1d0c9'], { clump: 3, grain: 0.3 });
+    // Pale papery bark with black horizontal dashes (a grey lip on each end) and a few grey smudges.
+    p.dither(['#c4c2ba', '#d3d2cc', '#dcdbd6', '#e6e5e1'], [12, 34, 34, 20], { cells: 3, grain: 0.3 });
+    p.streaks(['#a9a8a1', '#b8b7b0'], 4, 2, 4);
     for (let k = 0; k < 7; k++) {
       const x = p.rand(N), y = p.rand(N), len = 2 + p.rand(4);
-      for (let i = 0; i < len; i++) p.wrapPut(x + i, y, i === 0 || i === len - 1 ? '#5a5a52' : '#27271f');
+      for (let i = 0; i < len; i++) p.wrapPut(x + i, y, i === 0 || i === len - 1 ? '#5a5a52' : p.chance(0.15) ? '#3d3d36' : '#27271f');
+      if (len > 3 && p.chance(0.5)) p.wrapPut(x + 1 + p.rand(len - 2), y + 1, '#3d3d36');
     }
     return p;
   }
+  // Vertical bark: each column drifts one tone from its neighbour, then long dark fissures and short light
+  // ridges run down the trunk, broken by a little per-pixel grain.
   const r = ramp(W.bark, 0.14);
+  let t = 2;
   for (let x = 0; x < N; x++) {
-    const col = r[[2, 1, 2, 3, 2, 1, 0, 2][(x * 5 + (x >> 2)) % 8]];
-    for (let y = 0; y < N; y++) p.put(x, y, p.chance(0.18) ? p.pick(r) : col);
+    t = Math.max(0, Math.min(3, t + (p.chance(0.55) ? (p.chance(0.5) ? 1 : -1) : 0)));
+    const drift = p.rand(3) - 1;
+    for (let y = 0; y < N; y++) { const k = (y >> 2) % 2 && p.chance(0.3) ? Math.max(0, Math.min(3, t + drift)) : t; p.put(x, y, p.chance(0.1) ? r[Math.max(0, k - 1)] : r[k]); }
   }
-  for (let k = 0; k < 6; k++) { const x = p.rand(N), y = p.rand(N), l = 3 + p.rand(6); for (let i = 0; i < l; i++) p.wrapPut(x, y + i, r[0]); }
+  p.streaks([r[0]], 7, 4, 9, true);
+  p.streaks([r[3]], 5, 2, 5, true);
+  p.streaks([shade(W.bark, 0.6)], 3, 2, 4, true);
   if (W.glow) p.speck([W.glow], 5);
   return p;
 }
 
+// Log end: 1-2px bark rim, then rounded concentric rings around a dark 2x2 heart.
 function logTop(p, w) {
   const W = WOOD[w];
-  const ringCols = [W.inner, W.ring, W.inner, shade(W.inner, 1.06), W.ring, W.inner, shade(W.ring, 0.95)];
+  const ringCols = [shade(W.ring, 0.8), W.inner, W.ring, W.inner, shade(W.inner, 1.06), W.ring, W.inner, shade(W.ring, 0.95)];
+  const bark = ramp(W.bark, 0.14);
   for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
-    const r = Math.max(Math.abs(x - 7.5), Math.abs(y - 7.5));
-    if (r > 6.6) p.put(x, y, shade(W.bark, p.chance(0.3) ? 0.85 : 1));
-    else p.put(x, y, ringCols[Math.floor(r) % ringCols.length]);
+    const dx = x - 7.5, dy = y - 7.5;
+    const r = Math.max(Math.abs(dx), Math.abs(dy)) * 0.75 + Math.hypot(dx, dy) * 0.25;
+    if (r > 6.3) p.put(x, y, bark[p.chance(0.5) ? 1 : p.chance(0.5) ? 2 : 0]);
+    else p.put(x, y, ringCols[Math.floor(r + 0.4) % ringCols.length]);
   }
   return p;
 }
 
+// Dense foliage: ~15% clustered holes, 4-5 tones assigned by blotchy noise so leaf clumps read as clumps.
 function leaves(p, pal, tint) {
-  const vn = p.valueNoise(5);
+  const vn = p.fbm(4), hn = p.valueNoise(5);
   for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
-    if (p.chance(0.18) && vn(x, y) < 0.7) { p.put(x, y, [0, 0, 0], 0); continue; }
-    const v = vn(x, y) * 0.6 + p.r() * 0.4;
+    if ((hn(x, y) > 0.72 && p.chance(0.55)) || p.chance(0.03)) { p.put(x, y, [0, 0, 0], 0); continue; }
+    const v = vn(x, y) * 0.7 + p.r() * 0.3;
     p.put(x, y, pal[Math.min(pal.length - 1, Math.floor(v * pal.length))]);
   }
   if (tint) p.tintMark();
   return p.bleed();
 }
 
+// Three or four angular ore clusters (one per quadrant, 6-11 cells grown from a 2x2 seed), body in two mid
+// tones, a dark bottom-right edge and a single bright glint on the top-left-most cell.
 function oreOn(p, baseFn, colors) {
   baseFn(p);
-  // Four or five clusters spread over the face (one per quadrant), each a blob of ore pixels
-  // with a bright top-left glint and a dark bottom-right edge.
-  const quads = [[1, 1], [8, 1], [1, 8], [8, 8], [4, 5]].slice(0, 4 + p.rand(2));
+  const quads = [[0, 0], [8, 0], [0, 8], [8, 8]].slice(0, 3 + p.rand(2));
   for (const [qx, qy] of quads) {
     const cx = qx + 1 + p.rand(4), cy = qy + 1 + p.rand(4);
-    const cells = [[0, 0], [1, 0], [0, 1], [1, 1], [-1, 0], [2, 1], [1, 2], [0, -1], [2, 0], [-1, 1], [2, 2], [3, 1], [0, 2]].slice(0, 7 + p.rand(6));
-    const set = new Set(cells.map(([a, b]) => a + ',' + b));
+    const set = new Set(['0,0', '1,0', '0,1', '1,1']), cells = [[0, 0], [1, 0], [0, 1], [1, 1]];
+    const want = 7 + p.rand(6);
+    for (let tries = 0; cells.length < want && tries < 40; tries++) {
+      const [bx, by] = p.pick(cells), [dx, dy] = p.pick([[1, 0], [-1, 0], [0, 1], [0, -1]]), nx = bx + dx, ny = by + dy;
+      if (nx < -1 || nx > 4 || ny < -1 || ny > 4 || set.has(nx + ',' + ny)) continue;
+      set.add(nx + ',' + ny); cells.push([nx, ny]);
+    }
+    let glint = cells[0];
+    for (const c of cells) if (c[0] + c[1] < glint[0] + glint[1] || (c[0] + c[1] === glint[0] + glint[1] && c[1] < glint[1])) glint = c;
     for (const [dx, dy] of cells) {
-      const lit = !set.has((dx - 1) + ',' + dy) && !set.has(dx + ',' + (dy - 1));
       const dark = !set.has((dx + 1) + ',' + dy) && !set.has(dx + ',' + (dy + 1));
-      p.put(cx + dx, cy + dy, lit ? colors[colors.length - 1] : dark ? colors[0] : colors[1 + ((dx + dy) & 1) % (colors.length - 2)]);
+      const c = (dx === glint[0] && dy === glint[1]) ? colors[3] : dark ? colors[0] : colors[1 + ((dx + 2 * dy + (dx >> 1)) & 1)];
+      p.wrapPut(cx + dx, cy + dy, c);
     }
   }
   return p;
 }
 
 const toWhite = (hex, t) => { const n = parseInt(hex.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255].map(c => Math.round(c + (255 - c) * t)); };
-// Assigns palette colours by rank of a noise field, so the colour proportions are exact.
-function byRank(p, pal, cluster, after) {
-  const vn = p.valueNoise(3), vals = [];
-  for (let i = 0; i < N * N; i++) vals.push([(1 - cluster) * p.r() + cluster * vn(i % N, i / N | 0), i]);
-  vals.sort((a, b) => a[0] - b[0]);
-  const total = pal.reduce((a, c) => a + c[1], 0);
-  let k = 0, acc = pal[0][1] / total * N * N;
-  vals.forEach(([, i], r) => { while (r >= acc && k < pal.length - 1) { k++; acc += pal[k][1] / total * N * N; } p.put(i % N, i / N | 0, pal[k][0]); });
-  if (after) after();
-  return p;
-}
-function erfinv(x) { const a = 0.147, l = Math.log(1 - x * x), t = 2 / (Math.PI * a) + l / 2; return Math.sign(x) * Math.sqrt(Math.sqrt(t * t - l / a) - t); }
 function mineral(p, base, style) {
   const r = ramp(base, 0.12);
-  p.noise(r.slice(1), { clump: 3, grain: 0.2 });
-  if (style === 'lines') for (let y = 1; y < N; y += 4) p.hline(1, y, 14, r[3]);
-  if (style === 'facets' || style === 'shiny') {
-    // Polished metal/gem: smooth fill with diagonal glints, like light catching a cut face.
-    p.noise([r[1], r[2], r[2]], { clump: 5, grain: 0.1 });
-    for (const [x0, y0, len] of [[3, 2, 5], [9, 5, 4], [4, 9, 6], [11, 11, 3]]) for (let i = 0; i < len; i++) { p.wrapPut(x0 + i, y0 + i, toWhite(base, 0.55)); p.wrapPut(x0 + i + 1, y0 + i, toWhite(base, 0.3)); }
+  if (style === 'dots') { p.dither(r, [16, 34, 34, 16], { cells: 3, grain: 0.35 }); p.flecks([r[0], r[3], shade(base, 1.3)], 8); p.bevel(shade(base, 1.15), shade(base, 0.75)); }
+  else if (style === 'lines') {
+    p.dither([r[1], r[2], r[2], r[3]], [10, 40, 40, 10], { cells: 3, grain: 0.15 });
+    for (let y = 3; y < 14; y += 4) p.hline(2 + p.rand(3), y, 6 + p.rand(5), p.chance(0.5) ? shade(base, 0.95) : shade(base, 1.04));
+    p.bevel(shade(base, 1.18), shade(base, 0.7));
+    p.bevel(shade(base, 1.08), shade(base, 0.85), 1, 1, 14, 14);
+  } else if (style === 'facets' || style === 'shiny') {
+    p.dither([r[1], r[2], r[2], r[3]], [10, 40, 35, 15], { cells: 4, grain: 0.1 });
+    p.bevel(toWhite(base, 0.35), shade(base, 0.62));
+    p.bevel(shade(base, 0.85), toWhite(base, 0.2), 2, 2, 12, 12);
+    p.rect(3, 3, 10, 10, r[2]);
+    for (const [x0, y0, len] of [[4, 6, 4], [8, 10, 3]]) for (let i = 0; i < len; i++) { p.put(x0 + i, y0 - i, toWhite(base, 0.6)); p.put(x0 + i + 1, y0 - i, toWhite(base, 0.3)); }
+    p.put(3, 3, toWhite(base, 0.6)); p.put(12, 12, shade(base, 0.72));
+  } else {
+    const q = ramp(base, 0.05);
+    p.dither([q[1], q[2], q[2], q[3]], [14, 40, 34, 12], { cells: 3, grain: 0.2 });
+    p.bevel(shade(base, 1.04), shade(base, 0.86));
   }
-  if (style === 'dots') p.speck([r[0], r[3]], 18);
-  p.bevel(shade(base, 1.25), shade(base, 0.62));
   return p;
 }
 
+// Soft woven wool: blotchy 4-tone base with a faint diagonal weave and a few lighter fluff specks.
 function wool(p, base) {
-  const r = ramp(base, 0.07);
+  const r = ramp(base, 0.08), vn = p.fbm(4);
   for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
-    const k = ((x + y * 3) % 4 === 0) ? 0 : ((x * 3 - y) % 5 === 0) ? 3 : p.chance(0.5) ? 2 : 1;
-    p.put(x, y, r[k]);
+    const weave = ((x + y) & 3) === 0 ? -0.12 : ((x + y) & 3) === 2 ? 0.08 : 0;
+    const v = vn(x, y) * 0.55 + p.r() * 0.3 + 0.1 + weave;
+    p.put(x, y, r[Math.max(0, Math.min(3, Math.floor(v * 4)))]);
   }
+  p.flecks([shade(base, 1.14)], 6);
   return p;
 }
 
@@ -283,31 +318,40 @@ function crop(p, stage, max, kind) {
   return p.bleed();
 }
 
+// Doors: vertical-grain slab with a dark outer frame and a lit inner edge. Top half has two 4x4 window
+// openings split by a 1px muntin; bottom half has two recessed panels (dark top-left, lit bottom-right lip).
 function doorTex(p, w, top) {
   const iron = w === 'iron';
-  const base = iron ? '#c9c9c9' : WOOD[w].planks;
-  planks(p, base);
-  p.frame(0, 0, 16, 16, shade(base, 0.62));
-  p.frame(1, 1, 14, 14, shade(base, 0.8));
-  if (top && !iron) {
-    for (const [x, y] of [[3, 3], [9, 3], [3, 9], [9, 9]]) p.rect(x, y, 4, 4, '#000000', 0);
+  const base = iron ? '#c4c4c4' : WOOD[w].planks;
+  if (iron) { p.dither(['#b4b4b4', '#c0c0c0', '#c9c9c9', '#d6d6d6'], [12, 38, 38, 12], { cells: 3, grain: 0.15 }); p.streaks(['#dcdcdc'], 4, 3, 7); }
+  else {
+    const r = ramp(base, 0.1);
+    for (let x = 0; x < N; x++) { const c = r[[2, 2, 1, 2, 3, 2, 1, 2][x % 8]]; for (let y = 0; y < N; y++) p.put(x, y, p.chance(0.1) ? r[1] : c); }
+    p.streaks([r[0]], 4, 3, 7, true);
   }
-  if (iron) {
-    p.clear(); p.fill('#c4c4c4');
-    p.frame(0, 0, 16, 16, '#8c8c8c');
-    for (let y = 2; y < 16; y += 4) p.hline(2, y, 12, '#dadada');
-    if (top) { p.rect(3, 3, 4, 4, '#000000', 0); p.rect(9, 3, 4, 4, '#000000', 0); }
-    p.put(12, top ? 13 : 3, '#707070');
-  } else p.put(12, top ? 14 : 2, shade(base, 0.5));
+  const dk = shade(base, iron ? 0.6 : 0.55), md = shade(base, 0.78), lt = shade(base, 1.1);
+  p.frame(0, 0, 16, 16, dk); p.vline(1, 0, 16, lt); p.hline(0, 1, 16, lt); p.vline(14, 0, 16, md);
+  if (top) {
+    for (const x0 of [3, 9]) { p.frame(x0 - 1, 2, 6, 6, md); p.rect(x0, 3, 4, 4, '#000000', 0); if (!iron) { p.vline(x0 + 2, 3, 4, dk); p.hline(x0, 5, 4, dk); } }
+    p.rect(2, 10, 12, 4, shade(base, 0.92)); p.hline(2, 10, 12, dk); p.vline(2, 10, 4, dk); p.hline(2, 13, 12, lt); p.vline(13, 10, 4, lt);
+    p.put(1, 15, dk); p.hline(0, 15, 16, dk);
+  } else {
+    for (const y0 of [2, 9]) { p.rect(3, y0, 10, 5, shade(base, 0.92)); p.hline(3, y0, 10, dk); p.vline(3, y0, 5, dk); p.hline(3, y0 + 4, 10, lt); p.vline(12, y0, 5, lt); }
+  }
+  if (iron) { p.put(1, top ? 13 : 2, '#5a5a5a'); p.put(1, top ? 14 : 3, '#5a5a5a'); }
+  p.put(13, top ? 14 : 1, '#3a3a3a');                                                             // knob / hinge pin
   return p.bleed();
 }
 
+// Trapdoors: bordered frame with three horizontal boards and four small openings between them.
 function trapdoorTex(p, w) {
   const iron = w === 'iron', base = iron ? '#c4c4c4' : WOOD[w].planks;
-  p.fill(base);
+  if (iron) { p.dither(['#b4b4b4', '#c0c0c0', '#c9c9c9', '#d6d6d6'], [12, 38, 38, 12], { cells: 3, grain: 0.15 }); p.frame(0, 0, 16, 16, '#7a7a7a'); p.frame(1, 1, 14, 14, '#d8d8d8'); for (const [x, y] of [[3, 3], [9, 3], [3, 9], [9, 9]]) { p.rect(x, y, 4, 4, '#000000', 0); p.frame(x - 1, y - 1, 6, 6, '#8e8e8e'); } return p.bleed(); }
   planks(p, base);
-  p.frame(0, 0, 16, 16, shade(base, 0.62));
-  for (const [x, y] of [[3, 3], [9, 3], [3, 9], [9, 9]]) p.rect(x, y, 4, 4, '#000000', 0);
+  const dk = shade(base, 0.55), lt = shade(base, 1.1);
+  p.frame(0, 0, 16, 16, dk); p.hline(1, 1, 14, lt); p.vline(1, 1, 14, lt);
+  p.rect(2, 7, 12, 2, shade(base, 0.96)); p.hline(2, 7, 12, lt); p.hline(2, 8, 12, dk);
+  for (const [x, y] of [[3, 3], [9, 3], [3, 10], [9, 10]]) { p.rect(x, y, 4, 3, '#000000', 0); p.hline(x, y - 1, 4, dk); p.hline(x, y + 3, 4, lt); }
   return p.bleed();
 }
 
@@ -321,51 +365,96 @@ function torchTex(p, flame, stick = '#6e4f2a') {
 }
 
 // ---------- redstone helpers ----------
-// Repeater/comparator top: smooth stone with the dust track; the output side is the top edge.
+// Dust tones: dark rim, body, lit, glint (unpowered is a dull brick red, as in vanilla).
+const RS_ON = ['#7a0000', '#b80c04', '#e8200e', '#ff6a50'], RS_OFF = ['#3a0606', '#560a08', '#70100c', '#8a2418'];
+// Repeater/comparator top: the smooth stone slab with a 2px dust track and raised chevrons (lit upper edge,
+// shadow below); the output side is the top edge.
 function diodeTop(p, on, kind) {
-  p.noise(ramp('#a6a6a6', 0.035).slice(1), { clump: 2, grain: 0.25 });
-  p.frame(0, 0, 16, 16, '#8a8a8a');
-  const dust = on ? ['#ff2a1a', '#d01010'] : ['#6a0e0e', '#4e0808'];
-  const chev = '#c9c9c9';
+  G.smooth_stone(p);
+  const d = on ? RS_ON : RS_OFF, lt = '#c8c8c8', dk = '#838383';
+  const track = (x, y0, y1) => { for (let y = y0; y <= y1; y++) { p.put(x, y, d[2]); p.put(x + 1, y, d[1]); } };
   if (kind === 'repeater') {
-    for (let i = 0; i < 5; i++) { p.put(3 + i, 6 - i, chev); p.put(12 - i, 6 - i, chev); p.put(3 + i, 7 - i, '#8c8c8c'); p.put(12 - i, 7 - i, '#8c8c8c'); }
-    for (let y = 2; y < 15; y++) { p.put(7, y, dust[0]); p.put(8, y, dust[1]); }
+    for (let i = 0; i < 5; i++) { p.put(3 + i, 7 - i, lt); p.put(12 - i, 7 - i, lt); p.put(3 + i, 8 - i, dk); p.put(12 - i, 8 - i, dk); }
+    track(7, 2, 13); p.put(7, 2, d[3]); p.put(8, 13, d[0]);
   } else {
-    for (let y = 3; y < 13; y++) { p.put(7, y, dust[0]); p.put(8, y, dust[1]); }
-    p.hline(3, 12, 10, dust[0]); p.hline(3, 13, 10, dust[1]);
-    for (let i = 0; i < 4; i++) { p.put(4 + i, 11 - i * 2, chev); p.put(11 - i, 11 - i * 2, chev); }
+    for (let i = 0; i < 4; i++) { p.put(4 + i, 10 - i * 2, lt); p.put(11 - i, 10 - i * 2, lt); p.put(4 + i, 11 - i * 2, dk); p.put(11 - i, 11 - i * 2, dk); }
+    track(7, 3, 11); p.put(7, 3, d[3]);
+    p.hline(3, 12, 10, d[2]); p.hline(3, 13, 10, d[0]); p.put(3, 12, d[3]);
   }
   return p;
 }
+// Piston face: planks in a dark wooden frame with iron corner caps and a bevelled iron plate in the middle.
+// The sticky face gets a ragged slime pad (4-tone dither, lit upper-left rim) over the planks.
 function pistonFace(p, sticky) {
-  planks(p, '#b08e5a');
-  p.frame(0, 0, 16, 16, '#7a6040');
-  for (const [x, y] of [[0, 0], [14, 0], [0, 14], [14, 14]]) p.rect(x, y, 2, 2, '#cfcfcf');
-  p.frame(5, 5, 6, 6, '#8e8e8e'); p.rect(6, 6, 4, 4, '#b8b8b8');
+  planks(p, '#a8875a');
+  p.frame(0, 0, 16, 16, '#6e5436'); p.hline(1, 1, 14, '#c2a06c'); p.vline(1, 1, 14, '#c2a06c');
+  for (const [x, y] of [[0, 0], [14, 0], [0, 14], [14, 14]]) { p.rect(x, y, 2, 2, '#a8a8a8'); p.put(x, y, '#d0d0d0'); p.put(x + 1, y + 1, '#6e6e6e'); }
+  p.rect(5, 5, 6, 6, '#a4a4a4'); p.hline(5, 5, 6, '#d2d2d2'); p.vline(5, 5, 6, '#d2d2d2'); p.hline(5, 10, 6, '#6a6a6a'); p.vline(10, 5, 6, '#6a6a6a');
   if (sticky) {
-    const vn = p.valueNoise(4);
-    for (let y = 1; y < 15; y++) for (let x = 1; x < 15; x++) if (vn(x, y) > 0.42) p.put(x, y, vn(x, y) > 0.62 ? '#9ade74' : vn(x, y) > 0.52 ? '#6fbf4f' : '#4f9a36');
+    const edge = p.fbm(4), pal = ['#3f8a2c', '#56a83c', '#6fc04e', '#9ade74'], on = (x, y) => x >= 2 && y >= 2 && x <= 13 && y <= 13 && (x > 2 && y > 2 && x < 13 && y < 13 || edge(x, y) > 0.45);
+    const tone = new Painter(N, N, 9).dither(pal.slice(0, 3), [20, 50, 30], { cells: 3, grain: 0.3 });
+    for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+      if (!on(x, y)) continue;
+      const c = tone.get(x, y);
+      p.put(x, y, !on(x - 1, y) || !on(x, y - 1) ? pal[3] : !on(x + 1, y) || !on(x, y + 1) ? '#2e6e20' : [c[0], c[1], c[2]]);
+    }
+    for (const [x, y] of [[4, 5], [9, 4], [6, 9], [11, 10]]) p.put(x, y, '#b8f0a0');
   }
   return p;
 }
 function observerBase(p) { stoneLike(p, '#5c5c5c', { spread: 0.09, clump: 3 }); p.frame(0, 0, 16, 16, '#3a3a3a'); return p; }
+// Dispenser/dropper front: the furnace's cobble with a bevelled smooth-stone panel around the opening.
+function launcherFront(p, x, y, w, h) {
+  G.furnace_side(p);
+  p.dither(['#6a6a6a', '#747474', '#7e7e7e'], [30, 45, 25], { cells: 2, grain: 0.3, x0: x, y0: y, w, h });
+  p.hline(x, y, w, '#9a9a9a'); p.vline(x, y, h, '#9a9a9a'); p.hline(x, y + h - 1, w, '#4a4a4a'); p.vline(x + w - 1, y, h, '#4a4a4a');
+  return p;
+}
+// Recessed opening: shadowed upper-left inner edge, lit lower-right lip.
+function hole(p, x, y, w, h, deep = '#141414') {
+  p.rect(x, y, w, h, deep); p.hline(x, y, w, '#0a0a0a'); p.vline(x, y, h, '#0a0a0a');
+  p.hline(x, y + h, w, '#8e8e8e'); p.vline(x + w, y, h + 1, '#8e8e8e');
+  return p;
+}
+// Daylight detector top: a 3x3 grid of bevelled glass cells set in a dark wooden frame.
 function daylightTop(p, glass) {
-  p.fill('#4b3a26');
-  for (const cy of [1, 6, 11]) for (const cx of [1, 6, 11]) { p.rect(cx, cy, 4, 4, glass[0]); p.rect(cx, cy, 3, 3, glass[1]); p.put(cx, cy, glass[2]); }
+  p.dither(['#3e2f1e', '#4b3a26', '#56432c'], [30, 45, 25], { cells: 3, grain: 0.3 });
+  for (const cy of [1, 6, 11]) for (const cx of [1, 6, 11]) {
+    p.rect(cx, cy, 4, 4, glass[1]); p.hline(cx, cy, 4, glass[2]); p.vline(cx, cy, 4, glass[2]); p.hline(cx + 1, cy + 3, 3, glass[0]); p.vline(cx + 3, cy + 1, 3, glass[0]);
+  }
   return p;
 }
 function lampGrid(p, c) { p.frame(0, 0, 16, 16, c); p.hline(0, 7, 16, c); p.vline(7, 0, 16, c); for (let i = 2; i < 14; i += 4) { p.put(i, i, c); p.put(15 - i, i, c); } return p; }
-
-function glassTex(p, border, inside, alphaIn) {
-  p.fill(inside, alphaIn);
-  p.frame(0, 0, 16, 16, border);
-  for (let i = 0; i < 4; i++) { p.put(3 + i, 6 - i, shade(border, 1.05), Math.max(alphaIn, 200)); p.put(9 + i, 12 - i, shade(border, 1.05), Math.max(alphaIn, 200)); }
+// Translucent block: dithered 4-tone body at alpha a, darker rim, and an inner cube (alpha ai) with a lit
+// upper-left bevel and a shadowed lower-right one (slime, honey).
+function jellyTex(p, pal, rim, a, ai, inner = true) {
+  p.dither(pal, [14, 36, 34, 16], { cells: 3, grain: 0.3 });
+  for (let i = 0; i < N * N; i++) p.d[i * 4 + 3] = a;
+  p.frame(0, 0, 16, 16, rim); for (let i = 0; i < 16; i++) { p.d[i * 4 + 3] = a + 30; p.d[(15 * 16 + i) * 4 + 3] = a + 30; p.d[(i * 16) * 4 + 3] = a + 30; p.d[(i * 16 + 15) * 4 + 3] = a + 30; }
+  if (inner) {
+    for (let y = 3; y < 13; y++) for (let x = 3; x < 13; x++) { const c = p.get(x, y); p.put(x, y, [c[0] * 1.06, c[1] * 1.06, c[2] * 1.06], ai); }
+    p.hline(3, 3, 10, pal[3]); p.vline(3, 3, 10, pal[3]); p.hline(4, 12, 9, rim); p.vline(12, 4, 9, rim);
+    p.rect(4, 4, 2, 2, shade(pal[3], 1.15)); p.put(6, 4, pal[3]);
+  }
   return p;
 }
 
+// Glass: thin light frame (slightly darker corners), two diagonal highlight streaks in the upper-left, clear inside.
+function glassTex(p, border, inside, alphaIn) {
+  p.fill(inside, alphaIn);
+  p.frame(0, 0, 16, 16, border);
+  for (const [x, y] of [[0, 0], [15, 0], [0, 15], [15, 15]]) p.put(x, y, shade(border, 0.82));
+  const hi = shade(border, 1.04), a = Math.max(alphaIn, 210);
+  for (let i = 0; i < 6; i++) p.put(2 + i, 7 - i, hi, a);
+  for (let i = 0; i < 3; i++) p.put(4 + i, 10 - i, hi, a);
+  return p;
+}
+
+// Sandstone side: smooth top cap (3 rows) over a banded body with soft darker strata blotches.
 function sandstoneSide(p, base, top) {
-  p.noise(ramp(base, 0.05).slice(1), { clump: 3, grain: 0.3 });
-  for (let y = 4; y < 11; y++) for (let x = 0; x < N; x++) if (Math.sin(x * 0.9 + y * 1.7) + Math.sin(x * 0.4 - y * 1.1) > 1.1) p.put(x, y, shade(base, 0.9));
+  p.dither(ramp(base, 0.05).slice(1), [24, 46, 30], { cells: 3, grain: 0.25 });
+  const vn = p.fbm(3);
+  for (let y = 4; y < 11; y++) for (let x = 0; x < N; x++) if (vn(x, y) > 0.58) p.put(x, y, shade(base, 0.9)); else if (vn(x, y) < 0.3) p.put(x, y, shade(base, 1.05));
   for (let x = 0; x < N; x++) {
     for (let y = 0; y < 3; y++) p.put(x, y, shade(top, p.chance(0.2) ? 0.95 : 1));
     p.put(x, 3, shade(base, 0.85));
@@ -391,41 +480,38 @@ const skull = (p, pal) => { p.noise(pal, { clump: 2, grain: 0.25 }); return p; }
 const skullFace = (p, dark) => { p.rect(5, 7, 2, 2, dark); p.rect(9, 7, 2, 2, dark); p.rect(7, 9, 2, 1, dark); for (let x = 5; x < 11; x += 2) p.rect(x, 11, 1, 1, dark); return p; };
 const G = {
   // stones
-  stone: p => {
-    stoneLike(p, '#7d7d7d', { spread: 0.1, clump: 3, grain: 0.35 });
-    // Horizontal streaks of lighter and darker stone, like the original's strata.
-    for (let k = 0; k < 9; k++) { const x = p.rand(N), y = p.rand(N), l = 2 + p.rand(4), c = k % 3 === 0 ? '#9a9a9a' : k % 3 === 1 ? '#686868' : '#747474'; for (let i = 0; i < l; i++) p.wrapPut(x + i, y, c); if (l > 3) p.wrapPut(x + 1, y + 1, c); }
-    return p;
-  },
-  granite: p => stoneLike(p, '#9a6b57', { specks: ['#c49a86', '#6e4a3c', '#b0806c'] }),
+  // Soft blotchy 4-tone grey with a handful of lone lighter/darker pixels.
+  stone: p => stoneLike(p, '#7d7d7d', { spread: 0.1, clump: 4, grain: 0.28, weights: [12, 36, 36, 16], fleckN: 7 }),
+  granite: p => { p.dither(['#6e4a3c', '#8a5a48', '#9a6b57', '#b0806c', '#c49a86'], [12, 26, 30, 22, 10], { cells: 3, grain: 0.4 }); return p.flecks(['#d8b8a6', '#5a3a2e'], 8); },
   polished_granite: p => polished(p, '#9e6b58'),
-  diorite: p => { p.noise(['#8e8e8e', '#a8a8a8', '#d0d0d0', '#e6e6e6', '#f4f4f4'], { clump: 2, grain: 0.7 }); return p.speck(['#6e6e6e', '#ffffff'], 10); },
+  diorite: p => { p.dither(['#9a9a9a', '#b9b9ba', '#d4d4d4', '#e6e6e6', '#f2f2f2'], [10, 20, 30, 28, 12], { cells: 2, grain: 0.6 }); return p.flecks(['#7a7a7a', '#ffffff'], 8); },
   polished_diorite: p => polished(p, '#c2c2c4'),
-  andesite: p => stoneLike(p, '#888889', { specks: ['#a5a5a6', '#6b6b6c'] }),
+  andesite: p => { stoneLike(p, '#888889', { spread: 0.1, clump: 3, grain: 0.4, fleckN: 0 }); return p.flecks(['#a5a5a6', '#6b6b6c', '#9a9a8a'], 12); },
   polished_andesite: p => polished(p, '#848687'),
   smooth_stone: p => { p.noise(ramp('#9f9f9f', 0.04).slice(1), { clump: 2, grain: 0.2 }); return p.frame(0, 0, 16, 16, '#8b8b8b'); },
   smooth_stone_side: p => { G.smooth_stone(p); p.hline(0, 7, 16, '#8b8b8b'); return p; },
-  deepslate: p => { stoneLike(p, '#4d4d52', { spread: 0.1, grain: 0.3 }); for (let y = 1; y < N; y += 3) for (let x = 0; x < N; x++) if (p.chance(0.55)) p.put(x, y, '#3b3b40'); return p; },
+  deepslate: p => { stoneLike(p, '#4d4d52', { spread: 0.1, grain: 0.3, fleckN: 4 }); p.streaks(['#3b3b40', '#36363b'], 9, 3, 7); p.streaks(['#5e5e64'], 4, 2, 4); return p; },
   deepslate_top: p => { stoneLike(p, '#50505a', { spread: 0.1 }); for (let r = 2; r < 8; r += 2) p.frame(7 - r, 7 - r, r * 2 + 2, r * 2 + 2, '#3e3e44'); return p; },
   cobbled_deepslate: p => cobble(p, '#57575c'),
   polished_deepslate: p => polished(p, '#4a4a4f'),
   deepslate_bricks: p => bricks(p, '#4e4e53', '#2e2e32', { rowH: 4, w: 8 }),
   deepslate_tiles: p => bricks(p, '#39393d', '#232326', { rowH: 8, w: 8 }),
-  tuff: p => stoneLike(p, '#6c6d65', { specks: ['#8a8b82', '#54554e', '#7e7a6e'] }),
-  calcite: p => stoneLike(p, '#dfe0dc', { spread: 0.05, specks: ['#c8c9c4', '#f2f2ef'] }),
+  tuff: p => { p.dither(['#54554e', '#62635b', '#6c6d65', '#7e7a6e', '#8a8b82'], [12, 26, 30, 22, 10], { cells: 3, grain: 0.4 }); return p.flecks(['#9a9b92', '#45463f'], 8); },
+  calcite: p => stoneLike(p, '#dfe0dc', { spread: 0.05, clump: 3, grain: 0.35, specks: ['#c8c9c4', '#f2f2ef'] }),
   dripstone_block: p => { stoneLike(p, '#866b5c', { spread: 0.1, clump: 3 }); for (let x = 1; x < N; x += 3) for (let y = 0; y < N; y++) if (p.chance(0.5)) p.put(x, y, '#6f5649'); return p; },
   cobblestone: p => cobble(p, '#808080'),
-  mossy_cobblestone: p => cobble(p, '#7a7a7a', true),
-  bedrock: p => p.noise(['#1f1f1f', '#3b3b3b', '#575757', '#7a7a7a'], { clump: 5, grain: 0.55 }),
+  mossy_cobblestone: p => cobble(p, '#767876', true),
+  bedrock: p => p.dither(['#1f1f1f', '#3b3b3b', '#575757', '#7a7a7a'], [22, 34, 30, 14], { cells: 3, grain: 0.5 }),
+  // Near-black purple with large soft blotches and a few brighter violet slivers.
   obsidian: p => {
-    p.noise(['#0d0a14', '#130e1c', '#191226', '#1e1630'], { clump: 4, grain: 0.3 });
-    for (let k = 0; k < 7; k++) { let x = p.rand(N), y = p.rand(N); const c = p.pick(['#2e2150', '#3b2a63', '#4a3780']); for (let i = 0; i < 3 + p.rand(4); i++) { p.wrapPut(x, y, c); x += p.rand(2); y += p.chance(0.5) ? 1 : 0; } }
-    return p.speck(['#5a4596'], 4);
+    p.dither(['#0d0a14', '#130e1c', '#191226', '#1e1630', '#261c3c'], [20, 30, 26, 16, 8], { cells: 3, grain: 0.2 });
+    for (let k = 0; k < 5; k++) { let x = p.rand(N), y = p.rand(N); const c = p.pick(['#2e2150', '#3b2a63', '#4a3780']); for (let i = 0; i < 3 + p.rand(4); i++) { p.wrapPut(x, y, c); x += p.rand(2); y += p.chance(0.5) ? 1 : 0; } }
+    return p.flecks(['#5a4596'], 3);
   },
-  crying_obsidian: p => { G.obsidian(p); return p.speck(['#8a2be2', '#b35cff', '#d08cff'], 12); },
-  netherrack: p => { p.noise(['#4f1f1f', '#6b2a2a', '#7a3333', '#8d3d3a'], { clump: 5, grain: 0.35 }); return p.speck(['#a65151', '#3f1717'], 10); },
-  end_stone: p => { p.noise(['#cfd29a', '#dbde9f', '#e3e6ae', '#c5c88e'], { clump: 4, grain: 0.3 }); return p.speck(['#b7ba7e', '#eef0c4'], 12); },
-  blackstone: p => { p.noise(['#1d1a1d', '#2a2528', '#342e32', '#3d363b'], { clump: 4, grain: 0.35 }); return p.speck(['#4a4248'], 8); },
+  crying_obsidian: p => { G.obsidian(p); p.streaks(['#8a2be2', '#b35cff'], 5, 2, 4, true); return p.flecks(['#d08cff', '#b35cff'], 8); },
+  netherrack: p => { p.dither(['#3f1717', '#5a2222', '#6b2a2a', '#7a3333', '#8d3d3a'], [14, 26, 30, 20, 10], { cells: 3, grain: 0.3 }); return p.flecks(['#a65151', '#2f1010'], 8); },
+  end_stone: p => { p.dither(['#b7ba7e', '#cfd29a', '#dbde9f', '#e3e6ae', '#eef0c4'], [12, 24, 32, 22, 10], { cells: 3, grain: 0.3 }); p.pebbles(['#c5c88e', '#d5d8a0'], 6, { maxW: 3, maxH: 2, shadow: 0.85 }); return p.flecks(['#a8ab70'], 6); },
+  blackstone: p => { p.dither(['#1d1a1d', '#2a2528', '#342e32', '#3d363b'], [22, 32, 30, 16], { cells: 3, grain: 0.3 }); return p.flecks(['#4a4248', '#141114'], 8); },
   blackstone_top: p => { G.blackstone(p); for (let r = 2; r < 8; r += 3) p.frame(7 - r, 7 - r, r * 2 + 2, r * 2 + 2, '#251f23'); return p; },
   polished_blackstone: p => polished(p, '#35303a'),
   polished_blackstone_bricks: p => bricks(p, '#35303a', '#1e1a20', { rowH: 4, w: 8 }),
@@ -437,8 +523,8 @@ const G = {
   magma_block: p => { p.noise(['#3a1409', '#4d1d0c', '#62250f'], { clump: 4, grain: 0.3 }); const vn = p.valueNoise(5); for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) { const v = vn(x, y); if (v > 0.47 && v < 0.53) p.put(x, y, '#ff8f1f'); else if (v > 0.44 && v < 0.56) p.put(x, y, '#c9480f'); } return p; },
   // dirt family
   // Four browns in the classic proportions, loosely clustered, plus a few grey pebbles.
-  dirt: p => byRank(p, [['#593d29', 34], ['#79553a', 107], ['#966c4a', 68], ['#b9855c', 39]], 0.3, () => { for (let k = 0; k < 7; k++) p.put(p.rand(N), p.rand(N), k % 2 ? '#878787' : '#6c6c6c'); }),
-  coarse_dirt: p => { G.dirt(p); return p.speck(['#5a5a5a', '#747474', '#4a3526'], 22); },
+  dirt: p => { p.dither(['#593d29', '#79553a', '#966c4a', '#b9855c'], [34, 107, 68, 39], { cells: 4, grain: 0.45 }); return p.flecks(['#878787', '#6c6c6c', '#9a9a9a'], 6); },
+  coarse_dirt: p => { G.dirt(p); p.pebbles(['#5a5a5a', '#747474', '#4a3526'], 8, { maxW: 2, maxH: 2 }); return p.flecks(['#5a5a5a', '#8a8a8a'], 8); },
   rooted_dirt: p => { G.dirt(p); for (let k = 0; k < 5; k++) { let x = p.rand(N), y = p.rand(N); for (let i = 0; i < 5; i++) { p.wrapPut(x, y, '#a88a64'); x += p.rand(3) - 1; y++; } } return p; },
   mud: p => p.noise(['#2f2a2c', '#3a3438', '#443d41', '#4e464a'], { clump: 4, grain: 0.3 }),
   packed_mud: p => { p.noise(['#8a6a4f', '#94735a', '#9e7c60', '#7d5f45'], { clump: 3, grain: 0.35 }); return p.speck(['#c7b08b'], 10); },
@@ -447,33 +533,35 @@ const G = {
   podzol_side: p => { G.dirt(p); for (let x = 0; x < N; x++) { const d = 2 + p.rand(3); for (let y = 0; y < d; y++) p.put(x, y, p.pick(['#5b3d1f', '#6d4a27', '#7a5530'])); } return p; },
   mycelium_top: p => { p.noise(['#6a5c64', '#76686f', '#82737b', '#5d5057'], { clump: 4, grain: 0.4 }); return p.speck(['#9d8c96', '#b8a8b2'], 12); },
   mycelium_side: p => { G.dirt(p); for (let x = 0; x < N; x++) { const d = 3 + p.rand(2); for (let y = 0; y < d; y++) p.put(x, y, p.pick(['#6a5c64', '#76686f', '#82737b'])); } return p; },
-  // Fine per-pixel grey noise (tinted by the biome): a bell curve of ~60 shades around 145.
+  // Five clumped greys (tinted by the biome) averaging ~145, like the vanilla top's soft 4-5 tone blotches.
   grass_block_top: p => {
-    const vn = p.valueNoise(3), vals = [];
-    for (let i = 0; i < N * N; i++) vals.push([0.78 * p.r() + 0.22 * vn(i % N, i / N | 0), i]);
-    vals.sort((a, b) => a[0] - b[0]);
-    vals.forEach(([, i], r) => { const q = (r + 0.5) / (N * N); const z = Math.sqrt(2) * erfinv(2 * q - 1); const g = Math.max(112, Math.min(195, Math.round(145 + z * 17))); p.put(i % N, i / N | 0, [g, g, g]); });
+    p.dither([[116, 116, 116], [131, 131, 131], [146, 146, 146], [161, 161, 161], [178, 178, 178]], [12, 28, 32, 20, 8], { cells: 4, grain: 0.4 });
     return p.tintMark();
   },
+  // Dirt under a ragged 2-4px grass fringe: neighbouring columns share depth, the top row is lit, the fringe's
+  // bottom row is a darker green, and the dirt right under it is shadowed.
   grass_block_side: p => {
     G.dirt(p);
-    // A ragged 1-4 pixel fringe of grass, each column on its own, with a shadow row under it.
+    let d = 3;
     for (let x = 0; x < N; x++) {
-      const r = p.r(), d = r < 0.08 ? 1 : r < 0.33 ? 2 : r < 0.8 ? 3 : 4;
-      for (let y = 0; y < d; y++) { const g = y === d - 1 && p.chance(0.4) ? 125 + p.rand(20) : 145 + p.rand(34); p.put(x, y, [g, g, g], 254); }
-      if (p.chance(0.55)) p.put(x, d, '#593d29');
+      const r = p.r(); d = Math.max(2, Math.min(5, d + (r < 0.35 ? -1 : r < 0.7 ? 1 : 0)));
+      if (d === 5 && p.chance(0.6)) d = 4;
+      for (let y = 0; y < d; y++) { const g = y === 0 ? 158 + p.rand(22) : y === d - 1 ? 118 + p.rand(18) : 136 + p.rand(24); p.put(x, y, [g, g, g], 254); }
+      if (p.chance(0.7)) p.put(x, d, p.chance(0.5) ? '#593d29' : '#4a3222');
     }
     return p;
   },
   grass_block_snow: p => { G.dirt(p); for (let x = 0; x < N; x++) { const d = 3 + p.rand(3); for (let y = 0; y < d; y++) p.put(x, y, y === d - 1 ? '#cdd6de' : p.pick(['#f4f8fb', '#e8eef4', '#ffffff'])); } return p; },
-  snow: p => { p.noise(['#dfe7ee', '#eaf0f5', '#f4f8fb', '#ffffff'], { clump: 4, grain: 0.35 }); return p; },
+  snow: p => p.dither(['#e6edf3', '#eff4f8', '#f7fafc', '#ffffff'], [10, 28, 36, 26], { cells: 3, grain: 0.35 }),
   farmland: p => { G.dirt(p); for (let y = 0; y < N; y += 4) p.hline(0, y, 16, '#5a3e2a'); p.frame(0, 0, 16, 16, '#5f412c'); return p; },
   farmland_moist: p => { G.farmland(p); for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) p.shadePx(x, y, 0.62); return p; },
   dirt_path_top: p => p.noise(['#8d7542', '#9a8049', '#a58a52', '#7f6a3a'], { clump: 4, grain: 0.35 }),
   dirt_path_side: p => { G.dirt(p); for (let x = 0; x < N; x++) { p.put(x, 0, '#9a8049'); p.put(x, 1, '#8d7542'); if (p.chance(0.5)) p.put(x, 2, '#7f6a3a'); } p.rect(0, 0, 16, 1, '#000000', 0); return p.bleed(); },
-  sand: p => { p.noise(['#d2c994', '#dbd3a0', '#e3dbad', '#ece4b8'], { clump: 4, grain: 0.45 }); return p.speck(['#c7bd83'], 6); },
-  red_sand: p => { p.noise(['#a4531d', '#b05b21', '#bd6427', '#c46c2f'], { clump: 4, grain: 0.45 }); return p.speck(['#8f4617'], 6); },
-  gravel: p => { p.noise(['#62605e', '#7d7875', '#8a8583', '#a29c99'], { clump: 2, grain: 0.5 }); for (let k = 0; k < 24; k++) { const x = p.rand(N), y = p.rand(N), c = p.pick(['#a8a09a', '#5f5a58', '#9d9896', '#6b6360', '#b3aca6']); p.wrapPut(x, y, c); p.wrapPut(x + 1, y, c); p.wrapPut(x, y + 1, shade(c, 0.85)); } return p; },
+  // Fine light speckle in 4 close tones with a few tiny darker pebbles.
+  sand: p => { p.dither(['#d2c994', '#dbd3a0', '#e3dbad', '#ece4b8'], [16, 34, 34, 16], { cells: 4, grain: 0.6 }); return p.flecks(['#c2b77c', '#bfb47a'], 7); },
+  red_sand: p => { p.dither(['#a4531d', '#b05b21', '#bd6427', '#c46c2f'], [16, 34, 34, 16], { cells: 4, grain: 0.6 }); return p.flecks(['#8f4617', '#964b19'], 7); },
+  // Angular grey pebbles of 4 tones, each with a shadowed lower-right edge, over a dark bed.
+  gravel: p => { p.dither(['#605d5b', '#6e6b68', '#7d7875'], [30, 40, 30], { cells: 3, grain: 0.5 }); p.pebbles(['#96908d', '#8a8583', '#7d7875', '#a29c99', '#726b68', '#8f8a87'], 20, { maxW: 3, maxH: 2, shadow: 0.8 }); return p.flecks(['#aca5a0', '#55514f'], 6); },
   soul_sand: p => { p.noise(['#3d2e25', '#4a382c', '#554134', '#5e4a3b'], { clump: 4, grain: 0.4 }); for (let k = 0; k < 4; k++) { const x = 2 + p.rand(11), y = 2 + p.rand(11); p.put(x, y, '#2a1e18'); p.put(x + 2, y, '#2a1e18'); p.hline(x, y + 2, 3, '#2a1e18'); } return p; },
   soul_soil: p => p.noise(['#3a2c24', '#44342a', '#4d3b30', '#574436'], { clump: 5, grain: 0.35 }),
   moss_block: p => p.noise(['#4e6b25', '#597a2b', '#648a31', '#6f9837'], { clump: 5, grain: 0.4 }),
@@ -483,13 +571,13 @@ const G = {
   warped_nylium_side: p => { G.netherrack(p); for (let x = 0; x < N; x++) { const d = 2 + p.rand(3); for (let y = 0; y < d; y++) p.put(x, y, p.pick(['#16635a', '#1a7568', '#1f8a7a'])); } return p; },
   // sandstone
   sandstone: p => sandstoneSide(p, '#d8cb94', '#e0d6a3'),
-  sandstone_top: p => p.noise(['#d8cc96', '#e0d6a3', '#e6dcab', '#d2c68f'], { clump: 4, grain: 0.3 }),
-  sandstone_bottom: p => { G.sandstone_top(p); return p.speck(['#c9bb82'], 12); },
+  sandstone_top: p => p.dither(['#d2c68f', '#d8cc96', '#e0d6a3', '#e6dcab'], [14, 36, 34, 16], { cells: 3, grain: 0.3 }),
+  sandstone_bottom: p => { G.sandstone_top(p); return p.flecks(['#c9bb82', '#c2b47a'], 12); },
   cut_sandstone: p => { G.sandstone_top(p); p.frame(0, 0, 16, 16, '#c9bb82'); p.hline(1, 7, 14, '#c9bb82'); return p; },
   chiseled_sandstone: p => { G.cut_sandstone(p); p.frame(4, 3, 8, 10, '#b8a96f'); p.rect(6, 5, 1, 2, '#9e8f58'); p.rect(9, 5, 1, 2, '#9e8f58'); p.rect(7, 8, 2, 3, '#9e8f58'); return p; },
   red_sandstone: p => sandstoneSide(p, '#b5621f', '#c46c2f'),
-  red_sandstone_top: p => p.noise(['#b5621f', '#bd6727', '#c46c2f', '#a8591b'], { clump: 4, grain: 0.3 }),
-  red_sandstone_bottom: p => { G.red_sandstone_top(p); return p.speck(['#99501a'], 12); },
+  red_sandstone_top: p => p.dither(['#a8591b', '#b5621f', '#bd6727', '#c46c2f'], [14, 36, 34, 16], { cells: 3, grain: 0.3 }),
+  red_sandstone_bottom: p => { G.red_sandstone_top(p); return p.flecks(['#99501a', '#914a17'], 12); },
   cut_red_sandstone: p => { G.red_sandstone_top(p); p.frame(0, 0, 16, 16, '#99501a'); p.hline(1, 7, 14, '#99501a'); return p; },
   chiseled_red_sandstone: p => { G.cut_red_sandstone(p); p.frame(4, 3, 8, 10, '#8a4716'); p.rect(7, 6, 2, 5, '#7a3e12'); return p; },
   // plants
@@ -546,23 +634,26 @@ const G = {
   lantern: p => { p.clear(); p.rect(5, 9, 6, 7, '#3c3c46'); p.rect(6, 10, 4, 5, '#ffcf5a'); p.rect(7, 11, 2, 3, '#fff2b3'); p.hline(5, 12, 6, '#2e2e36'); p.rect(6, 7, 4, 2, '#4a4a55'); p.rect(5, 5, 6, 4, '#4a4a55'); p.rect(6, 6, 4, 2, '#5c5c68'); return p.bleed(); },
   soul_lantern: p => { G.lantern(p); p.rect(6, 10, 4, 5, '#5ee9f2'); p.rect(7, 11, 2, 3, '#c9fbff'); return p; },
   lantern_hanging: p => G.lantern(p),
-  crafting_table_top: p => { planks(p, '#b08a52'); p.frame(0, 0, 16, 16, '#5c4424'); p.frame(1, 1, 14, 14, '#8a6a3a'); for (const k of [5, 10]) { p.hline(2, k, 12, '#6a5030'); p.vline(k, 2, 12, '#6a5030'); } return p; },
-  crafting_table_side: p => { planks(p, '#a2824e'); p.rect(0, 0, 16, 3, '#7a5d38'); p.rect(3, 6, 4, 6, '#5e5e5e'); p.rect(4, 5, 2, 1, '#8c8c8c'); p.rect(10, 5, 2, 8, '#6e5433'); p.rect(9, 5, 4, 2, '#8c8c8c'); return p; },
-  crafting_table_front: p => { G.crafting_table_side(p); p.rect(4, 8, 8, 5, '#6e5433'); p.rect(5, 9, 2, 3, '#c0c0c0'); p.rect(9, 9, 2, 3, '#c0c0c0'); return p; },
-  furnace_side: p => { stoneLike(p, '#737373', { spread: 0.08 }); p.frame(0, 0, 16, 16, '#5a5a5a'); return p; },
-  furnace_top: p => { G.furnace_side(p); p.frame(2, 2, 12, 12, '#5f5f5f'); return p; },
+  // Crafting table: a 3x3 grid worked into the top, a darker planks skirt and tools hung on the sides.
+  crafting_table_top: p => { p.dither(['#9a7442', '#b08a52', '#ba955c', '#c4a068'], [14, 40, 30, 16], { cells: 3, grain: 0.3 }); p.frame(0, 0, 16, 16, '#5c4424'); p.frame(1, 1, 14, 14, '#8a6a3a'); for (const k of [5, 10]) { p.hline(2, k, 12, '#6a5030'); p.vline(k, 2, 12, '#6a5030'); p.hline(2, k + 1, 12, '#c9a66c'); p.vline(k + 1, 2, 12, '#c9a66c'); } return p; },
+  crafting_table_side: p => { planks(p, '#a2824e'); p.rect(0, 0, 16, 4, '#7a5d38'); p.hline(0, 3, 16, '#5c4424'); p.hline(0, 0, 16, '#8f6f45'); p.rect(3, 6, 3, 7, '#6b6b6b'); p.rect(3, 6, 3, 1, '#8c8c8c'); p.put(4, 5, '#3f3f3f'); p.rect(10, 5, 2, 8, '#6e5433'); p.rect(9, 5, 4, 2, '#8c8c8c'); p.hline(9, 5, 4, '#a6a6a6'); return p; },
+  crafting_table_front: p => { planks(p, '#a2824e'); p.rect(0, 0, 16, 4, '#7a5d38'); p.hline(0, 3, 16, '#5c4424'); p.hline(0, 0, 16, '#8f6f45'); p.rect(4, 8, 8, 5, '#6e5433'); p.rect(5, 9, 2, 3, '#c0c0c0'); p.rect(9, 9, 2, 3, '#c0c0c0'); p.put(5, 9, '#e0e0e0'); p.put(9, 9, '#e0e0e0'); return p; },
+  // Furnace is built from cobblestone; the front has a dark open firebox with a lighter stone lintel.
+  furnace_side: p => cobble(p, '#7a7a7a'),
+  furnace_top: p => { cobble(p, '#7a7a7a'); p.frame(3, 3, 10, 10, '#4e4e4e'); return p.frame(4, 4, 8, 8, '#8a8a8a'); },
   furnace_front: p => {
-    G.furnace_side(p);
-    const arch = (y0, h, dark, rim) => { for (let y = y0; y < y0 + h; y++) for (let x = 3; x < 13; x++) { const inset = y === y0 ? 2 : y === y0 + 1 ? 1 : 0; if (x < 3 + inset || x > 12 - inset) continue; const edge = x === 3 + inset || x === 12 - inset || y === y0 || y === y0 + h - 1; p.put(x, y, edge ? rim : dark); } };
-    arch(2, 5, '#3a3a3a', '#555555');
-    arch(9, 5, '#1c1c1c', '#454545');
-    p.hline(3, 8, 10, '#5e5e5e');
+    cobble(p, '#7a7a7a');
+    p.rect(3, 2, 10, 12, '#4a4a4a'); p.frame(3, 2, 10, 12, '#5e5e5e');
+    p.rect(4, 3, 8, 4, '#2a2a2a'); p.hline(4, 3, 8, '#202020');
+    p.rect(4, 9, 8, 4, '#161616'); p.hline(4, 9, 8, '#101010');
+    p.hline(3, 7, 10, '#6a6a6a'); p.hline(3, 8, 10, '#3e3e3e');
     return p;
   },
-  furnace_front_on: p => { G.furnace_front(p); p.rect(4, 9, 8, 4, '#3a1a08'); p.rect(5, 11, 6, 2, '#ff8f1f'); p.rect(6, 10, 4, 1, '#ffd24a'); p.put(7, 9, '#fff3a0'); return p; },
-  chest_top: p => { planks(p, '#a1742e'); p.frame(0, 0, 16, 16, '#4a3312'); p.frame(1, 1, 14, 14, '#6e4f1f'); return p; },
-  chest_side: p => { planks(p, '#a1742e'); p.frame(0, 0, 16, 16, '#4a3312'); p.hline(0, 6, 16, '#4a3312'); return p; },
-  chest_front: p => { G.chest_side(p); p.rect(7, 4, 2, 4, '#c9c9c9'); p.rect(7, 7, 2, 1, '#7a7a7a'); return p; },
+  furnace_front_on: p => { G.furnace_front(p); p.rect(4, 9, 8, 4, '#3a1a08'); p.rect(5, 11, 6, 2, '#ff8f1f'); p.rect(6, 10, 4, 1, '#ffd24a'); p.put(7, 9, '#fff3a0'); p.put(9, 10, '#fff3a0'); p.put(5, 12, '#e0521a'); p.put(10, 12, '#e0521a'); return p; },
+  // Chest: dark frame around warm planks; the lid seam sits at row 6 and the front carries an iron latch.
+  chest_top: p => { p.dither(['#8a6326', '#a1742e', '#ad7e34', '#b98a3c'], [14, 40, 30, 16], { cells: 3, grain: 0.3 }); p.frame(0, 0, 16, 16, '#4a3312'); p.frame(1, 1, 14, 14, '#6e4f1f'); p.hline(1, 1, 14, '#bd8f42'); p.vline(1, 1, 14, '#bd8f42'); return p; },
+  chest_side: p => { p.dither(['#8a6326', '#a1742e', '#ad7e34', '#b98a3c'], [14, 40, 30, 16], { cells: 3, grain: 0.3 }); p.streaks(['#8a6326', '#c39548'], 6, 3, 6); p.frame(0, 0, 16, 16, '#4a3312'); p.frame(1, 1, 14, 14, '#6e4f1f'); p.hline(0, 5, 16, '#4a3312'); p.hline(1, 6, 14, '#6e4f1f'); p.hline(1, 4, 14, '#6e4f1f'); return p; },
+  chest_front: p => { G.chest_side(p); p.rect(7, 3, 2, 5, '#9a9a9a'); p.frame(6, 2, 4, 7, '#4a4a4a'); p.put(7, 5, '#3a3a3a'); p.put(8, 6, '#cfcfcf'); return p; },
   bed_side: p => { p.fill('#8e1f1f'); p.rect(0, 0, 16, 3, '#b52a2a'); p.rect(0, 9, 16, 7, '#000000', 0); p.rect(0, 9, 2, 7, '#a2824e'); p.rect(14, 9, 2, 7, '#a2824e'); return p.bleed(); },
   bed_top_foot: p => { p.fill('#b52a2a'); p.noise(['#a12626', '#b52a2a', '#c23232'], { clump: 3, grain: 0.2 }); p.frame(0, 0, 16, 16, '#8e1f1f'); return p; },
   bed_top_head: p => { G.bed_top_foot(p); p.rect(1, 1, 14, 6, '#ececec'); p.frame(1, 1, 14, 6, '#cfcfcf'); return p; },
@@ -570,8 +661,9 @@ const G = {
   glass: p => glassTex(p, '#dbeef5', '#dbeef5', 0),
   iron_bars: p => { p.clear(); for (const x of [1, 5, 10, 14]) p.rect(x, 0, 1, 16, '#9a9a9a'); p.hline(0, 1, 16, '#8a8a8a'); p.hline(0, 14, 16, '#8a8a8a'); return p.bleed(); },
   tnt_side: p => {
-    p.fill('#d9432e'); for (let x = 0; x < N; x += 4) { p.vline(x, 0, 16, '#b8331f'); p.vline(x + 2, 0, 16, '#e0543c'); }
-    p.rect(0, 5, 16, 6, '#e8e1d0'); p.hline(0, 5, 16, '#c8c0ae'); p.hline(0, 10, 16, '#c8c0ae');
+    p.dither(['#c23a26', '#d9432e', '#e0543c'], [30, 45, 25], { cells: 3, grain: 0.3 }); for (let x = 1; x < N; x += 3) p.vline(x, 0, 16, p.chance(0.5) ? '#b8331f' : '#ad2e1c');
+    p.rect(0, 5, 16, 6, '#e8e1d0'); p.hline(0, 5, 16, '#f4efe2'); p.hline(0, 10, 16, '#c8c0ae');
+    for (let x = 0; x < N; x++) if (p.chance(0.15)) p.put(x, 6 + p.rand(4), '#dcd4c2');
     const k = '#1e1e1e';
     // T
     p.hline(2, 6, 3, k); p.vline(3, 6, 4, k);
@@ -581,21 +673,28 @@ const G = {
     p.hline(11, 6, 3, k); p.vline(12, 6, 4, k);
     return p;
   },
-  tnt_top: p => { p.fill('#d9432e'); p.rect(4, 4, 8, 8, '#b8331f'); p.rect(7, 7, 2, 2, '#3a3a3a'); return p; },
-  tnt_bottom: p => { p.fill('#b8331f'); p.frame(0, 0, 16, 16, '#9a2a18'); return p; },
+  tnt_top: p => { p.dither(['#c23a26', '#d9432e', '#e0543c'], [30, 45, 25], { cells: 3, grain: 0.3 }); for (let x = 1; x < N; x += 3) p.vline(x, 0, 16, '#b8331f'); p.rect(4, 4, 8, 8, '#b8331f'); p.frame(4, 4, 8, 8, '#e8e1d0'); p.rect(7, 7, 2, 2, '#3a3a3a'); p.put(7, 6, '#6a6a6a'); return p; },
+  tnt_bottom: p => { p.dither(['#a82d1a', '#b8331f', '#c23a26'], [30, 45, 25], { cells: 3, grain: 0.3 }); p.frame(0, 0, 16, 16, '#9a2a18'); return p; },
+  // Bookshelf: two shelves of 2px-wide spines (each with a lit top band and a dark base), a gap or two, on planks.
   bookshelf: p => {
     planks(p, '#a2824e');
-    const books = ['#8f2f2f', '#2f4f8f', '#3f7f3f', '#8f7f2f', '#6f3f7f', '#2f6f6f', '#b0b0b0', '#a0522d'];
-    for (const [y0, y1] of [[1, 6], [9, 14]]) { let x = 1; while (x < 15) { const w = 1 + p.rand(2), c = p.pick(books), gap = p.chance(0.1); for (let dx = 0; dx < w && x + dx < 15; dx++) for (let y = y0; y <= y1; y++) p.put(x + dx, y, gap ? '#2a1f14' : y === y0 + 1 ? shade(c, 1.25) : c); x += w; } }
+    const books = ['#8f2f2f', '#2f4f8f', '#3f7f3f', '#8f7f2f', '#6f3f7f', '#2f6f6f', '#b0b0b0', '#a0522d', '#c94a3a'];
+    for (const [y0, y1] of [[1, 6], [9, 14]]) {
+      p.rect(1, y0, 14, y1 - y0 + 1, '#2a1f14');
+      let x = 1; while (x < 15) { const w = 1 + p.rand(2), c = p.pick(books), gap = p.chance(0.12), h = y1 - y0 - (p.chance(0.4) ? 1 : 0); for (let dx = 0; dx < w && x + dx < 15; dx++) for (let y = y1 - h; y <= y1; y++) p.put(x + dx, y, gap ? '#2a1f14' : y === y1 - h + 1 ? shade(c, 1.3) : y === y1 ? shade(c, 0.7) : dx === 1 ? shade(c, 0.88) : c); x += w; }
+    }
     return p;
   },
-  pumpkin_side: p => { p.noise(['#d67b12', '#e38a1d', '#ef9a2c'], { clump: 2, grain: 0.3 }); for (const x of [0, 4, 8, 12]) p.vline(x, 0, 16, '#b8640f'); return p; },
-  pumpkin_top: p => { p.noise(['#d67b12', '#e38a1d', '#ef9a2c'], { clump: 2, grain: 0.3 }); for (let i = 0; i < N; i++) { p.put(i, 7, '#c56f12'); p.put(7, i, '#c56f12'); } p.rect(7, 6, 2, 3, '#5a7a2a'); return p; },
+  // Pumpkin: vertical ribs (a lit ridge, a shaded groove) over 3-tone orange with a few darker dents.
+  pumpkin_side: p => { p.dither(['#d67b12', '#e38a1d', '#ef9a2c'], [30, 45, 25], { cells: 3, grain: 0.3 }); for (let x = 0; x < N; x += 4) { p.vline(x, 0, 16, '#b8640f'); p.vline(x + 1, 0, 16, '#f2a338'); } for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) if (p.chance(0.06)) p.put(x, y, '#c46f14'); return p; },
+  pumpkin_top: p => { p.dither(['#d67b12', '#e38a1d', '#ef9a2c'], [30, 45, 25], { cells: 3, grain: 0.3 }); for (let r = 2; r < 8; r += 3) p.frame(7 - r, 7 - r, r * 2 + 2, r * 2 + 2, '#c56f12'); p.rect(7, 6, 2, 3, '#5a7a2a'); p.put(7, 6, '#7a9a3a'); return p; },
   carved_pumpkin: p => { G.pumpkin_side(p); p.rect(3, 4, 3, 3, '#3a2008'); p.rect(10, 4, 3, 3, '#3a2008'); p.rect(3, 10, 10, 2, '#3a2008'); p.rect(5, 12, 2, 1, '#3a2008'); p.rect(9, 12, 2, 1, '#3a2008'); return p; },
   jack_o_lantern: p => { G.carved_pumpkin(p); for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) if (p.get(x, y)[0] === 0x3a) p.put(x, y, y < 8 ? '#ffe46a' : '#ffc233'); return p; },
-  melon_side: p => { p.fill('#6e9a24'); for (let x = 0; x < N; x += 3) p.vline(x, 0, 16, '#4f7a14'); p.speck(['#8ab83a'], 10); return p; },
-  melon_top: p => { p.noise(['#6e9a24', '#7aa82c', '#5f8a1c'], { clump: 3 }); p.frame(0, 0, 16, 16, '#4f7a14'); return p; },
-  hay_block_side: p => { p.fill('#c9a82b'); for (let x = 0; x < N; x++) if (x % 2) p.vline(x, 0, 16, '#b8961f'); p.hline(0, 4, 16, '#8a5f1a'); p.hline(0, 11, 16, '#8a5f1a'); return p; },
+  // Melon: dark green rind with wavy lighter stripes.
+  melon_side: p => { p.dither(['#5f8a1c', '#6e9a24', '#7aa82c'], [30, 45, 25], { cells: 3, grain: 0.3 }); for (let x0 = 1; x0 < N; x0 += 4) for (let y = 0; y < N; y++) { const x = (x0 + ((y >> 2) & 1)) % 16; p.put(x, y, '#a8c845'); p.put((x + 1) % 16, y, '#8ab83a'); } return p.flecks(['#4f7a14'], 6); },
+  melon_top: p => { p.dither(['#5f8a1c', '#6e9a24', '#7aa82c'], [30, 45, 25], { cells: 3, grain: 0.3 }); for (let k = 0; k < 6; k++) { let x = p.rand(N), y = p.rand(N); for (let i = 0; i < 4 + p.rand(4); i++) { p.wrapPut(x, y, '#a8c845'); p.wrapPut(x + 1, y, '#8ab83a'); if (p.chance(0.5)) x++; else y++; } } return p; },
+  // Hay: vertical straw of 3 tones broken into short stalks, bound by two dark twine bands.
+  hay_block_side: p => { for (let x = 0; x < N; x++) p.vline(x, 0, 16, p.pick(['#c9a82b', '#b8961f', '#d8b83a', '#c9a82b'])); p.streaks(['#a3841a', '#e0c24a'], 10, 2, 5, true); p.hline(0, 4, 16, '#8a5f1a'); p.hline(0, 5, 16, '#a67a22'); p.hline(0, 11, 16, '#8a5f1a'); p.hline(0, 12, 16, '#a67a22'); return p; },
   hay_block_top: p => { p.noise(['#c9a82b', '#b8961f', '#d8b83a'], { clump: 2, grain: 0.6 }); return p.frame(0, 0, 16, 16, '#8a6f1a'); },
   spawner: p => { p.clear(); for (let i = 0; i < N; i += 3) { p.vline(i, 0, 16, '#2a3a4a'); p.hline(0, i, 16, '#2a3a4a'); } p.frame(0, 0, 16, 16, '#1a2530'); return p.bleed(); },
   rail: p => { p.clear(); for (let y = 1; y < N; y += 3) p.hline(2, y, 12, '#6e5433'); for (let y = 0; y < N; y++) { p.put(3, y, '#9a9a9a'); p.put(12, y, '#9a9a9a'); } return p.bleed(); },
@@ -605,7 +704,7 @@ const G = {
   barrel_side: p => { planks(p, '#7a5a36'); p.hline(0, 2, 16, '#4a4a4a'); p.hline(0, 13, 16, '#4a4a4a'); return p; },
   barrel_top: p => { planks(p, '#8a6a42'); p.frame(0, 0, 16, 16, '#4a4a4a'); p.rect(6, 6, 4, 4, '#3a2a1a'); return p; },
   sea_lantern: p => { p.noise(['#b8d8d0', '#d0ece6', '#e6f8f4'], { clump: 3, grain: 0.3 }); p.frame(0, 0, 16, 16, '#8ab8ae'); p.frame(3, 3, 10, 10, '#f6fffd'); return p; },
-  redstone_lamp: p => { p.noise(['#6e3e1c', '#86502a', '#9c6436'], { clump: 3, grain: 0.35 }); return lampGrid(p, '#3e2210'); },
+  redstone_lamp: p => { p.dither(['#4e2a12', '#6a3c1c', '#7e4c26', '#946034'], [14, 36, 34, 16], { cells: 3, grain: 0.35 }); p.flecks(['#a87040'], 4); return lampGrid(p, '#341c0c'); },
   sponge: p => { p.noise(['#c7b83a', '#d4c64a', '#b8a92c'], { clump: 3 }); return p.speck(['#8a7a1a', '#9e8f22'], 20); },
   wet_sponge: p => { p.noise(['#9a9a3a', '#a8a84a', '#8a8a2c'], { clump: 3 }); return p.speck(['#5a5a1a'], 20); },
   target_side: p => { G.hay_block_side(p); for (const r of [2, 5]) p.frame(7 - r, 7 - r, r * 2 + 2, r * 2 + 2, '#d94a3a'); p.rect(7, 7, 2, 2, '#d94a3a'); return p; },
@@ -613,10 +712,10 @@ const G = {
   // ---- redstone ----
   redstone_dust_dot: p => { p.clear(); const pts = [[6, 5, 4, 1], [5, 6, 6, 1], [5, 7, 6, 1], [5, 8, 6, 1], [5, 9, 6, 1], [6, 10, 4, 1]]; for (const [x, y, w] of pts) for (let i = 0; i < w; i++) p.put(x + i, y, p.pick(['#ffffff', '#e2e2e2', '#c8c8c8'])); p.put(4, 7, '#bdbdbd'); p.put(11, 8, '#bdbdbd'); p.put(7, 4, '#d0d0d0'); p.put(8, 11, '#d0d0d0'); return p.tintMark().bleed(); },
   redstone_dust_line: p => { p.clear(); for (let y = 0; y < N; y++) { const w = (y >> 2) % 2 ? 1 : 0; p.put(6 - w, y, '#bdbdbd'); p.put(7 - w, y, '#e6e6e6'); p.put(8 - w, y, '#ffffff'); p.put(9 - w, y, '#d2d2d2'); if (p.chance(0.35)) p.put(10 - w, y, '#b0b0b0'); } return p.tintMark().bleed(); },
-  redstone_torch: p => { torchTex(p, ['#ff8a8a', '#ff2a1a', '#c80000']); p.put(6, 6, '#ff5a4a'); p.put(9, 7, '#ff5a4a'); return p; },
-  redstone_torch_off: p => torchTex(p, ['#8a2020', '#6a1212', '#4a0a0a']),
-  rs_torch_head_on: p => { p.fill('#ff3020'); p.rect(6, 6, 4, 4, '#ff9a8a'); return p; },
-  rs_torch_head_off: p => { p.fill('#5a1010'); p.rect(6, 6, 4, 4, '#7a1a1a'); return p; },
+  redstone_torch: p => { torchTex(p, ['#ff8a70', '#ff2a1a', '#c80c04']); p.put(6, 6, '#ff5a40'); p.put(9, 7, '#ff5a40'); p.put(6, 8, '#c80c04'); return p; },
+  redstone_torch_off: p => torchTex(p, [RS_OFF[3], RS_OFF[2], RS_OFF[1]]),
+  rs_torch_head_on: p => { p.fill(RS_ON[1]); p.rect(6, 6, 4, 4, RS_ON[2]); p.rect(7, 7, 2, 2, RS_ON[3]); return p; },
+  rs_torch_head_off: p => { p.fill(RS_OFF[0]); p.rect(6, 6, 4, 4, RS_OFF[1]); p.rect(7, 7, 2, 2, RS_OFF[2]); return p; },
   repeater: p => diodeTop(p, false, 'repeater'),
   repeater_on: p => diodeTop(p, true, 'repeater'),
   comparator: p => diodeTop(p, false, 'comparator'),
@@ -641,19 +740,19 @@ const G = {
   observer_side: p => { observerBase(p); for (const y of [4, 8, 12]) { p.hline(1, y, 14, '#2e2e2e'); p.hline(1, y + 1, 14, '#6a6a6a'); } return p; },
   observer_top: p => { observerBase(p); for (let i = 0; i < 6; i++) { p.put(7 - i, 3 + i, '#a8a8a8'); p.put(8 + i, 3 + i, '#a8a8a8'); } p.rect(7, 3, 2, 10, '#8e8e8e'); return p; },
   hopper_outside: p => { stoneLike(p, '#474747', { spread: 0.1, clump: 3 }); for (const y of [0, 5, 10]) p.hline(0, y, 16, '#5c5c5c'); p.frame(0, 0, 16, 16, '#2f2f2f'); return p; },
-  hopper_top: p => { stoneLike(p, '#4a4a4a', { spread: 0.08, clump: 3 }); p.frame(0, 0, 16, 16, '#2a2a2a'); p.frame(1, 1, 14, 14, '#606060'); p.rect(2, 2, 12, 12, '#1e1e1e'); return p; },
+  hopper_top: p => { stoneLike(p, '#4a4a4a', { spread: 0.08, clump: 3 }); p.frame(0, 0, 16, 16, '#2a2a2a'); p.hline(1, 1, 14, '#6a6a6a'); p.vline(1, 1, 14, '#6a6a6a'); p.hline(1, 14, 14, '#383838'); p.vline(14, 1, 14, '#383838'); hole(p, 2, 2, 11, 11, '#1e1e1e'); p.rect(3, 3, 10, 10, '#1a1a1a'); p.rect(4, 4, 8, 8, '#222222'); return p; },
   hopper_inside: p => { stoneLike(p, '#2a2a2a', { spread: 0.1, clump: 3 }); p.rect(6, 6, 4, 4, '#121212'); return p; },
-  dispenser_front: p => { G.furnace_side(p); p.rect(4, 3, 8, 3, '#8a8a8a'); p.rect(5, 8, 2, 2, '#1f1f1f'); p.rect(9, 8, 2, 2, '#1f1f1f'); p.rect(6, 11, 4, 3, '#141414'); p.frame(6, 11, 4, 3, '#2c2c2c'); return p; },
-  dispenser_front_vertical: p => { G.furnace_side(p); p.rect(5, 5, 6, 6, '#141414'); p.frame(4, 4, 8, 8, '#3a3a3a'); return p; },
-  dropper_front: p => { G.furnace_side(p); p.rect(4, 3, 8, 3, '#8a8a8a'); p.rect(5, 8, 2, 2, '#1f1f1f'); p.rect(9, 8, 2, 2, '#1f1f1f'); p.rect(4, 11, 8, 2, '#141414'); p.hline(5, 13, 6, '#141414'); return p; },
-  dropper_front_vertical: p => { G.furnace_side(p); p.rect(6, 6, 4, 4, '#141414'); p.frame(5, 5, 6, 6, '#3a3a3a'); return p; },
+  dispenser_front: p => { launcherFront(p, 3, 3, 10, 10); p.rect(5, 6, 6, 4, '#141414'); p.rect(6, 5, 4, 6, '#141414'); p.hline(6, 5, 4, '#0a0a0a'); p.put(5, 6, '#0a0a0a'); p.hline(6, 11, 4, '#8e8e8e'); p.put(10, 10, '#8e8e8e'); p.vline(11, 6, 4, '#8e8e8e'); return p; },
+  dispenser_front_vertical: p => { launcherFront(p, 2, 2, 12, 12); p.rect(5, 6, 6, 4, '#141414'); p.rect(6, 5, 4, 6, '#141414'); p.hline(6, 5, 4, '#0a0a0a'); p.put(5, 6, '#0a0a0a'); p.hline(6, 11, 4, '#8e8e8e'); p.put(10, 10, '#8e8e8e'); p.vline(11, 6, 4, '#8e8e8e'); return p; },
+  dropper_front: p => { launcherFront(p, 3, 3, 10, 10); hole(p, 5, 5, 6, 6, '#262626'); p.rect(6, 6, 4, 4, '#101010'); return p; },
+  dropper_front_vertical: p => { launcherFront(p, 2, 2, 12, 12); hole(p, 5, 5, 6, 6, '#262626'); p.rect(6, 6, 4, 4, '#101010'); return p; },
   daylight_detector_top: p => daylightTop(p, ['#d8c8a8', '#efe2c4', '#fff6e0']),
   daylight_detector_inverted_top: p => daylightTop(p, ['#7e98b8', '#98b2d2', '#b8d0ec']),
   daylight_detector_side: p => { planks(p, '#4b3a26'); p.hline(0, 10, 16, '#2e2216'); p.hline(0, 15, 16, '#2e2216'); return p; },
-  redstone_lamp_on: p => { p.noise(['#f2b04a', '#ffd070', '#fff0b0'], { clump: 3, grain: 0.35 }); lampGrid(p, '#9a5a1e'); p.rect(6, 6, 4, 4, '#fff8d8'); return p; },
-  slime_block: p => { p.fill('#79c05a', 170); p.frame(0, 0, 16, 16, '#5a9a40'); p.rect(3, 3, 10, 10, '#8bd06c', 220); p.frame(3, 3, 10, 10, '#6aa84e'); p.rect(4, 4, 2, 2, '#b8f0a0', 230); return p; },
-  honey_block_side: p => { p.noise(['#e8a01e', '#f2b33a', '#f8c65c'], { clump: 3, grain: 0.3 }); for (let i = 0; i < N * N; i++) p.d[i * 4 + 3] = 200; p.frame(0, 0, 16, 16, '#c77e10'); return p; },
-  honey_block_top: p => { G.honey_block_side(p); p.rect(3, 3, 10, 10, '#f6bf4c', 215); return p; },
+  redstone_lamp_on: p => { p.dither(['#e09a3a', '#f2b44c', '#ffcf6e', '#ffe6a0'], [14, 36, 34, 16], { cells: 3, grain: 0.35 }); lampGrid(p, '#8e521c'); for (const [x, y] of [[3, 3], [11, 3], [3, 11], [11, 11]]) { p.rect(x, y, 2, 2, '#fff4c8'); p.put(x, y, '#fffbe8'); } return p; },
+  slime_block: p => jellyTex(p, ['#4e9a36', '#62b046', '#79c05a', '#96d676'], '#3f7e2c', 170, 225),
+  honey_block_side: p => jellyTex(p, ['#d0820e', '#e39a1c', '#f0b03a', '#f8c65c'], '#b06a0a', 200, 200, false),
+  honey_block_top: p => jellyTex(p, ['#d0820e', '#e39a1c', '#f0b03a', '#f8c65c'], '#b06a0a', 200, 215),
   end_portal_frame_side: p => { G.end_stone(p); p.rect(0, 0, 16, 4, '#3a6b5a'); p.hline(0, 4, 16, '#2a4a3f'); return p; },
   end_portal_frame_top: p => { p.noise(['#3a6b5a', '#447a68', '#2f5a4a'], { clump: 3 }); p.frame(0, 0, 16, 16, '#2a4a3f'); p.rect(4, 4, 8, 8, '#16302a'); return p; },
   end_portal_frame_eye: p => { p.clear(); p.rect(4, 4, 8, 8, '#2a8a6a'); p.rect(5, 5, 6, 6, '#3aba8a'); p.rect(6, 6, 4, 4, '#0a2a1a'); p.rect(7, 7, 2, 2, '#50e0a0'); return p.bleed(); },
@@ -662,8 +761,9 @@ const G = {
   dragon_egg: p => { p.noise(['#0c0812', '#140d1e', '#1c1228'], { clump: 3 }); return p.speck(['#3a2860', '#553a8a'], 12); },
   chorus_plant: p => { p.noise(['#5a3a5a', '#6b456b', '#7d527d'], { clump: 3 }); p.speck(['#3a233a'], 10); return p; },
   chorus_flower: p => { p.noise(['#9a7a9a', '#b08cb0', '#c29ec2'], { clump: 3 }); p.frame(0, 0, 16, 16, '#6b456b'); return p; },
-  purpur_block: p => { p.noise(['#9a6b9a', '#a97aa9', '#b88ab8'], { clump: 3, grain: 0.3 }); return p.bevel('#c69ec6', '#7d527d'); },
-  purpur_pillar: p => { for (let x = 0; x < N; x++) { const c = x % 4 === 0 ? '#7d527d' : x % 4 === 1 ? '#c69ec6' : '#a97aa9'; p.vline(x, 0, 16, c); } return p; },
+  // Purpur: four bevelled 8x8 tiles of soft purple blotches.
+  purpur_block: p => { p.dither(['#9a6b9a', '#a97aa9', '#b184b1', '#b88ab8'], [16, 34, 34, 16], { cells: 3, grain: 0.3 }); for (const [x, y] of [[0, 0], [8, 0], [0, 8], [8, 8]]) p.bevel('#c69ec6', '#7d527d', x, y, 8, 8); return p; },
+  purpur_pillar: p => { p.dither(['#9a6b9a', '#a97aa9', '#b184b1', '#b88ab8'], [16, 34, 34, 16], { cells: 3, grain: 0.3 }); for (const x of [0, 8]) { p.vline(x, 0, 16, '#c69ec6'); p.vline(x + 7, 0, 16, '#7d527d'); } p.vline(1, 0, 16, '#b88ab8'); p.vline(9, 0, 16, '#b88ab8'); return p; },
   purpur_pillar_top: p => { G.purpur_block(p); return p.frame(3, 3, 10, 10, '#7d527d'); },
   fire: p => { p.clear(); const vn = p.valueNoise(4); for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) { const h = vn(x, 3) * 8 + 5; if (15 - y < h) { const t = (15 - y) / h; p.put(x, y, t > 0.8 ? '#ffe46a' : t > 0.5 ? '#ffa12a' : t > 0.25 ? '#f06a1a' : '#c8360e'); } } return p.bleed(); },
   soul_fire: p => { G.fire(p); for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) if (p.alpha(x, y)) { const c = p.get(x, y); p.put(x, y, [c[2] * 0.4, c[1] * 0.9 + 40, c[0]]); } return p; },
@@ -691,15 +791,16 @@ const G = {
   water_flow: p => G.water(p),
   lava: p => { const vn = p.valueNoise(4); for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) { const v = vn(x, y); p.put(x, y, v > 0.75 ? '#ffb029' : v > 0.55 ? '#f28a1c' : v > 0.35 ? '#e65c12' : '#c0310a'); } return p; },
   lava_flow: p => G.lava(p),
-  ice: p => { p.noise(['#8fb4ee', '#9dbff4', '#a8c8f8', '#b5d2fb'], { clump: 3, grain: 0.3 }); for (let k = 0; k < 3; k++) { const x = p.rand(N), y = p.rand(N); for (let i = 0; i < 5; i++) p.wrapPut(x + i, y - i, '#e3f0ff'); } return p; },
-  packed_ice: p => { p.noise(['#7ea6e0', '#8cb2e8', '#9abdef'], { clump: 4, grain: 0.3 }); for (let k = 0; k < 4; k++) { const x = p.rand(N), y = p.rand(N); for (let i = 0; i < 4; i++) p.wrapPut(x + i, y, '#b8d4f8'); } return p; },
-  blue_ice: p => { p.noise(['#5a8fe0', '#6a9ee8', '#78a9ef'], { clump: 4, grain: 0.3 }); return p.speck(['#a8ccff'], 10); },
+  // Ice: pale blue blotches with a few pale diagonal cracks and lighter facets.
+  ice: p => { p.dither(['#8fb4ee', '#9dbff4', '#a8c8f8', '#b5d2fb', '#c4dcfd'], [12, 26, 30, 22, 10], { cells: 3, grain: 0.25 }); for (let k = 0; k < 3; k++) { const x = p.rand(N), y = p.rand(N); for (let i = 0; i < 5; i++) p.wrapPut(x + i, y - i, '#e3f0ff'); } p.streaks(['#7fa3dd'], 3, 2, 4, true); return p; },
+  packed_ice: p => { p.dither(['#7ea6e0', '#8cb2e8', '#9abdef', '#a9c8f4'], [16, 34, 34, 16], { cells: 3, grain: 0.3 }); p.streaks(['#b8d4f8', '#c4dcfb'], 5, 3, 5); return p.streaks(['#6f97d3'], 3, 2, 4); },
+  blue_ice: p => { p.dither(['#5a8fe0', '#6a9ee8', '#78a9ef', '#86b4f4'], [16, 34, 34, 16], { cells: 3, grain: 0.3 }); p.streaks(['#a8ccff'], 4, 2, 4); return p.flecks(['#b8d8ff'], 6); },
   nether_portal: p => portalTex(p),
   dirt_path: p => G.dirt_path_top(p),
   cactus_side: p => { p.noise(['#3f7f2e', '#4a8f37', '#428631'], { clump: 2, grain: 0.3 }); for (let y = 0; y < N; y++) { for (const x of [3, 7, 11]) p.put(x, y, '#2c5e20'); p.put(0, y, '#23501a'); p.put(15, y, '#23501a'); } for (let k = 0; k < 10; k++) p.put(p.pick([2, 5, 9, 13]), p.rand(N), p.chance(0.5) ? '#d9e6b0' : '#1f4a17'); return p; },
   cactus_top: p => { p.fill('#4f9a3c'); p.frame(0, 0, 16, 16, '#2c5e20'); p.frame(4, 4, 8, 8, '#58a142'); p.speck(['#d9e6b0'], 5); return p; },
   cactus_bottom: p => G.cactus_top(p),
-  terracotta: p => p.noise(ramp('#985e43', 0.05), { clump: 3, grain: 0.35 }),
+  terracotta: p => p.dither(ramp('#985e43', 0.06).slice(0, 3), [28, 44, 28], { cells: 3, grain: 0.2 }),
   moss_carpet: p => G.moss_block(p),
   air: p => p.clear(),
   snow_block: p => G.snow(p),
@@ -733,8 +834,8 @@ function family(name, p) {
   if ((m = name.match(/^door_(\w+)_(top|bottom)$/))) return doorTex(p, m[1], m[2] === 'top');
   if ((m = name.match(/^trapdoor_(\w+)$/))) return trapdoorTex(p, m[1]);
   if ((m = name.match(/^wool_(\w+)$/))) return wool(p, DYE[m[1]]);
-  if ((m = name.match(/^concrete_(\w+)$/))) return p.noise(ramp(CONCRETE[m[1]], 0.03).slice(1, 3), { clump: 2, grain: 0.3 });
-  if ((m = name.match(/^terracotta_(\w+)$/))) return p.noise(ramp(TERRA[m[1]], 0.05), { clump: 3, grain: 0.35 });
+  if ((m = name.match(/^concrete_(\w+)$/))) { const c = CONCRETE[m[1]]; p.fill(c); for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) if (p.chance(0.14)) p.put(x, y, shade(c, p.chance(0.7) ? 0.955 : 1.035)); return p; }
+  if ((m = name.match(/^terracotta_(\w+)$/))) return p.dither(ramp(TERRA[m[1]], 0.06).slice(0, 3), [28, 44, 28], { cells: 3, grain: 0.2 });
   if ((m = name.match(/^stained_glass_(\w+)$/))) return glassTex(p, shade(DYE[m[1]], 1.15), DYE[m[1]], 110);
   if ((m = name.match(/^(deepslate_)?ore_(\w+)$/))) {
     const colors = {
@@ -789,15 +890,15 @@ function family(name, p) {
   const BR = {
     bricks: () => bricks(p, '#96463a', '#b5a79a'),
     stone_bricks: () => bigBricks(p, '#7a7a7a', '#4e4e4e'),
-    mossy_stone_bricks: () => { bigBricks(p, '#7a7a7a', '#4e4e4e'); const vn = p.valueNoise(4); for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) if (vn(x, y) > 0.58) p.put(x, y, p.pick(['#5a7a2a', '#4d6b24', '#6b8c38'])); return p; },
-    cracked_stone_bricks: () => { bigBricks(p, '#7a7a7a', '#4e4e4e'); let x = 3, y = 0; for (let i = 0; i < 18; i++) { p.put(x, y, '#3f3f3f'); if (p.chance(0.5)) x = (x + 1) % 16; y = (y + 1) % 16; } return p; },
+    mossy_stone_bricks: () => { bigBricks(p, '#767876', '#4e4e4e'); const vn = p.fbm(3); for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) if (vn(x, y) > 0.56 || (vn(x, y) > 0.5 && p.chance(0.4))) p.put(x, y, p.pick(MOSS)); return p; },
+    cracked_stone_bricks: () => { bigBricks(p, '#7a7a7a', '#4e4e4e'); let x = 3, y = 0; for (let i = 0; i < 18; i++) { p.put(x, y, '#3f3f3f'); if (p.chance(0.4)) p.put(x + 1, y, '#8c8c8c'); if (p.chance(0.5)) x = (x + 1) % 16; y = (y + 1) % 16; } let x2 = 12, y2 = 9; for (let i = 0; i < 7; i++) { p.put(x2, y2, '#3f3f3f'); if (p.chance(0.6)) x2--; else y2++; } return p; },
     chiseled_stone_bricks: () => { bigBricks(p, '#7a7a7a', '#4e4e4e'); p.rect(2, 2, 12, 12, '#7a7a7a'); p.frame(2, 2, 12, 12, '#5a5a5a'); p.frame(5, 5, 6, 6, '#5a5a5a'); return p; },
-    nether_bricks: () => bricks(p, '#2c1418', '#160a0c', { rowH: 4, w: 6 }),
-    red_nether_bricks: () => bricks(p, '#4a0a0c', '#2a0406', { rowH: 4, w: 6 }),
+    nether_bricks: () => bricks(p, '#2e161a', '#160a0c', { rowH: 4, w: 8 }),
+    red_nether_bricks: () => bricks(p, '#4a0a0c', '#2a0406', { rowH: 4, w: 8 }),
     end_stone_bricks: () => bigBricks(p, '#dbde9f', '#b7ba7e'),
     mud_bricks: () => bricks(p, '#8a6a4f', '#6a5039', { rowH: 4, w: 8 }),
     quartz_bricks: () => bigBricks(p, '#ece6dc', '#cfc8bb'),
-    prismarine: () => p.noise(['#4a8a7a', '#5a9e8a', '#6ab29a', '#3a7a6a'], { clump: 3, grain: 0.45 }),
+    prismarine: () => cobble(p, '#5a9e8a', false, { mortar: 0.7 }),
     prismarine_bricks: () => bigBricks(p, '#6ab29a', '#3a7a6a'),
     dark_prismarine: () => bigBricks(p, '#335c4c', '#1f3d31'),
   };
@@ -846,14 +947,14 @@ const REF_AVG = {
   sand: [219, 207, 163], gravel: [132, 127, 127], bricks: [151, 98, 83], sandstone: [216, 203, 156], deepslate: [80, 80, 83], netherrack: [98, 38, 38],
   end_stone: [220, 223, 158], obsidian: [15, 11, 25], ore_coal: [106, 106, 105], ore_iron: [136, 129, 123], ore_diamond: [121, 141, 141], ore_gold: [145, 134, 107],
   snow: [249, 254, 254], clay: [161, 166, 179], terracotta: [152, 94, 68], planks_spruce: [115, 85, 49], planks_birch: [192, 175, 121], log_birch: [217, 215, 210],
-  stone_bricks: [122, 122, 122], bookshelf: [117, 95, 60], furnace_front: [92, 91, 91], crafting_table_top: [120, 73, 42], soul_sand: [81, 62, 51], ice: [146, 184, 254],
+  stone_bricks: [122, 122, 122], wool_white: [233, 236, 236], sandstone_top: [216, 203, 156], red_sandstone: [186, 99, 29], bookshelf: [117, 95, 60], furnace_front: [92, 91, 91], crafting_table_top: [120, 73, 42], soul_sand: [81, 62, 51], ice: [146, 184, 254],
   packed_ice: [142, 180, 250], quartz_block: [236, 230, 223], prismarine: [99, 162, 146], mycelium_top: [111, 99, 101], podzol_top: [92, 63, 24], log_spruce: [59, 38, 17],
   planks_jungle: [160, 115, 81], planks_acacia: [168, 90, 50], planks_dark_oak: [67, 43, 20], log_dark_oak: [60, 47, 26], log_jungle: [85, 68, 25], log_acacia: [103, 97, 87],
-  red_sand: [191, 103, 33], ore_redstone: [140, 110, 110], ore_lapis: [107, 118, 141], ore_emerald: [108, 136, 116], ore_copper: [125, 126, 120], mossy_cobblestone: [110, 119, 95],
+  red_sand: [191, 103, 33], ore_redstone: [140, 110, 110], ore_lapis: [107, 118, 141], ore_emerald: [108, 136, 116], ore_copper: [125, 126, 120],
   andesite: [136, 136, 137], diorite: [189, 188, 189], granite: [149, 103, 86], calcite: [223, 224, 221], tuff: [108, 109, 103], blackstone: [42, 36, 41],
   basalt_side: [73, 73, 78], crying_obsidian: [33, 10, 60], nether_bricks: [44, 22, 26], end_stone_bricks: [218, 224, 162], purpur_block: [170, 126, 170], mud: [60, 57, 61],
   coarse_dirt: [119, 86, 59], iron_block: [220, 220, 220], gold_block: [246, 208, 62], diamond_block: [98, 237, 228], emerald_block: [42, 203, 88], lapis_block: [31, 67, 140],
-  coal_block: [16, 16, 16], hay_block_side: [166, 136, 38], pumpkin_side: [196, 115, 24], melon_side: [114, 146, 30], smooth_stone: [159, 159, 159], mossy_stone_bricks: [115, 121, 105],
+  coal_block: [16, 16, 16], hay_block_side: [166, 136, 38], pumpkin_side: [196, 115, 24], melon_side: [114, 146, 30], smooth_stone: [159, 159, 159],
   cracked_stone_bricks: [118, 118, 118], dripstone_block: [134, 108, 93], amethyst_block: [134, 98, 191], magma_block: [142, 63, 31], bone_block_side: [229, 226, 208], soul_soil: [76, 58, 47],
   planks_cherry: [227, 179, 173], planks_mangrove: [118, 54, 49],
 };

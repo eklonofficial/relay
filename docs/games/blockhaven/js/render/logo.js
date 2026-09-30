@@ -105,3 +105,13 @@ export function iconDataURL(kind) {
   art.forEach((r, y) => [...r].forEach((c, i) => { if (c === '#') { x.fillStyle = '#e0e0e0'; x.fillRect(i, y, 1, 1); } }));
   return cv.toDataURL();
 }
+
+// The 16x16 dirt tile behind every out-of-world screen: a block texture (RGBA pixels) darkened to
+// Minecraft's 25% option-background brightness.
+export function dirtTexture(px, k = 0.25) {
+  const cv = document.createElement('canvas'); cv.width = cv.height = 16;
+  const x = cv.getContext('2d'), img = x.createImageData(16, 16);
+  for (let i = 0; i < img.data.length; i += 4) { img.data[i] = px[i] * k; img.data[i + 1] = px[i + 1] * k; img.data[i + 2] = px[i + 2] * k; img.data[i + 3] = 255; }
+  x.putImageData(img, 0, 0);
+  return cv.toDataURL();
+}

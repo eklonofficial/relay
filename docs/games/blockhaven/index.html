@@ -5,124 +5,155 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Blockhaven</title>
 <link rel="icon" href="data:,">
-<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;500&display=swap">
 <style>
+  /* Pixelify Sans (OFL), vendored in fonts/: a 7-px-cap pixel face on an 11-px em, so 11 GUI px of
+     font-size puts one font pixel on one GUI pixel, the same glyph height as Minecraft's 8-px font. */
+  @font-face { font-family: "Pixelify Sans"; font-style: normal; font-weight: 400 700; font-display: swap; src: url(fonts/pixelify-sans-latin.woff2?v=muoh3kij) format("woff2"); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+  @font-face { font-family: "Pixelify Sans"; font-style: normal; font-weight: 400 700; font-display: swap; src: url(fonts/pixelify-sans-latin-ext.woff2?v=muoh3kij) format("woff2"); unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+  @font-face { font-family: "Pixelify Sans"; font-style: normal; font-weight: 400 700; font-display: swap; src: url(fonts/pixelify-sans-cyrillic.woff2?v=muoh3kij) format("woff2"); unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; }
   :root {
-    --ui-font: "Trebuchet MS", "Segoe UI", system-ui, sans-serif;
-    --px-font: "Pixelify Sans", "Trebuchet MS", system-ui, sans-serif;
     --gs: 3; /* GUI scale, set from the window size like Minecraft's "Auto" */
-    --pixel-shadow: 2px 2px 0 #2b2b2b;
+    --u: calc(var(--gs) * 1px); /* one GUI pixel */
+    --fs: calc(var(--gs) * 11px); --lh: calc(var(--gs) * 10px); /* the 8-px font and its line pitch */
+    --px-font: "Pixelify Sans", monospace; --ui-font: var(--px-font);
+    --shadow: var(--u) var(--u) 0 #3f3f3f; --pixel-shadow: var(--shadow);
+    --btn-tex: none; --dirt-tex: none; /* stone tile behind buttons, dark dirt behind screens (set at startup) */
     --panel: #c6c6c6; --panel-light: #ffffff; --panel-dark: #555555; --slot: #8b8b8b;
   }
   * { box-sizing: border-box; }
-  html, body { margin: 0; height: 100%; overflow: hidden; background: #0b0f18; color: #fff; font-family: var(--ui-font); user-select: none; -webkit-user-select: none; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #000; color: #fff; font: 400 var(--fs) / var(--lh) var(--px-font); user-select: none; -webkit-user-select: none; }
   canvas#game { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
   .hidden { display: none !important; }
-  .screen { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: safe center; gap: 12px; }
-  .screen:not(#hud) { overflow-y: auto; padding: 12px 0; box-sizing: border-box; }
-  .dim { background: rgba(8, 10, 16, 0.55); backdrop-filter: blur(5px); }
   img { image-rendering: pixelated; }
 
-  /* Minecraft-style buttons, sized in GUI pixels (--bs): 200x20 face, black rim, bevelled stone. */
-  :root { --bs: 2; --btn-tex: none; }
-  #title, #pause, #death { --bs: var(--gs); }
-  button {
-    font: 400 calc(var(--bs) * 9px) / 1 var(--px-font); color: #e0e0e0; text-shadow: calc(var(--bs) * 1px) calc(var(--bs) * 1px) 0 #383838;
-    width: calc(var(--bs) * 200px); max-width: 92vw; height: calc(var(--bs) * 20px); padding: 0 calc(var(--bs) * 4px); cursor: pointer; white-space: nowrap;
-    background: #6f6f6f var(--btn-tex); background-size: calc(var(--bs) * 16px); image-rendering: pixelated;
-    border: calc(var(--bs) * 1px) solid #000; border-radius: 0;
-    box-shadow: inset calc(var(--bs) * 1px) calc(var(--bs) * 1px) 0 rgba(255,255,255,0.32), inset 0 calc(var(--bs) * -2px) 0 rgba(0,0,0,0.38);
+  /* ---------- menu screens: full-bleed Minecraft layouts in GUI pixels (1 unit = var(--u)) ---------- */
+  .screen { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; overflow: hidden; text-shadow: var(--shadow); }
+  .screen h1, .screen h2, .screen h3 { margin: 0; font: inherit; }
+  .screen > h3 { flex: none; height: calc(var(--u) * 24); display: flex; align-items: flex-end; justify-content: center; padding-bottom: calc(var(--u) * 6); }
+  .screen > .body { flex: 1; min-height: 0; width: 100%; overflow-y: auto; display: flex; flex-direction: column; align-items: center; gap: calc(var(--u) * 4); padding-bottom: calc(var(--u) * 4); }
+  .screen > .foot { flex: none; display: flex; flex-direction: column; align-items: center; gap: calc(var(--u) * 4); padding: calc(var(--u) * 4) 0 calc(var(--u) * 8); }
+  .menu { display: flex; flex-direction: column; align-items: center; gap: calc(var(--u) * 4); }
+  .row { display: flex; gap: calc(var(--u) * 4); justify-content: center; }
+  /* Out of a world: tiled dark dirt. In a world: a translucent dark overlay over the game (except while loading). */
+  .dirt { background: #000 var(--dirt-tex); background-size: calc(var(--u) * 32); image-rendering: pixelated; }
+  body.ingame .dirt:not(#loading) { background: linear-gradient(rgba(16,16,16,0.4), rgba(16,16,16,0.6)); }
+  /* Lists sit on a darker dirt band with a 4-px shadow at both edges and Minecraft's slim grey scrollbar. */
+  .band { flex: 1; min-height: 0; width: 100%; position: relative; display: flex; justify-content: center; background: linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.5)), #000 var(--dirt-tex); background-size: calc(var(--u) * 32); image-rendering: pixelated; }
+  body.ingame .band { background: rgba(0,0,0,0.3); }
+  .band::before, .band::after { content: ""; position: absolute; left: 0; right: 0; height: calc(var(--u) * 4); pointer-events: none; z-index: 1; }
+  .band::before { top: 0; background: linear-gradient(#000, transparent); }
+  .band::after { bottom: 0; background: linear-gradient(transparent, #000); }
+  .list { height: 100%; width: 100%; max-width: calc(var(--u) * 286); overflow-y: auto; overflow-x: hidden; padding: calc(var(--u) * 4) 0; }
+  .list::-webkit-scrollbar { width: calc(var(--u) * 6); }
+  .list::-webkit-scrollbar-track { background: #000; }
+  .list::-webkit-scrollbar-thumb { background: #c0c0c0; box-shadow: inset calc(var(--u) * -1) calc(var(--u) * -1) 0 #808080; }
+  @supports not selector(::-webkit-scrollbar) { .list { scrollbar-width: thin; scrollbar-color: #c0c0c0 #000; } }
+
+  /* Buttons: 200x20 GUI px, black outline, stone face with a light top/left edge and a dark bottom band. */
+  button, .key {
+    display: inline-flex; align-items: center; justify-content: center; flex: none; margin: 0; width: calc(var(--u) * 200); height: calc(var(--u) * 20); padding: 0 calc(var(--u) * 4);
+    font: 400 var(--fs) / 1 var(--px-font); color: #e0e0e0; text-shadow: var(--shadow); white-space: nowrap; overflow: hidden; cursor: pointer;
+    background: #6f6f6f var(--btn-tex); background-size: calc(var(--u) * 16); image-rendering: pixelated;
+    border: var(--u) solid #000; border-radius: 0;
+    box-shadow: inset var(--u) var(--u) 0 rgba(255,255,255,0.3), inset calc(var(--u) * -1) calc(var(--u) * -2) 0 rgba(0,0,0,0.35);
   }
-  button:hover:not(:disabled), button:focus-visible { border-color: #fff; color: #ffffa0; outline: none; }
+  button:hover:not(:disabled), button:focus-visible { border-color: #fff; color: #ffffa0; outline: none; background-image: linear-gradient(rgba(126,139,196,0.35), rgba(126,139,196,0.35)), var(--btn-tex); }
   button:disabled { cursor: default; color: #a0a0a0; background-image: linear-gradient(rgba(0,0,0,0.55), rgba(0,0,0,0.55)), var(--btn-tex); box-shadow: none; }
-  button.on { background-image: linear-gradient(rgba(80,150,50,0.45), rgba(80,150,50,0.45)), var(--btn-tex); color: #ffffa0; }
-  button.small { width: auto; font-size: calc(var(--bs) * 8px); }
-  button.half { width: calc(var(--bs) * 98px); max-width: 45vw; }
-  #worlds button.half, #create button.half { width: calc(var(--bs) * 150px); }
-  .form .opt { flex-wrap: nowrap !important; }
-  button.sq { width: calc(var(--bs) * 20px); padding: 0; display: inline-flex; align-items: center; justify-content: center; }
-  button.sq img { width: calc(var(--bs) * 8px); height: calc(var(--bs) * 8px); }
-  input[type=text], select { padding: 9px; font: 15px var(--ui-font); background: #000; color: #fff; border: 2px solid #a0a0a0; outline: none; }
+  button.on { background-image: linear-gradient(rgba(0,0,0,0.45), rgba(0,0,0,0.45)), var(--btn-tex); box-shadow: inset 0 calc(var(--u) * -2) 0 #fff; color: #fff; }
+  button.half { width: calc(var(--u) * 150); }
+  button.pair { width: calc(var(--u) * 98); }
+  button.q { width: calc(var(--u) * 73); padding: 0 calc(var(--u) * 2); }
+  button.sq { width: calc(var(--u) * 20); padding: 0; }
+  button.sq img { width: calc(var(--u) * 8); height: calc(var(--u) * 8); }
+  button.small { width: auto; padding: 0 calc(var(--u) * 6); }
+  .key { width: auto; min-width: calc(var(--u) * 75); cursor: default; font-weight: 400; }
+  /* Sliders: a darker track with the label centred and an 8x20 mini-button handle; the real range input sits invisibly on top. */
+  .slider { position: relative; width: calc(var(--u) * 150); height: calc(var(--u) * 20); border: var(--u) solid #000; background: #6f6f6f var(--btn-tex); background-size: calc(var(--u) * 16); image-rendering: pixelated; background-image: linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.5)), var(--btn-tex); }
+  .slider .lab { position: absolute; inset: 0; z-index: 1; display: flex; align-items: center; justify-content: center; color: #e0e0e0; white-space: nowrap; pointer-events: none; }
+  .slider .knob { position: absolute; top: calc(var(--u) * -1); bottom: calc(var(--u) * -1); width: calc(var(--u) * 8); left: calc(var(--u) * -1 + var(--p, 0) * (100% - var(--u) * 6)); border: var(--u) solid #000; background: #6f6f6f var(--btn-tex); background-size: calc(var(--u) * 16); image-rendering: pixelated; box-shadow: inset var(--u) var(--u) 0 rgba(255,255,255,0.3), inset calc(var(--u) * -1) calc(var(--u) * -2) 0 rgba(0,0,0,0.35); pointer-events: none; }
+  .slider input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
+  .slider:hover .knob, .slider:focus-within .knob { border-color: #fff; background-image: linear-gradient(rgba(126,139,196,0.35), rgba(126,139,196,0.35)), var(--btn-tex); }
+  .slider:hover .lab, .slider:focus-within .lab { color: #ffffa0; }
+  /* Text fields: black, grey 1-px border (white when focused), label above-left. */
+  input[type=text] { width: calc(var(--u) * 200); height: calc(var(--u) * 20); margin: 0; padding: 0 calc(var(--u) * 4); font: 400 var(--fs) / 1 var(--px-font); color: #e0e0e0; text-shadow: var(--shadow); background: #000; border: var(--u) solid #a0a0a0; border-radius: 0; outline: none; }
   input[type=text]:focus { border-color: #fff; }
+  input[type=text]::placeholder { color: #808080; text-shadow: none; }
+  .field { width: calc(var(--u) * 200); flex: none; }
+  .field > label { display: block; margin-bottom: calc(var(--u) * 2); }
+  .hint-text { width: calc(var(--u) * 310); max-width: 100%; min-height: var(--lh); color: #a0a0a0; padding: 0 calc(var(--u) * 2); }
 
-  #title { background: radial-gradient(ellipse at center, rgba(0,0,0,0) 45%, rgba(0,0,0,0.35) 100%); gap: 0; }
-  .logo { position: relative; margin-bottom: calc(var(--bs) * 18px); text-align: center; }
-  .logo canvas { display: block; width: calc(var(--bs) * var(--logo-w, 250) * 1px); max-width: 94vw; image-rendering: pixelated; filter: drop-shadow(0 calc(var(--bs) * 2px) calc(var(--bs) * 3px) rgba(0,0,0,0.35)); }
-  .splash { position: absolute; left: calc(100% - var(--bs) * 12px); top: calc(var(--bs) * 31px); color: #ffff00; font: 400 calc(var(--bs) * 8px) var(--px-font); text-shadow: calc(var(--bs) * 1px) calc(var(--bs) * 1px) 0 #3f3f00; white-space: nowrap; transform-origin: 0 50%; transform: rotate(-20deg); animation: pulse 0.5s ease-in-out infinite alternate; }
-  @keyframes pulse { from { transform: rotate(-20deg) scale(1); } to { transform: rotate(-20deg) scale(1.08); } }
-  #title .menu { gap: calc(var(--bs) * 4px); }
-  #title .menu .row.bottom { margin-top: calc(var(--bs) * 8px); gap: calc(var(--bs) * 4px); align-items: center; flex-wrap: nowrap; }
-  .footer { pointer-events: none; position: fixed; bottom: calc(var(--bs) * 1px); left: calc(var(--bs) * 2px); right: calc(var(--bs) * 2px); display: flex; justify-content: space-between; gap: 12px; color: #fff; font: 400 calc(var(--bs) * 9px) var(--px-font); text-shadow: calc(var(--bs) * 1px) calc(var(--bs) * 1px) 0 #3f3f3f; }
-  .footer span:last-child { text-align: right; }
-  .menu { display: flex; flex-direction: column; align-items: center; gap: 8px; }
-  .row { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+  /* ---------- title ---------- */
+  #title { background: radial-gradient(ellipse at center, rgba(0,0,0,0) 45%, rgba(0,0,0,0.35) 100%); }
+  .logo { position: absolute; top: calc(var(--u) * 30); left: 50%; transform: translateX(-50%); }
+  .logo canvas { display: block; width: calc(var(--u) * var(--logo-w, 250)); image-rendering: pixelated; }
+  /* Splash: centred on the logo's lower right like Minecraft's (w/2+90, 70), scaled to about 100 GUI px wide (--splash-scale, set at startup), pulsing. */
+  .splash { position: absolute; left: calc(100% - var(--u) * 32); top: calc(var(--u) * 42); color: #ffff00; text-shadow: var(--u) var(--u) 0 #3f3f00; white-space: nowrap; line-height: 1; font-size: calc(var(--fs) * var(--splash-scale, 1)); transform-origin: 50% 50%; transform: translate(-50%, -50%) rotate(-20deg); animation: pulse 0.5s ease-in-out infinite alternate; }
+  @keyframes pulse { from { transform: translate(-50%, -50%) rotate(-20deg) scale(1); } to { transform: translate(-50%, -50%) rotate(-20deg) scale(1.08); } }
+  #title .menu { position: absolute; top: calc(25% + var(--u) * 48); left: 50%; transform: translateX(-50%); }
+  #title .menu .row.bottom { margin-top: calc(var(--u) * 12); }
+  .footer { pointer-events: none; position: absolute; bottom: calc(var(--u) * 2); left: calc(var(--u) * 2); right: calc(var(--u) * 2); display: flex; justify-content: space-between; gap: calc(var(--u) * 8); white-space: nowrap; }
 
-  .panel { background: rgba(20, 22, 30, 0.85); border: 2px solid #000; box-shadow: inset 0 0 0 2px rgba(255,255,255,0.08), 0 20px 50px rgba(0,0,0,0.5); padding: 22px 26px; border-radius: 4px; display: flex; flex-direction: column; gap: 12px; align-items: center; max-width: 94vw; max-height: 94vh; }
-  .panel h3, #pause h2 { margin: 0 0 6px; font-family: var(--px-font); font-weight: 400; font-size: 26px; text-shadow: var(--pixel-shadow); letter-spacing: 0.04em; }
-  #world-list { width: min(560px, 90vw); height: min(46vh, 380px); overflow: auto; background: rgba(0,0,0,0.55); border: 2px solid #000; }
-  .world-entry { display: flex; gap: 12px; align-items: center; padding: 10px 12px; border: 2px solid transparent; cursor: pointer; }
-  .world-entry:hover { background: rgba(255,255,255,0.06); }
-  .world-entry.sel { border-color: #fff; background: rgba(255,255,255,0.1); }
-  .world-entry .thumb { width: 52px; height: 52px; background: #333 center/cover; image-rendering: pixelated; border: 2px solid #000; flex: none; }
-  .world-entry .name { font-weight: 700; font-size: 16px; }
-  .world-entry .info { font-size: 12px; color: #bbb; margin-top: 3px; }
-  .empty-note { color: #aaa; padding: 24px; text-align: center; }
-  .form { display: grid; grid-template-columns: 150px 330px; gap: 10px 12px; align-items: center; font-size: 14px; }
-  .form label { text-align: right; text-shadow: 1px 1px 0 #000; }
-  .form .opt { display: flex; gap: 6px; flex-wrap: wrap; }
-  .form .opt button { width: auto; flex: 1; font-size: 13px; padding: 7px 8px; }
-  .form .opt button.on { background: linear-gradient(180deg, #7aa35a, #5a8a3a); color: #fff; }
-  .hint-text { font-size: 12px; color: #bbb; max-width: 440px; text-align: center; line-height: 1.5; }
+  /* ---------- select world / create ---------- */
+  .world-entry { display: flex; gap: calc(var(--u) * 3); width: calc(var(--u) * 270); max-width: 100%; height: calc(var(--u) * 36); margin: 0 auto; padding: calc(var(--u) * 2); cursor: pointer; }
+  .world-entry.sel { box-shadow: 0 0 0 var(--u) #000, 0 0 0 calc(var(--u) * 2) #fff; }
+  .world-entry .thumb { width: calc(var(--u) * 32); height: calc(var(--u) * 32); flex: none; background: #1a1a1a center/cover; image-rendering: pixelated; }
+  .world-entry .txt { min-width: 0; padding-top: var(--u); }
+  .world-entry .name, .world-entry .info { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .world-entry .info { color: #808080; text-shadow: var(--u) var(--u) 0 #202020; }
+  .empty-note { color: #a0a0a0; padding: calc(var(--u) * 24) 0; text-align: center; }
 
-  #loading .label { font-size: 22px; text-shadow: var(--pixel-shadow); }
-  #loading .bar { width: 320px; height: 10px; background: rgba(0,0,0,0.6); border: 2px solid #111; }
-  #load-bar { height: 100%; width: 0; background: linear-gradient(90deg, #6fcf4a, #9be36b); transition: width 0.2s; }
+  /* ---------- loading ---------- */
+  #loading { justify-content: center; gap: calc(var(--u) * 8); }
+  #loading .bar { width: calc(var(--u) * 200); height: calc(var(--u) * 8); padding: var(--u); background: #000; }
+  #load-bar { height: 100%; width: 0; background: #80ff20; transition: width 0.2s; }
 
   /* ---------- HUD ---------- */
-  #hud { position: fixed; inset: 0; pointer-events: none; }
-  /* ---- HUD, laid out in GUI pixels (1 unit = var(--gs) screen px), after the original's layout ---- */
-  #crosshair { position: absolute; left: 50%; top: 50%; width: calc(var(--gs) * 9px); height: calc(var(--gs) * 9px); transform: translate(-50%, -50%); mix-blend-mode: difference; }
+  /* The original's HUD in GUI pixels: 182x22 hotbar on the bottom edge, 182x5 xp bar 2 px above it, 9-px heart/armor rows
+     left-aligned and food/air rows right-aligned above that at an 8-px icon pitch. Text is the 8-px font (line box 9, caps
+     from its 2nd row) with a shadow at 25% of the text colour. Sprites (--spr-*) are drawn at startup by ui.js. */
+  #hud { position: fixed; inset: 0; pointer-events: none; font: 400 var(--fs) / calc(var(--u) * 9) var(--px-font); color: #fff; text-shadow: var(--u) var(--u) 0 color-mix(in srgb, currentColor 25%, #000); }
+  #crosshair { position: absolute; left: calc(50% - var(--u) * 4.5); top: calc(50% - var(--u) * 4.5); width: calc(var(--u) * 9); height: calc(var(--u) * 9); mix-blend-mode: difference; }
   #crosshair::before, #crosshair::after { content: ""; position: absolute; background: #fff; }
-  #crosshair::before { left: calc(var(--gs) * 4px); top: 0; width: calc(var(--gs) * 1px); height: 100%; }
-  #crosshair::after { left: 0; top: calc(var(--gs) * 4px); width: 100%; height: calc(var(--gs) * 1px); }
-  #bottom { position: absolute; bottom: 0; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; font-family: var(--px-font); }
-  #stats { width: calc(var(--gs) * 182px); display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: calc(var(--gs) * 1px); }
-  .statcol { display: flex; flex-direction: column; gap: calc(var(--gs) * 1px); }
-  .statrow { display: flex; height: calc(var(--gs) * 9px); }
-  .statrow img { width: calc(var(--gs) * 9px); height: calc(var(--gs) * 9px); margin-right: calc(var(--gs) * -1px); image-rendering: pixelated; }
-  .statrow.right { flex-direction: row-reverse; }
-  .statrow.right img { margin: 0 calc(var(--gs) * -1px) 0 0; }
-  .statrow img.shake { transform: translateY(calc(var(--gs) * -1px)); }
-  #xp { width: calc(var(--gs) * 182px); height: calc(var(--gs) * 5px); background: #1b1b1b; box-shadow: inset 0 0 0 calc(var(--gs) * 1px) #000; position: relative; margin: calc(var(--gs) * 2px) 0 calc(var(--gs) * 2px);
-    background-image: repeating-linear-gradient(90deg, transparent 0 calc(var(--gs) * 17px), #000 calc(var(--gs) * 17px) calc(var(--gs) * 18px)); }
-  #xp-fill { height: 100%; background: linear-gradient(180deg, #b8f870 0 20%, #80ff20 20% 80%, #3c8a10 80%); width: 0; }
-  #xp-level { position: absolute; left: 50%; bottom: calc(var(--gs) * 3px); transform: translateX(-50%); color: #80ff20; font: 500 calc(var(--gs) * 9px) var(--px-font); line-height: 1;
-    text-shadow: calc(var(--gs) * 1px) 0 0 #000, calc(var(--gs) * -1px) 0 0 #000, 0 calc(var(--gs) * 1px) 0 #000, 0 calc(var(--gs) * -1px) 0 #000; }
-  #hotbar { display: flex; padding: calc(var(--gs) * 1px); background: rgba(0,0,0,0.45); box-shadow: 0 0 0 calc(var(--gs) * 1px) rgba(0,0,0,0.75); margin-bottom: calc(var(--gs) * 1px); }
-  .slot { position: relative; box-sizing: border-box; width: calc(var(--gs) * 20px); height: calc(var(--gs) * 20px); display: flex; align-items: center; justify-content: center;
-    border: calc(var(--gs) * 1px) solid #8b8b8b; border-color: #9a9a9a #6f6f6f #6f6f6f #9a9a9a; background: rgba(38,38,38,0.55); }
-  .slot img { width: calc(var(--gs) * 16px); height: calc(var(--gs) * 16px); image-rendering: pixelated; pointer-events: none; }
-  .slot.selected { z-index: 1; outline: calc(var(--gs) * 2px) solid #e6e6e6; box-shadow: 0 0 0 calc(var(--gs) * 1px) #000, inset 0 0 0 calc(var(--gs) * 1px) rgba(0,0,0,0.6); }
-  .count { position: absolute; right: calc(var(--gs) * 0px); bottom: calc(var(--gs) * -1px); font: 500 calc(var(--gs) * 8px) var(--px-font); line-height: 1; color: #fff; text-shadow: calc(var(--gs) * 1px) calc(var(--gs) * 1px) 0 #3f3f3f; pointer-events: none; }
-  .dur { position: absolute; left: calc(var(--gs) * 2px); right: calc(var(--gs) * 2px); bottom: calc(var(--gs) * 2px); height: calc(var(--gs) * 2px); background: #000; pointer-events: none; }
-  .dur div { height: 50%; }
-  .slot .cd { position: absolute; left: 0; right: 0; bottom: 0; background: rgba(255,255,255,0.45); pointer-events: none; }
-  #attack-ind { position: absolute; left: 50%; top: calc(50% + var(--gs) * 9px); width: calc(var(--gs) * 16px); height: calc(var(--gs) * 2px); transform: translateX(-50%); background: rgba(0,0,0,0.45); }
-  #attack-ind div { height: 100%; background: #fff; width: 0; }
-  #offhand-slot { position: absolute; left: calc(var(--gs) * -31px); bottom: calc(var(--gs) * 1px); background: rgba(38,38,38,0.7); box-shadow: 0 0 0 calc(var(--gs) * 1px) rgba(0,0,0,0.75); }
-  #item-name { font-family: var(--px-font); font-weight: 400; font-size: calc(var(--gs) * 9px) !important; position: absolute; bottom: calc(var(--gs) * 59px); left: 0; right: 0; text-align: center; font-size: 17px; font-weight: 700; text-shadow: var(--pixel-shadow); opacity: 0; transition: opacity 0.5s; }
-  #action { font-family: var(--px-font); font-size: calc(var(--gs) * 8px) !important; position: absolute; bottom: calc(var(--gs) * 72px); left: 0; right: 0; text-align: center; font-size: 16px; text-shadow: var(--pixel-shadow); opacity: 0; transition: opacity 0.4s; }
-  #debug { position: absolute; top: 8px; left: 8px; font: 13px/1.45 ui-monospace, Menlo, Consolas, monospace; background: rgba(0,0,0,0.45); padding: 6px 9px; white-space: pre; text-shadow: 1px 1px 0 #000; }
-  #boss { position: absolute; top: calc(var(--gs) * 3px); left: 50%; transform: translateX(-50%); width: calc(var(--gs) * 182px); text-align: center; font-family: var(--px-font); }
-  #boss .n { font-size: 15px; text-shadow: var(--pixel-shadow); margin-bottom: 3px; }
-  #boss .b { height: 8px; border: 2px solid #000; background: #3a0a3a; }
-  #boss .b div { height: 100%; background: linear-gradient(180deg, #f070f0, #b030b0); }
-  #chat { position: absolute; left: calc(var(--gs) * 2px); bottom: calc(var(--gs) * 62px); width: min(calc(var(--gs) * 320px), 70vw); display: flex; flex-direction: column; gap: 0; font: 400 calc(var(--gs) * 8px) var(--px-font); line-height: calc(var(--gs) * 9px); }
-  .msg { background: rgba(0,0,0,0.5); padding: 0 calc(var(--gs) * 1px); text-shadow: calc(var(--gs) * 1px) calc(var(--gs) * 1px) 0 #3f3f3f; transition: opacity 1s; white-space: pre-wrap; word-break: break-word; }
+  #crosshair::before { left: calc(var(--u) * 4); top: 0; width: var(--u); height: 100%; }
+  #crosshair::after { left: 0; top: calc(var(--u) * 4); width: 100%; height: var(--u); }
+  #attack-ind { position: absolute; left: calc(50% - var(--u) * 8); top: calc(50% + var(--u) * 9); width: calc(var(--u) * 16); height: calc(var(--u) * 4); mix-blend-mode: difference; background: rgba(255,255,255,0.22); box-shadow: inset 0 0 0 var(--u) rgba(255,255,255,0.5); }
+  #attack-ind div { height: 100%; width: 0; background: #fff; }
+  #bottom { position: absolute; bottom: 0; left: calc(50% - var(--u) * 91); width: calc(var(--u) * 182); height: calc(var(--u) * 60); }
+  #bottom > *, #stats > * { position: absolute; }
+  #stats { inset: 0; }
+  #hud.nostats #stats, #hud.nostats #xp, #hud.nostats #xp-level { visibility: hidden; }
+  .statrow { display: flex; left: 0; bottom: calc(var(--u) * 30); height: calc(var(--u) * 9); }
+  .statrow > i { flex: none; width: calc(var(--u) * 9); height: calc(var(--u) * 9); background: 0 0 / 100% 100% no-repeat; image-rendering: pixelated; }
+  .statrow > i + i { margin-left: calc(var(--u) * -1); }
+  .statrow.right { left: auto; right: 0; flex-direction: row-reverse; }
+  .statrow.right > i + i { margin: 0 calc(var(--u) * -1) 0 0; }
+  #hearts-row2, #air-row, #armor-row { bottom: calc(var(--u) * 40); }
+  #stats.abs #armor-row { bottom: calc(var(--u) * 50); }
+  #xp { left: 0; bottom: calc(var(--u) * 24); width: 100%; height: calc(var(--u) * 5); background: var(--spr-xp) 0 0 / 100% 100%; image-rendering: pixelated; }
+  #xp-fill { width: 0; height: 100%; background: var(--spr-xp-fill) 0 0 / calc(var(--u) * 182) 100%; image-rendering: pixelated; }
+  #xp-fill.jump { filter: hue-rotate(-62deg) saturate(1.3); }
+  #xp-level { left: 0; right: 0; bottom: calc(var(--u) * 27); text-align: center; color: #80ff20; text-shadow: var(--u) 0 #000, calc(var(--u) * -1) 0 #000, 0 var(--u) #000, 0 calc(var(--u) * -1) #000; }
+  #hotbar { left: 0; bottom: 0; width: 100%; height: calc(var(--u) * 22); background: var(--spr-hotbar) 0 0 / 100% 100%; image-rendering: pixelated; }
+  #hotbar .sel { position: absolute; top: calc(var(--u) * -1); width: calc(var(--u) * 24); height: calc(var(--u) * 24); background: var(--spr-sel) 0 0 / 100% 100%; image-rendering: pixelated; }
+  .slot { --o: 2; position: absolute; width: calc(var(--u) * 20); height: calc(var(--u) * 20); }
+  #offhand-slot { --o: 3; left: calc(var(--u) * -29); bottom: 0; width: calc(var(--u) * 22); height: calc(var(--u) * 22); background: var(--spr-hotbar1) 0 0 / 100% 100%; image-rendering: pixelated; }
+  .slot .cd { position: absolute; left: calc(var(--u) * var(--o)); bottom: calc(100% - var(--u) * (var(--o) + 16)); width: calc(var(--u) * 16); background: rgba(255,255,255,0.5); pointer-events: none; }
+  #item-name { position: absolute; left: 0; right: 0; bottom: calc(var(--u) * 51); text-align: center; white-space: nowrap; opacity: 0; transition: opacity 0.5s; }
+  #hud.nostats #item-name { bottom: calc(var(--u) * 37); }
+  #action { position: absolute; left: 0; right: 0; bottom: calc(var(--u) * 64); text-align: center; white-space: nowrap; opacity: 0; transition: opacity 0.4s; }
+  #debug { position: absolute; top: var(--u); left: var(--u); color: #e0e0e0; text-shadow: none; white-space: pre; }
+  #debug > div { width: fit-content; padding: 0 var(--u); background: rgba(80,80,80,0.565); }
+  #boss { --boss: #e070ff; position: absolute; top: calc(var(--u) * 2); left: calc(50% - var(--u) * 91); width: calc(var(--u) * 182); text-align: center; }
+  #boss .n { height: calc(var(--u) * 9); margin-bottom: var(--u); white-space: nowrap; }
+  #boss .b { height: calc(var(--u) * 5); background: color-mix(in srgb, var(--boss) 30%, #000); box-shadow: inset 0 var(--u) rgba(255,255,255,0.15), inset 0 calc(var(--u) * -1) rgba(0,0,0,0.45); }
+  #boss .b div { height: 100%; background: var(--boss); box-shadow: inset 0 var(--u) rgba(255,255,255,0.4), inset 0 calc(var(--u) * -1) rgba(0,0,0,0.3); }
+  #chat { position: absolute; left: 0; bottom: calc(var(--u) * 40); width: min(calc(var(--u) * 324), 100%); display: flex; flex-direction: column; }
+  .msg { padding: 0 calc(var(--u) * 2); background: rgba(0,0,0,0.5); transition: opacity 1s; white-space: pre-wrap; word-break: break-word; }
   #chat.open .msg { opacity: 1 !important; }
-  #chat-input-row { position: fixed; left: 8px; right: 8px; bottom: 8px; pointer-events: auto; }
-  #chat-input { width: 100%; background: rgba(0,0,0,0.6); border: none; font-size: 16px; padding: 8px; }
-  #chat-suggest { position: fixed; left: 8px; bottom: 44px; background: rgba(0,0,0,0.8); font-size: 14px; padding: 4px 8px; pointer-events: none; white-space: pre; color: #ddd; }
+  #hud #playerlist { top: calc(var(--u) * 10); min-width: 0; padding: var(--u); background: rgba(0,0,0,0.5); font: inherit; text-align: left; text-shadow: inherit; }
+  #hud #playerlist .h { margin: 0 0 var(--u); padding: 0 var(--u); text-align: center; color: #ffff55; }
+  #hud #playerlist .p { height: calc(var(--u) * 8); line-height: calc(var(--u) * 7); margin: var(--u) 0 0; padding: 0 var(--u); background: rgba(255,255,255,0.125); }
+  #hud #nametags { text-shadow: none; }
   #onfire { position: absolute; left: -5%; right: -5%; bottom: -4vh; height: 46vh; pointer-events: none; opacity: 0; transition: opacity 0.25s; transform-origin: bottom;
     background:
       radial-gradient(ellipse 9% 70% at 8% 100%, rgba(255,235,140,0.85), rgba(255,140,30,0.55) 45%, transparent 70%),
@@ -144,112 +175,139 @@
   #demo-dots i { width: 8px; height: 8px; border-radius: 50%; background: rgba(255,255,255,0.3); } #demo-dots i.on { background: #fff; }
   #demo-help { position: absolute; top: 3vh; right: 3vw; font-size: 12px; color: rgba(255,255,255,0.7); }
   #demo-fade { position: absolute; inset: 0; background: #000; opacity: 1; }
-  #hint { position: absolute; top: 58px; left: 50%; transform: translateX(-50%); max-width: 92vw; text-align: center; font-size: 13px; line-height: 1.6; background: rgba(0,0,0,0.5); padding: 8px 14px; border-radius: 4px; transition: opacity 1.2s; text-shadow: 1px 1px 0 #000; pointer-events: none; }
-  #toast { position: absolute; top: 14px; right: 14px; width: 300px; background: #212121; border: 2px solid #000; box-shadow: inset 0 0 0 2px #555; padding: 10px 12px; display: flex; gap: 10px; align-items: center; transform: translateX(340px); transition: transform 0.5s; }
-  #toast.show { transform: translateX(0); }
-  #toast img { width: 36px; height: 36px; }
-  #toast .t1 { color: #ffff55; font-size: 14px; } #toast .t2 { font-size: 14px; }
+  #hint { position: absolute; top: calc(var(--u) * 24); left: 50%; transform: translateX(-50%); width: max-content; max-width: calc(100% - var(--u) * 16); padding: var(--u) calc(var(--u) * 3); text-align: center; background: rgba(0,0,0,0.5); transition: opacity 1.2s; pointer-events: none; }
+  /* Advancement toast: 160x32 dark panel in the top-right corner, icon at (8,8), yellow title at (30,7), name at (30,18), no shadows. */
+  #toast { position: absolute; top: 0; right: 0; width: calc(var(--u) * 160); height: calc(var(--u) * 32); border: calc(var(--u) * 4) solid transparent; border-image: var(--spr-toast) 4 fill / calc(var(--u) * 4) stretch; image-rendering: pixelated; text-shadow: none; transform: translateX(calc(100% + var(--u) * 2)); transition: transform 0.6s; }
+  #toast.show { transform: none; }
+  #toast img { position: absolute; left: calc(var(--u) * 4); top: calc(var(--u) * 4); width: calc(var(--u) * 16); height: calc(var(--u) * 16); }
+  #toast .t1, #toast .t2 { position: absolute; left: calc(var(--u) * 26); max-width: calc(var(--u) * 126); overflow: hidden; white-space: nowrap; }
+  #toast .t1 { top: calc(var(--u) * 2); color: #ffff00; } #toast .t2 { top: calc(var(--u) * 13); color: #fff; }
   #vignette-portal { position: absolute; inset: 0; pointer-events: none; }
 
   /* ---------- container GUI ---------- */
-  #gui { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.45); }
-  .win { background: var(--panel); border: 3px solid #000; border-radius: 6px; box-shadow: inset 3px 3px 0 var(--panel-light), inset -3px -3px 0 var(--panel-dark), 0 20px 60px rgba(0,0,0,0.6); padding: 14px; color: #3f3f3f; font-size: 15px; position: relative; }
-  .win .title { font-weight: 700; margin: 0 0 6px 2px; }
-  .grid { display: grid; gap: 0; }
-  .gs { width: 40px; height: 40px; background: var(--slot); box-shadow: inset 2px 2px 0 #373737, inset -2px -2px 0 #fff; position: relative; display: flex; align-items: center; justify-content: center; }
-  .gs:hover::after { content: ""; position: absolute; inset: 2px; background: rgba(255,255,255,0.45); pointer-events: none; }
-  .gs img { width: 32px; height: 32px; pointer-events: none; }
-  .gs .count { font-size: 14px; right: 1px; bottom: -1px; }
-  .gs .dur { left: 4px; right: 4px; bottom: 3px; height: 2px; }
-  .gs.big { width: 52px; height: 52px; } .gs.big img { width: 40px; height: 40px; }
-  .gs .ghost { opacity: 0.35; }
-  .gs.armor-empty::before { content: attr(data-ph); position: absolute; font-size: 10px; color: #666; text-align: center; }
-  .inv-sep { height: 8px; }
-  .arrow-r { width: 44px; height: 30px; display: flex; align-items: center; justify-content: center; font-size: 28px; color: #8b8b8b; }
-  .flex { display: flex; gap: 12px; align-items: center; }
-  .col { display: flex; flex-direction: column; gap: 4px; }
-  #cursor-item { position: fixed; pointer-events: none; z-index: 50; width: 32px; height: 32px; transform: translate(-50%, -50%); }
-  #cursor-item img { width: 32px; height: 32px; }
-  #cursor-item .count { font-size: 14px; right: -4px; bottom: -6px; }
-  #tooltip { position: fixed; z-index: 60; pointer-events: none; background: rgba(16,0,16,0.94); border: 2px solid #28016b; border-radius: 3px; padding: 5px 8px; color: #fff; font-size: 14px; white-space: pre; box-shadow: 0 0 0 1px #000; }
-  #tooltip .sub { color: #aaa; font-size: 12px; }
-  #tooltip .blue { color: #5555ff; }
-  .player-view { width: 110px; height: 150px; background: #000; box-shadow: inset 2px 2px 0 #373737, inset -2px -2px 0 #fff; display: flex; align-items: flex-end; justify-content: center; overflow: hidden; }
-  .player-view canvas { width: 110px; height: 150px; image-rendering: pixelated; }
-  .tabs { display: flex; gap: 2px; margin-bottom: -3px; position: relative; z-index: 1; }
-  .tab { width: 52px; height: 46px; background: #a9a9a9; border: 3px solid #000; border-bottom: none; border-radius: 6px 6px 0 0; display: flex; align-items: center; justify-content: center; cursor: pointer; pointer-events: auto; }
-  .tab img { width: 30px; height: 30px; }
-  .tab.on { background: var(--panel); height: 50px; margin-top: -4px; }
-  .creative-grid { height: 260px; overflow-y: auto; overflow-x: hidden; }
-  .search { width: 100%; margin-bottom: 6px; background: #000; color: #fff; }
-  .trade-list { width: 190px; height: 280px; overflow-y: auto; background: #8b8b8b; box-shadow: inset 2px 2px 0 #373737, inset -2px -2px 0 #fff; padding: 3px; }
-  .trade { display: flex; align-items: center; gap: 2px; padding: 3px; background: #c6c6c6; margin-bottom: 3px; cursor: pointer; border: 2px solid transparent; }
-  .trade:hover { border-color: #fff; } .trade.sel { border-color: #ffff55; } .trade.out { filter: grayscale(1) opacity(0.6); }
-  .trade .ti { width: 28px; height: 28px; position: relative; } .trade .ti img { width: 28px; height: 28px; } .trade .ti .count { font-size: 12px; right: -2px; bottom: -4px; }
-  .xpbar { height: 6px; width: 200px; background: #3a3a3a; border: 1px solid #000; } .xpbar div { height: 100%; background: #6ad82a; }
-  .progress-arrow { width: 44px; height: 30px; position: relative; }
-  .progress-arrow .bg, .progress-arrow .fg { position: absolute; inset: 0; font-size: 30px; line-height: 30px; text-align: center; }
-  .progress-arrow .bg { color: #8b8b8b; } .progress-arrow .fg { color: #fff; overflow: hidden; width: 0; white-space: nowrap; text-align: left; padding-left: 7px; }
-  .flame-ind { width: 28px; height: 28px; position: relative; }
-  .flame-ind .fg { position: absolute; bottom: 0; left: 0; right: 0; background: linear-gradient(0deg, #f8801a, #ffc040); clip-path: polygon(50% 0, 80% 40%, 90% 75%, 50% 100%, 10% 75%, 20% 40%); }
-  .recipe-book { width: 240px; height: 330px; display: flex; flex-direction: column; margin-right: 8px; }
-  .recipe-book .grid { overflow-y: auto; flex: 1; align-content: start; }
-  .rb-slot { background: #8b8b8b; }
-  .rb-slot.missing { background: #a86a6a; }
-  .rb-toggle { position: absolute; left: -46px; top: 60px; width: 40px; height: 40px; background: var(--panel); border: 3px solid #000; border-radius: 6px 0 0 6px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
-  .rb-toggle img { width: 30px; height: 30px; }
-  .trash { background: #6a3a3a !important; }
+  /* The original's container screens in GUI pixels: #c6c6c6 bevelled panels (a 9-slice sprite), 18x18 inset slots, 16x16
+     icons, #404040 labels without shadow. ui.js places every child at the original's coordinates (left/top in --u). */
+  #gui { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: linear-gradient(rgba(16,16,16,0.75), rgba(16,16,16,0.82)); font: 400 var(--fs) / calc(var(--u) * 9) var(--px-font); color: #404040; }
+  #gui .lay { display: flex; align-items: flex-start; gap: calc(var(--u) * 2); }
+  #gui .lay.tabbed { padding: calc(var(--u) * 28) 0; }
+  .win { position: relative; z-index: 0; flex: none; }
+  .win::before { content: ""; position: absolute; inset: 0; z-index: -1; border: calc(var(--u) * 4) solid transparent; border-image: var(--spr-panel) 4 fill / calc(var(--u) * 4) stretch; image-rendering: pixelated; }
+  .win > * { position: absolute; }
+  .win .lbl { white-space: nowrap; }
+  .win .lbl.c { transform: translateX(-50%); }
+  .win .spr { background: 0 0 / 100% 100% no-repeat; image-rendering: pixelated; }
+  .win .spr.fill-up { background-size: calc(var(--u) * 14) calc(var(--u) * 14); background-position: 0 100%; }
+  .win .spr.fill-right { background-size: calc(var(--u) * 24) calc(var(--u) * 16); }
+  /* slots: --o is the icon's offset in the slot box; the count and durability bar sit relative to the icon like the original's */
+  .gs { --o: 1; width: calc(var(--u) * 18); height: calc(var(--u) * 18); background: var(--slot); box-shadow: inset var(--u) var(--u) 0 #373737, inset calc(var(--u) * -1) calc(var(--u) * -1) 0 #fff; }
+  .gs.big { --o: 5; width: calc(var(--u) * 26); height: calc(var(--u) * 26); }
+  .gs.ph:empty { background: var(--ph) var(--u) var(--u) / calc(var(--u) * 16) no-repeat var(--slot); image-rendering: pixelated; }
+  .slot img, .gs img, .rb-slot img, #cursor-item img, .ti img { position: absolute; left: calc(var(--u) * var(--o)); top: calc(var(--u) * var(--o)); width: calc(var(--u) * 16); height: calc(var(--u) * 16); image-rendering: pixelated; pointer-events: none; }
+  .gs img.ghost { opacity: 0.35; }
+  .count { position: absolute; z-index: 1; right: calc(var(--u) * (var(--o) - 1.5)); top: calc(var(--u) * (var(--o) + 8)); font: 400 var(--fs) / calc(var(--u) * 9) var(--px-font); color: #fff; text-shadow: var(--u) var(--u) 0 #3f3f3f; pointer-events: none; }
+  .dur { position: absolute; z-index: 1; left: calc(var(--u) * (var(--o) + 2)); top: calc(var(--u) * (var(--o) + 13)); width: calc(var(--u) * 13); height: calc(var(--u) * 2); background: #000; pointer-events: none; }
+  .dur div { height: var(--u); }
+  .gs:hover::after, .rb-slot:hover::after { content: ""; position: absolute; z-index: 2; left: calc(var(--u) * var(--o)); top: calc(var(--u) * var(--o)); width: calc(var(--u) * 16); height: calc(var(--u) * 16); background: rgba(255,255,255,0.5); pointer-events: none; }
+  .pview { overflow: hidden; background: #000; box-shadow: inset var(--u) var(--u) 0 #373737, inset calc(var(--u) * -1) calc(var(--u) * -1) 0 #fff; }
+  .pview canvas { position: absolute; image-rendering: pixelated; }
+  .win input.field { margin: 0; padding: 0 calc(var(--u) * 2); font: 400 var(--fs) / 1 var(--px-font); color: #fff; text-shadow: var(--u) var(--u) 0 #3f3f3f; background: #000; border: var(--u) solid #a0a0a0; border-radius: 0; outline: none; }
+  .win input.field:focus { border-color: #fff; }
+  .win input.field::placeholder { color: #808080; }
+  /* stone buttons (trade offers, recipe filter): black outline, light top-left edge, 2-px dark bottom; white outline on hover */
+  .gbtn { cursor: pointer; background: #6f6f6f var(--btn-tex) 0 0 / calc(var(--u) * 16); image-rendering: pixelated; box-shadow: inset 0 0 0 var(--u) #000, inset calc(var(--u) * 2) calc(var(--u) * 2) 0 rgba(255,255,255,0.3), inset calc(var(--u) * -2) calc(var(--u) * -3) 0 rgba(0,0,0,0.35); }
+  .gbtn:hover, .gbtn.sel, .gbtn.on { background-image: linear-gradient(rgba(126,139,196,0.35), rgba(126,139,196,0.35)), var(--btn-tex); box-shadow: inset 0 0 0 var(--u) #fff, inset calc(var(--u) * 2) calc(var(--u) * 2) 0 rgba(255,255,255,0.3), inset calc(var(--u) * -2) calc(var(--u) * -3) 0 rgba(0,0,0,0.35); }
+  /* creative: 26x32 tabs behind the panel; the selected one is drawn over it and joins it */
+  .tab { z-index: -2; cursor: pointer; border: calc(var(--u) * 4) solid transparent; border-image: var(--spr-tab) 4 fill / calc(var(--u) * 4) stretch; image-rendering: pixelated; }
+  .tab img { position: absolute; width: calc(var(--u) * 16); height: calc(var(--u) * 16); image-rendering: pixelated; }
+  .tab.on { z-index: 1; cursor: default; border-image-source: var(--spr-panel); }
+  .tab.top.on { border-image-width: calc(var(--u) * 4) calc(var(--u) * 4) 0; }
+  .tab.bot.on { border-image-width: 0 calc(var(--u) * 4) calc(var(--u) * 4); }
+  .tab.on::after { content: ""; position: absolute; left: calc(var(--u) * -4); right: calc(var(--u) * -4); height: calc(var(--u) * 2); --e: #fff; --s: var(--e); --re: var(--e); --rs: var(--e);
+    background: linear-gradient(90deg, var(--s) 0 var(--u), var(--e) var(--u) calc(var(--u) * 3), var(--panel) calc(var(--u) * 3) calc(100% - var(--u) * 3), var(--re) calc(100% - var(--u) * 3) calc(100% - var(--u)), var(--rs) calc(100% - var(--u))); }
+  .tab.top.on::after { bottom: calc(var(--u) * -4); }
+  .tab.bot.on::after { top: calc(var(--u) * -4); --e: #555; --re: #555; --rs: #555; }
+  .tab.first.on::after { --s: #000; --e: #fff; }
+  .tab.last.on::after { --re: #555; --rs: #000; }
+  .scroll-track { cursor: pointer; background: var(--slot); box-shadow: inset var(--u) var(--u) 0 #373737, inset calc(var(--u) * -1) calc(var(--u) * -1) 0 #fff; }
+  .scroll-handle { cursor: pointer; background: var(--panel); box-shadow: inset var(--u) var(--u) 0 #fff, inset calc(var(--u) * -1) calc(var(--u) * -1) 0 #555; }
+  .scroll-handle.off { cursor: default; background: #a8a8a8; box-shadow: inset var(--u) var(--u) 0 #cfcfcf, inset calc(var(--u) * -1) calc(var(--u) * -1) 0 #6f6f6f; }
+  .gs.trash { --ph: var(--spr-trash); }
+  /* recipe book: 25x25 recipe buttons (red when ingredients are missing), page arrows, the green book toggle */
+  .rb-grid > * { position: absolute; }
+  .rb-slot { --o: 4; cursor: pointer; background: #a2a2a2; box-shadow: inset 0 0 0 var(--u) #373737, inset calc(var(--u) * 2) calc(var(--u) * 2) 0 #dadada, inset calc(var(--u) * -2) calc(var(--u) * -2) 0 #6c6c6c; }
+  .rb-slot.missing { background: #b45656; box-shadow: inset 0 0 0 var(--u) #3a1010, inset calc(var(--u) * 2) calc(var(--u) * 2) 0 #df8a8a, inset calc(var(--u) * -2) calc(var(--u) * -2) 0 #7a2828; }
+  .rb-slot .count { right: calc(var(--u) * 3.5); }
+  .rb-filter img { position: absolute; left: calc(var(--u) * 7); top: calc(var(--u) * 2); width: calc(var(--u) * 12); height: calc(var(--u) * 12); }
+  .win .rb-page { color: #fff; text-shadow: var(--u) var(--u) 0 #3f3f3f; }
+  .rb-arrow, .rb-toggle { cursor: pointer; }
+  .rb-arrow:hover, .rb-toggle:hover { filter: brightness(1.25); }
+  /* trading: offer buttons with the two prices, a small arrow (a red cross when sold out) and the result */
+  .offers > *, .offer > * { position: absolute; }
+  .ti { --o: 0; position: absolute; top: calc(var(--u) * 2); width: calc(var(--u) * 16); height: calc(var(--u) * 16); }
+  .txp { background: var(--spr-xp) 0 0 / 100% 100%; image-rendering: pixelated; }
+  .txp div { height: 100%; background: var(--spr-xp-fill) 0 0 / calc(var(--u) * 102) 100%; image-rendering: pixelated; }
+  /* the item on the pointer (16x16, centred) and the tooltip: #100010 at 94%, a purple gradient frame, corner pixels cut */
+  #cursor-item { --o: 0; position: fixed; z-index: 50; width: calc(var(--u) * 16); height: calc(var(--u) * 16); margin: calc(var(--u) * -8) 0 0 calc(var(--u) * -8); pointer-events: none; }
+  #tooltip { --bg: rgba(16,0,16,0.94); position: fixed; z-index: 60; pointer-events: none; padding: var(--u) calc(var(--u) * 2) calc(var(--u) * 2); background: var(--bg); border: var(--u) solid; border-image: linear-gradient(rgba(80,0,255,0.31), rgba(40,0,127,0.31)) 1; box-shadow: 0 calc(var(--u) * -1) var(--bg), 0 var(--u) var(--bg), calc(var(--u) * -1) 0 var(--bg), var(--u) 0 var(--bg);
+    font: 400 var(--fs) / calc(var(--u) * 9) var(--px-font); color: #fff; white-space: pre; text-shadow: var(--u) var(--u) 0 color-mix(in srgb, currentColor 25%, #000); }
+  #tooltip > div + div { margin-top: var(--u); }
+  #tooltip > div:first-child:not(:last-child) { margin-bottom: calc(var(--u) * 2); }
+  #tooltip .t-gray { color: #aaaaaa; } #tooltip .t-blue { color: #5555ff; } #tooltip .t-green { color: #00aa00; } #tooltip .t-dark { color: #555555; }
 
-  #pause h2 { margin-bottom: 10px; }
-  #death { background: rgba(120, 0, 0, 0.45); }
-  #death h1 { font-size: 64px; margin: 0; text-shadow: 4px 4px 0 #3a0000; }
-  #death .score { color: #ffff55; text-shadow: var(--pixel-shadow); margin-bottom: 20px; }
-  .settings-panel { max-height: 90vh; overflow: auto; }
-  .settings-panel label { display: flex; flex-direction: column; gap: 4px; width: 320px; font-size: 14px; text-shadow: 1px 1px 0 #000; }
-  .settings-panel label.check { flex-direction: row; align-items: center; gap: 10px; }
-  .settings-panel input[type=range] { width: 100%; accent-color: #8fd16a; }
-  .controls-table { border-collapse: collapse; font-size: 14px; }
-  .controls-table td { padding: 4px 12px; border-bottom: 1px solid rgba(255,255,255,0.1); }
-  .controls-table td:first-child { color: #ffffa0; font-weight: 700; white-space: nowrap; }
-  .guide-panel { width: min(900px, 94vw); height: min(86vh, 760px); }
-  .guide-tabs { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
-  .guide-tabs button { width: auto; font-size: 13px; padding: 7px 12px; }
-  .guide-tabs button.on { background: linear-gradient(180deg, #7aa35a, #5a8a3a); color: #fff; }
-  .guide-body { flex: 1; overflow-y: auto; width: 100%; background: rgba(0,0,0,0.4); border: 2px solid #000; padding: 14px 18px; font-size: 14px; line-height: 1.6; user-select: text; }
-  .guide-body h4 { margin: 14px 0 6px; color: #ffff80; font-size: 16px; }
+  /* ---------- pause / death (in-world overlays) ---------- */
+  #pause { background: linear-gradient(rgba(16,16,16,0.4), rgba(16,16,16,0.6)); }
+  #pause > h3, #death > h1 { position: absolute; top: calc(var(--u) * 40); height: auto; padding: 0; }
+  #pause .menu { position: absolute; top: calc(25% + var(--u) * 8); left: 50%; transform: translateX(-50%); }
+  .room-info { text-align: center; color: #e0e0e0; max-width: calc(var(--u) * 300); }
+  .room-info b { color: #ffff55; font-weight: 400; }
+  #death { background: linear-gradient(rgba(255,0,0,0.3), rgba(255,0,0,0.3)), rgba(0,0,0,0.5); }
+  #death > h1 { top: calc(var(--u) * 30); font-size: calc(var(--fs) * 2); line-height: 1; text-shadow: calc(var(--u) * 2) calc(var(--u) * 2) 0 #3f3f3f; }
+  #death .death-msg { position: absolute; top: calc(var(--u) * 85); left: 0; right: 0; text-align: center; padding: 0 calc(var(--u) * 8); }
+  #death .score { position: absolute; top: calc(var(--u) * 100); left: 0; right: 0; text-align: center; color: #ffff55; text-shadow: var(--u) var(--u) 0 #3f3f15; }
+  #death .menu { position: absolute; top: calc(25% + var(--u) * 72); left: 50%; transform: translateX(-50%); }
+  /* ---------- options / controls / guide ---------- */
+  .opts { display: grid; grid-template-columns: repeat(2, calc(var(--u) * 150)); gap: calc(var(--u) * 4) calc(var(--u) * 10); padding: calc(var(--u) * 4) 0; }
+  .kh { text-align: center; padding: calc(var(--u) * 6) 0 calc(var(--u) * 2); }
+  .kb { display: flex; align-items: center; gap: calc(var(--u) * 8); width: calc(var(--u) * 310); max-width: 100%; margin: 0 auto; padding: calc(var(--u) * 2) calc(var(--u) * 4); }
+  .kb span { flex: 1; }
+  #controls-list { max-width: calc(var(--u) * 330); }
+  .guide-tabs { display: flex; flex-wrap: wrap; justify-content: center; gap: calc(var(--u) * 2); width: 100%; padding: 0 calc(var(--u) * 4) calc(var(--u) * 4); }
+  .guide-body { max-width: calc(var(--u) * 400); padding: calc(var(--u) * 8) calc(var(--u) * 12); user-select: text; overflow-wrap: anywhere; }
+  .guide-body p, .guide-body ul { margin: 0 0 calc(var(--u) * 6); }
+  .guide-body ul { padding-left: calc(var(--u) * 12); } .guide-body li { margin: calc(var(--u) * 2) 0; }
+  .guide-body h4 { margin: calc(var(--u) * 8) 0 calc(var(--u) * 4); color: #ffff55; font: inherit; text-shadow: var(--u) var(--u) 0 #3f3f15; }
   .guide-body h4:first-child { margin-top: 0; }
-  .guide-body code { background: rgba(255,255,255,0.1); padding: 1px 5px; border-radius: 3px; color: #9fe8ff; font-size: 13px; }
-  .guide-body table { border-collapse: collapse; width: 100%; margin: 6px 0; }
-  .guide-body td { padding: 4px 8px; border-bottom: 1px solid rgba(255,255,255,0.08); vertical-align: top; }
-  .guide-body td:first-child { white-space: nowrap; color: #9fe8ff; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 13px; }
-  .stats-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; margin: 8px 0 12px; }
-  .stat-card { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12); border-radius: 4px; padding: 8px 10px; text-align: center; }
-  .stat-card b { display: block; font-size: 26px; color: #8fd16a; }
-  .icon-strip { display: flex; flex-wrap: wrap; gap: 2px; margin: 6px 0; }
-  .icon-strip img { width: 28px; height: 28px; }
+  .guide-body code { color: #55ffff; text-shadow: var(--u) var(--u) 0 #153f3f; font: inherit; }
+  .guide-body table { border-collapse: collapse; width: 100%; margin: 0 0 calc(var(--u) * 6); }
+  .guide-body td { padding: calc(var(--u) * 2) calc(var(--u) * 4); border-bottom: var(--u) solid rgba(255,255,255,0.15); vertical-align: top; }
+  .guide-body td:first-child { white-space: nowrap; color: #55ffff; text-shadow: var(--u) var(--u) 0 #153f3f; }
+  .stats-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(calc(var(--u) * 70), 1fr)); gap: calc(var(--u) * 4); margin: 0 0 calc(var(--u) * 8); }
+  .stat-card { background: rgba(0,0,0,0.4); box-shadow: inset var(--u) var(--u) 0 rgba(0,0,0,0.6), inset calc(var(--u) * -1) calc(var(--u) * -1) 0 rgba(255,255,255,0.2); padding: calc(var(--u) * 4) calc(var(--u) * 2); text-align: center; color: #a0a0a0; }
+  .stat-card b { display: block; font-size: calc(var(--fs) * 2); line-height: 1; margin-bottom: calc(var(--u) * 3); color: #55ff55; font-weight: 400; text-shadow: calc(var(--u) * 2) calc(var(--u) * 2) 0 #153f15; }
+  .icon-strip { display: flex; flex-wrap: wrap; gap: calc(var(--u) * 2); margin: calc(var(--u) * 4) 0; }
+  .icon-strip img { width: calc(var(--u) * 16); height: calc(var(--u) * 16); }
   /* ---------- multiplayer ---------- */
-  #title .menu .row.pair { gap: calc(var(--bs) * 4px); flex-wrap: nowrap; }
-  .mp-panel { width: min(560px, 94vw); gap: 14px; }
-  .mp-grid { display: grid; grid-template-columns: 110px 1fr; gap: 10px 12px; align-items: center; width: 100%; font-size: 14px; }
-  .mp-grid label { text-align: right; text-shadow: 1px 1px 0 #000; }
-  .mp-skins { display: flex; gap: 8px; }
-  .mp-skin { width: 76px; height: auto; padding: 6px 0 4px; display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 12px; }
-  .mp-skin canvas { width: 32px; height: 64px; image-rendering: pixelated; }
-  .mp-skin.on { border-color: #fff; color: #ffffa0; }
-  .mp-box { width: 100%; background: rgba(0,0,0,0.35); border: 2px solid #000; padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; align-items: center; }
-  .mp-head { font-family: var(--px-font); font-size: 16px; color: #ffffa0; text-shadow: 1px 1px 0 #000; align-self: flex-start; }
-  .mp-join { display: flex; gap: 8px; }
-  #mp-code { width: 150px; text-align: center; text-transform: uppercase; letter-spacing: 0.3em; font: 20px var(--px-font); }
-  .mp-status { min-height: 1.3em; font-size: 13px; color: #ddd; text-align: center; max-width: 480px; line-height: 1.4; }
-  .mp-status.err { color: #ff7a7a; } .mp-status.ok { color: #7aff7a; }
-  .room-info { font-family: var(--px-font); font-size: calc(var(--bs) * 8px); text-align: center; color: #e0e0e0; text-shadow: 1px 1px 0 #000; line-height: 1.5; max-width: 90vw; }
-  .room-info b { color: #ffff55; letter-spacing: 0.15em; font-weight: 400; font-size: 1.3em; }
+  .mp-skins { display: flex; gap: calc(var(--u) * 4); }
+  .mp-skin { width: calc(var(--u) * 47); height: calc(var(--u) * 48); padding: calc(var(--u) * 2) 0; flex-direction: column; gap: var(--u); }
+  .mp-skin canvas { width: calc(var(--u) * 16); height: calc(var(--u) * 32); image-rendering: pixelated; }
+  .mp-box { width: 100%; flex: none; display: flex; flex-direction: column; align-items: center; gap: calc(var(--u) * 4); padding: calc(var(--u) * 4) 0; }
+  .mp-head { color: #ffff55; text-shadow: var(--u) var(--u) 0 #3f3f15; }
+  #mp-code { width: calc(var(--u) * 98); text-align: center; text-transform: uppercase; letter-spacing: 0.2em; }
+  .mp-status { color: #a0a0a0; text-align: center; max-width: calc(var(--u) * 310); padding: 0 calc(var(--u) * 4); }
+  .mp-status:empty { display: none; }
+  .mp-status.err { color: #ff5555; text-shadow: var(--u) var(--u) 0 #3f1515; } .mp-status.ok { color: #55ff55; text-shadow: var(--u) var(--u) 0 #153f15; }
+  #mp .hint-text { text-align: center; }
   #nametags { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
   .nametag { position: absolute; left: 0; top: 0; font-family: var(--px-font); color: #fff; background: rgba(0,0,0,0.3); padding: 0 0.3em; white-space: nowrap; line-height: 1.25; will-change: transform; }
   #playerlist { position: absolute; top: calc(var(--gs) * 10px); left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.55); padding: calc(var(--gs) * 2px) calc(var(--gs) * 4px); font: 400 calc(var(--gs) * 8px) / 1.35 var(--px-font); min-width: calc(var(--gs) * 120px); text-align: center; text-shadow: calc(var(--gs) * 1px) calc(var(--gs) * 1px) 0 #3f3f3f; }
   #playerlist .h { color: #ffff55; margin-bottom: calc(var(--gs) * 2px); }
   #playerlist .p { background: rgba(255,255,255,0.08); margin-top: calc(var(--gs) * 1px); text-align: left; padding: 0 calc(var(--gs) * 2px); }
-  #error { background: #10131c; padding: 30px; text-align: center; font-size: 16px; }
+  /* ---------- chat input row (overrides the HUD section's older rules) ---------- */
+  #chat-input-row { position: fixed; left: calc(var(--u) * 2); right: calc(var(--u) * 2); bottom: calc(var(--u) * 2); pointer-events: auto; }
+  #chat-input { width: 100%; height: calc(var(--u) * 12); padding: 0 calc(var(--u) * 2); background: rgba(0,0,0,0.5); border: 0; color: #fff; }
+  #chat-suggest { position: fixed; left: calc(var(--u) * 2); bottom: calc(var(--u) * 14); background: rgba(0,0,0,0.8); padding: var(--u) calc(var(--u) * 2); font: 400 var(--fs) / var(--lh) var(--px-font); white-space: pre; color: #e0e0e0; text-shadow: var(--shadow); pointer-events: none; }
+  /* ---------- error ---------- */
+  #error { justify-content: center; padding: 0 calc(var(--u) * 16); text-align: center; }
 </style>
 </head>
 <body>
@@ -268,40 +326,36 @@
   <div class="menu">
     <button id="btn-play">Singleplayer</button>
     <button id="btn-mp">Multiplayer</button>
-    <div class="row pair"><button class="half" id="btn-demo">Watch the Demo</button><button class="half" id="btn-guide">Guide &amp; Features</button></div>
-    <div class="row bottom"><button class="sq" id="btn-mute" title="Sound on/off"><img id="mute-icon" alt=""></button><button class="half" id="btn-settings">Options...</button><button class="half" id="btn-controls">Controls</button><button class="sq" id="btn-full" title="Fullscreen"><img id="full-icon" alt=""></button></div>
+    <div class="row"><button class="pair" id="btn-demo">Watch the Demo</button><button class="pair" id="btn-guide">Guide &amp; Features</button></div>
+    <div class="row bottom"><button class="sq" id="btn-mute" title="Sound on/off"><img id="mute-icon" alt=""></button><button class="pair" id="btn-settings">Options...</button><button class="pair" id="btn-controls">Controls</button><button class="sq" id="btn-full" title="Fullscreen"><img id="full-icon" alt=""></button></div>
   </div>
   <div class="footer"><span>Blockhaven 1.20.1</span><span>Every pixel made in code. Not affiliated with Mojang.</span></div>
 </div>
 
-<div id="worlds" class="screen dim hidden">
-  <div class="panel">
-    <h3>Select World</h3>
-    <div id="world-list"></div>
+<div id="worlds" class="screen dirt hidden">
+  <h3>Select World</h3>
+  <div class="band"><div id="world-list" class="list"></div></div>
+  <div class="foot">
     <div class="row"><button class="half" id="btn-world-play" disabled>Play Selected World</button><button class="half" id="btn-world-new">Create New World</button></div>
-    <div class="row"><button class="half" id="btn-world-download" disabled>Download</button><button class="half" id="btn-world-upload">Upload World…</button></div>
-    <div class="row"><button class="half" id="btn-world-delete" disabled>Delete</button><button class="half" id="btn-world-back">Back</button></div>
-    <input type="file" id="world-file" accept=".bhworld,.json,application/json,application/gzip" class="hidden">
+    <div class="row"><button class="q" id="btn-world-download" disabled>Download</button><button class="q" id="btn-world-upload">Upload…</button><button class="q" id="btn-world-delete" disabled>Delete</button><button class="q" id="btn-world-back">Cancel</button></div>
   </div>
+  <input type="file" id="world-file" accept=".bhworld,.json,application/json,application/gzip" class="hidden">
 </div>
 
-<div id="create" class="screen dim hidden">
-  <div class="panel">
-    <h3>Create New World</h3>
-    <div class="form">
-      <label for="cw-name">World Name</label><input id="cw-name" type="text" maxlength="32" spellcheck="false" value="New World">
-      <label for="cw-seed">Seed</label><input id="cw-seed" type="text" maxlength="32" spellcheck="false" placeholder="Leave blank for a random seed">
-      <label>Game Mode</label><div class="opt" data-opt="mode"><button data-v="survival" class="on">Survival</button><button data-v="creative">Creative</button><button data-v="hardcore">Hardcore</button></div>
-      <label>World Type</label><div class="opt" data-opt="type"><button data-v="default" class="on">Default</button><button data-v="wild">Wild</button><button data-v="flat">Superflat</button></div>
-      <label>Difficulty</label><div class="opt" data-opt="difficulty"><button data-v="peaceful">Peaceful</button><button data-v="easy">Easy</button><button data-v="normal" class="on">Normal</button><button data-v="hard">Hard</button></div>
-      <label>Allow Cheats</label><div class="opt" data-opt="cheats"><button data-v="on" class="on">On</button><button data-v="off">Off</button></div>
-    </div>
+<div id="create" class="screen dirt hidden">
+  <h3>Create New World</h3>
+  <div class="body">
+    <div class="field"><label for="cw-name">World Name</label><input id="cw-name" type="text" maxlength="32" spellcheck="false" value="New World"></div>
+    <div class="field"><label for="cw-seed">Seed for the world generator</label><input id="cw-seed" type="text" maxlength="32" spellcheck="false" placeholder="Leave blank for a random seed"></div>
+    <div class="row"><button class="half" id="cw-mode" data-opt="mode" data-v="survival">Game Mode</button><button class="half" id="cw-difficulty" data-opt="difficulty" data-v="normal">Difficulty</button></div>
     <div class="hint-text" id="cw-hint"></div>
-    <div class="row"><button class="half" id="btn-create">Create World</button><button class="half" id="btn-create-cancel">Cancel</button></div>
+    <div class="row"><button class="half" id="cw-type" data-opt="type" data-v="default">World Type</button><button class="half" id="cw-cheats" data-opt="cheats" data-v="on">Allow Cheats</button></div>
+    <div class="hint-text" id="cw-type-hint"></div>
   </div>
+  <div class="foot"><div class="row"><button class="half" id="btn-create">Create New World</button><button class="half" id="btn-create-cancel">Cancel</button></div></div>
 </div>
 
-<div id="loading" class="screen dim hidden">
+<div id="loading" class="screen dirt hidden">
   <div class="label" id="loading-label">Generating terrain…</div>
   <div class="bar"><div id="load-bar"></div></div>
 </div>
@@ -316,12 +370,9 @@
   <div id="action"></div>
   <div id="chat"></div>
   <div id="bottom">
-    <div id="stats">
-      <div class="statcol"><div class="statrow" id="armor-row"></div><div class="statrow" id="hearts-row2"></div><div class="statrow" id="hearts-row"></div></div>
-      <div class="statcol"><div class="statrow right" id="air-row"></div><div class="statrow right" id="food-row"></div></div>
-    </div>
-    <div id="xp"><div id="xp-fill"></div><div id="xp-level"></div></div>
-    <div style="position:relative"><div id="hotbar"></div><div id="offhand-slot" class="slot hidden"></div></div>
+    <div id="stats"><div class="statrow" id="armor-row"></div><div class="statrow" id="hearts-row2"></div><div class="statrow" id="hearts-row"></div><div class="statrow right" id="air-row"></div><div class="statrow right" id="food-row"></div></div>
+    <div id="xp"><div id="xp-fill"></div></div><div id="xp-level"></div>
+    <div id="hotbar"></div><div id="offhand-slot" class="slot hidden"></div>
   </div>
   <div id="onfire"></div>
   <div id="debug" class="hidden"></div>
@@ -335,102 +386,102 @@
 <div id="cursor-item" class="hidden"></div>
 <div id="tooltip" class="hidden"></div>
 
-<div id="pause" class="screen dim hidden">
-  <h2>Game Menu</h2>
-  <button id="btn-resume">Back to Game</button>
-  <button id="btn-open">Open to Friends</button>
-  <div id="room-info" class="room-info hidden"></div>
-  <div class="row"><button class="half" id="btn-settings2">Settings</button><button class="half" id="btn-controls2">Controls</button></div>
-  <button id="btn-guide2">Guide &amp; Commands</button>
-  <button id="btn-quit">Save and Quit to Title</button>
+<div id="pause" class="screen hidden">
+  <h3>Game Menu</h3>
+  <div class="menu">
+    <button id="btn-resume">Back to Game</button>
+    <button id="btn-open">Open to Friends</button>
+    <div id="room-info" class="room-info hidden"></div>
+    <div class="row"><button class="pair" id="btn-settings2">Options...</button><button class="pair" id="btn-controls2">Controls</button></div>
+    <button id="btn-guide2">Guide &amp; Commands</button>
+    <button id="btn-quit">Save and Quit to Title</button>
+  </div>
 </div>
 
-<div id="mp" class="screen dim hidden">
-  <div class="panel mp-panel">
-    <h3>Multiplayer</h3>
-    <div class="mp-grid">
-      <label for="mp-name">Your name</label>
-      <input type="text" id="mp-name" maxlength="16" spellcheck="false" autocomplete="off">
-      <label>Skin</label>
-      <div id="mp-skins" class="mp-skins"></div>
-    </div>
-    <div class="mp-box">
+<div id="mp" class="screen dirt hidden">
+  <h3>Multiplayer</h3>
+  <div class="body">
+    <div class="field"><label for="mp-name">Your Name</label><input type="text" id="mp-name" maxlength="16" spellcheck="false" autocomplete="off"></div>
+    <div class="field"><label>Skin</label><div id="mp-skins" class="mp-skins"></div></div>
+    <div class="band mp-box">
       <div class="mp-head">Join a friend's world</div>
-      <div class="mp-join"><input type="text" id="mp-code" maxlength="5" placeholder="CODE" spellcheck="false" autocomplete="off"><button class="half" id="btn-mp-join">Join World</button></div>
+      <div class="row"><input type="text" id="mp-code" maxlength="5" placeholder="CODE" spellcheck="false" autocomplete="off"><button class="pair" id="btn-mp-join">Join World</button></div>
       <div id="mp-status" class="mp-status"></div>
     </div>
-    <div class="mp-box">
-      <div class="mp-head">Host your own</div>
-      <div class="hint-text">Open one of your worlds, press <b>Esc</b> and choose <b>Open to Friends</b>, then share the code. Up to 5 players, on the same Wi-Fi or anywhere online.</div>
-    </div>
-    <div class="row"><button class="half" id="btn-mp-host">Host a World…</button><button class="half" id="btn-mp-back">Back</button></div>
+    <div class="hint-text">To host: open a world, press Esc, choose Open to Friends and share the code. Up to 5 players.</div>
   </div>
+  <div class="foot"><div class="row"><button class="pair" id="btn-mp-host">Host a World…</button><button class="pair" id="btn-mp-back">Back</button></div></div>
 </div>
 
 <div id="death" class="screen hidden">
   <h1>You Died!</h1>
   <div class="death-msg" id="death-msg"></div>
   <div class="score" id="death-score"></div>
-  <button id="btn-respawn">Respawn</button>
-  <button id="btn-death-title">Title Screen</button>
-</div>
-
-<div id="settings" class="screen dim hidden">
-  <div class="panel settings-panel">
-    <h3>Settings</h3>
-    <label>Graphics preset<select id="set-gfx"><option value="0">Disabled — fastest</option><option value="1">Regular — made for Chromebooks</option><option value="2">High — stronger laptops (shadows, god rays, bloom)</option><option value="3">PC — gaming PCs (everything + reflections)</option></select></label>
-    <label>Render distance: <span id="rd-val"></span> chunks<input type="range" id="set-rd" min="3" max="14"></label>
-    <label>Field of view: <span id="fov-val"></span>°<input type="range" id="set-fov" min="50" max="110"></label>
-    <label>Mouse sensitivity: <span id="sens-val"></span>%<input type="range" id="set-sens" min="10" max="250"></label>
-    <label>Brightness: <span id="bright-val"></span>%<input type="range" id="set-bright" min="0" max="100"></label>
-    <label>Master volume: <span id="vol-val"></span>%<input type="range" id="set-vol" min="0" max="100"></label>
-    <label>Music: <span id="music-val"></span>%<input type="range" id="set-music" min="0" max="100"></label>
-    <label class="check"><input type="checkbox" id="set-bob"> View bobbing</label>
-    <label class="check"><input type="checkbox" id="set-clouds"> Clouds</label>
-    <label class="check"><input type="checkbox" id="set-autojump"> Auto-jump</label>
-    <label class="check"><input type="checkbox" id="set-particles"> Particles</label>
-    <label class="check"><input type="checkbox" id="set-dynres"> Dynamic resolution (keeps FPS smooth)</label>
-    <button id="btn-settings-done">Done</button>
+  <div class="menu">
+    <button id="btn-respawn">Respawn</button>
+    <button id="btn-death-title">Title Screen</button>
   </div>
 </div>
 
-<div id="controls" class="screen dim hidden">
-  <div class="panel" style="overflow:auto">
-    <h3>Controls</h3>
-    <table class="controls-table">
-      <tr><td>W A S D</td><td>Walk</td></tr>
-      <tr><td>Space</td><td>Jump · swim up · double-tap to fly (creative)</td></tr>
-      <tr><td>Shift</td><td>Sneak</td></tr>
-      <tr><td>Double-tap W / Ctrl</td><td>Sprint</td></tr>
-      <tr><td>Left click</td><td>Break blocks · attack</td></tr>
-      <tr><td>Right click</td><td>Place · use item · eat · draw bow · open doors, chests, furnaces · trade</td></tr>
-      <tr><td>Middle click</td><td>Pick block</td></tr>
-      <tr><td>1–9 / scroll</td><td>Select hotbar slot</td></tr>
-      <tr><td>E</td><td>Inventory (creative item menu in creative)</td></tr>
-      <tr><td>Q / Ctrl+Q</td><td>Drop item / whole stack</td></tr>
-      <tr><td>F</td><td>Swap with off-hand · right click uses the off-hand item (torch, food, shield, blocks) when the main hand has nothing to do</td></tr>
-      <tr><td>T or /</td><td>Chat and commands (try /help)</td></tr>
-      <tr><td>Space in mid-air</td><td>Open the elytra (when worn) · firework rockets boost you while gliding</td></tr>
-      <tr><td>Right click a horse</td><td>Mount · feed it to calm it, keep riding until it's tame, then saddle it · hold Space to charge a jump · Shift to dismount</td></tr>
-      <tr><td>V or F5</td><td>Cycle first / third person (behind, front)</td></tr>
-      <tr><td>F1 / F3</td><td>Hide HUD / debug info</td></tr>
-      <tr><td>Inventory</td><td>Click pick up/place · right click split/one · shift-click move · 1–9 swap · Q drop</td></tr>
-    </table>
-    <button id="btn-controls-done">Done</button>
+<div id="settings" class="screen dirt hidden">
+  <h3>Options</h3>
+  <div class="body">
+    <div class="opts">
+      <button class="half" id="set-gfx">Graphics</button>
+      <input type="range" id="set-rd" min="3" max="14">
+      <input type="range" id="set-fov" min="50" max="110">
+      <input type="range" id="set-sens" min="10" max="250">
+      <input type="range" id="set-bright" min="0" max="100">
+      <input type="range" id="set-vol" min="0" max="100">
+      <input type="range" id="set-music" min="0" max="100">
+      <button class="half" id="set-bob">View Bobbing</button>
+      <button class="half" id="set-clouds">Clouds</button>
+      <button class="half" id="set-autojump">Auto-Jump</button>
+      <button class="half" id="set-particles">Particles</button>
+      <button class="half" id="set-dynres">Dynamic Resolution</button>
+    </div>
   </div>
+  <div class="foot"><button id="btn-settings-done">Done</button></div>
 </div>
 
-<div id="guide" class="screen dim hidden">
-  <div class="panel guide-panel">
-    <h3>Blockhaven Guide</h3>
-    <div class="guide-tabs" id="guide-tabs"></div>
-    <div class="guide-body" id="guide-body"></div>
-    <button id="btn-guide-done">Done</button>
-  </div>
+<div id="controls" class="screen dirt hidden">
+  <h3>Controls</h3>
+  <div class="band"><div id="controls-list" class="list">
+    <div class="kh">Movement</div>
+    <div class="kb"><span>Walk</span><b class="key">W A S D</b></div>
+    <div class="kb"><span>Jump · swim up · double-tap to fly (creative)</span><b class="key">Space</b></div>
+    <div class="kb"><span>Sneak</span><b class="key">Shift</b></div>
+    <div class="kb"><span>Sprint</span><b class="key">Ctrl / W W</b></div>
+    <div class="kb"><span>Open the elytra (when worn) · firework rockets boost you while gliding</span><b class="key">Space in mid-air</b></div>
+    <div class="kh">Gameplay</div>
+    <div class="kb"><span>Break blocks · attack</span><b class="key">Left click</b></div>
+    <div class="kb"><span>Place · use item · eat · draw bow · open doors, chests, furnaces · trade</span><b class="key">Right click</b></div>
+    <div class="kb"><span>Pick block</span><b class="key">Middle click</b></div>
+    <div class="kb"><span>Mount a horse · feed it to calm it, keep riding until it's tame, then saddle it · hold Space to charge a jump · Shift to dismount</span><b class="key">Right click</b></div>
+    <div class="kh">Inventory</div>
+    <div class="kb"><span>Select hotbar slot</span><b class="key">1–9 / Scroll</b></div>
+    <div class="kb"><span>Inventory (creative item menu in creative)</span><b class="key">E</b></div>
+    <div class="kb"><span>Drop item / whole stack</span><b class="key">Q / Ctrl+Q</b></div>
+    <div class="kb"><span>Swap with off-hand · right click uses the off-hand item (torch, food, shield, blocks) when the main hand has nothing to do</span><b class="key">F</b></div>
+    <div class="kb"><span>In the inventory: click to pick up/place · right click to split/one · shift-click to move · 1–9 to swap · Q to drop</span><b class="key">Mouse</b></div>
+    <div class="kh">Miscellaneous</div>
+    <div class="kb"><span>Chat and commands (try /help)</span><b class="key">T or /</b></div>
+    <div class="kb"><span>Cycle first / third person (behind, front)</span><b class="key">V or F5</b></div>
+    <div class="kb"><span>Hide HUD / debug info</span><b class="key">F1 / F3</b></div>
+    <div class="kb"><span>Player list (multiplayer)</span><b class="key">Tab</b></div>
+  </div></div>
+  <div class="foot"><button id="btn-controls-done">Done</button></div>
 </div>
 
-<div id="error" class="screen hidden"></div>
-<script defer src="net-config.js?v=muolvs1g"></script>
-<script type="module" src="js/main.js?v=muolvs1g"></script>
+<div id="guide" class="screen dirt hidden">
+  <h3>Blockhaven Guide</h3>
+  <div class="guide-tabs" id="guide-tabs"></div>
+  <div class="band"><div class="guide-body list" id="guide-body"></div></div>
+  <div class="foot"><button id="btn-guide-done">Done</button></div>
+</div>
+
+<div id="error" class="screen dirt hidden"></div>
+<script defer src="net-config.js?v=muono2ew"></script>
+<script type="module" src="js/main.js?v=muono2ew"></script>
 </body>
 </html>

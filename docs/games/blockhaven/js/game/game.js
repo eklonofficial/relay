@@ -1,26 +1,27 @@
 // The running game: world + dimensions, player survival state, entities, simulation, weather and saving.
-import { B, BLOCKS, SOLID, OPAQUE, DIM, DIM_NAMES, HEIGHT, SEA, props, st, SHAPE_OF, SHAPE } from '../data/blocks.js?v=muolvs1g';
-import { I, maxStack } from '../data/items.js?v=muolvs1g';
-import { SMELTING } from '../data/recipes.js?v=muolvs1g';
-import { MOBS } from '../data/mobs.js?v=muolvs1g';
-import { BIOMES, COLD } from '../gen/biomes.js?v=muolvs1g';
-import { World, UNLOADED, posKey } from '../world/world.js?v=muolvs1g';
-import { Player } from './player.js?v=muolvs1g';
-import { PlayerInventory, Container } from './inventory.js?v=muolvs1g';
-import { EntityManager } from '../entity/entity.js?v=muolvs1g';
-import { ItemEntity, XpOrb, FallingBlock, PrimedTnt, Lightning, Projectile } from '../entity/objects.js?v=muolvs1g';
-import { Mob, RIDEABLE } from '../entity/mob.js?v=muolvs1g';
-import { Particles } from './particles.js?v=muolvs1g';
-import { Sim } from './sim.js?v=muolvs1g';
-import { Redstone } from './redstone.js?v=muolvs1g';
-import { blockDrops } from './drops.js?v=muolvs1g';
-import { computeEnv } from './env.js?v=muolvs1g';
-import { fuelOf } from './ui.js?v=muolvs1g';
-import { unlockLevel } from './trades.js?v=muolvs1g';
-import { forward } from '../core/math.js?v=muolvs1g';
-import { EndCrystal } from '../entity/crystal.js?v=muolvs1g';
-import { migrateWorld } from './migrate.js?v=muolvs1g';
-import { ARMOR_BYPASS, armorReduce, applyInvul, isAxe, shieldFaces, applyKnockback, knockbackResist } from './combat.js?v=muolvs1g';
+import { B, BLOCKS, SOLID, OPAQUE, DIM, DIM_NAMES, HEIGHT, SEA, props, st, SHAPE_OF, SHAPE } from '../data/blocks.js?v=muono2ew';
+import { I, maxStack } from '../data/items.js?v=muono2ew';
+import { SMELTING } from '../data/recipes.js?v=muono2ew';
+import { MOBS } from '../data/mobs.js?v=muono2ew';
+import { BIOMES, COLD } from '../gen/biomes.js?v=muono2ew';
+import { World, UNLOADED, posKey } from '../world/world.js?v=muono2ew';
+import { Player } from './player.js?v=muono2ew';
+import { PlayerInventory, Container } from './inventory.js?v=muono2ew';
+import { EntityManager } from '../entity/entity.js?v=muono2ew';
+import { ItemEntity, XpOrb, FallingBlock, PrimedTnt, Lightning, Projectile } from '../entity/objects.js?v=muono2ew';
+import { Mob, RIDEABLE } from '../entity/mob.js?v=muono2ew';
+import { Particles } from './particles.js?v=muono2ew';
+import { Sim } from './sim.js?v=muono2ew';
+import { Redstone } from './redstone.js?v=muono2ew';
+import { blockDrops } from './drops.js?v=muono2ew';
+import { computeEnv } from './env.js?v=muono2ew';
+import { fuelOf } from './ui.js?v=muono2ew';
+import { unlockLevel } from './trades.js?v=muono2ew';
+import { forward } from '../core/math.js?v=muono2ew';
+import { EndCrystal } from '../entity/crystal.js?v=muono2ew';
+import { migrateWorld } from './migrate.js?v=muono2ew';
+import { ARMOR_BYPASS, armorReduce, applyInvul, isAxe, shieldFaces, applyKnockback, knockbackResist } from './combat.js?v=muono2ew';
+import { deathText } from '../net/net.js?v=muono2ew';
 
 export const DAY = 1200; // seconds per day
 const rnd = (a, b) => a + Math.random() * (b - a);
@@ -573,34 +574,16 @@ export class Game {
     }
     return true;
   }
-  deathMessage(src) {
-    return this.deathMessageRaw(src).replace(/^Player/, this.playerName);
-  }
-  deathMessageRaw(src) {
-    const a = src.attacker, name = a && a.def ? a.displayName || a.def.name : null;
-    switch (src.kind) {
-      case 'fall': return 'Player fell from a high place';
-      case 'lava': return 'Player tried to swim in lava';
-      case 'fire': return 'Player burned to death';
-      case 'drown': return 'Player drowned';
-      case 'starve': return 'Player starved to death';
-      case 'void': return 'Player fell out of the world';
-      case 'explosion': return name ? `Player was blown up by ${name}` : 'Player blew up';
-      case 'projectile': return `Player was shot by ${name || 'an arrow'}`;
-      case 'magic': return 'Player was killed by magic';
-      case 'wither': return 'Player withered away';
-      case 'lightning': return 'Player was struck by lightning';
-      case 'kill': return 'Player was killed';
-      default: return name ? `Player was slain by ${name}` : 'Player died';
-    }
-  }
+  deathMessage(src) { return deathText(this.playerName, src.kind, this.deathBy(src)); }
+  deathBy(src) { const a = src.attacker; return a && a.def ? a.displayName || a.def.name : null; }
   die(src) {
     this.dismount();
     const s = this.stats;
     this.alive = false; s.health = 0;
     const msg = this.deathMessage(src);
     this.chat(msg, '#ff8080');
-    if (this.net) this.net.send({ t: 'chat', id: this.net.myId, text: msg, color: '#ff8080' });
+    // Others rebuild the line from our real name (see net.js deathText), so only the cause travels.
+    if (this.net) this.net.send({ t: 'death', id: this.net.myId, k: src.kind || '', by: this.deathBy(src) });
     if (!this.rules.keepInventory) {
       const p = this.player.pos;
       for (const st of this.inv.allStacks()) this.dropItem(p[0], p[1] + 1, p[2], st, [rnd(-3, 3), rnd(2, 5), rnd(-3, 3)]);

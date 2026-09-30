@@ -9,21 +9,54 @@
 // own hands, or their own water/fire/sand simulation) broadcasts it once; everyone else mirrors it
 // silently, so nothing is applied twice. The host keeps the authoritative save, including each
 // guest's inventory and position, and owns the clock and the weather.
-import { RemotePlayer } from './remote.js?v=muolvs1g';
-import { EntitySync } from './share.js?v=muolvs1g';
-import { hostRoom, joinRoom } from './transport.js?v=muolvs1g';
+import { RemotePlayer } from './remote.js?v=muono2ew';
+import { EntitySync } from './share.js?v=muono2ew';
+import { hostRoom, joinRoom } from './transport.js?v=muono2ew';
 
 export const MAX_PLAYERS = 5;
 const PREFIX = 'blockhaven-v1-';
 const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-const PROTOCOL = 1;
+const PROTOCOL = 2; // 2: chat/death lines are built by the receiver; hello carries a per-browser key
 const PART = 12000;
+// Reassembly limits: parts per message (512 ≈ 6 MB; the host's world download may use more), messages
+// half-received at once, and how long a half-received message may sit idle.
+const MAX_PARTS = 512, HOST_PARTS = 8192, MAX_PENDING = 8, PART_TTL = 30000;
 const STATE_HZ = 20;
 // Guest messages the host passes on to every other guest.
-const RELAY = new Set(['st', 'ed', 'be', 'chat', 'fx', 'ent', 'pop']);
+const RELAY = new Set(['st', 'ed', 'be', 'chat', 'death', 'fx', 'ent', 'pop']);
+// Only the host may send these; a guest's copy is dropped rather than obeyed or passed on.
+const HOST_ONLY = new Set(['hello', 'welcome', 'reject', 'join', 'leave', 'bye', 'env']);
 
 export const cleanCode = s => String(s || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 5);
 export const cleanName = s => String(s || '').replace(/[^A-Za-z0-9_]/g, '').slice(0, 16);
+// Per-browser secret that ties a guest's saved progress to them (sent to the host only).
+export const cleanKey = s => (typeof s === 'string' && /^[A-Za-z0-9_-]{16,64}$/.test(s) ? s : '');
+// Chat text: no control or bidi-override characters, one line, capped.
+export const CHAT_MAX = 256;
+export const cleanChat = s => String(s ?? '').replace(/[\u0000-\u001f\u007f-\u009f\u200e\u200f\u2028-\u202e\u2066-\u2069]/g, '').trim().slice(0, CHAT_MAX);
+export const chatLine = (name, msg) => `<${name}> ${cleanChat(msg)}`;
+// Death lines are rebuilt by each receiver from the dead player's real name, a kind and a killer name.
+const cleanBy = s => cleanChat(s).replace(/[<>]/g, '').slice(0, 32);
+export function deathText(who, kind, by) {
+  const name = by ? cleanBy(by) : '';
+  switch (kind) {
+    case 'fall': return `${who} fell from a high place`;
+    case 'lava': return `${who} tried to swim in lava`;
+    case 'fire': return `${who} burned to death`;
+    case 'drown': return `${who} drowned`;
+    case 'starve': return `${who} starved to death`;
+    case 'void': return `${who} fell out of the world`;
+    case 'explosion': return name ? `${who} was blown up by ${name}` : `${who} blew up`;
+    case 'projectile': return `${who} was shot by ${name || 'an arrow'}`;
+    case 'magic': return `${who} was killed by magic`;
+    case 'wither': return `${who} withered away`;
+    case 'lightning': return `${who} was struck by lightning`;
+    case 'kill': return `${who} was killed`;
+    default: return name ? `${who} was slain by ${name}` : `${who} died`;
+  }
+}
+// A guest's saved progress: { key, d } since protocol 2; older saves hold the bare data (no key yet).
+export const savedEntry = e => (!e || typeof e !== 'object' ? null : typeof e.key === 'string' && 'd' in e ? { key: e.key, d: e.d } : { key: null, d: e });
 const r3 = v => Math.round(v * 1000) / 1000;
 
 let libPromise = null;
@@ -32,7 +65,7 @@ function loadLib() {
   if (!libPromise) {
     libPromise = new Promise((resolve, reject) => {
       const s = document.createElement('script');
-      s.src = new URL('../../vendor/peerjs.min.js?v=muolvs1g', import.meta.url).href;
+      s.src = new URL('../../vendor/peerjs.min.js?v=muono2ew', import.meta.url).href;
       s.onload = () => resolve();
       s.onerror = () => { libPromise = null; reject(new Error('Could not load the multiplayer library. Check your connection.')); };
       document.head.appendChild(s);
@@ -62,9 +95,9 @@ const peerError = e => {
 const timeout = (p, ms, msg) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error(msg)), ms))]);
 
 // One data connection. Messages are JSON; long ones are split so no browser drops them.
-class Link {
-  constructor(conn) {
-    this.conn = conn; this.parts = new Map(); this.nextPart = 1; this.seen = performance.now();
+export class Link {
+  constructor(conn, maxParts = MAX_PARTS) {
+    this.conn = conn; this.parts = new Map(); this.pending = 0; this.maxParts = maxParts; this.nextPart = 1; this.seen = performance.now();
     this.onMessage = null; this.onClose = null; this.closed = false;
     conn.on('data', d => { this.seen = performance.now(); this.recv(d); });
     const closed = () => { if (this.closed) return; this.closed = true; if (this.onClose) this.onClose(); };
@@ -85,14 +118,32 @@ class Link {
     let m;
     try { m = typeof d === 'string' ? JSON.parse(d) : d; } catch { return; }
     if (!m || typeof m !== 'object') return;
-    if (m.t === 'part') {
-      let p = this.parts.get(m.id);
-      if (!p) { p = { got: 0, list: [] }; this.parts.set(m.id, p); }
-      if (p.list[m.i] === undefined) { p.list[m.i] = m.d; p.got++; }
-      if (p.got === m.n) { this.parts.delete(m.id); try { m = JSON.parse(p.list.join('')); } catch { return; } } else return;
-    }
+    if (m.t === 'part' && !(m = this.part(m))) return;
     if (this.onMessage) this.onMessage(m);
   }
+  // One piece of a split message; returns the whole message once every piece is in. Bad indices are
+  // dropped, idle half-messages expire, and at most MAX_PENDING (and maxParts pieces' worth) are held.
+  part(m) {
+    const { id, i, n, d } = m, now = performance.now();
+    if (!Number.isSafeInteger(id) || !Number.isInteger(i) || !Number.isInteger(n) || i < 0 || i >= n || n > this.maxParts || typeof d !== 'string' || d.length > PART) return null;
+    for (const [k, q] of this.parts) if (now - q.t > PART_TTL) this.dropPart(k);
+    let p = this.parts.get(id);
+    if (p && p.n !== n) { this.dropPart(id); return null; }
+    if (!p) {
+      while (this.parts.size >= MAX_PENDING) this.dropPart(this.parts.keys().next().value);
+      p = { n, got: 0, size: 0, list: [], t: now }; this.parts.set(id, p);
+    }
+    p.t = now;
+    if (p.list[i] === undefined) { p.list[i] = d; p.got++; p.size += d.length; this.pending += d.length; }
+    for (const k of [...this.parts.keys()]) { if (this.pending <= this.maxParts * PART) break; if (k !== id) this.dropPart(k); }
+    if (p.got < n) return null;
+    this.dropPart(id);
+    let out;
+    try { out = JSON.parse(p.list.join('')); } catch { return null; }
+    // A reassembled message is never itself a part (no smuggling pieces through the host's relay).
+    return out && typeof out === 'object' && out.t !== 'part' ? out : null;
+  }
+  dropPart(k) { const p = this.parts.get(k); if (p) { this.pending -= p.size; this.parts.delete(k); } }
   close() { this.closed = true; try { this.conn.close(); } catch { /* already closed */ } }
 }
 
@@ -159,15 +210,20 @@ export class Net {
       if (player) { this.onMessage(m, player); return; }
       if (m.t !== 'hello') return;
       clearTimeout(helloTimer);
-      const name = cleanName(m.name);
-      if (m.v !== PROTOCOL) { bail('Your game is a different version. Refresh the page (Ctrl+Shift+R) and try again.'); return; }
+      const name = cleanName(m.name), key = cleanKey(m.key);
+      if (m.v !== PROTOCOL || !key) { bail('Your game is a different version. Refresh the page (Ctrl+Shift+R) and try again.'); return; }
       if (!this.game) { bail('The host is not in a world right now.'); return; }
       if (this.count >= MAX_PLAYERS) { bail(`This world is full (${MAX_PLAYERS} players max).`); return; }
       if (!name) { bail('Pick a name first.'); return; }
       if (name.toLowerCase() === this.name.toLowerCase() || [...this.players.values()].some(p => p.name.toLowerCase() === name.toLowerCase())) { bail(`Someone called ${name} is already playing. Pick another name.`); return; }
+      // Saved progress belongs to the browser that first played under this name here.
+      const g = this.game, e = savedEntry((g.meta.players || {})[name]);
+      if (e && e.key && e.key !== key) { bail(`Someone else has already played as ${name} in this world. Pick another name.`); return; }
+      g.meta.players = g.meta.players || {};
+      g.meta.players[name] = { key, d: e ? e.d : null };
       let id = 1;
       while (this.players.has(id)) id++;
-      player = { id, name, skin: m.skin | 0, link };
+      player = { id, name, skin: m.skin | 0, link, key };
       this.players.set(id, player);
       link.send({ t: 'welcome', id, host: { id: 0, name: this.name, skin: this.skin }, meta: this.snapshot(name), players: [...this.players.values()].filter(p => p.id !== id).map(p => ({ id: p.id, name: p.name, skin: p.skin })) });
       this.broadcast({ t: 'join', id, name, skin: player.skin }, id);
@@ -181,7 +237,7 @@ export class Net {
     const g = this.game, s = g.serialize();
     const dims = {};
     for (const [d, v] of Object.entries(s.dims || {})) dims[d] = { edits: v.edits, blockEntities: v.blockEntities, populated: v.populated, popOld: v.popOld };
-    const saved = (g.meta.players || {})[name] || null;
+    const e = savedEntry((g.meta.players || {})[name]), saved = (e && e.d) || null;
     return {
       name: s.name, seed: s.seed, seedText: s.seedText, type: s.type, mode: s.mode, difficulty: s.difficulty, cheats: s.cheats, rules: s.rules,
       time: s.time, day: s.day, weather: s.weather, spawn: s.spawn, dragonKilled: s.dragonKilled, dims, saved, genVersion: s.genVersion, palette: s.palette,
@@ -190,7 +246,7 @@ export class Net {
 
   // ---------------- joining ----------------
   // Both ways of finding the room are tried at once; the first channel that opens is used.
-  static async join(app, code, name, skin, status = () => {}) {
+  static async join(app, code, name, skin, key, status = () => {}) {
     const net = new Net(app, 'guest');
     net.name = name; net.skin = skin; net.code = code;
     const cfg = netConfig();
@@ -222,13 +278,13 @@ export class Net {
     }
     // A slower path that connects later is closed by claim().
     viaPeer.catch(() => {}); viaRoom.catch(() => {});
-    const link = new Link(winner.conn);
+    const link = new Link(winner.conn, HOST_PARTS);
     net.hostLink = link; net.relayed = winner.how === 'relay';
     status(net.relayed ? 'Connected through the relay servers. Downloading the world…' : 'Downloading the world…');
     const welcome = await timeout(new Promise((resolve, reject) => {
       link.onMessage = m => { if (m.t === 'welcome') resolve(m); else if (m.t === 'reject') reject(new Error(m.reason)); };
       link.onClose = () => reject(new Error('The host closed the connection.'));
-      link.send({ t: 'hello', v: PROTOCOL, name, skin });
+      link.send({ t: 'hello', v: PROTOCOL, name, skin, key });
     }), 90000, 'The host did not answer.');
     net.myId = welcome.id;
     link.onMessage = m => net.onMessage(m, null);
@@ -261,7 +317,12 @@ export class Net {
   onMessage(m, from) {
     // Host: relay guest traffic, or deliver messages addressed to someone else.
     if (this.isHost && from) {
+      if (m.t === 'part' || HOST_ONLY.has(m.t)) return;
       m.id = from.id;
+      if (m.from !== undefined) m.from = from.id;
+      // Chat and death lines carry only the raw words; each receiver adds the sender's real name.
+      if (m.t === 'chat') { const msg = cleanChat(m.msg); if (!msg) return; m = { t: 'chat', id: from.id, msg }; }
+      else if (m.t === 'death') m = { t: 'death', id: from.id, k: String(m.k || '').slice(0, 16), by: m.by ? cleanBy(m.by) : null };
       if (m.to !== undefined && m.to !== 0) { const p = this.players.get(m.to); if (p && p.link) p.link.send(m); return; }
       if (RELAY.has(m.t)) this.broadcast(m, from.id);
     }
@@ -270,7 +331,8 @@ export class Net {
       case 'st': { const p = this.players.get(m.id); if (p && p.rp) p.rp.push(m); break; }
       case 'ed': if (g) this.applyEdits(m.e); break;
       case 'be': if (g) this.applyBlockEntity(m); break;
-      case 'chat': this.app.chat(m.text, m.color || '#ffffff'); break;
+      case 'chat': { const n = this.nameOf(m.id), msg = cleanChat(m.msg); if (n && msg) this.app.chat(chatLine(n, msg)); break; }
+      case 'death': { const n = this.nameOf(m.id); if (n) this.app.chat(deathText(n, m.k, m.by), '#ff8080'); break; }
       case 'fx': if (g) this.playFx(m); break;
       case 'ent': if (g) this.share.onEnt(m); break;
       case 'ehit': if (g) this.share.onEhit(m); break;
@@ -284,7 +346,7 @@ export class Net {
       case 'rsuse': if (g && this.isHost && m.d === g.dim && Array.isArray(m.p)) g.rs.use(m.p[0] | 0, m.p[1] | 0, m.p[2] | 0); break;
       case 'hit': if (g) this.onHit(m); break;
       case 'env': if (g && !this.isHost) this.applyEnv(m); break;
-      case 'pdata': if (this.isHost && from && g) { g.meta.players = g.meta.players || {}; g.meta.players[from.name] = m.d; } break;
+      case 'pdata': if (this.isHost && from && g) { g.meta.players = g.meta.players || {}; g.meta.players[from.name] = { key: from.key, d: m.d }; } break;
       case 'join': this.players.set(m.id, { id: m.id, name: m.name, skin: m.skin }); this.addRemote(this.players.get(m.id)); this.app.chat(`${m.name} joined the game`, '#ffff55'); this.app.onPlayersChanged(); break;
       case 'leave': this.removePlayer(m.id, m.reason || 'left the game'); break;
       case 'bye': if (!this.isHost) { this.closed = true; this.app.onDisconnected('The host closed the world.'); } break;
@@ -306,6 +368,7 @@ export class Net {
     if (!this.game) return;
     p.rp = new RemotePlayer(this.game, p);
   }
+  nameOf(id) { const p = id !== this.myId && this.players.get(id); return p ? p.name : null; }
   remotePlayers() { return [...this.players.values()].map(p => p.rp).filter(Boolean); }
   playerNames() { return [this.name, ...[...this.players.values()].map(p => p.name)]; }
 

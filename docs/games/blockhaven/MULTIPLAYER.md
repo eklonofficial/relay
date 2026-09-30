@@ -15,6 +15,12 @@ The host's world is the real one. It's saved on the host's computer, along with 
 inventory and position, so guests can leave and come back. When the host quits, the world closes
 for everyone.
 
+A guest's saved progress in a world belongs to the browser that first joined it under that name:
+someone else joining with the same name from another browser is asked to pick a different one. (The
+link is a random key kept in the browser's settings, so clearing site data means starting fresh.)
+Chat and death messages carry only the words; each player's game adds the name of whoever the host
+knows actually sent them, so nobody can post as someone else.
+
 ## How it works (no server of our own needed)
 
 GitHub Pages can only serve files, so the browsers talk to each other directly over WebRTC. To
