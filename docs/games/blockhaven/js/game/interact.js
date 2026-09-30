@@ -1,10 +1,10 @@
 // Player actions: mining, placing, using items and blocks, attacking.
-import { meleeDamage, isCrit, knockStrength, isSword } from './combat.js?v=muo1ytra';
-import { B, BLOCKS, SOLID, OPAQUE, SHAPE_OF, SHAPE, props, st, DIM, FACING_SHIFT, AXIS_SHIFT, VARIANT_MASK } from '../data/blocks.js?v=muo1ytra';
-import { I, breakTime } from '../data/items.js?v=muo1ytra';
-import { collisionBoxes, selectionBoxes } from '../data/shapes.js?v=muo1ytra';
-import { UNLOADED, posKey } from '../world/world.js?v=muo1ytra';
-import { forward } from '../core/math.js?v=muo1ytra';
+import { meleeDamage, isCrit, knockStrength, isSword, SWEEP_DAMAGE, SHIELD_DELAY, SHIELD_DISABLE } from './combat.js?v=muo2aap4';
+import { B, BLOCKS, SOLID, OPAQUE, SHAPE_OF, SHAPE, props, st, DIM, FACING_SHIFT, AXIS_SHIFT, VARIANT_MASK } from '../data/blocks.js?v=muo2aap4';
+import { I, breakTime } from '../data/items.js?v=muo2aap4';
+import { collisionBoxes, selectionBoxes } from '../data/shapes.js?v=muo2aap4';
+import { UNLOADED, posKey } from '../world/world.js?v=muo2aap4';
+import { forward } from '../core/math.js?v=muo2aap4';
 
 const DIRS = [[0, 1], [-1, 0], [0, -1], [1, 0]];
 export const dirIndex = (x, z) => (Math.abs(x) > Math.abs(z) ? (x > 0 ? 3 : 1) : (z > 0 ? 0 : 2));
@@ -60,7 +60,10 @@ export class Interact {
     }
     this.swingOff = Math.max(0, (this.swingOff || 0) - dt / 0.3);
     g.blocking = this.using === 'shield';
-    g.player.usingItem = !!this.using && this.using !== 'shield';
+    this.blockT = g.blocking ? (this.blockT || 0) + dt : 0;
+    g.blockReady = this.blockT >= SHIELD_DELAY;
+    // Any item in use (including a raised shield) slows you to a crawl, as in the original.
+    g.player.usingItem = !!this.using;
     if (this.fish) this.fishTick(dt);
   }
 
@@ -95,6 +98,13 @@ export class Interact {
       if (g.inv.damageHeld(it.tool && it.tool.type === 'sword' ? 2 : 1)) g.sound.play('break_item', null, 0.8);
     }
   }
+  // An axe hit knocked the raised shield away: it can't be raised again for 5 seconds.
+  disableShield() {
+    const g = this.g;
+    if (this.using === 'shield') { this.using = null; this.useT = 0; }
+    g.blocking = false; g.blockReady = false; this.blockT = 0;
+    g.setCooldown('shield', SHIELD_DISABLE);
+  }
   crackStage() { return this.progress > 0 && this.target ? Math.min(9, Math.floor(this.progress * 10)) : -1; }
 
   // ---------------- combat ----------------
@@ -110,9 +120,12 @@ export class Interact {
     if (ok) {
       g.lastTarget = e;
       if (crit) { g.sound.play('crit', e.pos, 0.7); g.particles.fx('crit', e.center(), 12, 0.4, 3); } else g.sound.play(cd > 0.9 ? 'attack' : 'attack', e.pos, cd > 0.9 ? 0.6 : 0.35);
+      // Damage indicator: dark hearts, one per two points dealt.
+      const n = Math.min(10, Math.floor(dmg / 2));
+      if (n > 0) g.particles.fx('heart', [e.pos[0], e.pos[1] + (e.h || 1) * 0.6, e.pos[2]], n, 0.35, 1.2, [0.35, 0.05, 0.05]);
       // Sweep attack with swords.
       if (isSword(held && held.key) && cd > 0.9 && p.onGround && !p.sprinting && !crit) {
-        for (const o of g.entities.near(e.pos, 1.5, x => x.isLiving && x !== e && !x.tamed && x.mobType !== 'villager')) o.hurt(1 + dmg * 0.25, { kind: 'player', attacker: g.playerEntity, knock: [f[0], f[2]], knockStrength: 3 });
+        for (const o of g.entities.near(e.pos, 1.5, x => x.isLiving && x !== e && !x.tamed && x.mobType !== 'villager')) o.hurt(SWEEP_DAMAGE, { kind: 'player', attacker: g.playerEntity, knock: [f[0], f[2]], knockStrength: 5 });
         g.sound.play('sweep', e.pos, 0.5);
       }
       if (sprintHit) p.sprinting = false;
@@ -140,7 +153,7 @@ export class Interact {
       if (g.mode === 'creative' || g.inv.main.count('arrow') > 0 || g.inv.main.count('spectral_arrow') > 0) { this.using = it.crossbow ? 'crossbow' : 'bow'; this.useT = 0; g.sound.play('bow_draw', null, 0.5); this.acted = true; }
       return;
     }
-    if (it.kind === 'shield') { this.using = 'shield'; this.acted = true; return; }
+    if (it.kind === 'shield') { if (!g.onCooldown('shield')) { this.using = 'shield'; this.blockT = 0; } this.acted = true; return; }
     if (it.kind === 'trident') { this.using = 'trident'; this.useT = 0; this.acted = true; return; }
     if (it.kind === 'armor') {
       const slot = it.armor.slot;
@@ -192,9 +205,14 @@ export class Interact {
       if (power >= 0.1) this.fireArrow(power, false);
     }
     if (this.using === 'trident' && held && this.useT > 0.5) {
+      // Thrown at 2.5 blocks/tick plus the thrower's motion; the throw costs 1 durability.
       const p = g.player, f = forward(p.yaw, p.pitch), e = p.eyePos();
-      g.shootProjectile('trident', e, f.map(v => v * 50), g.playerEntity, { pickup: true, stack: { dmg: held.dmg } });
-      g.inv.consumeHeld(); g.sound.play('throw', null, 0.8);
+      const dmg = (held.dmg || 0) + (g.mode === 'creative' ? 0 : 1);
+      if (dmg < I.trident.durability) g.shootProjectile('trident', e, [f[0] * 50 + p.vel[0], f[1] * 50 + (p.onGround ? 0 : p.vel[1]), f[2] * 50 + p.vel[2]], g.playerEntity, { pickup: g.mode !== 'creative', stack: { dmg } });
+      else g.sound.play('break_item', null, 0.8);
+      if (g.mode !== 'creative') g.inv.consumeHeld();
+      g.sound.play('throw', null, 0.8);
+      this.swing = 1;
     }
     this.using = null; this.useT = 0;
   }
@@ -207,8 +225,12 @@ export class Interact {
       g.inv.main.remove(x => x === k, 1);
       kind = 'arrow';
     }
+    // Bow: power*3 blocks/tick; crossbow: 3.15 blocks/tick and always critical. Both get the
+    // original's tiny random spread (divergence 1).
     const speed = (crossbow ? 3.15 : power * 3) * 20;
-    const pr = g.shootProjectile(kind, [e[0] + f[0] * 0.3, e[1] - 0.1, e[2] + f[2] * 0.3], [f[0] * speed + p.vel[0], f[1] * speed + p.vel[1] * 0.3, f[2] * speed + p.vel[2]], g.playerEntity, { crit: power >= 1, pickup: !creative, power: crossbow ? 1.5 : 1 });
+    const gauss = () => { let u = 0; for (let k = 0; k < 6; k++) u += Math.random(); return (u - 3) / Math.SQRT2; };
+    const d = [f[0] + gauss() * 0.0075, f[1] + gauss() * 0.0075, f[2] + gauss() * 0.0075], dl = Math.hypot(...d);
+    const pr = g.shootProjectile(kind, [e[0] + f[0] * 0.3, e[1] - 0.1, e[2] + f[2] * 0.3], [d[0] / dl * speed + p.vel[0], d[1] / dl * speed + (p.onGround ? 0 : p.vel[1]), d[2] / dl * speed + p.vel[2]], g.playerEntity, { crit: crossbow || power >= 1, pickup: !creative, power: 1 });
     void pr;
     g.sound.play('bow', null, 0.7, 0.9 + power * 0.3);
     if (!creative && g.inv.damageHeld(1)) g.sound.play('break_item', null, 0.8);
@@ -444,7 +466,9 @@ export class Interact {
       }
       case 'throw': {
         const kind = it.projectile;
-        g.shootProjectile(kind, [eye[0] + f[0] * 0.3, eye[1] - 0.1, eye[2] + f[2] * 0.3], [f[0] * 30 + p.vel[0], f[1] * 30 + 2, f[2] * 30 + p.vel[2]], g.playerEntity);
+        // Ender pearls have a one-second cooldown; everything is thrown at 1.5 blocks/tick.
+        if (kind === 'ender_pearl') { if (g.onCooldown('ender_pearl')) return; g.setCooldown('ender_pearl', 1); }
+        g.shootProjectile(kind, [eye[0] + f[0] * 0.3, eye[1] - 0.1, eye[2] + f[2] * 0.3], [f[0] * 30 + p.vel[0], f[1] * 30 + (p.onGround ? 0 : p.vel[1]), f[2] * 30 + p.vel[2]], g.playerEntity);
         g.sound.play('throw', null, 0.6);
         if (!creative) g.inv.consumeHeld();
         this.swing = 1;

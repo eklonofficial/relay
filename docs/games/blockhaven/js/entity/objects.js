@@ -1,10 +1,10 @@
 // Non-living entities: dropped items, XP orbs, projectiles, falling blocks, primed TNT, lightning.
-import { Entity, M } from './entity.js?v=muo1ytra';
-import { itemMesh, emitItemMesh } from './itemmesh.js?v=muo1ytra';
-import { I } from '../data/items.js?v=muo1ytra';
-import { B, BLOCKS, SOLID, OPAQUE } from '../data/blocks.js?v=muo1ytra';
-import { compose, translation, rotationX, rotationY, rotationZ, scaling } from '../core/math.js?v=muo1ytra';
-import { maxStack } from '../data/items.js?v=muo1ytra';
+import { Entity, M } from './entity.js?v=muo2aap4';
+import { itemMesh, emitItemMesh } from './itemmesh.js?v=muo2aap4';
+import { I } from '../data/items.js?v=muo2aap4';
+import { B, BLOCKS, SOLID, OPAQUE } from '../data/blocks.js?v=muo2aap4';
+import { compose, translation, rotationX, rotationY, rotationZ, scaling } from '../core/math.js?v=muo2aap4';
+import { maxStack } from '../data/items.js?v=muo2aap4';
 
 // Billboarded sprite quad facing the camera.
 export function billboard(batch, ctx, x, y, z, size, layer, color, uv = [0, 0, 1, 1]) {
@@ -174,7 +174,7 @@ export class Projectile extends Entity {
     const id = w.getBlock(this.pos[0], this.pos[1], this.pos[2]);
     const water = id === B.WATER;
     this.vel[1] -= this.gravity * dt;
-    const drag = water ? 0.6 : this.gravity ? 0.99 : 1.0;
+    const drag = water ? (this.kind === 'trident' ? 0.99 : 0.6) : this.gravity ? 0.99 : 1.0;
     const k = Math.pow(drag, dt * 20);
     this.vel[0] *= k; this.vel[1] *= k; this.vel[2] *= k;
     if (this.gravity === 0) { this.vel[0] *= 1 + dt * 0.5; this.vel[1] *= 1 + dt * 0.5; this.vel[2] *= 1 + dt * 0.5; if (Math.hypot(...this.vel) > 40) this.vel = this.vel.map(v => v * 0.98); }

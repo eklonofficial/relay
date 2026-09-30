@@ -1,24 +1,24 @@
 // The running game: world + dimensions, player survival state, entities, simulation, weather and saving.
-import { B, BLOCKS, SOLID, OPAQUE, DIM, DIM_NAMES, HEIGHT, SEA, props, st, SHAPE_OF, SHAPE } from '../data/blocks.js?v=muo1ytra';
-import { I, maxStack } from '../data/items.js?v=muo1ytra';
-import { SMELTING } from '../data/recipes.js?v=muo1ytra';
-import { MOBS } from '../data/mobs.js?v=muo1ytra';
-import { BIOMES, COLD } from '../gen/biomes.js?v=muo1ytra';
-import { World, UNLOADED, posKey } from '../world/world.js?v=muo1ytra';
-import { Player } from './player.js?v=muo1ytra';
-import { PlayerInventory, Container } from './inventory.js?v=muo1ytra';
-import { EntityManager } from '../entity/entity.js?v=muo1ytra';
-import { ItemEntity, XpOrb, FallingBlock, PrimedTnt, Lightning, Projectile } from '../entity/objects.js?v=muo1ytra';
-import { Mob, RIDEABLE } from '../entity/mob.js?v=muo1ytra';
-import { Particles } from './particles.js?v=muo1ytra';
-import { Sim } from './sim.js?v=muo1ytra';
-import { blockDrops } from './drops.js?v=muo1ytra';
-import { computeEnv } from './env.js?v=muo1ytra';
-import { fuelOf } from './ui.js?v=muo1ytra';
-import { unlockLevel } from './trades.js?v=muo1ytra';
-import { forward } from '../core/math.js?v=muo1ytra';
-import { EndCrystal } from '../entity/crystal.js?v=muo1ytra';
-import { ARMOR_BYPASS, armorReduce, applyInvul, isAxe } from './combat.js?v=muo1ytra';
+import { B, BLOCKS, SOLID, OPAQUE, DIM, DIM_NAMES, HEIGHT, SEA, props, st, SHAPE_OF, SHAPE } from '../data/blocks.js?v=muo2aap4';
+import { I, maxStack } from '../data/items.js?v=muo2aap4';
+import { SMELTING } from '../data/recipes.js?v=muo2aap4';
+import { MOBS } from '../data/mobs.js?v=muo2aap4';
+import { BIOMES, COLD } from '../gen/biomes.js?v=muo2aap4';
+import { World, UNLOADED, posKey } from '../world/world.js?v=muo2aap4';
+import { Player } from './player.js?v=muo2aap4';
+import { PlayerInventory, Container } from './inventory.js?v=muo2aap4';
+import { EntityManager } from '../entity/entity.js?v=muo2aap4';
+import { ItemEntity, XpOrb, FallingBlock, PrimedTnt, Lightning, Projectile } from '../entity/objects.js?v=muo2aap4';
+import { Mob, RIDEABLE } from '../entity/mob.js?v=muo2aap4';
+import { Particles } from './particles.js?v=muo2aap4';
+import { Sim } from './sim.js?v=muo2aap4';
+import { blockDrops } from './drops.js?v=muo2aap4';
+import { computeEnv } from './env.js?v=muo2aap4';
+import { fuelOf } from './ui.js?v=muo2aap4';
+import { unlockLevel } from './trades.js?v=muo2aap4';
+import { forward } from '../core/math.js?v=muo2aap4';
+import { EndCrystal } from '../entity/crystal.js?v=muo2aap4';
+import { ARMOR_BYPASS, armorReduce, applyInvul, isAxe, shieldFaces, applyKnockback, knockbackResist } from './combat.js?v=muo2aap4';
 
 export const DAY = 1200; // seconds per day
 const rnd = (a, b) => a + Math.random() * (b - a);
@@ -37,6 +37,7 @@ export class Game {
     this.tradeSlots = new Container(2);
     this.time = 0;
     this.timers = [];
+    this.itemCooldowns = {};
     this.env = computeEnv(0, 0.3, [0, 0, -1]);
     this.inv.main.onChange = () => { this.invDirty = true; };
     this.inv.armor.onChange = () => { this.invDirty = true; };
@@ -269,6 +270,9 @@ export class Game {
     const seat = (RIDEABLE[m.mobType] && RIDEABLE[m.mobType].seat) || m.h * 0.75;
     p.pos = [m.pos[0], m.pos[1] + seat, m.pos[2]]; p.vel = [0, 0, 0]; p.fallStart = null; p.onGround = true; p.renderPos = p.pos.slice();
   }
+  // Per-item cooldowns (ender pearls, a disabled shield), shown as a sweep over hotbar slots.
+  setCooldown(key, t) { this.itemCooldowns[key] = { t, max: t }; }
+  onCooldown(key) { return !!this.itemCooldowns[key]; }
   toast(a, b, icon) { if (this.hud) this.hud.toast(a, b, icon); }
   chat(msg, color) { this.app.chat(msg, color); }
   advance(key, title, text, icon) { if (this.advancements.has(key)) return; this.advancements.add(key); this.toast(`Advancement Made!`, title, icon); this.chat(`Advancement made: [${title}] — ${text}`, '#ffff55'); this.sound.play('chime', null, 0.6); }
@@ -434,7 +438,7 @@ export class Game {
       const dmg = Math.floor((impact * impact + impact) / 2 * 7 * R + 1);
       const n = d || 1;
       if (e.type === 'item') { if (!e.puppet && Math.random() < 0.5) e.dead = true; continue; }
-      if (e.hurt) e.hurt(dmg, { kind: 'explosion', attacker: source && source.shooter ? source.shooter : source, knock: [(c[0] - pos[0]) / n, (c[2] - pos[2]) / n], knockStrength: impact * 14 });
+      if (e.hurt) e.hurt(dmg, { kind: 'explosion', pos, attacker: source && source.shooter ? source.shooter : source, knock: [(c[0] - pos[0]) / n, (c[2] - pos[2]) / n], knockStrength: impact * 14 });
       if (e.vel) e.vel[1] += impact * 10;
     }
     if (this.alive && Math.hypot(this.player.pos[0] - pos[0], this.player.pos[2] - pos[2]) < 16) this.app.shake(Math.min(1, power / 4));
@@ -483,11 +487,21 @@ export class Game {
     if (this.difficulty === 'peaceful' && src.kind === 'mob') return false;
     if (s.effects.fire_resistance && (src.kind === 'fire' || src.kind === 'lava')) return false;
     const bypass = ARMOR_BYPASS.has(src.kind);
-    // Shield blocks frontal attacks.
-    if (this.blocking && src.attacker && src.kind !== 'explosion' && !bypass) {
-      const a = src.attacker.pos, p = this.player.pos, f = this.lookDir();
-      const dx = a[0] - p[0], dz = a[2] - p[2], n = Math.hypot(dx, dz) || 1;
-      if ((dx * f[0] + dz * f[2]) / n > 0.2 && !(src.attacker.equipment && isAxe(src.attacker.equipment.hand))) { this.sound.play('arrow_hit', p, 0.8); if (src.attacker.vel && src.kind === 'mob') { src.attacker.vel[0] += dx / n * -6; src.attacker.vel[2] += dz / n * -6; } const h = this.inv.hand; this.inv.hand = (this.app.interact && this.app.interact.usingHand) || 'main'; this.inv.damageHeld(1); this.inv.hand = h; return false; }
+    // A raised shield (after its short raise delay) stops anything coming from the front: hits,
+    // arrows, even explosions. An axe hit gets blocked but knocks the shield out for 5 seconds.
+    const from = src.pos || (src.projectile && src.projectile.pos) || (src.attacker && src.attacker.pos);
+    if (this.blocking && this.blockReady && from && !bypass && shieldFaces(this.player.pos, this.lookDir(), from)) {
+      const p = this.player.pos, it = this.app.interact;
+      const a = src.attacker, weapon = src.weapon || (a && a.equipment && a.equipment.hand) || (a && a.remote && a.held);
+      const h = this.inv.hand; this.inv.hand = (it && it.usingHand) || 'main';
+      if (amount >= 3 && this.mode !== 'creative') this.inv.damageHeld(1 + Math.floor(amount));
+      this.inv.hand = h;
+      const disable = (src.kind === 'mob' || src.kind === 'player') && isAxe(weapon);
+      if (disable && it) it.disableShield();
+      this.sound.play(disable ? 'shield_break' : 'shield_block', p, 0.9);
+      if (this.net) this.net.fx('sound', p, { d: this.dim, s: disable ? 'shield_break' : 'shield_block', v: 0.9 });
+      if (a && a.vel && src.kind === 'mob' && !a.remote) { const dx = a.pos[0] - p[0], dz = a.pos[2] - p[2], n = Math.hypot(dx, dz) || 1; applyKnockback(a.vel, [dx / n, dz / n], 0.5, a.onGround); }
+      return false;
     }
     // Invulnerability frames: a harder hit still lands for the difference.
     const hit = applyInvul(this, amount);
@@ -504,7 +518,7 @@ export class Game {
     s.health -= dmg;
     this.exhaust(0.1);
     if (hit.fresh) { this.app.hurtFlash(src); this.sound.play('hurt', null, 0.8); if (this.net) this.net.onHurt(); }
-    if (hit.fresh && src.knock) { const k = src.knockStrength || 5; this.player.vel[0] += src.knock[0] * k; this.player.vel[2] += src.knock[1] * k; this.player.vel[1] = Math.max(this.player.vel[1], 4.5); }
+    if (hit.fresh && src.knock) applyKnockback(this.player.vel, src.knock, (src.knockStrength || 5) / 12.5, this.player.onGround || this.player.inWater, knockbackResist(this.inv.armor.slots));
     if (src.attacker && src.attacker.isLiving) this.lastAttackedBy = src.attacker;
     this.lastDamage = src;
     if (s.health <= 0) {
@@ -607,6 +621,7 @@ export class Game {
   updateSurvival(dt) {
     const s = this.stats, p = this.player;
     this.invul = Math.max(0, (this.invul || 0) - dt);
+    for (const [k, c] of Object.entries(this.itemCooldowns)) if ((c.t -= dt) <= 0) delete this.itemCooldowns[k];
     for (const k of Object.keys(s.effects)) {
       s.effects[k] -= dt;
       if (s.effects[k] <= 0) { delete s.effects[k]; if (k === 'absorption') s.absorption = 0; }

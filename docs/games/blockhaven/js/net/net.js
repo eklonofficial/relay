@@ -9,8 +9,8 @@
 // own hands, or their own water/fire/sand simulation) broadcasts it once; everyone else mirrors it
 // silently, so nothing is applied twice. The host keeps the authoritative save, including each
 // guest's inventory and position, and owns the clock and the weather.
-import { RemotePlayer } from './remote.js?v=muo1ytra';
-import { EntitySync } from './share.js?v=muo1ytra';
+import { RemotePlayer } from './remote.js?v=muo2aap4';
+import { EntitySync } from './share.js?v=muo2aap4';
 
 export const MAX_PLAYERS = 5;
 const PREFIX = 'blockhaven-v1-';
@@ -31,7 +31,7 @@ function loadLib() {
   if (!libPromise) {
     libPromise = new Promise((resolve, reject) => {
       const s = document.createElement('script');
-      s.src = new URL('../../vendor/peerjs.min.js?v=muo1ytra', import.meta.url).href;
+      s.src = new URL('../../vendor/peerjs.min.js?v=muo2aap4', import.meta.url).href;
       s.onload = () => resolve();
       s.onerror = () => { libPromise = null; reject(new Error('Could not load the multiplayer library. Check your connection.')); };
       document.head.appendChild(s);
@@ -320,7 +320,7 @@ export class Net {
     this.send({
       t: 'st', id: this.myId, p: [r3(p.pos[0]), r3(p.pos[1]), r3(p.pos[2])], y: r3(p.yaw), pi: r3(p.pitch), d: g.dim,
       v: [r3(p.vel[0]), r3(p.vel[1]), r3(p.vel[2])],
-      f: (p.sneaking ? 1 : 0) | (p.sprinting ? 2 : 0) | (p.gliding ? 4 : 0) | (g.riding ? 8 : 0) | (g.alive ? 0 : 16) | (g.mode === 'spectator' ? 32 : 0) | (g.blocking ? 64 : 0) | (p.flying ? 128 : 0) | (g.stats.fire > 0 ? 256 : 0) | (it && it.using === 'bow' ? 512 : 0),
+      f: (p.sneaking ? 1 : 0) | (p.sprinting ? 2 : 0) | (p.gliding ? 4 : 0) | (g.riding ? 8 : 0) | (g.alive ? 0 : 16) | (g.mode === 'spectator' ? 32 : 0) | (g.blocking ? 64 : 0) | (p.flying ? 128 : 0) | (g.stats.fire > 0 ? 256 : 0) | (it && (it.using === 'bow' || it.using === 'crossbow') ? 512 : 0) | (it && it.using === 'trident' ? 1024 : 0),
       h: inv.held ? inv.held.key : 0, o: inv.offhand.get(0) ? inv.offhand.get(0).key : 0,
       a: inv.armor.slots.map(s => (s ? s.key : 0)),
       sc: this.swingCount, hc: this.hurtCount, hp: Math.ceil(g.stats.health), m: g.mode,
@@ -363,7 +363,10 @@ export class Net {
     const g = this.game;
     if (g.rules.pvp === false && (src.kind === 'player' || src.kind === 'projectile')) return false;
     if (rp.mode === 'creative' || rp.mode === 'spectator' || rp.deadFlag) return false;
-    this.sendTo(rp.id, { t: 'hit', from: this.myId, dmg: amount, kind: src.kind || 'player', knock: src.knock || null, ks: src.knockStrength || 0, fire: src.fire || 0 });
+    const sp = src.pos || (src.projectile && src.projectile.pos) || null;
+    const atk = src.attacker, weapon = src.weapon || (atk && atk.equipment && atk.equipment.hand) || null;
+    const an = atk && atk !== this.game.playerEntity && atk.def ? (atk.displayName || atk.def.name) : null;
+    this.sendTo(rp.id, { t: 'hit', from: this.myId, dmg: amount, kind: src.kind || 'player', knock: src.knock || null, ks: src.knockStrength || 0, fire: src.fire || 0, w: weapon, sp: sp && sp.map(r3), an, ap: atk && atk.pos ? atk.pos.map(r3) : null });
     return true;
   }
   onHit(m) {
@@ -371,7 +374,9 @@ export class Net {
     const from = this.players.get(m.from);
     if (m.fire) g.playerEntity.setFire(m.fire);
     if (!m.dmg) return;
-    g.damagePlayer(m.dmg, { kind: m.kind, attacker: from ? from.rp : null, knock: m.knock, knockStrength: m.ks });
+    // A mob on someone else's machine: name it (for the death message) and place it (for shields).
+    const attacker = m.an ? { def: { name: m.an }, displayName: m.an, pos: m.ap || (from && from.rp ? from.rp.pos : null), isLiving: true } : from ? from.rp : null;
+    g.damagePlayer(m.dmg, { kind: m.kind, attacker, weapon: m.w, pos: m.sp || undefined, knock: m.knock, knockStrength: m.ks });
   }
   // Sounds and particles other players should hear/see (explosions, block breaks…).
   fx(kind, pos, extra = {}) { this.send({ t: 'fx', id: this.myId, k: kind, p: pos.map(r3), ...extra }); }
