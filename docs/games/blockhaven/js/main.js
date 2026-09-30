@@ -1,30 +1,30 @@
 // Blockhaven bootstrap: assets, menus, input, camera, frame loop.
-import { Demo, DEMO_SEED } from './demo.js';
-import { armorModel, armorSkinKey, ARMOR_MATERIALS, ARMOR_PIECES } from './data/armor.js';
-import { TEXTURES, TEX, B, BLOCKS, DIM, DIM_NAMES, SHAPE_OF, SHAPE, props } from './data/blocks.js';
-import { I, ITEMS } from './data/items.js';
-import { MOBS, PROFESSIONS, playerModel } from './data/mobs.js';
-import { BIOMES } from './gen/biomes.js';
-import { generateBlockTextures } from './render/blocktex.js';
-import { generateItemTextures, ITEM_LAYER, FX_LAYER, ITEM_LAYER_COUNT } from './render/itemtex.js';
-import { packModel, paintModel, SKIN } from './render/mobtex.js';
-import { buildMipChain } from './render/atlas.js';
-import { Renderer, Batch } from './render/renderer.js';
-import { World, UNLOADED } from './world/world.js';
-import { createGenerator } from './gen/index.js';
-import { Game } from './game/game.js';
-import { Interact } from './game/interact.js';
-import { Commands } from './game/commands.js';
-import { GUI, HUD } from './game/ui.js';
-import { buildIcons, hudSprites } from './game/icons.js';
-import { Sound } from './game/audio.js';
-import { computeEnv } from './game/env.js';
-import { guideSections } from './game/guide.js';
-import { listWorlds, loadWorld, saveWorld, deleteWorld } from './game/storage.js';
-import { drawModel, rootMatrix, M } from './entity/entity.js';
-import { itemMesh, emitItemMesh } from './entity/itemmesh.js';
-import { Lightning } from './entity/objects.js';
-import { compose, translation, rotationX, rotationY, rotationZ, scaling, forward, mat4 } from './core/math.js';
+import { Demo, DEMO_SEED } from './demo.js?v=munf5yfg';
+import { armorModel, armorSkinKey, ARMOR_MATERIALS, ARMOR_PIECES } from './data/armor.js?v=munf5yfg';
+import { TEXTURES, TEX, B, BLOCKS, DIM, DIM_NAMES, SHAPE_OF, SHAPE, props } from './data/blocks.js?v=munf5yfg';
+import { I, ITEMS } from './data/items.js?v=munf5yfg';
+import { MOBS, PROFESSIONS, playerModel } from './data/mobs.js?v=munf5yfg';
+import { BIOMES } from './gen/biomes.js?v=munf5yfg';
+import { generateBlockTextures } from './render/blocktex.js?v=munf5yfg';
+import { generateItemTextures, ITEM_LAYER, FX_LAYER, ITEM_LAYER_COUNT } from './render/itemtex.js?v=munf5yfg';
+import { packModel, paintModel, SKIN } from './render/mobtex.js?v=munf5yfg';
+import { buildMipChain } from './render/atlas.js?v=munf5yfg';
+import { Renderer, Batch } from './render/renderer.js?v=munf5yfg';
+import { World, UNLOADED } from './world/world.js?v=munf5yfg';
+import { createGenerator } from './gen/index.js?v=munf5yfg';
+import { Game } from './game/game.js?v=munf5yfg';
+import { Interact } from './game/interact.js?v=munf5yfg';
+import { Commands } from './game/commands.js?v=munf5yfg';
+import { GUI, HUD } from './game/ui.js?v=munf5yfg';
+import { buildIcons, hudSprites } from './game/icons.js?v=munf5yfg';
+import { Sound } from './game/audio.js?v=munf5yfg';
+import { computeEnv } from './game/env.js?v=munf5yfg';
+import { guideSections } from './game/guide.js?v=munf5yfg';
+import { listWorlds, loadWorld, saveWorld, deleteWorld } from './game/storage.js?v=munf5yfg';
+import { drawModel, rootMatrix, M } from './entity/entity.js?v=munf5yfg';
+import { itemMesh, emitItemMesh } from './entity/itemmesh.js?v=munf5yfg';
+import { Lightning } from './entity/objects.js?v=munf5yfg';
+import { compose, translation, rotationX, rotationY, rotationZ, scaling, forward, mat4 } from './core/math.js?v=munf5yfg';
 
 const $ = id => document.getElementById(id);
 const SETTINGS_KEY = 'blockhaven.settings.v2';
@@ -200,6 +200,12 @@ class App {
   }
   // Cinematic showcase: a real (unsaved) world driven by scripted camera shots.
   startDemo() {
+    try { this.startDemoInner(); } catch (e) {
+      console.error(e); this.demo = null;
+      alert(`The demo couldn't start: ${e.message}\nTry refreshing the page (Ctrl+Shift+R).`);
+    }
+  }
+  startDemoInner() {
     this.sound.unlock(); this.sound.click();
     this.demo = new Demo(this);
     this.startGame({ id: 'demo', name: 'Demo', seed: DEMO_SEED, seedText: String(DEMO_SEED), mode: 'creative', type: 'default', difficulty: 'normal', cheats: true, demo: true, created: Date.now() });
