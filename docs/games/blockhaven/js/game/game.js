@@ -1,24 +1,24 @@
 // The running game: world + dimensions, player survival state, entities, simulation, weather and saving.
-import { B, BLOCKS, SOLID, OPAQUE, DIM, DIM_NAMES, HEIGHT, SEA, props, st, SHAPE_OF, SHAPE } from '../data/blocks.js?v=muo1whx0';
-import { I, maxStack } from '../data/items.js?v=muo1whx0';
-import { SMELTING } from '../data/recipes.js?v=muo1whx0';
-import { MOBS } from '../data/mobs.js?v=muo1whx0';
-import { BIOMES, COLD } from '../gen/biomes.js?v=muo1whx0';
-import { World, UNLOADED, posKey } from '../world/world.js?v=muo1whx0';
-import { Player } from './player.js?v=muo1whx0';
-import { PlayerInventory, Container } from './inventory.js?v=muo1whx0';
-import { EntityManager } from '../entity/entity.js?v=muo1whx0';
-import { ItemEntity, XpOrb, FallingBlock, PrimedTnt, Lightning, Projectile } from '../entity/objects.js?v=muo1whx0';
-import { Mob, RIDEABLE } from '../entity/mob.js?v=muo1whx0';
-import { Particles } from './particles.js?v=muo1whx0';
-import { Sim } from './sim.js?v=muo1whx0';
-import { blockDrops } from './drops.js?v=muo1whx0';
-import { computeEnv } from './env.js?v=muo1whx0';
-import { fuelOf } from './ui.js?v=muo1whx0';
-import { unlockLevel } from './trades.js?v=muo1whx0';
-import { forward } from '../core/math.js?v=muo1whx0';
-import { EndCrystal } from '../entity/crystal.js?v=muo1whx0';
-import { ARMOR_BYPASS, armorReduce, applyInvul, isAxe } from './combat.js?v=muo1whx0';
+import { B, BLOCKS, SOLID, OPAQUE, DIM, DIM_NAMES, HEIGHT, SEA, props, st, SHAPE_OF, SHAPE } from '../data/blocks.js?v=muo1ytra';
+import { I, maxStack } from '../data/items.js?v=muo1ytra';
+import { SMELTING } from '../data/recipes.js?v=muo1ytra';
+import { MOBS } from '../data/mobs.js?v=muo1ytra';
+import { BIOMES, COLD } from '../gen/biomes.js?v=muo1ytra';
+import { World, UNLOADED, posKey } from '../world/world.js?v=muo1ytra';
+import { Player } from './player.js?v=muo1ytra';
+import { PlayerInventory, Container } from './inventory.js?v=muo1ytra';
+import { EntityManager } from '../entity/entity.js?v=muo1ytra';
+import { ItemEntity, XpOrb, FallingBlock, PrimedTnt, Lightning, Projectile } from '../entity/objects.js?v=muo1ytra';
+import { Mob, RIDEABLE } from '../entity/mob.js?v=muo1ytra';
+import { Particles } from './particles.js?v=muo1ytra';
+import { Sim } from './sim.js?v=muo1ytra';
+import { blockDrops } from './drops.js?v=muo1ytra';
+import { computeEnv } from './env.js?v=muo1ytra';
+import { fuelOf } from './ui.js?v=muo1ytra';
+import { unlockLevel } from './trades.js?v=muo1ytra';
+import { forward } from '../core/math.js?v=muo1ytra';
+import { EndCrystal } from '../entity/crystal.js?v=muo1ytra';
+import { ARMOR_BYPASS, armorReduce, applyInvul, isAxe } from './combat.js?v=muo1ytra';
 
 export const DAY = 1200; // seconds per day
 const rnd = (a, b) => a + Math.random() * (b - a);
@@ -769,7 +769,7 @@ export class Game {
       for (let k = 0; k < 12; k++, y--) {
         if (y < 1) break;
         const g0 = w.getBlock(x, y - 1, z), a0 = w.getBlock(x, y, z), a1 = w.getBlock(x, y + 1, z);
-        if (SOLID[g0] && g0 !== B.BEDROCK && g0 !== B.GLASS && (a0 === B.AIR || a0 === B.SNOW || a0 === B.PLANT) && a1 === B.AIR) { found = true; break; }
+        if (SOLID[g0] && g0 !== B.BEDROCK && g0 !== B.GLASS && g0 !== B.LEAVES && (a0 === B.AIR || a0 === B.SNOW || a0 === B.PLANT) && a1 === B.AIR) { found = true; break; }
         if (a0 === B.WATER && w.getBlock(x, y + 1, z) === B.WATER && water < 8 && this.dim === 0) { this.spawnWater(x, y, z); found = false; break; }
       }
       if (!found) continue;
