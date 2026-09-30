@@ -1,6 +1,6 @@
 // Procedural 16x16 block textures. Every name registered in data/blocks.js must be drawable here.
-import { Painter, ramp, shade, mixHex, hex } from './paint.js?v=munl1sz6';
-import { TEXTURES, COLORS } from '../data/blocks.js?v=munl1sz6';
+import { Painter, ramp, shade, mixHex, hex } from './paint.js?v=munl5eht';
+import { TEXTURES, COLORS } from '../data/blocks.js?v=munl5eht';
 
 const N = 16;
 
@@ -696,10 +696,31 @@ function CRACKS() {
   return pts;
 }
 
+// Average colours of the default Minecraft textures (the palette values pixel-art tools use).
+// Our generators are original; this only nudges each one's overall colour onto the familiar
+// look while keeping its own pixel detail.
+const REF_AVG = {
+  stone: [125, 125, 125], cobblestone: [122, 122, 122], dirt: [134, 96, 67], planks_oak: [162, 130, 78], log_oak: [109, 85, 50], log_oak_top: [151, 122, 73],
+  sand: [219, 211, 160], gravel: [131, 127, 126], bricks: [151, 98, 83], sandstone: [216, 203, 155], deepslate: [80, 80, 83], netherrack: [97, 38, 38],
+  end_stone: [219, 222, 158], obsidian: [15, 11, 25], ore_coal: [115, 115, 115], ore_iron: [136, 129, 123], ore_diamond: [125, 142, 141], ore_gold: [143, 140, 125],
+  snow: [249, 254, 254], clay: [160, 167, 179], terracotta: [152, 94, 67], planks_spruce: [114, 84, 48], planks_birch: [192, 175, 121], log_birch: [216, 215, 210],
+  stone_bricks: [122, 121, 122], bookshelf: [117, 94, 59], furnace_front: [110, 110, 110], crafting_table_top: [120, 73, 42],
+  soul_sand: [81, 62, 50], ice: [145, 183, 253], packed_ice: [141, 180, 250], quartz_block: [235, 229, 222], prismarine: [99, 156, 151],
+  mycelium_top: [111, 98, 101], podzol_top: [91, 63, 24],
+};
+function calibrate(d, ref) {
+  let r = 0, g = 0, b = 0, n = 0;
+  for (let i = 0; i < d.length; i += 4) if (d[i + 3] > 0 && d[i + 3] !== 254) { r += d[i]; g += d[i + 1]; b += d[i + 2]; n++; }
+  if (!n) return;
+  const k = [ref[0] / Math.max(1, r / n), ref[1] / Math.max(1, g / n), ref[2] / Math.max(1, b / n)];
+  for (let i = 0; i < d.length; i += 4) if (d[i + 3] > 0 && d[i + 3] !== 254) for (let c = 0; c < 3; c++) d[i + c] = Math.min(255, Math.round(d[i + c] * k[c]));
+}
+
 export function drawBlockTexture(name, seed) {
   const p = new Painter(N, N, seed);
   if (G[name]) G[name](p);
   else if (!family(name, p)) throw new Error(`No texture generator for "${name}"`);
+  if (REF_AVG[name]) calibrate(p.d, REF_AVG[name]);
   return p.d;
 }
 
