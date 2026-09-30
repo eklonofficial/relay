@@ -1,24 +1,25 @@
 // The running game: world + dimensions, player survival state, entities, simulation, weather and saving.
-import { B, BLOCKS, SOLID, OPAQUE, DIM, DIM_NAMES, HEIGHT, SEA, props, st, SHAPE_OF, SHAPE } from '../data/blocks.js?v=muo4v4cx';
-import { I, maxStack } from '../data/items.js?v=muo4v4cx';
-import { SMELTING } from '../data/recipes.js?v=muo4v4cx';
-import { MOBS } from '../data/mobs.js?v=muo4v4cx';
-import { BIOMES, COLD } from '../gen/biomes.js?v=muo4v4cx';
-import { World, UNLOADED, posKey } from '../world/world.js?v=muo4v4cx';
-import { Player } from './player.js?v=muo4v4cx';
-import { PlayerInventory, Container } from './inventory.js?v=muo4v4cx';
-import { EntityManager } from '../entity/entity.js?v=muo4v4cx';
-import { ItemEntity, XpOrb, FallingBlock, PrimedTnt, Lightning, Projectile } from '../entity/objects.js?v=muo4v4cx';
-import { Mob, RIDEABLE } from '../entity/mob.js?v=muo4v4cx';
-import { Particles } from './particles.js?v=muo4v4cx';
-import { Sim } from './sim.js?v=muo4v4cx';
-import { blockDrops } from './drops.js?v=muo4v4cx';
-import { computeEnv } from './env.js?v=muo4v4cx';
-import { fuelOf } from './ui.js?v=muo4v4cx';
-import { unlockLevel } from './trades.js?v=muo4v4cx';
-import { forward } from '../core/math.js?v=muo4v4cx';
-import { EndCrystal } from '../entity/crystal.js?v=muo4v4cx';
-import { ARMOR_BYPASS, armorReduce, applyInvul, isAxe, shieldFaces, applyKnockback, knockbackResist } from './combat.js?v=muo4v4cx';
+import { B, BLOCKS, SOLID, OPAQUE, DIM, DIM_NAMES, HEIGHT, SEA, props, st, SHAPE_OF, SHAPE } from '../data/blocks.js?v=muo7rynu';
+import { I, maxStack } from '../data/items.js?v=muo7rynu';
+import { SMELTING } from '../data/recipes.js?v=muo7rynu';
+import { MOBS } from '../data/mobs.js?v=muo7rynu';
+import { BIOMES, COLD } from '../gen/biomes.js?v=muo7rynu';
+import { World, UNLOADED, posKey } from '../world/world.js?v=muo7rynu';
+import { Player } from './player.js?v=muo7rynu';
+import { PlayerInventory, Container } from './inventory.js?v=muo7rynu';
+import { EntityManager } from '../entity/entity.js?v=muo7rynu';
+import { ItemEntity, XpOrb, FallingBlock, PrimedTnt, Lightning, Projectile } from '../entity/objects.js?v=muo7rynu';
+import { Mob, RIDEABLE } from '../entity/mob.js?v=muo7rynu';
+import { Particles } from './particles.js?v=muo7rynu';
+import { Sim } from './sim.js?v=muo7rynu';
+import { blockDrops } from './drops.js?v=muo7rynu';
+import { computeEnv } from './env.js?v=muo7rynu';
+import { fuelOf } from './ui.js?v=muo7rynu';
+import { unlockLevel } from './trades.js?v=muo7rynu';
+import { forward } from '../core/math.js?v=muo7rynu';
+import { EndCrystal } from '../entity/crystal.js?v=muo7rynu';
+import { migrateWorld } from './migrate.js?v=muo7rynu';
+import { ARMOR_BYPASS, armorReduce, applyInvul, isAxe, shieldFaces, applyKnockback, knockbackResist } from './combat.js?v=muo7rynu';
 
 export const DAY = 1200; // seconds per day
 const rnd = (a, b) => a + Math.random() * (b - a);
@@ -56,7 +57,7 @@ export class Game {
 
   // ---------------- lifecycle ----------------
   start(meta) {
-    this.meta = meta;
+    this.meta = meta = migrateWorld(meta);
     this.seed = meta.seed; this.worldType = meta.type;
     this.mode = meta.mode === 'hardcore' ? 'survival' : meta.mode; this.hardcore = meta.mode === 'hardcore' || meta.hardcore;
     this.difficulty = this.hardcore ? 'hard' : meta.difficulty || 'normal';
@@ -136,7 +137,7 @@ export class Game {
     this.dim = dim;
     const d = this.dims[dim] || {};
     this.world = new World({
-      seed: this.seed, dim, worldType: this.worldType, edits: d.edits, populated: d.populated, blockEntities: d.blockEntities,
+      seed: this.seed, dim, worldType: this.worldType, edits: d.edits, populated: d.populated, popOld: d.popOld, blockEntities: d.blockEntities,
       callbacks: {
         onMesh: (c, m) => this.renderer.uploadChunk(c, m), onUnload: c => this.renderer.freeChunk(c),
         onEntities: list => this.onGenEntities(list),
@@ -172,7 +173,7 @@ export class Game {
     // The host's save also keeps other players' mobs and items near it.
     if (forSave && this.net && this.net.isHost) entities.push(...this.net.share.puppetsJSON());
     return {
-      edits: this.world.serializeEdits(), populated: [...this.world.populated], blockEntities: this.world.serializeBlockEntities(),
+      edits: this.world.serializeEdits(), populated: [...this.world.populated], popOld: this.world.serializePopOld(), blockEntities: this.world.serializeBlockEntities(),
       entities,
     };
   }

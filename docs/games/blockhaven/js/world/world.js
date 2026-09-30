@@ -1,7 +1,8 @@
 // Chunk storage, streaming, edits and queries for one dimension.
-import { CHUNK, HEIGHT, PAD, PS, B, OPAQUE, SOLID, EMIT, VARIANT_MASK, SHAPE_OF, SHAPE, DIM } from '../data/blocks.js?v=muo4v4cx';
-import { VOLUME_SIZE } from '../mesh/mesher.js?v=muo4v4cx';
-import { selectionBoxes, collisionBoxes } from '../data/shapes.js?v=muo4v4cx';
+import { CHUNK, HEIGHT, PAD, PS, B, OPAQUE, SOLID, EMIT, VARIANT_MASK, SHAPE_OF, SHAPE, DIM } from '../data/blocks.js?v=muo7rynu';
+import { VOLUME_SIZE } from '../mesh/mesher.js?v=muo7rynu';
+import { selectionBoxes, collisionBoxes } from '../data/shapes.js?v=muo7rynu';
+import { sinceOf } from '../gen/versions.js?v=muo7rynu';
 
 export const UNLOADED = 255;
 export const chunkKey = (cx, cz) => `${cx},${cz}`;
@@ -22,6 +23,9 @@ export class World {
       this.edits.set(k, m);
     }
     this.populated = new Set(opts.populated || []);
+    // Chunks populated under an older generator version: key -> version.
+    this.popOld = new Map();
+    for (const [v, keys] of Object.entries(opts.popOld || {})) for (const k of keys) if (!this.populated.has(k)) this.popOld.set(k, Number(v));
     this.blockEntities = new Map(Object.entries(opts.blockEntities || {}));
     this.cb = opts.callbacks;
     this.nextJob = 1;
@@ -33,7 +37,7 @@ export class World {
     const count = Math.max(1, Math.min(4, (navigator.hardwareConcurrency || 4) - 1));
     this.workers = [];
     for (let i = 0; i < count; i++) {
-      const w = new Worker(new URL('../worker.js?v=muo4v4cx', import.meta.url), { type: 'module' });
+      const w = new Worker(new URL('../worker.js?v=muo7rynu', import.meta.url), { type: 'module' });
       w.busy = 0;
       w.onmessage = e => this.onWorkerMessage(w, e.data);
       w.onerror = e => console.error('worker error', e.message);
@@ -68,7 +72,17 @@ export class World {
       c.genPending = false;
       const edits = this.edits.get(c.key);
       if (edits) for (const [i, v] of edits) { c.ids[i] = v & 255; c.meta[i] = v >> 8; const hi = i & 255, y = i >> 8; if ((v & 255) !== B.AIR && y > c.heights[hi]) c.heights[hi] = y; }
-      if (!this.populated.has(c.key)) {
+      if (!this.populated.has(c.key) && this.popOld.has(c.key)) {
+        // Upgrading a chunk visited before an update: only what newer structure kinds bring.
+        const since = this.popOld.get(c.key);
+        this.popOld.delete(c.key); this.populated.add(c.key);
+        for (const be of m.blockEntities) {
+          const k = posKey(be.x, be.y, be.z), i = (be.x - c.cx * CHUNK) + (be.z - c.cz * CHUNK) * CHUNK + be.y * CC;
+          if (sinceOf(be.k) > since && !this.blockEntities.has(k) && !(edits && edits.has(i))) this.blockEntities.set(k, be);
+        }
+        const fresh = m.entities.filter(e => sinceOf(e.k) > since);
+        if (fresh.length && this.cb.onEntities) this.cb.onEntities(fresh);
+      } else if (!this.populated.has(c.key)) {
         this.populated.add(c.key);
         if (this.cb.onPopulate) this.cb.onPopulate(c.key);
         for (const be of m.blockEntities) { const k = posKey(be.x, be.y, be.z); if (!this.blockEntities.has(k)) this.blockEntities.set(k, be); }
@@ -264,6 +278,11 @@ export class World {
       for (const [i, v] of m) list.push(i, v);
       if (list.length) out[k] = list;
     }
+    return out;
+  }
+  serializePopOld() {
+    const out = {};
+    for (const [k, v] of this.popOld) (out[v] || (out[v] = [])).push(k);
     return out;
   }
   serializeBlockEntities() { return Object.fromEntries(this.blockEntities); }
