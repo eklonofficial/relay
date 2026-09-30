@@ -1,11 +1,11 @@
 // The in-game guide: features, commands, crafting, farming, combat, villagers, dimensions and graphics.
-import { MusicPlayer } from './music.js?v=muo4kot4';
-import { BLOCKS, BLOCK_ITEMS, TEXTURES } from '../data/blocks.js?v=muo4kot4';
-import { ITEMS, I } from '../data/items.js?v=muo4kot4';
-import { SHAPED, SHAPELESS, SMELTING } from '../data/recipes.js?v=muo4kot4';
-import { MOBS } from '../data/mobs.js?v=muo4kot4';
-import { BIOMES } from '../gen/biomes.js?v=muo4kot4';
-import { COMMANDS } from './commands.js?v=muo4kot4';
+import { MusicPlayer } from './music.js?v=muo4v4cx';
+import { BLOCKS, BLOCK_ITEMS, TEXTURES } from '../data/blocks.js?v=muo4v4cx';
+import { ITEMS, I } from '../data/items.js?v=muo4v4cx';
+import { SHAPED, SHAPELESS, SMELTING } from '../data/recipes.js?v=muo4v4cx';
+import { MOBS } from '../data/mobs.js?v=muo4v4cx';
+import { BIOMES } from '../gen/biomes.js?v=muo4v4cx';
+import { COMMANDS } from './commands.js?v=muo4v4cx';
 
 const esc = s => String(s).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
 
@@ -107,6 +107,18 @@ export function guideSections(icons) {
         <li><b>Creepers</b> hiss before they explode; back away! Endermen get angry if you look at their eyes (a carved pumpkin on your head protects you). Skeletons strafe while shooting; spiders are calm in daylight; zombies and skeletons burn in the sun.</li>
         <li>A <b>Totem of Undying</b> in either hand saves you from death once.</li>
       </ul>`,
+    Structures: `
+      <h4>Things to find</h4>
+      <table>
+        <tr><td>Woodland mansions</td><td>Dark forests. Two floors of dark oak rooms, a library and dining hall, loot chests — and vindicators and an evoker.</td></tr>
+        <tr><td>Trial chambers</td><td>Deep underground copper-and-tuff arenas with mob spawners and vault chests at the end of each corridor. A ladder shaft leads up to the surface.</td></tr>
+        <tr><td>Jungle temples</td><td>Mossy cobblestone temples overgrown with vines, with a hidden lower chamber.</td></tr>
+        <tr><td>Trail ruins</td><td>Half-buried terracotta settlements in taigas and jungles — dig for the chest.</td></tr>
+        <tr><td>Desert wells</td><td>Small sandstone wells dotted across deserts.</td></tr>
+        <tr><td>Fossils</td><td>Giant bone skeletons (some turned to coal) buried underground.</td></tr>
+        <tr><td>Also</td><td>Villages, pillager outposts, desert pyramids, igloos, swamp huts, ruined portals, mineshafts, dungeons, strongholds, shipwrecks, ocean ruins and monuments, buried treasure; fortresses and bastions in the Nether; end cities.</td></tr>
+      </table>
+      <p>Every structure works with <code>/locate</code>, e.g. <code>/locate woodland_mansion</code>.</p>`,
     Oceans: `
       <h4>Under the sea</h4>
       <table>

@@ -1,10 +1,10 @@
 // Player actions: mining, placing, using items and blocks, attacking.
-import { meleeDamage, isCrit, knockStrength, isSword, SWEEP_DAMAGE, SHIELD_DELAY, SHIELD_DISABLE } from './combat.js?v=muo4kot4';
-import { B, BLOCKS, SOLID, OPAQUE, SHAPE_OF, SHAPE, props, st, DIM, FACING_SHIFT, AXIS_SHIFT, VARIANT_MASK } from '../data/blocks.js?v=muo4kot4';
-import { I, breakTime } from '../data/items.js?v=muo4kot4';
-import { collisionBoxes, selectionBoxes } from '../data/shapes.js?v=muo4kot4';
-import { UNLOADED, posKey } from '../world/world.js?v=muo4kot4';
-import { forward } from '../core/math.js?v=muo4kot4';
+import { meleeDamage, isCrit, knockStrength, isSword, SWEEP_DAMAGE, SHIELD_DELAY, SHIELD_DISABLE } from './combat.js?v=muo4v4cx';
+import { B, BLOCKS, SOLID, OPAQUE, SHAPE_OF, SHAPE, props, st, DIM, FACING_SHIFT, AXIS_SHIFT, VARIANT_MASK } from '../data/blocks.js?v=muo4v4cx';
+import { I, breakTime } from '../data/items.js?v=muo4v4cx';
+import { collisionBoxes, selectionBoxes } from '../data/shapes.js?v=muo4v4cx';
+import { UNLOADED, posKey } from '../world/world.js?v=muo4v4cx';
+import { forward } from '../core/math.js?v=muo4v4cx';
 
 const DIRS = [[0, 1], [-1, 0], [0, -1], [1, 0]];
 export const dirIndex = (x, z) => (Math.abs(x) > Math.abs(z) ? (x > 0 ? 3 : 1) : (z > 0 ? 0 : 2));

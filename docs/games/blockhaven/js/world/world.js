@@ -1,7 +1,7 @@
 // Chunk storage, streaming, edits and queries for one dimension.
-import { CHUNK, HEIGHT, PAD, PS, B, OPAQUE, SOLID, EMIT, VARIANT_MASK, SHAPE_OF, SHAPE, DIM } from '../data/blocks.js?v=muo4kot4';
-import { VOLUME_SIZE } from '../mesh/mesher.js?v=muo4kot4';
-import { selectionBoxes, collisionBoxes } from '../data/shapes.js?v=muo4kot4';
+import { CHUNK, HEIGHT, PAD, PS, B, OPAQUE, SOLID, EMIT, VARIANT_MASK, SHAPE_OF, SHAPE, DIM } from '../data/blocks.js?v=muo4v4cx';
+import { VOLUME_SIZE } from '../mesh/mesher.js?v=muo4v4cx';
+import { selectionBoxes, collisionBoxes } from '../data/shapes.js?v=muo4v4cx';
 
 export const UNLOADED = 255;
 export const chunkKey = (cx, cz) => `${cx},${cz}`;
@@ -33,7 +33,7 @@ export class World {
     const count = Math.max(1, Math.min(4, (navigator.hardwareConcurrency || 4) - 1));
     this.workers = [];
     for (let i = 0; i < count; i++) {
-      const w = new Worker(new URL('../worker.js?v=muo4kot4', import.meta.url), { type: 'module' });
+      const w = new Worker(new URL('../worker.js?v=muo4v4cx', import.meta.url), { type: 'module' });
       w.busy = 0;
       w.onmessage = e => this.onWorkerMessage(w, e.data);
       w.onerror = e => console.error('worker error', e.message);
