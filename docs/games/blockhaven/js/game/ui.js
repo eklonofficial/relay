@@ -1,7 +1,7 @@
 // Container GUIs (inventory, crafting, chest, furnace, creative, trading) and the HUD.
-import { I, ITEMS, TABS, maxStack, ARMOR_SLOTS } from '../data/items.js?v=muo7rynu';
-import { findRecipe, allRecipes, matches, SMELTING, TAGS } from '../data/recipes.js?v=muo7rynu';
-import { same } from './inventory.js?v=muo7rynu';
+import { I, ITEMS, TABS, maxStack, ARMOR_SLOTS } from '../data/items.js?v=muody1g5';
+import { findRecipe, allRecipes, matches, SMELTING, TAGS } from '../data/recipes.js?v=muody1g5';
+import { same } from './inventory.js?v=muody1g5';
 
 const $ = id => document.getElementById(id);
 const el = (tag, cls, parent) => { const e = document.createElement(tag); if (cls) e.className = cls; if (parent) parent.appendChild(e); return e; };
@@ -450,7 +450,7 @@ export class GUI {
     const wrap = el('div', 'col', this.root);
     const tabs = el('div', 'tabs', wrap);
     const allTabs = [...TABS, ['search', 'Search'], ['inventory', 'Survival Inventory']];
-    const tabIcon = { building: 'bricks', colored: 'cyan_wool', natural: 'grass_block', functional: 'crafting_table', tools: 'iron_pickaxe', combat: 'diamond_sword', food: 'apple', ingredients: 'iron_ingot', spawn_eggs: 'zombie_spawn_egg', search: 'compass', inventory: 'chest' };
+    const tabIcon = { building: 'bricks', colored: 'cyan_wool', natural: 'grass_block', functional: 'crafting_table', redstone: 'redstone', tools: 'iron_pickaxe', combat: 'diamond_sword', food: 'apple', ingredients: 'iron_ingot', spawn_eggs: 'zombie_spawn_egg', search: 'compass', inventory: 'chest' };
     for (const [k, name] of allTabs) {
       const t = el('div', `tab ${k === this.creativeTab ? 'on' : ''}`, tabs);
       t.title = name;

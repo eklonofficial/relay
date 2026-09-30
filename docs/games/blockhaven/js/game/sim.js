@@ -1,7 +1,8 @@
 // Block simulation: liquids, gravity, support, random ticks (crops, saplings, grass, fire, cacti).
-import { B, BLOCKS, SOLID, OPAQUE, SHAPE_OF, SHAPE, CROP_STAGES, CROP_AGE_SHIFT, props, st, DIM } from '../data/blocks.js?v=muo7rynu';
-import { UNLOADED } from '../world/world.js?v=muo7rynu';
-import * as T from '../gen/trees.js?v=muo7rynu';
+import { B, BLOCKS, SOLID, OPAQUE, SHAPE_OF, SHAPE, CROP_STAGES, CROP_AGE_SHIFT, props, st, DIM } from '../data/blocks.js?v=muody1g5';
+import { UNLOADED } from '../world/world.js?v=muody1g5';
+import * as T from '../gen/trees.js?v=muody1g5';
+import { KIND } from './redstone.js?v=muody1g5';
 
 const NB4 = [[1, 0], [-1, 0], [0, 1], [0, -1]];
 const k3 = (x, y, z) => `${x},${y},${z}`;
@@ -44,6 +45,7 @@ export class Sim {
       const id = this.world.getBlock(x + dx, y + dy, z + dz);
       if (id === UNLOADED) continue;
       if (this.isLiquid(id)) this.schedule(x + dx, y + dy, z + dz, this.delayFor(id));
+      else if (KIND[id] && id !== B.DOOR && id !== B.TRAPDOOR && id !== B.TNT) { /* redstone parts check their own support */ }
       else if (BLOCKS[id] && (BLOCKS[id].gravity || NEEDS_GROUND.has(SHAPE_OF[id]) || id === B.CACTUS || id === B.SUGAR_CANE || SHAPE_OF[id] === SHAPE.TORCH || SHAPE_OF[id] === SHAPE.LADDER || SHAPE_OF[id] === SHAPE.VINE || SHAPE_OF[id] === SHAPE.LANTERN || id === B.CAVE_VINES || id === B.SEAGRASS || id === B.BAMBOO)) this.schedule(x + dx, y + dy, z + dz, 0.05);
       // Liquids next to the changed cell may flow into it.
       if (id === B.AIR || !SOLID[id]) for (const [ex, ez] of NB4) { const n = this.world.getBlock(x + dx + ex, y + dy, z + dz + ez); if (this.isLiquid(n)) this.schedule(x + dx + ex, y + dy, z + dz + ez, this.delayFor(n)); }
