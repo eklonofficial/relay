@@ -1,14 +1,14 @@
-import { CHUNK, TEX, DIM } from '../data/blocks.js?v=munkil2j';
-import { meshSingleBlock, STRIDE } from '../mesh/mesher.js?v=munkil2j';
-import * as S from './shaders.js?v=munkil2j';
-import { uploadArray } from './atlas.js?v=munkil2j';
-import { mat4, perspective, multiply, invert, viewMatrix, frustumPlanes, boxVisible } from '../core/math.js?v=munkil2j';
+import { CHUNK, TEX, DIM } from '../data/blocks.js?v=munko4yf';
+import { meshSingleBlock, STRIDE } from '../mesh/mesher.js?v=munko4yf';
+import * as S from './shaders.js?v=munko4yf';
+import { uploadArray } from './atlas.js?v=munko4yf';
+import { mat4, perspective, multiply, invert, viewMatrix, frustumPlanes, boxVisible } from '../core/math.js?v=munko4yf';
 
 // Graphics presets: 0 Disabled, 1 Regular, 2 High, 3 PC.
 export const QUALITY = [
   { name: 'Disabled', shadow: 0, god: 0, bloom: 0, ssr: 0 },
-  { name: 'Regular', shadow: 0, god: 0, bloom: 0, ssr: 0 },
-  { name: 'High', shadow: 2048, shadowR: 72, pcf: 1, god: 40, bloom: 0.2, ssr: 24 },
+  { name: 'Regular', shadow: 0, god: 0, bloom: 0, ssr: 20 },
+  { name: 'High', shadow: 2048, shadowR: 72, pcf: 1, god: 40, bloom: 0.2, ssr: 32 },
   { name: 'PC', shadow: 4096, shadowR: 112, pcf: 2, god: 80, bloom: 0.24, ssr: 56 },
 ];
 

@@ -1,7 +1,7 @@
 // Container GUIs (inventory, crafting, chest, furnace, creative, trading) and the HUD.
-import { I, ITEMS, TABS, maxStack, ARMOR_SLOTS } from '../data/items.js?v=munkil2j';
-import { findRecipe, allRecipes, matches, SMELTING, TAGS } from '../data/recipes.js?v=munkil2j';
-import { same } from './inventory.js?v=munkil2j';
+import { I, ITEMS, TABS, maxStack, ARMOR_SLOTS } from '../data/items.js?v=munko4yf';
+import { findRecipe, allRecipes, matches, SMELTING, TAGS } from '../data/recipes.js?v=munko4yf';
+import { same } from './inventory.js?v=munko4yf';
 
 const $ = id => document.getElementById(id);
 const el = (tag, cls, parent) => { const e = document.createElement(tag); if (cls) e.className = cls; if (parent) parent.appendChild(e); return e; };
