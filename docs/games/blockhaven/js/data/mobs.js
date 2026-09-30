@@ -1,6 +1,6 @@
 // Mob roster: stats, AI archetype, drops, box models and procedural skins.
 // Model space: 1 unit = 1/16 block, feet at y=0, the mob faces -Z.
-import { D, pal } from '../render/mobtex.js?v=munfaoam';
+import { D, pal, shade as shadeHex } from '../render/mobtex.js?v=munkcr3r';
 
 const box = (o, s, style, extra = {}) => ({ o, s, style, ...extra });
 const part = (pivot, boxes, extra = {}) => ({ pivot, boxes, ...extra });
@@ -104,23 +104,37 @@ mob('rabbit', {
     },
   }),
 });
-const horse = (col, mane, spots) => () => {
-  const m = quadruped({ body: S(col, 'fur', spots ? { all: D.spots(spots, 5, 2) } : null), head: S(col, 'fur', face(eyes({ c: '#1a1a1a', pupil: null, y: 0.25 }))), leg: S(col, 'fur') }, { legH: 16, legW: 4, bodyW: 10, bodyH: 10, bodyL: 22, headW: 5, headH: 5, headL: 10, neckUp: 12 });
-  m.parts.neck = part([0, 23, -9], [box([-2, 0, -3], [4, 12, 7], S(col, 'fur')), box([-1, 2, 3], [2, 12, 2], S(mane, 'fur'))], { rot: [0.5, 0, 0] });
-  m.parts.head.pivot = [0, 34, -12]; m.parts.head.boxes[0].o = [-2.5, -2, -9];
-  m.parts.head.boxes.push(box([-2, 3, -2], [1.5, 3, 1], S(col)), box([0.5, 3, -2], [1.5, 3, 1], S(col)));
-  m.parts.tail = part([0, 24, 11], [box([-1.5, -12, 0], [3, 12, 3], S(mane, 'fur'))], { rot: [0.5, 0, 0] });
-  m.eye = 34; return m;
+// Horse family, after the original's geometry (y-up, facing -Z): body 10x10x22 on 11-px legs,
+// neck and head tilted forward 30 degrees with a muzzle, ears and a mane, and a hanging tail.
+const horse = (col, mane, spots, donkey = false) => () => {
+  const hide = S(col, 'fur', spots ? { all: D.spots(spots, 5, 2) } : null), dark = S(mane, 'fur');
+  const ear = donkey ? [2, 6, 1] : [2, 3, 1];
+  const leg = (x, z, m) => part([x, 11, z], [box([-2, -11, -2], [4, 11, 4], S(col, 'fur', { all: D.band(0.8, 1, shadeHex(col, 0.7)) }), { mirror: m })]);
+  return {
+    anim: 'quadruped', eye: 30,
+    parts: {
+      body: part([0, 11, 0], [box([-5, 0, -12], [10, 10, 22], hide)]),
+      head: part([0, 20, -11], [
+        box([-2, -6, -2], [4, 12, 7], hide),                                            // neck
+        box([-3, 6, -2], [6, 5, 7], S(col, 'fur', face(eyes({ c: '#1a1a1a', pupil: null, y: 0.3, sep: 0.34 })))), // skull
+        box([-2, 6, -7], [4, 5, 5], S(col, 'fur', face(D.rect(0.2, 0.55, 0.2, 0.2, '#2a1a10'), D.rect(0.6, 0.55, 0.2, 0.2, '#2a1a10')))), // muzzle
+        box([0.5, 10, 3.5], ear, S(col)), box([-2.5, 10, 3.5], ear, S(col)),             // ears
+        box([-1, -5, 5], [2, 16, 2], dark),                                             // mane
+      ], { rot: [-0.52, 0, 0] }),
+      leg0: leg(3, -8, false), leg1: leg(-3, -8, true), leg2: leg(3, 7, false), leg3: leg(-3, 7, true),
+      tail: part([0, 20, 10], [box([-1.5, -14, -2], [3, 14, 4], dark)], { rot: [-0.52, 0, 0] }),
+    },
+  };
 };
 mob('horse', { hw: 0.7, h: 1.6, health: 22, speed: 4, kind: 'passive', ai: 'animal', food: ['wheat', 'apple', 'golden_carrot', 'hay_block'], egg: ['#b8864a', '#e0d0b0'], drops: [['leather', 0, 2]], xp: [1, 3], sound: 'horse', model: horse('#9a6a3a', '#3a2a1a', '#e8dcc8') });
-mob('donkey', { hw: 0.7, h: 1.5, health: 20, speed: 3.5, kind: 'passive', ai: 'animal', food: ['wheat', 'apple', 'golden_carrot'], egg: ['#6a5a4a', '#8a7a6a'], drops: [['leather', 0, 2]], xp: [1, 3], sound: 'horse', model: horse('#7a6a5a', '#3a3028', null) });
+mob('donkey', { hw: 0.7, h: 1.5, health: 20, speed: 3.5, kind: 'passive', ai: 'animal', food: ['wheat', 'apple', 'golden_carrot'], egg: ['#6a5a4a', '#8a7a6a'], drops: [['leather', 0, 2]], xp: [1, 3], sound: 'horse', model: horse('#7a6a5a', '#3a3028', null, true) });
 mob('llama', {
   hw: 0.45, h: 1.87, health: 22, speed: 2.5, kind: 'passive', ai: 'animal', food: ['wheat', 'hay_block'], egg: ['#c8b89a', '#e8dcc8'], drops: [['leather', 0, 2]], xp: [1, 3], sound: 'llama', spits: true,
   model: () => { const m = quadruped({ body: S('#d8ccb0', 'wool', null, 0.06), head: S('#d8ccb0', 'wool', face(eyes({ c: '#1a1a1a', pupil: null, y: 0.2 })), 0.06), leg: S('#d8ccb0', 'wool', null, 0.06) }, { legH: 14, legW: 4, bodyW: 12, bodyH: 10, bodyL: 18, headW: 8, headH: 18, headL: 6, neckUp: 8 }); m.parts.head.boxes.push(box([-2, 7, -8], [4, 4, 4], S('#c8bca0', 'wool')), box([-4, 9, -2], [2, 3, 1], S('#d8ccb0')), box([2, 9, -2], [2, 3, 1], S('#d8ccb0'))); m.eye = 30; return m; },
 });
 mob('camel', {
   hw: 0.85, h: 2.3, health: 32, speed: 2.8, kind: 'passive', ai: 'animal', food: ['cactus'], egg: ['#c8a060', '#8a6a3a'], drops: [], xp: [1, 3], sound: 'horse',
-  model: () => { const m = quadruped({ body: S('#d8b070', 'fur'), head: S('#d8b070', 'fur', face(eyes({ c: '#1a1a1a', pupil: null, y: 0.25 }))), leg: S('#c8a060', 'fur') }, { legH: 20, legW: 4, bodyW: 14, bodyH: 12, bodyL: 26, headW: 7, headH: 7, headL: 14, neckUp: 12 }); m.parts.body.boxes.push(box([-4, 12, -4], [8, 5, 8], S('#c8a060', 'fur'))); m.eye = 40; return m; },
+  model: () => { const m = quadruped({ body: S('#d8b070', 'fur'), head: S('#d8b070', 'fur', face(eyes({ c: '#1a1a1a', pupil: null, y: 0.25 }))), leg: S('#c8a060', 'fur') }, { legH: 20, legW: 4, bodyW: 14, bodyH: 12, bodyL: 26, headW: 7, headH: 7, headL: 14, neckUp: 12 }); m.parts.body.boxes.push(box([-4, 12, -4], [8, 5, 8], S('#c8a060', 'fur'))); m.parts.neck = part([0, 28, -12], [box([-2.5, 0, -3], [5, 13, 6], S('#d8b070', 'fur'))]); m.parts.head.pivot = [0, 40, -12]; m.eye = 40; return m; },
 });
 const wolfModel = (col, tame) => () => ({
   anim: 'quadruped', eye: 12, parts: {
@@ -150,7 +164,7 @@ mob('polar_bear', { chase: 4.6,
 });
 mob('goat', {
   hw: 0.45, h: 1.3, health: 10, speed: 2.8, kind: 'passive', ai: 'animal', food: ['wheat'], egg: ['#c8c0b0', '#6a5a4a'], drops: [], xp: [1, 3], sound: 'goat', milk: true, rams: true,
-  model: () => { const m = quadruped({ body: S('#e0d8c8', 'fur', null, 0.07), head: S('#e0d8c8', 'fur', face(eyes({ c: '#e0c060', pupil: '#1a1a1a', y: 0.3, sep: 0.35 }))), leg: S('#c8c0b0', 'fur') }, { legH: 10, legW: 3, bodyW: 9, bodyH: 9, bodyL: 16, headW: 5, headH: 7, headL: 10, neckUp: 4 }); m.parts.head.boxes.push(box([-2.5, 3, -3], [1, 5, 1], S('#8a8272')), box([1.5, 3, -3], [1, 5, 1], S('#8a8272')), box([-1, -6, -8], [2, 3, 2], S('#e0d8c8'))); return m; },
+  model: () => { const m = quadruped({ body: S('#e0d8c8', 'fur', null, 0.07), head: S('#e0d8c8', 'fur', face(eyes({ c: '#e0c060', pupil: '#1a1a1a', y: 0.3, sep: 0.35 }))), leg: S('#c8c0b0', 'fur') }, { legH: 10, legW: 3, bodyW: 9, bodyH: 9, bodyL: 16, headW: 5, headH: 6, headL: 7, neckUp: 1 }); m.parts.head.boxes.push(box([-2.5, 3, -3], [1, 5, 1], S('#8a8272')), box([1.5, 3, -3], [1, 5, 1], S('#8a8272')), box([-1, -6, -8], [2, 3, 2], S('#e0d8c8'))); return m; },
 });
 mob('frog', {
   hw: 0.25, h: 0.5, health: 10, speed: 2, kind: 'passive', ai: 'animal', hop: true, amphibious: true, food: ['slime_ball'], egg: ['#d0843a', '#e8c090'], drops: [], xp: [1, 3], sound: 'frog',

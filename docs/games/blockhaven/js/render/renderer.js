@@ -1,8 +1,8 @@
-import { CHUNK, TEX, DIM } from '../data/blocks.js?v=munfaoam';
-import { meshSingleBlock, STRIDE } from '../mesh/mesher.js?v=munfaoam';
-import * as S from './shaders.js?v=munfaoam';
-import { uploadArray } from './atlas.js?v=munfaoam';
-import { mat4, perspective, multiply, invert, viewMatrix, frustumPlanes, boxVisible } from '../core/math.js?v=munfaoam';
+import { CHUNK, TEX, DIM } from '../data/blocks.js?v=munkcr3r';
+import { meshSingleBlock, STRIDE } from '../mesh/mesher.js?v=munkcr3r';
+import * as S from './shaders.js?v=munkcr3r';
+import { uploadArray } from './atlas.js?v=munkcr3r';
+import { mat4, perspective, multiply, invert, viewMatrix, frustumPlanes, boxVisible } from '../core/math.js?v=munkcr3r';
 
 // Graphics presets: 0 Disabled, 1 Regular, 2 High, 3 PC.
 export const QUALITY = [
@@ -457,6 +457,8 @@ export class Renderer {
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
     gl.depthMask(false);
+    // Cull back faces so a water surface and its underside never draw on top of each other.
+    gl.enable(gl.CULL_FACE); gl.cullFace(gl.BACK);
     const l = this.liquid;
     gl.useProgram(l.p);
     this.setEnv(l.u, s, fogNear, fogFar);

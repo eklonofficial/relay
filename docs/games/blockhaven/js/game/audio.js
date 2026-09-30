@@ -5,20 +5,11 @@ const MATERIAL = {
   glass: { freq: 5200, q: 2.5, gain: 0.45, ring: 2100 }, cloth: { freq: 800, q: 0.5, gain: 0.4 }, metal: { freq: 3000, q: 3, gain: 0.45, ring: 1400 },
 };
 // Mob voices: [base freq, type, duration, sweep, noise]
-const VOICE = {
-  pig: [300, 'sawtooth', 0.25, 0.7, 0.2], cow: [140, 'sawtooth', 0.7, 0.8, 0.1], sheep: [420, 'square', 0.45, 0.9, 0.05], chicken: [900, 'square', 0.12, 1.3, 0.1],
-  zombie: [110, 'sawtooth', 0.9, 0.7, 0.35], skeleton: [0, 'noise', 0.15, 1, 1], creeper: [0, 'noise', 0.3, 1, 1], spider: [300, 'sawtooth', 0.2, 0.6, 0.6],
-  enderman: [70, 'sine', 0.8, 1.6, 0.4], villager: [260, 'triangle', 0.35, 0.8, 0.05], illager: [220, 'triangle', 0.35, 0.75, 0.1], witch: [500, 'triangle', 0.3, 1.4, 0.1],
-  wolf: [500, 'sawtooth', 0.18, 0.7, 0.2], cat: [700, 'triangle', 0.4, 0.8, 0], horse: [420, 'sawtooth', 0.6, 0.6, 0.2], llama: [350, 'triangle', 0.4, 0.8, 0.1],
-  golem: [80, 'square', 0.3, 0.8, 0.5], blaze: [180, 'sawtooth', 0.6, 0.9, 0.6], ghast: [900, 'sine', 1.1, 0.5, 0.2], slime: [120, 'sine', 0.2, 0.6, 0.3],
-  bat: [2400, 'square', 0.08, 1.2, 0], parrot: [1500, 'square', 0.15, 1.3, 0], fox: [800, 'sawtooth', 0.2, 0.7, 0.2], bear: [90, 'sawtooth', 0.8, 0.7, 0.4],
-  dragon: [60, 'sawtooth', 2, 0.6, 0.5], wither: [48, 'sawtooth', 1.4, 0.55, 0.7], phantom: [600, 'sawtooth', 0.6, 0.5, 0.4], piglin: [200, 'sawtooth', 0.4, 0.8, 0.3], zpiglin: [150, 'sawtooth', 0.5, 0.8, 0.3],
-  hoglin: [100, 'sawtooth', 0.5, 0.8, 0.5], ravager: [70, 'sawtooth', 0.8, 0.7, 0.5], panda: [300, 'triangle', 0.4, 0.8, 0.2], goat: [500, 'sawtooth', 0.4, 0.9, 0.1],
-  fish: [0, 'noise', 0.1, 1, 1], squid: [0, 'noise', 0.2, 1, 1], dolphin: [2000, 'sine', 0.3, 1.2, 0], frog: [180, 'square', 0.2, 1.1, 0.1], turtle: [200, 'sine', 0.3, 0.9, 0.2],
-  rabbit: [1000, 'sine', 0.1, 1, 0.2], silverfish: [2000, 'noise', 0.15, 1, 1], strider: [250, 'sawtooth', 0.4, 0.8, 0.3], axolotl: [900, 'sine', 0.2, 1.2, 0],
-};
 
-import { MusicPlayer } from './music.js?v=munfaoam';
+import { MusicPlayer } from './music.js?v=munkcr3r';
+
+const VOWEL = { a: [[730, 6, 1.2], [1090, 7, 0.9], [2440, 9, 0.3]], o: [[450, 6, 1.2], [800, 7, 0.9], [2800, 9, 0.2]], u: [[320, 6, 1.3], [870, 7, 0.7], [2250, 9, 0.2]] };
+const MOB_VOICE_ALIAS = { polar_bear: 'bear', zombified_piglin: 'zpiglin', wandering_trader: 'villager', pillager: 'illager', vindicator: 'illager', evoker: 'illager', iron_golem: 'golem', snow_golem: 'snowgolem', husk: 'zombie', drowned: 'zombie', zombie_villager: 'zombie', stray: 'skeleton', wither_skeleton: 'skeleton', cave_spider: 'spider', magma_cube: 'slime', mooshroom: 'cow', donkey: 'horse', camel: 'horse', mule: 'horse', endermite: 'silverfish', ender_dragon: 'dragon', glow_squid: 'squid', cod: 'fish', salmon: 'fish', tropical_fish: 'fish', pufferfish: 'fish' };
 
 export class Sound {
   constructor() { this.ctx = null; this.volume = 0.6; this.music = 0.4; this.listener = { pos: [0, 0, 0], yaw: 0 }; this.musicT = 20; }
@@ -91,7 +82,7 @@ export class Sound {
   hit(mat, pos) { this.burst(mat, 0.07, 0.35, 1.2, pos); }
   place(mat, pos) { this.burst(mat, 0.1, 0.8, 0.8, pos); }
   step(mat, pos) { this.burst(mat, 0.08, 0.25, 1, pos); }
-  click(v = 1) { if (this.ctx) this.tone(720, 540, 0.05, 0.12 * v, 'square'); }
+  click(v = 1) { if (!this.ctx) return; const out = this.spatial(null, 0.5 * v); if (!out) return; this.pulses(out, { count: 1, freq: 2600, q: 3, gain: 0.35, len: 0.03 }); this.tone(1400, 1100, 0.03, 0.05, 'sine', out); }
 
   play(name, pos = null, vol = 1, pitch = 1) {
     if (!this.ctx) return;
@@ -101,16 +92,16 @@ export class Sound {
       case 'pop': T(900, 1400, 0.08, 0.25, 'sine'); break;
       case 'xp': T(1500, 2200, 0.1, 0.18, 'sine'); T(2250, 3000, 0.12, 0.08, 'sine'); break;
       case 'levelup': [523, 659, 784, 1046].forEach((f, i) => this.tone(f, f, 0.5, 0.18, 'triangle', out, i * 0.08)); break;
-      case 'hurt': T(260, 150, 0.2, 0.35, 'sawtooth'); this.noiseSweep(1500, 400, 0.15, 0.3, out); break;
+      case 'hurt': this.voice(out, { dur: 0.22, f0: [230 * pitch, 170 * pitch], formants: VOWEL.u, breath: 0.35, gain: 0.34, attack: 0.01 }); this.burst('cloth', 0.08, 0.6, 0.8, pos); break;
       case 'eat': for (let i = 0; i < 3; i++) this.burst('grass', 0.07, 0.6, 0.7, pos); break;
-      case 'burp': T(160, 90, 0.35, 0.3, 'sawtooth'); break;
-      case 'drink': T(400, 200, 0.15, 0.2, 'sine'); break;
+      case 'burp': this.voice(out, { dur: 0.35, f0: [120, 90, 80], formants: VOWEL.o, breath: 0.3, gain: 0.3, jitter: 0.2 }); break;
+      case 'drink': for (let k = 0; k < 3; k++) { this.tone(340, 200, 0.09, 0.12, 'sine', out, k * 0.16); this.pulses(out, { t: k * 0.16, count: 1, freq: 700, q: 2, gain: 0.25, len: 0.08, type: 'lowpass' }); } break;
       case 'bow': this.noiseSweep(3000, 800, 0.2, 0.4, out, 'bandpass'); T(400, 150, 0.15, 0.2, 'triangle'); break;
       case 'bow_draw': this.noiseSweep(600, 1400, 0.4, 0.12, out, 'bandpass'); break;
       case 'arrow_hit': this.burst('wood', 0.08, 0.6, 1.4, pos); break;
-      case 'arrow_hit_entity': T(1200, 600, 0.08, 0.2, 'square'); break;
+      case 'arrow_hit_entity': this.pulses(out, { count: 1, freq: 500, q: 1.5, gain: 0.5, len: 0.09, type: 'lowpass' }); this.burst('wood', 0.06, 0.4, 1.3, pos); break;
       case 'attack': this.noiseSweep(2500, 600, 0.12, 0.3, out, 'bandpass'); break;
-      case 'crit': T(1800, 900, 0.1, 0.2, 'square'); this.noiseSweep(4000, 1000, 0.1, 0.3, out, 'highpass'); break;
+      case 'crit': this.pulses(out, { count: 1, freq: 600, q: 1, gain: 0.55, len: 0.1, type: 'lowpass' }); this.noiseSweep(6000, 2000, 0.12, 0.3, out, 'highpass'); this.ring(out, [2400, 3700], { decay: 0.25, gain: 0.06 }); break;
       case 'sweep': this.noiseSweep(5000, 1200, 0.2, 0.35, out, 'bandpass'); break;
       case 'explode': this.noiseSweep(1800, 40, 1.8, 1.4, out); T(80, 30, 1.2, 0.8, 'sine'); break;
       case 'fuse': this.noiseSweep(6000, 3000, 1.5, 0.35, out, 'highpass'); break;
@@ -118,7 +109,7 @@ export class Sound {
       case 'fire': this.noiseSweep(900, 300, 0.4, 0.2, out); break;
       case 'ignite': this.noiseSweep(4000, 800, 0.3, 0.4, out, 'bandpass'); T(300, 900, 0.2, 0.1, 'sawtooth'); break;
       case 'fireball': this.noiseSweep(1200, 200, 0.7, 0.6, out); break;
-      case 'teleport': T(200, 1200, 0.3, 0.2, 'sine'); T(1300, 300, 0.4, 0.15, 'sine'); break;
+      case 'teleport': this.noiseSweep(300, 4000, 0.3, 0.3, out, 'bandpass'); this.voice(out, { dur: 0.45, f0: [90, 240, 70], formants: [[600, 2, 1], [1800, 3, 0.6]], vib: 40, vibRate: 15, breath: 0.5, gain: 0.2 }); break;
       case 'portal': T(90, 120, 3, 0.2, 'sine'); T(180, 140, 3, 0.1, 'triangle'); break;
       case 'portal_travel': T(60, 400, 3.5, 0.3, 'sawtooth'); this.noiseSweep(200, 3000, 3, 0.2, out); break;
       case 'splash': this.noiseSweep(2400, 250, 0.55, 0.5, out); break;
@@ -133,32 +124,100 @@ export class Sound {
       case 'milk': this.noiseSweep(800, 300, 0.4, 0.3, out); break;
       case 'throw': this.noiseSweep(2000, 800, 0.2, 0.25, out, 'bandpass'); break;
       case 'anvil': T(900, 880, 0.6, 0.2, 'triangle'); T(1450, 1420, 0.5, 0.12, 'sine'); break;
-      case 'cure': T(300, 900, 1.5, 0.2, 'sine'); break;
-      case 'fangs': T(300, 100, 0.2, 0.3, 'sawtooth'); break;
-      case 'ghast_warn': T(1200, 600, 0.5, 0.25, 'sine'); T(1400, 700, 0.5, 0.15, 'sine'); break;
-      case 'enderman_stare': T(80, 60, 1.5, 0.4, 'sawtooth'); T(1600, 1200, 1.5, 0.08, 'sine'); break;
-      case 'phantom': T(700, 300, 0.8, 0.25, 'sawtooth'); break;
-      case 'trade': T(350, 420, 0.25, 0.2, 'triangle'); break;
-      case 'no': T(240, 180, 0.3, 0.2, 'triangle'); break;
-      case 'break_item': this.burst('metal', 0.3, 0.8, 1.3, pos); T(1600, 400, 0.3, 0.1, 'square'); break;
+      case 'cure': this.ring(out, [660, 990, 1320, 1760], { decay: 1.4, gain: 0.12 }); this.noiseSweep(2000, 8000, 1.2, 0.08, out, 'highpass'); break;
+      case 'fangs': this.pulses(out, { count: 2, gap: 0.05, freq: 1200, q: 2, gain: 0.45, len: 0.05 }); this.burst('stone', 0.12, 0.8, 0.7, pos); break;
+      case 'ghast_warn': this.voice(out, { dur: 0.7, f0: [1300, 1500, 800], formants: [[1200, 3, 1], [2800, 5, 0.5]], vib: 60, vibRate: 7, breath: 0.2, gain: 0.28, wave: 'triangle' }); break;
+      case 'enderman_stare': this.voice(out, { dur: 1.4, f0: [300, 900, 700, 1100], formants: [[900, 3, 1], [2400, 5, 0.7]], vib: 90, vibRate: 11, breath: 0.6, gain: 0.3, jitter: 0.3 }); this.voice(out, { dur: 1.4, f0: [60, 55, 70], formants: [[300, 2, 1]], breath: 0.3, gain: 0.25 }); break;
+      case 'phantom': this.mob('phantom', 'ambient', pos, null); break;
+      case 'trade': this.mob('villager', 'ambient', pos, null); break;
+      case 'no': this.voice(out, { dur: 0.4, f0: [230, 250, 170], formants: [[280, 5, 1], [2200, 8, 0.7], [900, 4, 0.5]], breath: 0.08, gain: 0.26 }); break;
+      case 'break_item': this.burst('metal', 0.3, 0.8, 1.3, pos); this.pulses(out, { count: 4, gap: 0.03, freq: 3000, q: 3, gain: 0.3 }); this.ring(out, [1900, 2870, 4100], { decay: 0.3, gain: 0.08 }); break;
       case 'equip': this.burst('metal', 0.15, 0.5, 0.8, pos); break;
       case 'totem': T(400, 1600, 1, 0.3, 'triangle'); T(600, 2400, 1.2, 0.2, 'sine'); break;
       case 'dragon_death': this.noiseSweep(3000, 40, 6, 1, out); T(200, 40, 6, 0.5, 'sawtooth'); break;
       case 'bell': [880, 1320, 1760].forEach(f => this.tone(f, f, 2, 0.15, 'sine', out)); break;
       case 'chime': [1046, 1318, 1568].forEach((f, i) => this.tone(f, f, 1.2, 0.12, 'sine', out, i * 0.1)); break;
-      default: T(440, 330, 0.1, 0.1, 'sine');
+      default: this.pulses(out, { count: 1, freq: 1200, q: 2, gain: 0.15, len: 0.04 });
     }
+  }
+  // ---------------- voice synthesis ----------------
+  // A buzzy source (sawtooth + breath noise) shaped by vowel formants, with a pitch contour and
+  // vibrato: enough to make moos, bleats, whinnies, groans and grunts instead of beeps.
+  voice(out, { t = 0, dur = 0.5, f0 = [200, 180], formants = VOWEL.a, vib = 0, vibRate = 5, breath = 0.15, gain = 0.3, attack = 0.03, wave = 'sawtooth', jitter = 0 }) {
+    const c = this.ctx, now = c.currentTime + t;
+    const src = c.createOscillator(); src.type = wave;
+    const n = f0.length;
+    src.frequency.setValueAtTime(Math.max(30, f0[0]), now);
+    for (let i = 1; i < n; i++) src.frequency.linearRampToValueAtTime(Math.max(30, f0[i] * (1 + (Math.random() - 0.5) * jitter)), now + dur * i / (n - 1));
+    if (vib) { const lfo = c.createOscillator(), lg = c.createGain(); lfo.frequency.value = vibRate; lg.gain.value = vib; lfo.connect(lg).connect(src.frequency); lfo.start(now); lfo.stop(now + dur + 0.05); }
+    const env = c.createGain();
+    env.gain.setValueAtTime(0.0001, now); env.gain.linearRampToValueAtTime(gain, now + attack);
+    env.gain.setValueAtTime(gain, now + dur * 0.7); env.gain.exponentialRampToValueAtTime(0.0005, now + dur);
+    const mix = c.createGain(); mix.gain.value = 1;
+    src.connect(mix);
+    if (breath > 0) { const nz = c.createBufferSource(); nz.buffer = this.noise; const ng = c.createGain(); ng.gain.value = breath; nz.connect(ng).connect(mix); nz.start(now, Math.random(), dur + 0.1); }
+    for (const [ff, q, g] of formants) { const bp = c.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = ff; bp.Q.value = q; const fg = c.createGain(); fg.gain.value = g; mix.connect(bp).connect(fg).connect(env); }
+    env.connect(out);
+    src.start(now); src.stop(now + dur + 0.05);
+  }
+  // Short filtered-noise pulses (rattles, clicks, chitters, crackles).
+  pulses(out, { t = 0, count = 6, gap = 0.05, freq = 2500, q = 4, gain = 0.3, len = 0.025, type = 'bandpass', spread = 0.3 }) {
+    const c = this.ctx;
+    for (let i = 0; i < count; i++) {
+      const now = c.currentTime + t + i * gap * (1 + (Math.random() - 0.5) * spread);
+      const src = c.createBufferSource(); src.buffer = this.noise;
+      const f = c.createBiquadFilter(); f.type = type; f.frequency.value = freq * (0.8 + Math.random() * 0.4); f.Q.value = q;
+      const g = c.createGain(); g.gain.setValueAtTime(gain, now); g.gain.exponentialRampToValueAtTime(0.001, now + len);
+      src.connect(f).connect(g).connect(out); src.start(now, Math.random() * 1.5, len + 0.02);
+    }
+  }
+  // Inharmonic partials: metal, bells, chimes.
+  ring(out, freqs, { t = 0, decay = 0.6, gain = 0.15 } = {}) {
+    freqs.forEach((f, i) => this.tone(f, f * 0.995, decay * (1 - i * 0.12), gain / (1 + i * 0.6), 'sine', out, t));
   }
   mob(type, event, pos, e) {
     if (!this.ctx) return;
-    const map = { polar_bear: 'bear', zombified_piglin: 'zpiglin', wandering_trader: 'villager', pillager: 'illager', vindicator: 'illager', evoker: 'illager', iron_golem: 'golem', snow_golem: 'golem', husk: 'zombie', drowned: 'zombie', zombie_villager: 'zombie', stray: 'skeleton', wither_skeleton: 'skeleton', cave_spider: 'spider', magma_cube: 'slime', mooshroom: 'cow', donkey: 'horse', camel: 'horse', ocelot: 'cat', endermite: 'silverfish', ender_dragon: 'dragon', glow_squid: 'squid', cod: 'fish', salmon: 'fish', tropical_fish: 'fish', pufferfish: 'fish' };
-    const v = VOICE[map[type] || type] || VOICE.pig;
-    const out = this.spatial(pos, event === 'death' ? 1 : 0.8); if (!out) return;
-    const [f, wave, dur, sweep, nz] = v;
-    const p = (e && e.baby ? 1.5 : 1) * (0.9 + Math.random() * 0.2) * (event === 'hurt' ? 1.2 : event === 'death' ? 0.8 : 1);
-    if (wave === 'noise' || nz > 0.5) this.noiseSweep(1500 * p, 500 * p, dur, 0.4, out, 'bandpass');
-    if (f) this.tone(f * p, f * p * sweep, dur * (event === 'death' ? 1.5 : 1), 0.22, wave === 'noise' ? 'sawtooth' : wave, out);
-    if (event === 'hurt') this.tone(f * p * 1.3 || 600, (f * p || 600) * 0.7, 0.12, 0.12, 'square', out);
+    const out = this.spatial(pos, event === 'death' ? 1 : event === 'ambient' ? 0.65 : 0.85); if (!out) return;
+    const baby = e && e.baby ? 1.45 : 1, r = 0.92 + Math.random() * 0.16;
+    const p = baby * r * (event === 'hurt' ? 1.15 : event === 'death' ? 0.85 : 1);
+    const hurt = event === 'hurt', death = event === 'death';
+    const V = o => this.voice(out, o), P = o => this.pulses(out, o);
+    const key = MOB_VOICE_ALIAS[type] || type;
+    switch (key) {
+      case 'cow': V({ dur: death ? 1.2 : 0.9 + Math.random() * 0.3, f0: [118 * p, 104 * p, 92 * p, 84 * p], formants: [[320, 5, 1.4], [700, 6, 0.9], [2400, 8, 0.2]], vib: 3, vibRate: 5, breath: 0.08, gain: 0.35, attack: 0.08 }); break;
+      case 'pig': for (let k = 0; k < (hurt ? 1 : 2); k++) V({ t: k * 0.2, dur: hurt ? 0.3 : 0.16, f0: [230 * p, 170 * p], formants: [[420, 5, 1.2], [1300, 6, 0.8], [2800, 8, 0.3]], breath: 0.35, gain: 0.3, wave: 'square' }); break;
+      case 'sheep': V({ dur: 0.65, f0: [340 * p, 330 * p, 300 * p], formants: [[750, 6, 1.3], [1150, 7, 0.9], [2500, 9, 0.3]], vib: 26, vibRate: 7, breath: 0.12, gain: 0.28 }); break;
+      case 'goat': V({ dur: 0.55, f0: [380 * p, 360 * p, 320 * p], formants: [[650, 6, 1.2], [1400, 7, 0.9]], vib: 40, vibRate: 9, breath: 0.2, gain: 0.26 }); break;
+      case 'chicken': for (let k = 0; k < 3; k++) V({ t: k * 0.09, dur: 0.07, f0: [900 * p, 700 * p], formants: [[1100, 4, 1], [2600, 6, 0.6]], breath: 0.3, gain: 0.22, wave: 'square' }); if (hurt || death) V({ t: 0.28, dur: 0.18, f0: [1200 * p, 800 * p], formants: [[1400, 4, 1]], gain: 0.25 }); break;
+      case 'horse': V({ dur: hurt ? 0.5 : 1.0, f0: [1050 * p, 900 * p, 700 * p, 520 * p, 460 * p], formants: [[900, 5, 1.1], [1800, 6, 0.8], [2900, 8, 0.3]], vib: 70, vibRate: 13, breath: 0.25, gain: 0.24 }); break;
+      case 'llama': V({ dur: 0.5, f0: [520 * p, 480 * p], formants: [[700, 5, 1], [1300, 6, 0.6]], vib: 20, vibRate: 6, breath: 0.4, gain: 0.22 }); break;
+      case 'wolf': if (e && e.target && !death) { V({ dur: 0.9, f0: [120 * p, 110 * p], formants: [[500, 4, 1], [1200, 5, 0.6]], vib: 12, vibRate: 22, breath: 0.6, gain: 0.3 }); } else for (let k = 0; k < (hurt ? 1 : 2); k++) V({ t: k * 0.22, dur: hurt ? 0.3 : 0.13, f0: [hurt ? 900 * p : 520 * p, 380 * p], formants: [[800, 4, 1.1], [1700, 5, 0.7]], breath: 0.4, gain: 0.3 }); break;
+      case 'cat': V({ dur: 0.55, f0: [600 * p, 820 * p, 700 * p, 520 * p], formants: [[500, 4, 0.9], [1800, 5, 1], [3000, 7, 0.4]], vib: 8, vibRate: 6, breath: 0.1, gain: 0.22 }); break;
+      case 'fox': V({ dur: 0.25, f0: [900 * p, 1300 * p, 700 * p], formants: [[1100, 4, 1], [2400, 6, 0.6]], breath: 0.3, gain: 0.22 }); break;
+      case 'bear': V({ dur: 0.9, f0: [95 * p, 80 * p, 70 * p], formants: [[400, 4, 1.2], [900, 5, 0.8]], vib: 10, vibRate: 25, breath: 0.6, gain: 0.34 }); break;
+      case 'panda': V({ dur: 0.3, f0: [300 * p, 260 * p], formants: [[500, 5, 1], [1100, 6, 0.7]], breath: 0.3, gain: 0.22 }); break;
+      case 'zombie': V({ dur: death ? 1.3 : 0.9 + Math.random() * 0.4, f0: [96 * p, 84 * p, 70 * p], formants: [[420, 4, 1.3], [760, 5, 0.9], [2300, 7, 0.2]], vib: 6, vibRate: 7, breath: 0.55, gain: 0.34, jitter: 0.15 }); break;
+      case 'skeleton': P({ count: hurt ? 5 : death ? 14 : 8, gap: 0.045, freq: 2200 * p, q: 5, gain: 0.32 }); P({ t: 0.02, count: 4, gap: 0.06, freq: 900, q: 3, gain: 0.2, len: 0.04 }); break;
+      case 'spider': this.noiseSweep(3200, 1400, hurt ? 0.25 : 0.5, 0.18, out, 'bandpass'); P({ count: hurt ? 6 : 10, gap: 0.035, freq: 4200, q: 8, gain: 0.18, len: 0.015 }); break;
+      case 'creeper': this.noiseSweep(5000, 2400, 0.35, hurt ? 0.3 : 0.12, out, 'highpass'); break;
+      case 'enderman': V({ dur: 0.9, f0: [70 * p, 55 * p, 90 * p, 60 * p], formants: [[300, 3, 1], [900, 4, 0.6]], vib: 30, vibRate: 3, breath: 0.4, gain: 0.3 }); this.tone(1400 * p, 700 * p, 0.8, 0.05, 'sine', out); break;
+      case 'witch': V({ dur: 0.6, f0: [420 * p, 520 * p, 380 * p, 460 * p], formants: [[600, 5, 1], [1700, 6, 0.8]], vib: 15, vibRate: 10, breath: 0.2, gain: 0.24 }); break;
+      case 'villager': case 'illager': { const low = key === 'illager' ? 0.8 : 1; const up = hurt ? [260, 320] : death ? [240, 150] : [210, 240, 190]; V({ dur: hurt ? 0.3 : 0.45, f0: up.map(f => f * p * low), formants: [[280, 5, 1], [2200, 8, 0.7], [900, 4, 0.5]], breath: 0.08, gain: 0.26, attack: 0.02 }); break; }
+      case 'golem': this.ring(out, [180 * p, 297 * p, 413 * p, 611 * p], { decay: 0.5, gain: 0.25 }); this.burst('metal', 0.2, 0.7, 0.6, null); break;
+      case 'blaze': this.noiseSweep(700, 300, 0.7, 0.25, out); V({ dur: 0.7, f0: [150 * p, 130 * p], formants: [[500, 3, 0.8]], vib: 20, vibRate: 30, breath: 0.8, gain: 0.18 }); break;
+      case 'ghast': V({ dur: death ? 1.6 : 1.1, f0: [900 * p, 1100 * p, 700 * p], formants: [[900, 4, 1], [2600, 6, 0.6]], vib: 40, vibRate: 5, breath: 0.1, gain: 0.22, wave: 'triangle' }); break;
+      case 'slime': this.noiseSweep(600, 200, 0.18, 0.35, out); this.tone(160 * p, 90 * p, 0.15, 0.15, 'sine', out); break;
+      case 'dragon': case 'wither': V({ dur: death ? 3 : 1.6, f0: [key === 'wither' ? 70 : 90, 60, 55, 45].map(f => f * p), formants: [[350, 3, 1.3], [800, 4, 0.9], [1900, 5, 0.4]], vib: 15, vibRate: 18, breath: 0.9, gain: 0.45, jitter: 0.2 }); break;
+      case 'piglin': case 'zpiglin': case 'hoglin': for (let k = 0; k < 2; k++) V({ t: k * 0.18, dur: 0.14, f0: [180 * p, 140 * p], formants: [[450, 5, 1.2], [1100, 6, 0.8]], breath: 0.5, gain: 0.3, wave: 'square' }); break;
+      case 'ravager': V({ dur: 1.0, f0: [80 * p, 60 * p], formants: [[380, 4, 1.2], [800, 4, 0.8]], vib: 10, vibRate: 20, breath: 0.7, gain: 0.38 }); break;
+      case 'bat': for (let k = 0; k < 3; k++) this.tone(4200 * p, 3600 * p, 0.035, 0.08, 'sine', out, k * 0.07); break;
+      case 'parrot': for (let k = 0; k < 3; k++) V({ t: k * 0.1, dur: 0.08, f0: [1800 * p, 2400 * p], formants: [[2200, 4, 1]], gain: 0.18 }); break;
+      case 'phantom': V({ dur: 0.8, f0: [700 * p, 520 * p, 300 * p], formants: [[900, 4, 1], [2500, 6, 0.5]], vib: 50, vibRate: 12, breath: 0.4, gain: 0.26 }); break;
+      case 'silverfish': P({ count: 7, gap: 0.03, freq: 5000, q: 6, gain: 0.14, len: 0.012 }); break;
+      case 'fish': case 'squid': case 'dolphin': case 'turtle': case 'axolotl': case 'frog': this.noiseSweep(900, 300, 0.2, 0.2, out); if (key === 'dolphin') for (let k = 0; k < 4; k++) this.tone(2400 * p, 3200 * p, 0.05, 0.08, 'sine', out, k * 0.06); break;
+      case 'rabbit': case 'ocelot': case 'strider': case 'snowgolem': V({ dur: 0.2, f0: [500 * p, 420 * p], formants: [[700, 5, 1], [1800, 6, 0.5]], breath: 0.4, gain: 0.18 }); break;
+      default: V({ dur: 0.35, f0: [260 * p, 200 * p], formants: [[500, 5, 1], [1500, 6, 0.6]], breath: 0.3, gain: 0.24 });
+    }
   }
 
   // Soundtrack: structured original pieces per mood (see music.js), with short gaps between tracks.
