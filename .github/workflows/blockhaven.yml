@@ -1,7 +1,9 @@
 name: Blockhaven
 
+# Pull requests run once (the pull_request event only); pushes to main run too.
 on:
   push:
+    branches: [main]
     paths:
       - 'docs/games/blockhaven/**'
       - '.github/workflows/blockhaven.yml'
@@ -9,6 +11,11 @@ on:
     paths:
       - 'docs/games/blockhaven/**'
       - '.github/workflows/blockhaven.yml'
+
+# A newer push to the same branch cancels the run it supersedes.
+concurrency:
+  group: blockhaven-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read

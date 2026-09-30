@@ -1,7 +1,9 @@
 name: Python
 
+# Pull requests run once (the pull_request event only); pushes to main run too.
 on:
   push:
+    branches: [main]
     paths:
       - 'relay/**'
       - 'tests/**'
@@ -15,6 +17,11 @@ on:
       - 'pyproject.toml'
       - 'uv.lock'
       - '.github/workflows/python.yml'
+
+# A newer push to the same branch cancels the run it supersedes.
+concurrency:
+  group: python-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
