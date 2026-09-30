@@ -95,7 +95,8 @@ export class Game {
     this.portalT = 0; this.portalCd = 0;
     this.lastSave = 0;
   }
-  giveStarter() { if (this.mode === 'creative') for (const k of ['grass_block', 'stone', 'oak_planks', 'oak_log', 'glass', 'torch', 'bricks', 'diamond_pickaxe', 'water_bucket']) this.inv.add({ key: k, count: I[k].stack }); }
+  giveStarter() { // Everyone starts empty-handed, as in the original; creative has the item menu (E).
+  }
   hookPlayer() {
     const p = this.player;
     p.onStep = id => this.sound.step(BLOCKS[id] ? props(id, 0).sound : 'stone', p.pos);
@@ -472,7 +473,12 @@ export class Game {
     // Fire and lava.
     if (p.inLava && !e.fire_resistance) { s.fire = 15; this.lavaT = (this.lavaT || 0) + dt; if (this.lavaT > 0.5) { this.lavaT = 0; this.damagePlayer(4, { kind: 'lava' }); } }
     const feet = this.world.getBlock(p.pos[0], p.pos[1] + 0.1, p.pos[2]);
-    if ((feet === B.FIRE || feet === B.CAMPFIRE) && !e.fire_resistance) s.fire = Math.max(s.fire, 8);
+    if ((feet === B.FIRE || feet === B.CAMPFIRE) && !e.fire_resistance) {
+      s.fire = Math.max(s.fire, 8);
+      // Standing in flames hurts on top of burning.
+      this.inFireT = (this.inFireT || 0) + dt;
+      if (this.inFireT > 0.55) { this.inFireT = 0; this.damagePlayer(1, { kind: "fire" }); }
+    } else this.inFireT = 0;
     if (feet === B.SWEET_BERRY_BUSH && Math.hypot(p.vel[0], p.vel[2]) > 0.5 && Math.random() < dt * 2) this.damagePlayer(1, { kind: 'fire' });
     if (s.fire > 0) {
       s.fire -= dt;

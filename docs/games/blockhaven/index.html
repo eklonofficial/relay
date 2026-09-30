@@ -112,6 +112,16 @@
   #chat-input-row { position: fixed; left: 8px; right: 8px; bottom: 8px; pointer-events: auto; }
   #chat-input { width: 100%; background: rgba(0,0,0,0.6); border: none; font-size: 16px; padding: 8px; }
   #chat-suggest { position: fixed; left: 8px; bottom: 44px; background: rgba(0,0,0,0.8); font-size: 14px; padding: 4px 8px; pointer-events: none; white-space: pre; color: #ddd; }
+  #onfire { position: absolute; left: -5%; right: -5%; bottom: -4vh; height: 46vh; pointer-events: none; opacity: 0; transition: opacity 0.25s; transform-origin: bottom;
+    background:
+      radial-gradient(ellipse 9% 70% at 8% 100%, rgba(255,235,140,0.85), rgba(255,140,30,0.55) 45%, transparent 70%),
+      radial-gradient(ellipse 11% 85% at 24% 100%, rgba(255,225,120,0.8), rgba(255,120,20,0.5) 45%, transparent 70%),
+      radial-gradient(ellipse 8% 60% at 40% 100%, rgba(255,235,140,0.7), rgba(255,130,25,0.45) 45%, transparent 70%),
+      radial-gradient(ellipse 8% 62% at 62% 100%, rgba(255,235,140,0.7), rgba(255,130,25,0.45) 45%, transparent 70%),
+      radial-gradient(ellipse 11% 88% at 78% 100%, rgba(255,225,120,0.8), rgba(255,120,20,0.5) 45%, transparent 70%),
+      radial-gradient(ellipse 9% 72% at 94% 100%, rgba(255,235,140,0.85), rgba(255,140,30,0.55) 45%, transparent 70%);
+    animation: flick 0.45s steps(4) infinite; image-rendering: pixelated; }
+  @keyframes flick { 0% { transform: scale(1, 1); } 25% { transform: scale(1.02, 1.1); } 50% { transform: scale(0.99, 0.94); } 75% { transform: scale(1.01, 1.05); } 100% { transform: scale(1, 1); } }
   #hint { position: absolute; top: 16px; left: 50%; transform: translateX(-50%); max-width: 92vw; text-align: center; font-size: 13px; line-height: 1.6; background: rgba(0,0,0,0.5); padding: 8px 14px; border-radius: 4px; transition: opacity 1.2s; text-shadow: 1px 1px 0 #000; pointer-events: none; }
   #toast { position: absolute; top: 14px; right: 14px; width: 300px; background: #212121; border: 2px solid #000; box-shadow: inset 0 0 0 2px #555; padding: 10px 12px; display: flex; gap: 10px; align-items: center; transform: translateX(340px); transition: transform 0.5s; }
   #toast.show { transform: translateX(0); }
@@ -256,6 +266,7 @@
     <div id="xp"><div id="xp-fill"></div><div id="xp-level"></div></div>
     <div style="position:relative"><div id="hotbar"></div><div id="offhand-slot" class="slot hidden"></div></div>
   </div>
+  <div id="onfire"></div>
   <div id="debug" class="hidden"></div>
   <div id="hint" style="opacity:0">WASD move · Space jump · Double-tap W sprint · Shift sneak · Mouse break / place / use · E inventory · Q drop · T or / chat &amp; commands · V third person · F3 debug · Esc pause</div>
   <div id="toast"><img alt=""><div><div class="t1"></div><div class="t2"></div></div></div>

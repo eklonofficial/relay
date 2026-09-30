@@ -213,13 +213,22 @@ export class Mob extends Entity {
     const dx = this.pos[0] - from[0], dz = this.pos[2] - from[2], d = Math.hypot(dx, dz) || 1;
     this.moveTo([this.pos[0] + dx / d * 6, this.pos[1], this.pos[2] + dz / d * 6], speed, dt);
   }
+  // Pursuit speed: close to the player's 4.3 b/s walk so fights are real. Zombies are a touch
+  // slower than walking, spiders and babies faster, angry endermen faster than a sprint.
+  chaseSpeed() {
+    const d = this.def;
+    let s = d.chase ?? Math.min(5.2, Math.max(3.9, this.speed * 1.7));
+    if (this.baby) s *= 1.35;
+    if (this.effectSlow) s *= 0.6;
+    return s;
+  }
   meleeTarget(dt, reach = null) {
     const t = this.target, a = this.def.attack;
     if (!t || !a) return;
     const d = Math.hypot(t.pos[0] - this.pos[0], t.pos[2] - this.pos[2]);
     const dy = Math.abs(t.pos[1] - this.pos[1]);
     reach = reach ?? this.hw + (t.hw || 0.3) + 0.9;
-    if (d > reach * 0.8) this.moveTo(t.pos, this.speed, dt); else { this.lookAt(t.pos, 10, dt); this.brake(dt); }
+    if (d > reach * 0.8) this.moveTo(t.pos, this.chaseSpeed(), dt); else { this.lookAt(t.pos, 10, dt); this.brake(dt); }
     if (a.leap && this.onGround && d < 4 && d > 2 && Math.random() < dt * 1.5) { const n = d || 1; this.vel[0] = (t.pos[0] - this.pos[0]) / n * 6; this.vel[2] = (t.pos[2] - this.pos[2]) / n * 6; this.vel[1] = 6; }
     if (d < reach && dy < 2.2 && this.attackT <= 0) {
       this.attackT = a.cd;
@@ -319,6 +328,7 @@ export class Mob extends Entity {
     const g = this.game, d = this.def, w = this.world;
     const feet = w.getBlock(this.pos[0], this.pos[1] + 0.1, this.pos[2]);
     if (feet === B.LAVA && !d.fireImmune && !d.lavaWalker) { this.setFire(8); this.hurt(4, { kind: 'lava' }); }
+    if ((feet === B.FIRE || feet === B.CAMPFIRE) && !d.fireImmune) { this.setFire(8); this.inFireT = (this.inFireT || 0) + dt; if (this.inFireT > 0.5) { this.inFireT = 0; this.hurt(1, { kind: 'fire' }); } }
     if ((feet === B.FIRE || feet === B.CAMPFIRE) && !d.fireImmune) this.setFire(4);
     if (this.fire > 0) {
       this.fire -= dt;
@@ -454,7 +464,7 @@ export class Mob extends Entity {
     const d = this.distTo(t.pos);
     const see = this.canSee(t);
     this.lookAt(t.pos, 10, dt);
-    if (d > a.range * 0.7 || !see) this.moveTo(t.pos, this.speed, dt);
+    if (d > a.range * 0.7 || !see) this.moveTo(t.pos, this.chaseSpeed() * 0.9, dt);
     else if (d < 4) this.flee(t.pos, dt, this.speed);
     else {
       this.strafe = this.strafe || (Math.random() < 0.5 ? 1 : -1);
@@ -496,19 +506,52 @@ export class Mob extends Entity {
         this.dead = true;
         g.explode([this.pos[0], this.pos[1] + 0.8, this.pos[2]], this.charged ? 6 : 3, { source: this, breakBlocks: g.rules.mobGriefing });
       }
-    } else { this.fuse = Math.max(0, this.fuse - dt * 2); this.moveTo(t.pos, this.speed, dt); }
+    } else { this.fuse = Math.max(0, this.fuse - dt * 2); this.moveTo(t.pos, this.chaseSpeed(), dt); }
   }
   aiEnderman(dt) {
     const g = this.game;
     if (!this.target && this.playerTargetable() && this.distToPlayer() < 64) {
-      // Aggro when the player looks straight at the head.
+      // Aggro when the player looks straight at the head (a carved pumpkin helmet hides you).
       const e = g.player.eyePos(), f = g.lookDir();
       const h = [this.pos[0] - e[0], this.pos[1] + this.h * 0.9 - e[1], this.pos[2] - e[2]], len = Math.hypot(...h);
       const dot = (h[0] * f[0] + h[1] * f[1] + h[2] * f[2]) / len;
-      if (dot > 1 - 0.025 / Math.max(1, len * 0.1) && this.canSee(g.playerEntity) && g.inv.armor.get(0)?.key !== 'carved_pumpkin') { this.target = g.playerEntity; g.sound.play('enderman_stare', this.pos, 1); }
+      if (dot > 1 - 0.025 / Math.max(1, len * 0.1) && this.canSee(g.playerEntity) && g.inv.armor.get(0)?.key !== 'carved_pumpkin') {
+        this.target = g.playerEntity; this.stareT = 0.6; this.screamT = 0;
+        g.sound.play('enderman_stare', this.pos, 1);
+      }
     }
-    if (this.target) { this.meleeTarget(dt); if (this.distTo(this.target.pos) > 12 && Math.random() < dt * 0.3) { this.teleportRandom(); } }
-    else { this.wander(dt); if (Math.random() < dt / 30) this.teleportRandom(); }
+    if (this.target) {
+      this.angry = true;
+      // A brief frozen, trembling stare, then it rushes (and blinks closer when far away).
+      if (this.stareT > 0) { this.stareT -= dt; this.lookAt(this.target.pos, 20, dt); this.brake(dt); return; }
+      this.screamT = (this.screamT || 0) - dt;
+      if (this.screamT <= 0) { this.screamT = rnd(2.5, 4.5); g.sound.play('enderman_stare', this.pos, 0.6); }
+      const d = this.distTo(this.target.pos);
+      if (d > 7 && Math.random() < dt * 0.9) this.teleportNear(this.target.pos);
+      this.meleeTarget(dt);
+      if (this.target && this.target.dead) this.target = null;
+    } else {
+      this.angry = false;
+      this.wander(dt); if (Math.random() < dt / 30) this.teleportRandom();
+    }
+  }
+  // Teleport to a standable spot 2-5 blocks from p.
+  teleportNear(p) {
+    const w = this.world;
+    for (let k = 0; k < 12; k++) {
+      const a = Math.random() * Math.PI * 2, r = rnd(2, 5), x = p[0] + Math.cos(a) * r, z = p[2] + Math.sin(a) * r;
+      for (let y = Math.floor(p[1]) + 3; y > p[1] - 4; y--) {
+        const id = w.getBlock(x, y, z);
+        if (id !== UNLOADED && SOLID[id] && w.getBlock(x, y + 1, z) === B.AIR && w.getBlock(x, y + 2, z) === B.AIR && w.getBlock(x, y + 3, z) === B.AIR) {
+          this.game.particles.fx('portal', this.center(), 20, 0.5);
+          this.pos = [Math.floor(x) + 0.5, y + 1, Math.floor(z) + 0.5];
+          this.game.sound.play('teleport', this.pos, 0.6);
+          this.game.particles.fx('portal', this.center(), 20, 0.5);
+          return true;
+        }
+      }
+    }
+    return false;
   }
   aiSlime(dt) {
     this.seekPlayer(16);
@@ -728,7 +771,10 @@ export class Mob extends Entity {
         else if (anim === 'skeleton' && this.target) { P.rightArm = [1.5, -0.1, 0]; P.leftArm = [1.5, 0.4, 0]; }
         else if (anim === 'golem') { P.rightArm = [-sw * 0.6 + swing * 1.6, 0, 0]; P.leftArm = [sw * 0.6 + swing * 1.6, 0, 0]; P.rightLeg = [sw * 0.6, 0, 0]; P.leftLeg = [-sw * 0.6, 0, 0]; }
         else { P.rightArm = [-sw * 0.8 + swing, 0, 0.05 + idle]; P.leftArm = [sw * 0.8, 0, -0.05 - idle]; }
-        if (anim === 'enderman' && this.target) { P.head = [head[0], head[1], 0]; P.pivots = { head: [0, 42, 0] }; }
+        if (anim === 'enderman') {
+          P.rightArm = [-sw * 0.5 + swing, 0, 0.05]; P.leftArm = [sw * 0.5, 0, -0.05];
+          if (this.angry) { P.pivots = { head: [0, 46, 0] }; P.rightArm = [-sw * 0.5 + swing - 0.3, 0, 0.15]; P.leftArm = [sw * 0.5 - 0.3, 0, -0.15]; }
+        }
         if (this.mobType === 'wolf' && this.sitting) { P.leg2 = [-1.3, 0, 0]; P.leg3 = [-1.3, 0, 0]; }
         break;
       }
@@ -789,7 +835,8 @@ export class Mob extends Entity {
     if (this.model.anim === 'slime') { const sq = this.onGround ? 1 : 1.2; extra = M.s(1 / Math.sqrt(sq), sq, 1 / Math.sqrt(sq)); }
     let yOff = 0;
     if (this.model.anim === 'bat' || this.model.anim === 'blaze' || this.model.anim === 'ghast') yOff = Math.sin(this.age * 2) * 0.1;
-    const root = rootMatrix([this.pos[0], this.pos[1] + yOff, this.pos[2]], this.bodyYaw, sc, extra);
+    const shake = this.angry ? 0.035 : 0;
+    const root = rootMatrix([this.pos[0] + rnd(-shake, shake), this.pos[1] + yOff, this.pos[2] + rnd(-shake, shake)], this.bodyYaw, sc, extra);
     const flash = this.hurtT > 0 || (this.mobType === 'creeper' && this.fuse > 0 && Math.floor(this.fuse * 8) % 2 === 0) ? 0.8 : 0;
     this.lastPose = this.pose();
     const mats = drawModel(ctx.mobs, this.model, this.layer, root, this.lastPose, light, flash);

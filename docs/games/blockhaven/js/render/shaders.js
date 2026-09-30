@@ -193,6 +193,23 @@ void main() {
     outColor = vec4(col, 1.0);
     return;
   }
+  if (vFlags == F_FIRE) {
+    // Animated flames: pixel-snapped noise rising over time, yellow core to red tips.
+    vec2 q = floor(clamp(vUV.xy, 0.0, 0.999) * 16.0) / 16.0;
+    float hgt = 1.0 - q.y;
+    float seed = dot(floor(vWorld.xz + 0.001), vec2(3.1, 7.7));
+    float n = fbm(vec2(q.x * 3.2 + seed, hgt * 2.4 - uTime * 2.8));
+    float edge = 1.0 - abs(q.x - 0.47) * 1.25;
+    float top = (0.3 + 0.8 * n) * edge;
+    if (hgt > top) discard;
+    float k = hgt / max(top, 0.01);
+    vec4 base = texture(uTex, vec3(0.5, 0.95, vUV.z));
+    vec3 c = base.b > base.r
+      ? mix(vec3(0.8, 1.0, 1.0), vec3(0.1, 0.55, 0.95), k)
+      : (k < 0.35 ? mix(vec3(1.0, 0.96, 0.62), vec3(1.0, 0.72, 0.18), k / 0.35) : mix(vec3(1.0, 0.72, 0.18), vec3(0.85, 0.2, 0.04), (k - 0.35) / 0.65));
+    outColor = vec4(applyFog(c * 1.15, vWorld), 1.0);
+    return;
+  }
   vec4 t = texture(uTex, vUV);
   if (t.a < 0.5) discard;
   vec3 col = t.rgb;
