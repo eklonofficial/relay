@@ -1,6 +1,6 @@
 // Procedural 16x16 block textures. Every name registered in data/blocks.js must be drawable here.
-import { Painter, ramp, shade, mixHex, hex } from './paint.js?v=munm0grh';
-import { TEXTURES, COLORS } from '../data/blocks.js?v=munm0grh';
+import { Painter, ramp, shade, mixHex, hex } from './paint.js?v=munmcvi9';
+import { TEXTURES, COLORS } from '../data/blocks.js?v=munmcvi9';
 
 const N = 16;
 
@@ -697,9 +697,12 @@ function family(name, p) {
   }
   if ((m = name.match(/^destroy_(\d)$/))) {
     p.clear();
-    const pts = CRACKS();
-    const count = Math.floor(pts.length * (Number(m[1]) + 1) / 10);
-    for (let k = 0; k < count; k++) p.put(pts[k][0], pts[k][1], '#141414', 190);
+    // Chiselled pixel cracks: a dark fissure with a pale lip on its lower edge, growing from the
+    // centre outwards as the stage rises.
+    const pts = CRACKS(), count = Math.max(2, Math.round(pts.length * [0.04, 0.09, 0.16, 0.25, 0.35, 0.46, 0.58, 0.71, 0.85, 1][Number(m[1])]));
+    const on = new Set(pts.slice(0, count).map(([x, y]) => y * N + x));
+    for (const i of on) { const x = i % N, y = (i / N) | 0; if (y + 1 < N && !on.has(i + N)) p.put(x, y + 1, '#2a2a2a', 95); }
+    for (const i of on) p.put(i % N, (i / N) | 0, '#161616', 205);
     return p;
   }
   // brick family
@@ -723,20 +726,35 @@ function family(name, p) {
 }
 
 let crackCache = null;
-function CRACKS() {
-  if (crackCache) return crackCache;
-  const p = new Painter(N, N, 999);
-  const pts = [];
-  const walk = (x, y, dir, len) => {
-    for (let i = 0; i < len; i++) {
-      pts.push([x & 15, y & 15]);
-      if (p.chance(0.35)) dir = (dir + (p.chance(0.5) ? 1 : 3)) % 4;
-      x += [1, 0, -1, 0][dir]; y += [0, 1, 0, -1][dir];
-      if (p.chance(0.08)) walk(x, y, (dir + 1) % 4, 3 + p.rand(4));
+// Crack pixels in growth order. Each tip has a diagonal heading and steps along either its x or
+// its y component, so fissures come out as jagged pixel staircases; tips fork now and then, and
+// advancing every tip in turn grows the crack outward evenly from the centre.
+export function CRACKS(seed = 1037) {
+  if (crackCache && seed === 1037) return crackCache;
+  const p = new Painter(N, N, seed);
+  const seen = new Set(), pts = [];
+  const free = (x, y) => x >= 0 && y >= 0 && x < N && y < N && !seen.has(y * N + x);
+  const nbs = (x, y) => [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, -1], [1, -1], [-1, 1]].filter(([dx, dy]) => seen.has((y + dy) * N + x + dx) && x + dx >= 0 && x + dx < N).length;
+  const add = (x, y) => { seen.add(y * N + x); pts.push([x, y]); };
+  add(7, 7);
+  let tips = [[7, 7, 1, 1, 11], [7, 7, -1, -1, 11], [7, 7, 1, -1, 10], [7, 7, -1, 1, 10]];
+  for (let step = 0; step < 80 && pts.length < 100; step++) {
+    const next = [];
+    for (const t of tips) {
+      const [x, y, sx, sy, life] = t;
+      if (life <= 0) continue;
+      const opts = p.chance(0.5) ? [[sx, 0], [0, sy]] : [[0, sy], [sx, 0]];
+      const mv = opts.find(([dx, dy]) => free(x + dx, y + dy) && nbs(x + dx, y + dy) <= 2);
+      if (!mv) continue;
+      const nx = x + mv[0], ny = y + mv[1];
+      add(nx, ny);
+      next.push([nx, ny, sx, sy, life - 1]);
+      if (p.chance(0.16) && next.length + tips.length < 12) next.push([nx, ny, p.chance(0.5) ? -sx : sx, p.chance(0.5) ? sy : -sy, 2 + p.rand(4)]);
     }
-  };
-  for (let k = 0; k < 7; k++) walk(5 + p.rand(6), 5 + p.rand(6), p.rand(4), 9);
-  crackCache = pts;
+    tips = next;
+    if (!tips.length) { const [x, y] = pts[p.rand(pts.length)]; tips = [[x, y, p.chance(0.5) ? 1 : -1, p.chance(0.5) ? 1 : -1, 3 + p.rand(4)]]; }
+  }
+  if (seed === 1037) crackCache = pts;
   return pts;
 }
 
