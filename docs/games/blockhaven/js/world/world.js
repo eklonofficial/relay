@@ -1,7 +1,7 @@
 // Chunk storage, streaming, edits and queries for one dimension.
-import { CHUNK, HEIGHT, PAD, PS, B, OPAQUE, SOLID, EMIT, VARIANT_MASK, SHAPE_OF, SHAPE, DIM } from '../data/blocks.js?v=muo2mobr';
-import { VOLUME_SIZE } from '../mesh/mesher.js?v=muo2mobr';
-import { selectionBoxes, collisionBoxes } from '../data/shapes.js?v=muo2mobr';
+import { CHUNK, HEIGHT, PAD, PS, B, OPAQUE, SOLID, EMIT, VARIANT_MASK, SHAPE_OF, SHAPE, DIM } from '../data/blocks.js?v=muo2sewa';
+import { VOLUME_SIZE } from '../mesh/mesher.js?v=muo2sewa';
+import { selectionBoxes, collisionBoxes } from '../data/shapes.js?v=muo2sewa';
 
 export const UNLOADED = 255;
 export const chunkKey = (cx, cz) => `${cx},${cz}`;
@@ -27,12 +27,13 @@ export class World {
     this.nextJob = 1;
     this.pendingLocates = new Map();
     this.uploads = new Map();
+    this.openChests = new Set(); // chests whose lid is drawn animated (meshed base-only)
     // Per-frame time budget for GPU mesh uploads so streaming chunks never causes hitches.
     this.uploadBudget = /CrOS/.test(navigator.userAgent) || (navigator.hardwareConcurrency || 8) <= 4 ? 2.5 : 5;
     const count = Math.max(1, Math.min(4, (navigator.hardwareConcurrency || 4) - 1));
     this.workers = [];
     for (let i = 0; i < count; i++) {
-      const w = new Worker(new URL('../worker.js?v=muo2mobr', import.meta.url), { type: 'module' });
+      const w = new Worker(new URL('../worker.js?v=muo2sewa', import.meta.url), { type: 'module' });
       w.busy = 0;
       w.onmessage = e => this.onWorkerMessage(w, e.data);
       w.onerror = e => console.error('worker error', e.message);
@@ -174,7 +175,20 @@ export class World {
         }
       }
     }
+    // Open chests nearby lose their lid in the mesh; it is drawn swinging instead.
+    for (const k of this.openChests) {
+      const [x, y, z] = k.split(',').map(Number), px = x - cx * CHUNK + PAD, pz = z - cz * CHUNK + PAD;
+      if (px < 0 || pz < 0 || px >= S || pz >= S || y < 0 || y >= HEIGHT) continue;
+      meta[px + pz * S + (y + 1) * SS] |= 16;
+    }
     return { ids, meta, biomes };
+  }
+  setChestOpen(x, y, z, open) {
+    const k = posKey(x, y, z);
+    if (open === this.openChests.has(k)) return;
+    if (open) this.openChests.add(k); else this.openChests.delete(k);
+    const c = this.chunkAt(x, z);
+    if (c) { c.version++; c.priority = 1; }
   }
 
   getBlock(x, y, z) {

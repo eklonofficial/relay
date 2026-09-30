@@ -1,10 +1,10 @@
 // Player actions: mining, placing, using items and blocks, attacking.
-import { meleeDamage, isCrit, knockStrength, isSword, SWEEP_DAMAGE, SHIELD_DELAY, SHIELD_DISABLE } from './combat.js?v=muo2mobr';
-import { B, BLOCKS, SOLID, OPAQUE, SHAPE_OF, SHAPE, props, st, DIM, FACING_SHIFT, AXIS_SHIFT, VARIANT_MASK } from '../data/blocks.js?v=muo2mobr';
-import { I, breakTime } from '../data/items.js?v=muo2mobr';
-import { collisionBoxes, selectionBoxes } from '../data/shapes.js?v=muo2mobr';
-import { UNLOADED, posKey } from '../world/world.js?v=muo2mobr';
-import { forward } from '../core/math.js?v=muo2mobr';
+import { meleeDamage, isCrit, knockStrength, isSword, SWEEP_DAMAGE, SHIELD_DELAY, SHIELD_DISABLE } from './combat.js?v=muo2sewa';
+import { B, BLOCKS, SOLID, OPAQUE, SHAPE_OF, SHAPE, props, st, DIM, FACING_SHIFT, AXIS_SHIFT, VARIANT_MASK } from '../data/blocks.js?v=muo2sewa';
+import { I, breakTime } from '../data/items.js?v=muo2sewa';
+import { collisionBoxes, selectionBoxes } from '../data/shapes.js?v=muo2sewa';
+import { UNLOADED, posKey } from '../world/world.js?v=muo2sewa';
+import { forward } from '../core/math.js?v=muo2sewa';
 
 const DIRS = [[0, 1], [-1, 0], [0, -1], [1, 0]];
 export const dirIndex = (x, z) => (Math.abs(x) > Math.abs(z) ? (x > 0 ? 3 : 1) : (z > 0 ? 0 : 2));
@@ -247,7 +247,7 @@ export class Interact {
     switch (b.key) {
       case 'crafting_table': g.gui.openCrafting(); return true;
       case 'furnace': { let be = g.blockEntity(t.x, t.y, t.z); if (!be) { be = { type: 'furnace', x: t.x, y: t.y, z: t.z, items: [] }; w.blockEntities.set(posKey(t.x, t.y, t.z), be); } g.containerOf(be, 3); g.gui.openFurnace(be); return true; }
-      case 'chest': { let be = g.blockEntity(t.x, t.y, t.z); if (!be) { be = { type: 'chest', x: t.x, y: t.y, z: t.z, items: [] }; w.blockEntities.set(posKey(t.x, t.y, t.z), be); } g.sound.play('chest_open', [t.x, t.y, t.z], 0.6); g.gui.openChest(g.containerOf(be, 27), 'Chest', () => g.sound.play('chest_close', [t.x, t.y, t.z], 0.6)); return true; }
+      case 'chest': { let be = g.blockEntity(t.x, t.y, t.z); if (!be) { be = { type: 'chest', x: t.x, y: t.y, z: t.z, items: [] }; w.blockEntities.set(posKey(t.x, t.y, t.z), be); } g.chestViewer(t.x, t.y, t.z, 1, true); g.gui.openChest(g.containerOf(be, 27), 'Chest', () => g.chestViewer(t.x, t.y, t.z, -1, true)); return true; }
       case 'misc':
         if (key === 'barrel') { let be = g.blockEntity(t.x, t.y, t.z); if (!be) { be = { type: 'chest', x: t.x, y: t.y, z: t.z, items: [] }; w.blockEntities.set(posKey(t.x, t.y, t.z), be); } g.gui.openChest(g.containerOf(be, 27), 'Barrel'); return true; }
         if (key === 'note_block') { const n = ((m >> 3) + 1) % 25; w.setBlock(t.x, t.y, t.z, id, (m & 7) | (n << 3)); g.sound.tone(220 * Math.pow(2, n / 12), 220 * Math.pow(2, n / 12), 0.8, 0.25, 'triangle'); g.particles.fx('note', [t.x + 0.5, t.y + 1.2, t.z + 0.5], 1, 0, 0, [n / 24, 1 - n / 24, 0.5]); return true; }

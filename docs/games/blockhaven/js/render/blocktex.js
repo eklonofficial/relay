@@ -1,6 +1,6 @@
 // Procedural 16x16 block textures. Every name registered in data/blocks.js must be drawable here.
-import { Painter, ramp, shade, mixHex, hex } from './paint.js?v=muo2mobr';
-import { TEXTURES, COLORS } from '../data/blocks.js?v=muo2mobr';
+import { Painter, ramp, shade, mixHex, hex } from './paint.js?v=muo2sewa';
+import { TEXTURES, COLORS } from '../data/blocks.js?v=muo2sewa';
 
 const N = 16;
 
@@ -525,7 +525,7 @@ const G = {
   },
   furnace_front_on: p => { G.furnace_front(p); p.rect(4, 9, 8, 4, '#3a1a08'); p.rect(5, 11, 6, 2, '#ff8f1f'); p.rect(6, 10, 4, 1, '#ffd24a'); p.put(7, 9, '#fff3a0'); return p; },
   chest_top: p => { planks(p, '#a1742e'); p.frame(0, 0, 16, 16, '#4a3312'); p.frame(1, 1, 14, 14, '#6e4f1f'); return p; },
-  chest_side: p => { planks(p, '#a1742e'); p.frame(0, 0, 16, 16, '#4a3312'); p.hline(0, 5, 16, '#4a3312'); return p; },
+  chest_side: p => { planks(p, '#a1742e'); p.frame(0, 0, 16, 16, '#4a3312'); p.hline(0, 6, 16, '#4a3312'); return p; },
   chest_front: p => { G.chest_side(p); p.rect(7, 4, 2, 4, '#c9c9c9'); p.rect(7, 7, 2, 1, '#7a7a7a'); return p; },
   bed_side: p => { p.fill('#8e1f1f'); p.rect(0, 0, 16, 3, '#b52a2a'); p.rect(0, 9, 16, 7, '#000000', 0); p.rect(0, 9, 2, 7, '#a2824e'); p.rect(14, 9, 2, 7, '#a2824e'); return p.bleed(); },
   bed_top_foot: p => { p.fill('#b52a2a'); p.noise(['#a12626', '#b52a2a', '#c23232'], { clump: 3, grain: 0.2 }); p.frame(0, 0, 16, 16, '#8e1f1f'); return p; },

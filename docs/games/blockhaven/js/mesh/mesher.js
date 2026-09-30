@@ -4,8 +4,8 @@ import {
   CHUNK, HEIGHT, PAD, PS, B, SHAPE, VF, TINT, TEX,
   OPAQUE, SHAPE_OF, TRANSLUCENT, EMIT, ATTEN, VFLAGS, CULL_SAME, TINT_OF, WATERLOGGED, VARIANT_MASK,
   FACING_SHIFT, AXIS_SHIFT, FACE_TEX, CROP_STAGES, CROP_TEX,
-} from '../data/blocks.js?v=muo2mobr';
-import { BIOME_COLORS } from '../gen/biomes.js?v=muo2mobr';
+} from '../data/blocks.js?v=muo2sewa';
+import { BIOME_COLORS } from '../gen/biomes.js?v=muo2sewa';
 
 export const H2 = HEIGHT + 2;
 export const VOLUME_SIZE = PS * PS * H2;
@@ -483,8 +483,13 @@ function special(bufO, bufT, i, id, m, shape, ox, oy, oz, x, y, z) {
     case SHAPE.CHEST: {
       const facing = m & 3, L = six(id, m);
       L6[4] = texOf(id, m, 6);
-      rbox(buf, i, ox, oy, oz, facing, 1, 0, 1, 15, 14, 15, L, flags);
-      rbox(buf, i, ox, oy, oz, facing, 7, 7, 15, 9, 11, 16, sixOf(TEX.iron_block ?? texOf(id, m, 6)), flags);
+      // Base and lid are separate boxes like the original. Meta bit 16: base only (an open chest in
+      // the world, its lid drawn animated); bit 32: lid and latch only (that animated lid).
+      if (!(m & 32)) rbox(buf, i, ox, oy, oz, facing, 1, 0, 1, 15, 10, 15, L, flags);
+      if (!(m & 16)) {
+        rbox(buf, i, ox, oy, oz, facing, 1, 10, 1, 15, 14, 15, L, flags);
+        rbox(buf, i, ox, oy, oz, facing, 7, 7, 15, 9, 11, 16, sixOf(TEX.iron_block ?? texOf(id, m, 6)), flags);
+      }
       break;
     }
     case SHAPE.BED: {

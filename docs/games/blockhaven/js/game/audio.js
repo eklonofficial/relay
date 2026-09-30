@@ -6,7 +6,7 @@ const MATERIAL = {
 };
 // Mob voices: [base freq, type, duration, sweep, noise]
 
-import { MusicPlayer } from './music.js?v=muo2mobr';
+import { MusicPlayer } from './music.js?v=muo2sewa';
 
 const VOWEL = { a: [[730, 6, 1.2], [1090, 7, 0.9], [2440, 9, 0.3]], o: [[450, 6, 1.2], [800, 7, 0.9], [2800, 9, 0.2]], u: [[320, 6, 1.3], [870, 7, 0.7], [2250, 9, 0.2]] };
 const MOB_VOICE_ALIAS = { polar_bear: 'bear', zombified_piglin: 'zpiglin', wandering_trader: 'villager', pillager: 'illager', vindicator: 'illager', evoker: 'illager', iron_golem: 'golem', snow_golem: 'snowgolem', husk: 'zombie', drowned: 'zombie', zombie_villager: 'zombie', stray: 'skeleton', wither_skeleton: 'skeleton', cave_spider: 'spider', magma_cube: 'slime', mooshroom: 'cow', donkey: 'horse', camel: 'horse', mule: 'horse', endermite: 'silverfish', ender_dragon: 'dragon', glow_squid: 'squid', cod: 'fish', salmon: 'fish', tropical_fish: 'fish', pufferfish: 'fish' };
@@ -120,8 +120,8 @@ export class Sound {
       case 'swim': this.noiseSweep(1200, 400, 0.3, 0.15, out); break;
       case 'door_open': this.burst('wood', 0.2, 0.7, 0.7, pos); T(220, 180, 0.2, 0.1, 'triangle'); break;
       case 'door_close': this.burst('wood', 0.12, 0.9, 0.6, pos); break;
-      case 'chest_open': this.burst('wood', 0.3, 0.6, 0.5, pos); T(160, 240, 0.3, 0.08, 'triangle'); break;
-      case 'chest_close': this.burst('wood', 0.15, 0.8, 0.5, pos); break;
+      case 'chest_open': this.pulses(out, { count: 1, freq: 1800, q: 3, gain: 0.3, len: 0.04 }); this.creak(out, { t: 0.03, dur: 0.5, f0: 95 * pitch, f1: 170 * pitch, gain: 0.3 }); break;
+      case 'chest_close': this.creak(out, { dur: 0.22, f0: 150 * pitch, f1: 105 * pitch, gain: 0.22 }); this.pulses(out, { t: 0.2, count: 1, freq: 380, q: 1.2, gain: 0.7, len: 0.12, type: 'lowpass' }); this.pulses(out, { t: 0.21, count: 2, gap: 0.03, freq: 1400, q: 2, gain: 0.25, len: 0.04 }); break;
       case 'glass': for (let i = 0; i < 4; i++) this.burst('glass', 0.3, 0.6, 1 + i * 0.2, pos); break;
       case 'thunder': this.noiseSweep(400, 30, 4, 1.6, out); T(50, 25, 3, 0.6, 'sine'); break;
       case 'shear': this.noiseSweep(5000, 2500, 0.1, 0.3, out, 'bandpass'); break;
@@ -163,6 +163,24 @@ export class Sound {
     for (const [ff, q, g] of formants) { const bp = c.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = ff; bp.Q.value = q; const fg = c.createGain(); fg.gain.value = g; mix.connect(bp).connect(fg).connect(env); }
     env.connect(out);
     src.start(now); src.stop(now + dur + 0.05);
+  }
+  // A wooden hinge creak: a stick-slip buzz whose pitch drifts, chopped into a ratchety grain and
+  // coloured by the resonances of a wooden box.
+  creak(out, { t = 0, dur = 0.4, f0 = 100, f1 = 160, gain = 0.3 }) {
+    const c = this.ctx, now = c.currentTime + t;
+    const o = c.createOscillator(); o.type = 'sawtooth';
+    o.frequency.setValueAtTime(f0, now);
+    // Irregular pitch wander, like a hinge catching and slipping.
+    for (let k = 1; k <= 6; k++) o.frequency.linearRampToValueAtTime(f0 + (f1 - f0) * (k / 6) * (0.85 + Math.random() * 0.3), now + dur * k / 6);
+    const grain = c.createOscillator(); grain.type = 'square'; grain.frequency.value = 22 + Math.random() * 14;
+    const gd = c.createGain(); gd.gain.value = 0.45;
+    const chop = c.createGain(); chop.gain.value = 0.55;
+    grain.connect(gd).connect(chop.gain);
+    const env = c.createGain(); env.gain.setValueAtTime(0.0001, now); env.gain.linearRampToValueAtTime(gain, now + dur * 0.15); env.gain.linearRampToValueAtTime(gain * 0.8, now + dur * 0.75); env.gain.exponentialRampToValueAtTime(0.0005, now + dur);
+    const mix = c.createGain();
+    for (const [f, q, g] of [[720, 4, 1], [1650, 5, 0.6], [3100, 6, 0.25]]) { const bp = c.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = f * (0.95 + Math.random() * 0.1); bp.Q.value = q; const bg = c.createGain(); bg.gain.value = g; o.connect(bp).connect(bg).connect(mix); }
+    mix.connect(chop).connect(env).connect(out);
+    o.start(now); o.stop(now + dur + 0.05); grain.start(now); grain.stop(now + dur + 0.05);
   }
   // Short filtered-noise pulses (rattles, clicks, chitters, crackles).
   pulses(out, { t = 0, count = 6, gap = 0.05, freq = 2500, q = 4, gain = 0.3, len = 0.025, type = 'bandpass', spread = 0.3 }) {

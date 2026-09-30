@@ -1,33 +1,33 @@
 // Blockhaven bootstrap: assets, menus, input, camera, frame loop.
-import { Demo, DEMO_SEED } from './demo.js?v=muo2mobr';
-import { armorModel, armorSkinKey, ARMOR_MATERIALS, ARMOR_PIECES, elytraModel } from './data/armor.js?v=muo2mobr';
-import { TEXTURES, TEX, B, BLOCKS, DIM, DIM_NAMES, SHAPE_OF, SHAPE, props } from './data/blocks.js?v=muo2mobr';
-import { I, ITEMS } from './data/items.js?v=muo2mobr';
-import { MOBS, PROFESSIONS, playerModel, saddleModel, PLAYER_SKINS } from './data/mobs.js?v=muo2mobr';
-import { Net, cleanCode, cleanName, MAX_PLAYERS } from './net/net.js?v=muo2mobr';
-import { NameTags } from './net/nametags.js?v=muo2mobr';
-import { BIOMES } from './gen/biomes.js?v=muo2mobr';
-import { generateBlockTextures } from './render/blocktex.js?v=muo2mobr';
-import { generateItemTextures, ITEM_LAYER, FX_LAYER, ITEM_LAYER_COUNT } from './render/itemtex.js?v=muo2mobr';
-import { packModel, paintModel, SKIN, faceRects } from './render/mobtex.js?v=muo2mobr';
-import { buildMipChain } from './render/atlas.js?v=muo2mobr';
-import { Renderer, Batch } from './render/renderer.js?v=muo2mobr';
-import { World, UNLOADED } from './world/world.js?v=muo2mobr';
-import { createGenerator } from './gen/index.js?v=muo2mobr';
-import { Game } from './game/game.js?v=muo2mobr';
-import { Interact } from './game/interact.js?v=muo2mobr';
-import { Commands } from './game/commands.js?v=muo2mobr';
-import { GUI, HUD } from './game/ui.js?v=muo2mobr';
-import { buildIcons, hudSprites } from './game/icons.js?v=muo2mobr';
-import { Sound } from './game/audio.js?v=muo2mobr';
-import { buildLogo, buttonTexture, iconDataURL } from './render/logo.js?v=muo2mobr';
-import { computeEnv } from './game/env.js?v=muo2mobr';
-import { guideSections } from './game/guide.js?v=muo2mobr';
-import { listWorlds, loadWorld, saveWorld, deleteWorld } from './game/storage.js?v=muo2mobr';
-import { drawModel, rootMatrix, M } from './entity/entity.js?v=muo2mobr';
-import { itemMesh, emitItemMesh } from './entity/itemmesh.js?v=muo2mobr';
-import { Lightning } from './entity/objects.js?v=muo2mobr';
-import { compose, translation, rotationX, rotationY, rotationZ, scaling, forward, mat4 } from './core/math.js?v=muo2mobr';
+import { Demo, DEMO_SEED } from './demo.js?v=muo2sewa';
+import { armorModel, armorSkinKey, ARMOR_MATERIALS, ARMOR_PIECES, elytraModel } from './data/armor.js?v=muo2sewa';
+import { TEXTURES, TEX, B, BLOCKS, DIM, DIM_NAMES, SHAPE_OF, SHAPE, props } from './data/blocks.js?v=muo2sewa';
+import { I, ITEMS } from './data/items.js?v=muo2sewa';
+import { MOBS, PROFESSIONS, playerModel, saddleModel, PLAYER_SKINS } from './data/mobs.js?v=muo2sewa';
+import { Net, cleanCode, cleanName, MAX_PLAYERS } from './net/net.js?v=muo2sewa';
+import { NameTags } from './net/nametags.js?v=muo2sewa';
+import { BIOMES } from './gen/biomes.js?v=muo2sewa';
+import { generateBlockTextures } from './render/blocktex.js?v=muo2sewa';
+import { generateItemTextures, ITEM_LAYER, FX_LAYER, ITEM_LAYER_COUNT } from './render/itemtex.js?v=muo2sewa';
+import { packModel, paintModel, SKIN, faceRects } from './render/mobtex.js?v=muo2sewa';
+import { buildMipChain } from './render/atlas.js?v=muo2sewa';
+import { Renderer, Batch } from './render/renderer.js?v=muo2sewa';
+import { World, UNLOADED } from './world/world.js?v=muo2sewa';
+import { createGenerator } from './gen/index.js?v=muo2sewa';
+import { Game } from './game/game.js?v=muo2sewa';
+import { Interact } from './game/interact.js?v=muo2sewa';
+import { Commands } from './game/commands.js?v=muo2sewa';
+import { GUI, HUD } from './game/ui.js?v=muo2sewa';
+import { buildIcons, hudSprites } from './game/icons.js?v=muo2sewa';
+import { Sound } from './game/audio.js?v=muo2sewa';
+import { buildLogo, buttonTexture, iconDataURL } from './render/logo.js?v=muo2sewa';
+import { computeEnv } from './game/env.js?v=muo2sewa';
+import { guideSections } from './game/guide.js?v=muo2sewa';
+import { listWorlds, loadWorld, saveWorld, deleteWorld } from './game/storage.js?v=muo2sewa';
+import { drawModel, rootMatrix, M } from './entity/entity.js?v=muo2sewa';
+import { itemMesh, emitItemMesh } from './entity/itemmesh.js?v=muo2sewa';
+import { Lightning } from './entity/objects.js?v=muo2sewa';
+import { compose, translation, rotationX, rotationY, rotationZ, scaling, forward, mat4 } from './core/math.js?v=muo2sewa';
 
 const $ = id => document.getElementById(id);
 const SETTINGS_KEY = 'blockhaven.settings.v2';
@@ -824,6 +824,14 @@ class App {
       e.render(ctx);
     }
     g.particles.render(ctx);
+    // Chest lids swinging on their back hinge (ease-out like the original's lid curve).
+    for (const a of g.chestAnims.values()) {
+      const e = 1 - (1 - a.open) ** 3, facing = g.world.getMeta(a.x, a.y, a.z) & 3;
+      const l = g.world.lightAt(a.x, a.y + 1, a.z), sky = Math.pow(0.8, 15 - l.sky), blk = Math.pow(0.82, 15 - l.blk);
+      const light = Math.max(sky * g.env.skyLight[0], blk * 1.1, g.env.ambient[0]);
+      const matrix = compose(translation(a.x + 0.5, a.y, a.z + 0.5), rotationY(-facing * Math.PI / 2), translation(-0.5, 0, -0.5), translation(0, 10 / 16, 1 / 16), rotationX(-e * Math.PI / 2), translation(0, -10 / 16, -1 / 16));
+      ctx.blockModels.push({ id: B.CHEST, meta: 32, light, matrix });
+    }
     if (this.view > 0 && g.alive && g.mode !== 'spectator') this.drawPlayerModel(ctx);
     if (rain > 0.05) this.drawWeather(ctx, cam, rain);
     // Hand.
