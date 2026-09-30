@@ -1,7 +1,7 @@
 // First-person player movement: walking, sprinting, sneaking, swimming, climbing, flying and spectating.
-import { B, BLOCKS, SHAPE_OF, SHAPE, props } from '../data/blocks.js?v=munkt0s5';
-import { moveEntity } from '../entity/physics.js?v=munkt0s5';
-import { UNLOADED } from '../world/world.js?v=munkt0s5';
+import { B, BLOCKS, SHAPE_OF, SHAPE, props } from '../data/blocks.js?v=munkyndc';
+import { moveEntity } from '../entity/physics.js?v=munkyndc';
+import { UNLOADED } from '../world/world.js?v=munkyndc';
 
 export class Player {
   constructor(world) {
@@ -28,12 +28,39 @@ export class Player {
   blockAt(dy) { return this.world.getBlock(this.pos[0], this.pos[1] + dy, this.pos[2]); }
 
   jumpPressed(now) {
+    // Elytra: press jump while falling to spread the wings.
+    if (!this.gliding && !this.flying && !this.onGround && !this.inWater && !this.climbing && this.hasElytra && this.hasElytra()) { this.gliding = true; this.glideAcc = 0; this.lastJumpTap = -1; return; }
     if (this.canFly && now - this.lastJumpTap < 0.3) {
       if (this.mode !== 'spectator') { this.flying = !this.flying; this.vel[1] = 0; }
       this.lastJumpTap = -1;
     } else this.lastJumpTap = now;
   }
 
+  // Elytra flight, stepped at Minecraft's 20 ticks/second with its exact per-tick equations
+  // (velocity in blocks/tick; pitch is positive when looking up here, so it's negated).
+  glide(dt) {
+    this.preSpeed = Math.hypot(this.vel[0], this.vel[2]) / 20;
+    this.preVel = this.vel.slice();
+    this.glideAcc = (this.glideAcc || 0) + dt;
+    let mx = this.vel[0] / 20, my = this.vel[1] / 20, mz = this.vel[2] / 20;
+    while (this.glideAcc >= 0.05) {
+      this.glideAcc -= 0.05;
+      const f = -this.pitch;
+      const lx = -Math.sin(this.yaw) * Math.cos(f), ly = -Math.sin(f), lz = -Math.cos(this.yaw) * Math.cos(f);
+      const d6 = Math.hypot(lx, lz), d8 = Math.hypot(mx, mz);
+      let f4 = Math.cos(f); f4 = f4 * f4;
+      my += -0.08 + f4 * 0.06;
+      if (my < 0 && d6 > 0) { const d2 = my * -0.1 * f4; my += d2; mx += lx * d2 / d6; mz += lz * d2 / d6; }
+      if (f < 0 && d6 > 0) { const d10 = d8 * -Math.sin(f) * 0.04; my += d10 * 3.2; mx -= lx * d10 / d6; mz -= lz * d10 / d6; }
+      if (d6 > 0) { mx += (lx / d6 * d8 - mx) * 0.1; mz += (lz / d6 * d8 - mz) * 0.1; }
+      mx *= 0.99; my *= 0.98; mz *= 0.99;
+      // Firework boost.
+      if (this.boostT > 0) { this.boostT -= 0.05; mx += lx * 0.1 + (lx * 1.5 - mx) * 0.5; my += ly * 0.1 + (ly * 1.5 - my) * 0.5; mz += lz * 0.1 + (lz * 1.5 - mz) * 0.5; }
+      this.glideTicks = (this.glideTicks || 0) + 1;
+      if (this.glideTicks % 20 === 0 && this.onGlideSecond) this.onGlideSecond();
+    }
+    this.vel = [mx * 20, my * 20, mz * 20];
+  }
   sampleMedium() {
     const w = this.world;
     const feet = this.blockAt(0.1), mid = this.blockAt(0.9);
@@ -89,10 +116,14 @@ export class Player {
     const slippery = this.onGround && this.ground > 0 && this.ground !== UNLOADED && BLOCKS[this.ground].slippery;
     const accel = this.flying ? 10 : this.onGround ? (slippery ? 2.2 : 18) : this.inWater ? 6 : 4.5;
     const k = 1 - Math.exp(-accel * dt);
-    this.vel[0] += (wx * speed - this.vel[0]) * k;
-    this.vel[2] += (wz * speed - this.vel[2]) * k;
+    if (!this.gliding) {
+      this.vel[0] += (wx * speed - this.vel[0]) * k;
+      this.vel[2] += (wz * speed - this.vel[2]) * k;
+    }
 
-    if (this.flying) {
+    if (this.gliding) {
+      this.glide(dt);
+    } else if (this.flying) {
       const vy = ((input.jump ? 1 : 0) - (input.sneak ? 1 : 0)) * (this.mode === 'spectator' ? 12 : 9);
       this.vel[1] += (vy - this.vel[1]) * (1 - Math.exp(-10 * dt));
     } else if (this.inWater || this.inLava) {
@@ -127,10 +158,18 @@ export class Player {
       moveEntity(this.world, this, this.vel[0] * sdt, this.vel[1] * sdt, this.vel[2] * sdt);
       if (this.collidedH) hitWall = true;
     }
+    // Flying into a wall with the elytra hurts: (speed lost x 10) - 3, as in the original.
+    if (this.gliding && hitWall && this.onKinetic) {
+      const after = Math.hypot(this.vel[0], this.vel[2]) / 20;
+      const dmg = (this.preSpeed - after) * 10 - 3;
+      if (dmg > 0) this.onKinetic(dmg);
+    }
+    if (this.gliding && (this.onGround || this.inWater || this.climbing || this.flying || (this.hasElytra && !this.hasElytra()))) this.gliding = false;
     this.collidedH = hitWall;
     if (this.onGround && this.flying && this.mode !== 'spectator') this.flying = false;
 
-    // Fall tracking for fall damage.
+    // Fall tracking for fall damage (gliding at a gentle sink rate doesn't accumulate it).
+    if (this.gliding && this.vel[1] > -10) this.fallStart = this.pos[1];
     if (this.onGround || this.inWater || this.climbing || this.flying || this.inWeb) {
       if (this.fallStart !== null && this.onLand && !this.flying) this.onLand(this.fallStart - this.pos[1], this.inWater);
       this.fallStart = null;

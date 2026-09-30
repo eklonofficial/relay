@@ -1,6 +1,6 @@
 // Item registry: every block item plus tools, weapons, armor, food and materials.
-import { BLOCK_ITEMS, BLOCKS, COLORS, SHAPE, st } from './blocks.js?v=munkt0s5';
-import { EGG_MOBS } from './mobs.js?v=munkt0s5';
+import { BLOCK_ITEMS, BLOCKS, COLORS, SHAPE, st } from './blocks.js?v=munkyndc';
+import { EGG_MOBS } from './mobs.js?v=munkyndc';
 
 export const ITEMS = [];
 export const I = {};          // key -> item
@@ -46,6 +46,7 @@ Object.entries(TIERS).forEach(([mat, t], ti) => {
 add('shears', { stack: 1, tab: 'tools', kind: 'tool', tool: { type: 'shears', tier: 0, speed: 5 }, durability: 238, damage: 1 });
 add('flint_and_steel', { stack: 1, tab: 'tools', kind: 'use', use: 'ignite', durability: 64 });
 add('fire_charge', { tab: 'combat', kind: 'use', use: 'ignite_once' });
+add('firework_rocket', { tab: 'tools', kind: 'use', use: 'firework' });
 add('bow', { stack: 1, tab: 'combat', kind: 'bow', durability: 384, damage: 1, fuel: 15 });
 add('crossbow', { stack: 1, tab: 'combat', kind: 'bow', durability: 465, damage: 1, crossbow: true });
 add('arrow', { tab: 'combat' });

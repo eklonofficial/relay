@@ -1,24 +1,24 @@
 // The running game: world + dimensions, player survival state, entities, simulation, weather and saving.
-import { B, BLOCKS, SOLID, OPAQUE, DIM, DIM_NAMES, HEIGHT, SEA, props, st, SHAPE_OF, SHAPE } from '../data/blocks.js?v=munkt0s5';
-import { I, maxStack } from '../data/items.js?v=munkt0s5';
-import { SMELTING } from '../data/recipes.js?v=munkt0s5';
-import { MOBS } from '../data/mobs.js?v=munkt0s5';
-import { BIOMES, COLD } from '../gen/biomes.js?v=munkt0s5';
-import { World, UNLOADED, posKey } from '../world/world.js?v=munkt0s5';
-import { Player } from './player.js?v=munkt0s5';
-import { PlayerInventory, Container } from './inventory.js?v=munkt0s5';
-import { EntityManager } from '../entity/entity.js?v=munkt0s5';
-import { ItemEntity, XpOrb, FallingBlock, PrimedTnt, Lightning, Projectile } from '../entity/objects.js?v=munkt0s5';
-import { Mob, RIDEABLE } from '../entity/mob.js?v=munkt0s5';
-import { Particles } from './particles.js?v=munkt0s5';
-import { Sim } from './sim.js?v=munkt0s5';
-import { blockDrops } from './drops.js?v=munkt0s5';
-import { computeEnv } from './env.js?v=munkt0s5';
-import { fuelOf } from './ui.js?v=munkt0s5';
-import { unlockLevel } from './trades.js?v=munkt0s5';
-import { forward } from '../core/math.js?v=munkt0s5';
-import { EndCrystal } from '../entity/crystal.js?v=munkt0s5';
-import { ARMOR_BYPASS, armorReduce, applyInvul, isAxe } from './combat.js?v=munkt0s5';
+import { B, BLOCKS, SOLID, OPAQUE, DIM, DIM_NAMES, HEIGHT, SEA, props, st, SHAPE_OF, SHAPE } from '../data/blocks.js?v=munkyndc';
+import { I, maxStack } from '../data/items.js?v=munkyndc';
+import { SMELTING } from '../data/recipes.js?v=munkyndc';
+import { MOBS } from '../data/mobs.js?v=munkyndc';
+import { BIOMES, COLD } from '../gen/biomes.js?v=munkyndc';
+import { World, UNLOADED, posKey } from '../world/world.js?v=munkyndc';
+import { Player } from './player.js?v=munkyndc';
+import { PlayerInventory, Container } from './inventory.js?v=munkyndc';
+import { EntityManager } from '../entity/entity.js?v=munkyndc';
+import { ItemEntity, XpOrb, FallingBlock, PrimedTnt, Lightning, Projectile } from '../entity/objects.js?v=munkyndc';
+import { Mob, RIDEABLE } from '../entity/mob.js?v=munkyndc';
+import { Particles } from './particles.js?v=munkyndc';
+import { Sim } from './sim.js?v=munkyndc';
+import { blockDrops } from './drops.js?v=munkyndc';
+import { computeEnv } from './env.js?v=munkyndc';
+import { fuelOf } from './ui.js?v=munkyndc';
+import { unlockLevel } from './trades.js?v=munkyndc';
+import { forward } from '../core/math.js?v=munkyndc';
+import { EndCrystal } from '../entity/crystal.js?v=munkyndc';
+import { ARMOR_BYPASS, armorReduce, applyInvul, isAxe } from './combat.js?v=munkyndc';
 
 export const DAY = 1200; // seconds per day
 const rnd = (a, b) => a + Math.random() * (b - a);
@@ -104,6 +104,30 @@ export class Game {
     p.onLand = (dist, water) => this.onLand(dist, water);
     p.onJump = () => this.exhaust(p.sprinting ? 0.2 : 0.05);
     p.autoJump = this.settings.autoJump;
+    const chest = () => this.inv.armor.get(1);
+    p.hasElytra = () => { const c = chest(); return !!(c && c.key === 'elytra' && (c.dmg || 0) < I.elytra.durability - 1); };
+    p.onKinetic = dmg => {
+      // Only real walls hurt, not the edge of terrain that hasn't streamed in yet.
+      const d = Math.hypot(p.preVel ? p.preVel[0] : 0, p.preVel ? p.preVel[2] : 0) || 1;
+      const ax = p.pos[0] + (p.preVel ? p.preVel[0] / d : 0) * 0.8, az = p.pos[2] + (p.preVel ? p.preVel[2] / d : 0) * 0.8;
+      if (!this.world.isLoaded(ax, az)) return;
+      this.damagePlayer(dmg, { kind: 'fall' });
+    };
+    p.onGlideSecond = () => {
+      const c = chest();
+      if (!c || this.mode === 'creative') return;
+      c.dmg = (c.dmg || 0) + 1; this.inv.armor.changed();
+      if (c.dmg >= I.elytra.durability - 1) { p.gliding = false; this.sound.play('break_item', p.pos, 0.6); }
+    };
+  }
+  // A firework rocket fired from the ground: climbs, then bursts into coloured sparks.
+  launchFirework(pos) {
+    const cols = [[1, 0.3, 0.3], [0.3, 0.6, 1], [1, 0.9, 0.3], [0.5, 1, 0.4], [1, 0.4, 1]];
+    const col = cols[Math.floor(Math.random() * cols.length)];
+    this.sound.play('firework', pos, 0.8);
+    const p = pos.slice();
+    for (let i = 0; i < 12; i++) this.later(i * 0.09, () => { p[1] += 1.4; this.particles.fx('smoke', p, 2, 0.1, 0.2); this.particles.fx('crit', p, 2, 0.1, 0.4); });
+    this.later(1.15, () => { this.particles.fx('white', p, 60, 0.3, 9, col); this.sound.play('firework_blast', p, 1); });
   }
   openWorld(dim) {
     if (this.world) this.world.dispose();

@@ -1,10 +1,10 @@
 // Player actions: mining, placing, using items and blocks, attacking.
-import { meleeDamage, isCrit, knockStrength, isSword } from './combat.js?v=munkt0s5';
-import { B, BLOCKS, SOLID, OPAQUE, SHAPE_OF, SHAPE, props, st, DIM, FACING_SHIFT, AXIS_SHIFT, VARIANT_MASK } from '../data/blocks.js?v=munkt0s5';
-import { I, breakTime } from '../data/items.js?v=munkt0s5';
-import { collisionBoxes, selectionBoxes } from '../data/shapes.js?v=munkt0s5';
-import { UNLOADED, posKey } from '../world/world.js?v=munkt0s5';
-import { forward } from '../core/math.js?v=munkt0s5';
+import { meleeDamage, isCrit, knockStrength, isSword } from './combat.js?v=munkyndc';
+import { B, BLOCKS, SOLID, OPAQUE, SHAPE_OF, SHAPE, props, st, DIM, FACING_SHIFT, AXIS_SHIFT, VARIANT_MASK } from '../data/blocks.js?v=munkyndc';
+import { I, breakTime } from '../data/items.js?v=munkyndc';
+import { collisionBoxes, selectionBoxes } from '../data/shapes.js?v=munkyndc';
+import { UNLOADED, posKey } from '../world/world.js?v=munkyndc';
+import { forward } from '../core/math.js?v=munkyndc';
 
 const DIRS = [[0, 1], [-1, 0], [0, -1], [1, 0]];
 export const dirIndex = (x, z) => (Math.abs(x) > Math.abs(z) ? (x > 0 ? 3 : 1) : (z > 0 ? 0 : 2));
@@ -401,6 +401,14 @@ export class Interact {
     const g = this.g, w = g.world, p = g.player, creative = g.mode === 'creative';
     const f = forward(p.yaw, p.pitch), eye = p.eyePos();
     switch (it.use) {
+      case 'firework': {
+        // Mid-glide: a boost. On the ground: a rocket launched at the targeted spot.
+        if (p.gliding) { p.boostT = 1.1; g.sound.play('firework', p.pos, 0.8); g.particles.fx('crit', p.pos, 10, 0.3, 2); }
+        else if (t) g.launchFirework([t.x + 0.5 + t.nx * 0.6, t.y + 0.5 + t.ny * 0.6, t.z + 0.5 + t.nz * 0.6]);
+        else return;
+        if (!creative) g.inv.consumeHeld();
+        return;
+      }
       case 'bucket': {
         const hit = w.raycast(eye, f, this.reach, { liquids: true });
         if (!hit || (hit.id !== B.WATER && hit.id !== B.LAVA) || (hit.meta & 15) !== 0) return;

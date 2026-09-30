@@ -1,9 +1,9 @@
 // Procedural 16x16 pixel art for every non-block item, plus particle/effect sprites.
 // Icons are painted with a few primitives, then given MC-style dark outlines automatically.
-import { Painter, shade, mixHex, ramp } from './paint.js?v=munkt0s5';
-import { ITEMS, I } from '../data/items.js?v=munkt0s5';
-import { TEXTURES, TEX, BLOCKS, FACE_TEX, VARIANT_MASK, COLORS } from '../data/blocks.js?v=munkt0s5';
-import { drawBlockTexture } from './blocktex.js?v=munkt0s5';
+import { Painter, shade, mixHex, ramp } from './paint.js?v=munkyndc';
+import { ITEMS, I } from '../data/items.js?v=munkyndc';
+import { TEXTURES, TEX, BLOCKS, FACE_TEX, VARIANT_MASK, COLORS } from '../data/blocks.js?v=munkyndc';
+import { drawBlockTexture } from './blocktex.js?v=munkyndc';
 
 const N = 16;
 export const MAT = {
@@ -259,6 +259,7 @@ const G = {
   arrow: p => arrow(p), spectral_arrow: p => arrow(p, MAT.golden),
   shield: p => { mask(p, ['................', '..############..', '..#3322222211#..', '..#3322222211#..', '..#3322222211#..', '..#3322222211#..', '..#3322222211#..', '..#2222222211#..', '...#222222211#..', '...#22222221#...', '....#2222221#...', '.....#22221#....', '......####......', '................', '................', '................'], MAT.wood, () => 0); for (let y = 2; y < 11; y++) p.put(8, y, MAT.iron[2]); outline(p); },
   trident: p => { line(p, 2, 14, 10, 6, '#3a8a7a'); line(p, 3, 14, 11, 6, '#2a6a5a'); for (const [a, b] of [[10, 2], [14, 6], [13, 3]]) line(p, 11, 5, a, b, '#6ad8b8'); outline(p); },
+  firework_rocket: p => { p.rect(6, 5, 4, 8, '#c83030'); p.rect(6, 5, 1, 8, '#e05050'); p.rect(9, 5, 1, 8, '#a02020'); p.rect(6, 7, 4, 1, '#f0f0f0'); p.rect(6, 10, 4, 1, '#f0f0f0'); p.rect(7, 3, 2, 2, '#d8d8d8'); p.put(8, 2, '#f0f0f0'); line(p, 8, 13, 8, 15, '#8a6a3a'); outline(p); },
   elytra: p => { blob(p, 5, 8, 3, 6, MAT.elytra, { rot: -0.2 }); blob(p, 11, 8, 3, 6, MAT.elytra, { rot: 0.2 }); outline(p); },
   // Food
   apple: p => { blob(p, 8, 9, 5, 4.6, ['#6a0a0a', '#b01818', '#e03030', '#ff7a6a']); p.put(8, 4, '#4a2a10'); p.put(9, 3, '#3a8a2a'); p.put(10, 3, '#4aa83a'); outline(p); },
