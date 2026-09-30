@@ -1,7 +1,7 @@
 // Inventory icons as data URLs: isometric cubes for blocks, crisp sprites for items.
-import { ITEMS } from '../data/items.js?v=muoh3kij';
-import { FACE_TEX, VARIANT_MASK, TINT_OF, TINT, SHAPE_OF, SHAPE, TRANSLUCENT } from '../data/blocks.js?v=muoh3kij';
-import { ITEM_LAYER } from '../render/itemtex.js?v=muoh3kij';
+import { ITEMS } from '../data/items.js?v=muok06n3';
+import { FACE_TEX, VARIANT_MASK, TINT_OF, TINT, SHAPE_OF, SHAPE, TRANSLUCENT } from '../data/blocks.js?v=muok06n3';
+import { ITEM_LAYER } from '../render/itemtex.js?v=muok06n3';
 
 const TINTS = { [TINT.GRASS]: [124, 189, 107], [TINT.FOLIAGE]: [72, 181, 24], [TINT.WATER]: [63, 118, 228] };
 
@@ -63,7 +63,8 @@ export function buildIcons(blockTex, itemTex) {
   return icons;
 }
 
-// Small pixel-art HUD sprites (hearts, food, armor, bubbles) as data URLs.
+// Small pixel-art HUD sprites (hearts, food, armor, bubbles) as data URLs, 9x9 like the original's.
+// Hearts are layered like Minecraft's: a container (outline + dark inside) under a full or left-half heart.
 export function hudSprites() {
   const draw = (rows, pal) => {
     const c = document.createElement('canvas');
@@ -72,24 +73,27 @@ export function hudSprites() {
     rows.forEach((row, y) => [...row].forEach((ch, x) => { if (pal[ch]) { ctx.fillStyle = pal[ch]; ctx.fillRect(x, y, 1, 1); } }));
     return c.toDataURL();
   };
-  const heart = ['.kk...kk.', 'krrk.krrk', 'krwrkrrrk', 'krrrrrrrk', 'krrrrrrrk', '.krrrrrk.', '..krrrk..', '...krk...', '....k....'];
-  const half = ['.kk...kk.', 'krrk.k..k', 'krwrk...k', 'krrrr...k', 'krrrr...k', '.krrr..k.', '..krr.k..', '...krk...', '....k....'];
-  const empty = ['.kk...kk.', 'k..k.k..k', 'k...k...k', 'k.......k', 'k.......k', '.k.....k.', '..k...k..', '...k.k...', '....k....'];
-  const food = ['.....kk..', '....kbbk.', '...kbwbk.', '..kmmbbk.', '.kmmmmk..', 'kmmmmmk..', 'kmmmmk...', '.kkkk....', '.........'];
-  const foodHalf = ['.....kk..', '....k..k.', '...k...k.', '..kmm..k.', '.kmmm.k..', 'kmmmm.k..', 'kmmmk....', '.kkkk....', '.........'];
-  const foodEmpty = ['.....kk..', '....k..k.', '...k...k.', '..k....k.', '.k....k..', 'k.....k..', 'k....k...', '.kkkk....', '.........'];
-  const armor = ['.kkk.kkk.', 'kaaakaaak', 'kaawaaaak', 'kaaaaaaak', '.kaaaaak.', '.kaaaaak.', '.kaaaaak.', '..kkkkk..', '.........'];
-  const armorHalf = ['.kkk.kkk.', 'kaaak...k', 'kaawk...k', 'kaaak...k', '.kaak..k.', '.kaak..k.', '.kaak..k.', '..kkkkk..', '.........'];
-  const armorEmpty = ['.kkk.kkk.', 'k...k...k', 'k.......k', 'k.......k', '.k.....k.', '.k.....k.', '.k.....k.', '..kkkkk..', '.........'];
-  const bubble = ['..kkkk...', '.kbbbbk..', 'kbwbbbbk.', 'kbbbbbbk.', 'kbbbbbbk.', 'kbbbbbbk.', '.kbbbbk..', '..kkkk...', '.........'];
-  const P = { k: '#1a1a1a', r: '#e02020', w: '#ff9a9a', b: '#a86a3a', m: '#c8864a', a: '#c8c8c8' };
+  const container = ['.KKK.KKK.', 'KcccKcccK', 'KcccccccK', 'KcccccccK', '.KcccccK.', '..KcccK..', '...KcK...', '....K....', '.........'];
+  const heart = ['.KKK.KKK.', 'KrwrKrrrK', 'KwrrrrrdK', 'KrrrrrrdK', '.KrrrrdK.', '..KrrdK..', '...KdK...', '....K....', '.........'];
+  const half = heart.map(r => r.slice(0, 5) + '....');
+  const food = ['......kk.', '.....kwwk', '....kbwk.', '..kkkbk..', '.kmhmkk..', 'kmhmmmk..', 'kmmmmmk..', 'kmmmmk...', '.kkkk....'];
+  const armor = ['.kkk.kkk.', 'kaaakaaak', 'kawaaaaak', 'kaaaaaaak', '.kaaaaak.', '.kaaaaak.', '.kaaaaak.', '..kkkkk..', '.........'];
+  const empty = (rows, from = 0) => rows.map(r => [...r].map((ch, x) => x >= from && ch !== 'k' && ch !== '.' ? 'c' : ch).join(''));
+  const foodHalf = empty(food, 4), foodEmpty = empty(food), armorHalf = empty(armor, 5), armorEmpty = empty(armor);
+  const bubble = ['..kkkk...', '.kbbbbk..', 'kbwbbbbk.', 'kbwbbbbk.', 'kbbbbbdk.', 'kbbbbddk.', '.kbddddk.', '..kkkk...', '.........'];
+  const K = '#000000', dim = 'rgba(0,0,0,0.42)';
+  const H = (r, w, d) => ({ K, r, w, d });
+  const red = H('#ff1313', '#ffffff', '#bb0f0f'), poison = H('#94a31a', '#dde07a', '#6a7410'), wither = H('#2b2b2b', '#6a6a6a', '#141414');
+  const gold = H('#f2c91a', '#fff7a0', '#c49a0c'), white = H('#ffffff', '#ffffff', '#dcdcdc');
+  const P = { k: K, c: dim, b: '#d8d0bc', w: '#ffffff', m: '#b4622a', h: '#e08c4a', a: '#dcdcdc' };
   return {
-    heart: draw(heart, P), heartHalf: draw(half, P), heartEmpty: draw(empty, { k: '#1a1a1a', '.': null }),
-    heartPoison: draw(heart, { ...P, r: '#8a9a2a', w: '#c8d86a' }), heartWither: draw(heart, { ...P, r: '#2a2a2a', w: '#5a5a5a' }),
-    heartGold: draw(heart, { ...P, r: '#e8b820', w: '#fff080' }),
-    food: draw(food, { ...P, w: '#ffffff' }), foodHalf: draw(foodHalf, P), foodEmpty: draw(foodEmpty, P),
-    foodHunger: draw(food, { ...P, m: '#6a8a2a', b: '#4a6a1a' }),
-    armor: draw(armor, { ...P, w: '#ffffff' }), armorHalf: draw(armorHalf, P), armorEmpty: draw(armorEmpty, P),
-    bubble: draw(bubble, { k: '#1a3a7a', b: '#4a8ae8', w: '#ffffff' }),
+    heartEmpty: draw(container, { K, c: dim }), heartBlink: draw(container, { K: '#ffffff', c: dim }),
+    heart: draw(heart, red), heartHalf: draw(half, red), heartWhite: draw(heart, white), heartWhiteHalf: draw(half, white),
+    heartPoison: draw(heart, poison), heartPoisonHalf: draw(half, poison), heartWither: draw(heart, wither), heartWitherHalf: draw(half, wither),
+    heartGold: draw(heart, gold), heartGoldHalf: draw(half, gold),
+    food: draw(food, P), foodHalf: draw(foodHalf, P), foodEmpty: draw(foodEmpty, P),
+    foodHunger: draw(food, { ...P, m: '#6a8a2a', h: '#8aae3a', b: '#b8c88a' }), foodHungerHalf: draw(foodHalf, { ...P, m: '#6a8a2a', h: '#8aae3a', b: '#b8c88a' }),
+    armor: draw(armor, P), armorHalf: draw(armorHalf, P), armorEmpty: draw(armorEmpty, P),
+    bubble: draw(bubble, { k: '#0d2f74', b: '#3f7fe8', d: '#2656b8', w: '#ffffff' }),
   };
 }

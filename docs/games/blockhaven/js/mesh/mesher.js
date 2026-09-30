@@ -4,9 +4,9 @@ import {
   CHUNK, HEIGHT, PAD, PS, B, SHAPE, VF, TINT, TEX,
   OPAQUE, SHAPE_OF, TRANSLUCENT, EMIT, ATTEN, VFLAGS, CULL_SAME, TINT_OF, WATERLOGGED, VARIANT_MASK,
   FACING_SHIFT, AXIS_SHIFT, FACE_TEX, CROP_STAGES, CROP_TEX,
-} from '../data/blocks.js?v=muoh3kij';
-import { BIOME_COLORS } from '../gen/biomes.js?v=muoh3kij';
-import { up6, rotY, attach, FACE_OF_DIR6, OPP6, DIR2D_OF_6 } from '../data/orient.js?v=muoh3kij';
+} from '../data/blocks.js?v=muok06n3';
+import { BIOME_COLORS } from '../gen/biomes.js?v=muok06n3';
+import { up6, rotY, attach, FACE_OF_DIR6, OPP6, DIR2D_OF_6 } from '../data/orient.js?v=muok06n3';
 
 export const H2 = HEIGHT + 2;
 export const VOLUME_SIZE = PS * PS * H2;

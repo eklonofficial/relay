@@ -1,11 +1,88 @@
-// Container GUIs (inventory, crafting, chest, furnace, creative, trading) and the HUD.
-import { I, ITEMS, TABS, maxStack, ARMOR_SLOTS } from '../data/items.js?v=muoh3kij';
-import { findRecipe, allRecipes, matches, SMELTING, TAGS } from '../data/recipes.js?v=muoh3kij';
-import { same } from './inventory.js?v=muoh3kij';
+// Container GUIs (inventory, crafting, chest, furnace, creative, trading) and the HUD, laid out in GUI pixels
+// (1 unit = var(--u)) at the original's coordinates: 176x166 panels, 18x18 slots, 16x16 icons.
+import { I, ITEMS, TABS, maxStack, ARMOR_SLOTS } from '../data/items.js?v=muok06n3';
+import { findRecipe, allRecipes, matches, SMELTING, TAGS } from '../data/recipes.js?v=muok06n3';
+import { same } from './inventory.js?v=muok06n3';
 
 const $ = id => document.getElementById(id);
 const el = (tag, cls, parent) => { const e = document.createElement(tag); if (cls) e.className = cls; if (parent) parent.appendChild(e); return e; };
 export const fuelOf = key => { const it = I[key]; if (!it) return 0; if (it.fuel) return it.fuel; if (TAGS.logs.includes(key) || TAGS.planks.includes(key)) return 15; if (/_slab$/.test(key) && TAGS.slabs_wood.includes(key)) return 7.5; if (key === 'coal_block') return 800; if (/_sapling$|stick|_fence$|ladder|crafting_table|chest|bookshelf|bowl|_door$|_trapdoor$/.test(key)) return 5; return 0; };
+const U = n => `calc(var(--u) * ${n})`;
+const at = (e, x, y, w, h) => { const s = e.style; s.left = U(x); s.top = U(y); if (w !== undefined) { s.width = U(w); s.height = U(h); } return e; };
+const guiScale = () => parseFloat(document.documentElement.style.getPropertyValue('--gs')) || parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--gs')) || 2;
+
+// ---------- pixel sprites (our own art, drawn once into data URLs) ----------
+const grid = (w, h, f) => Array.from({ length: h }, (_, y) => Array.from({ length: w }, (_, x) => f(x, y)).join(''));
+function pix(rows, pal) {
+  const c = document.createElement('canvas'); c.width = rows[0].length; c.height = rows.length;
+  const x = c.getContext('2d');
+  rows.forEach((r, j) => { for (let i = 0; i < r.length; i++) { const col = pal[r[i]]; if (col) { x.fillStyle = col; x.fillRect(i, j, 1, 1); } } });
+  return c.toDataURL();
+}
+// 9-slice panel: 1 px black outline with cut corners, 2 px light band top/left, 2 px dark band bottom/right.
+const PANEL = ['..KKKKK..', '.KWWWWWK.', 'KWWWWWGDK', 'KWWGGGDDK', 'KWWGGGDDK', 'KWWGGGDDK', 'KWGDDDDDK', '.KDDDDDK.', '..KKKKK..'];
+const arrow = (w, h, t) => { const m = (h - 1) / 2, hx = w - Math.ceil(h / 2); return grid(w, h, (x, y) => ((x < hx ? Math.abs(y - m) <= t : Math.abs(y - m) <= m - (x - hx)) ? 'a' : '.')); };
+const FLAME = ['..............', '......#.......', '......##......', '.....###...#..', '.....####..#..', '....#####.##..', '...#########..',
+  '..###########.', '..###########.', '.############.', '.############.', '.############.', '..##########..', '...########...'];
+const SIL = {
+  helmet: ['', '', '', '', '.....######.....', '...##########...', '..############..', '..############..', '..####....####..', '..###......###..', '..###......###..', '..##........##..'],
+  chestplate: ['', '..#####..#####..', '.##############.', '.##############.', '.###.######.###.', '.###.######.###.', '.....######.....', '....########....', '....########....', '....########....', '....########....', '....########....', '....########....'],
+  leggings: ['', '', '....########....', '....########....', '....########....', ...Array(8).fill('....###..###....')],
+  boots: ['', '', '', '', '', '', '', '....###..###....', '....###..###....', '....###..###....', '...####..####...', '..#####..#####..', '..#####..#####..'],
+  shield: ['', '', ...Array(6).fill('...##########...'), '....########....', '....########....', '.....######.....', '......####......'],
+};
+let SPR = null;
+function sprites() {
+  if (SPR) return SPR;
+  const panel = (W, G, D, K = '#000') => pix(PANEL, { K, W, G, D });
+  const flameMask = FLAME.map(r => [...r]);
+  const edge = (x, y) => !(flameMask[y] && flameMask[y][x] === '#');
+  const flameLit = FLAME.map((r, y) => [...r].map((ch, x) => { if (ch !== '#') return '.'; if (edge(x - 1, y) || edge(x + 1, y) || edge(x, y - 1) || edge(x, y + 1)) return 'e'; if (edge(x - 2, y) || edge(x + 2, y) || edge(x, y - 2)) return 'i'; return 'c'; }).join(''));
+  const sil = rows => pix(Array.from({ length: 16 }, (_, i) => (rows[i] || '').padEnd(16, '.')), { '#': 'rgba(40,40,40,0.3)' });
+  const hot = w => grid(w, 22, (x, y) => { if (x === 0 || y === 0 || x === w - 1 || y === 21) return 'o'; const cx = (x - 1) % 20, cy = y - 1; return cx === 0 || cy === 0 ? 'h' : cx === 19 || cy === 19 ? 's' : 'i'; });
+  const HOT = { o: 'rgba(0,0,0,0.8)', h: 'rgba(150,150,150,0.85)', s: 'rgba(80,80,80,0.85)', i: 'rgba(20,20,20,0.42)' };
+  const bar = rows => grid(182, 5, (x, y) => (y === 0 || y === 4 || x === 0 || x === 181 ? 'K' : 'abc'[y - 1]));
+  const pageArrow = flip => grid(12, 17, (x, y) => { const X = flip ? 11 - x : x, inside = (X, Y) => X >= 2 && X <= 10 && Math.abs(Y - 8) <= 10 - X; if (!inside(X, y)) return '.'; return inside(X - 1, y) && inside(X + 1, y) && inside(X, y - 1) && inside(X, y + 1) ? 'w' : 'K'; });
+  const book = grid(20, 18, (x, y) => {
+    if (y === 0 || y === 17) return '.';
+    if (x <= 16) { if (x === 0 || x === 16 || y === 1 || y === 16) return 'K'; if (x <= 2) return 'd'; if (y === 2) return 'l'; return x >= 6 && x <= 13 && y >= 5 && y <= 12 && (x - 6) % 3 < 2 && (y - 5) % 3 < 2 ? 'e' : 'g'; }
+    if (y === 1 || y === 16) return '.';
+    return x === 19 || y === 2 || y === 15 ? 'K' : 'p';
+  });
+  SPR = {
+    panel: panel('#ffffff', '#c6c6c6', '#555555'), tab: panel('#d4d4d4', '#a4a4a4', '#4a4a4a'), toast: panel('#4a4a4a', '#212121', '#303030'),
+    arrow16: pix(arrow(16, 13, 1), { a: '#8b8b8b' }), arrow22: pix(arrow(22, 15, 2), { a: '#8b8b8b' }), arrow10: pix(arrow(10, 9, 1), { a: '#8b8b8b' }),
+    furnaceArrow: pix(arrow(24, 16, 1.5), { a: '#8b8b8b' }), furnaceArrowFill: pix(arrow(24, 16, 1.5), { a: '#ffffff' }),
+    flameOff: pix(FLAME, { '#': '#b4b4b4' }), flame: pix(flameLit, { e: '#d23c00', i: '#ff9a00', c: '#ffe45a' }),
+    outOfStock: pix(grid(10, 9, (x, y) => (x >= 1 && x <= 9 && (Math.abs((x - 1) - y) <= 0.5 || Math.abs((x - 1) + y - 8) <= 0.5) ? 'r' : '.')), { r: '#e02020' }),
+    trash: pix(grid(16, 16, (x, y) => (x >= 3 && x <= 12 && y >= 3 && y <= 12 && (x === y || x === y + 1 || x + y === 15 || x + y === 16) ? 'r' : '.')), { r: 'rgba(160,30,30,0.75)' }),
+    missing: pix(grid(16, 16, (x, y) => (((x >> 3) + (y >> 3)) & 1 ? 'k' : 'm')), { k: '#000', m: '#f800f8' }),
+    book: pix(book, { K: '#000', d: '#2d5e1e', g: '#3f8b2c', l: '#6cc24a', e: '#9be07a', p: '#ece6d2' }),
+    pageFwd: pix(pageArrow(false), { K: '#373737', w: '#e8e8e8' }), pageBack: pix(pageArrow(true), { K: '#373737', w: '#e8e8e8' }),
+    hotbar: pix(hot(182), HOT), hotbar1: pix(hot(22), HOT),
+    sel: pix(grid(24, 24, (x, y) => 'abcd'[Math.min(x, y, 23 - x, 23 - y)] || '.'), { a: 'rgba(0,0,0,0.8)', b: '#ffffff', c: '#d8d8d8', d: 'rgba(0,0,0,0.35)' }),
+    xp: pix(bar(), { K: '#000', a: '#343434', b: '#2a2a2a', c: '#222222' }), xpFill: pix(bar(), { K: '#000', a: '#b6ff6a', b: '#80ff20', c: '#58c010' }),
+  };
+  for (const [k, rows] of Object.entries(SIL)) SPR['ph_' + k] = sil(rows);
+  const root = document.documentElement.style;
+  for (const k of ['panel', 'tab', 'toast', 'hotbar', 'hotbar1', 'sel', 'xp', 'xpFill', 'trash']) root.setProperty(`--spr-${k.replace(/[A-Z]/g, c => '-' + c.toLowerCase())}`, `url(${SPR[k]})`);
+  return SPR;
+}
+
+// Item icon + count (bottom-right, 8-px font) + durability bar (13x2 at icon +2,+13), for GUI and HUD slots alike.
+function fillItem(div, s, icons, ghost = null) {
+  div.textContent = '';
+  const show = s || ghost;
+  if (!show) return;
+  const img = el('img', ghost && !s ? 'ghost' : '', div);
+  img.src = icons[show.key] || sprites().missing;
+  if (s && s.count > 1) el('span', 'count', div).textContent = s.count;
+  const it = s && I[s.key];
+  if (it && it.durability && s.dmg) {
+    const frac = Math.max(0, 1 - s.dmg / it.durability), d = el('div', 'dur', div), f = el('div', '', d);
+    f.style.width = U(Math.round(frac * 13)); f.style.background = `hsl(${frac * 120}, 100%, 50%)`;
+  }
+}
 
 // A slot reference: get/set plus optional rules.
 function ref(container, i, opts = {}) {
@@ -23,39 +100,34 @@ export class GUI {
     this.creativeScroll = 0;
     this.search = '';
     this.bookOpen = true;
+    this.rbPage = 0; this.rbCraftable = false; this.rbQuery = '';
+    this.slotEls = [];
     this.cursorEl = $('cursor-item');
     this.tooltip = $('tooltip');
+    sprites();
     document.addEventListener('mousemove', e => {
       this.mx = e.clientX; this.my = e.clientY;
+      if (this.drag) this.drag(e.clientY);
       if (this.screen) this.positionFloating();
     });
+    document.addEventListener('mouseup', () => { this.drag = null; });
     this.root.addEventListener('contextmenu', e => e.preventDefault());
-    this.root.addEventListener('mousedown', e => { if (e.target === this.root && this.cursor && this.screen) { this.dropCursor(e.button === 2); } });
+    this.root.addEventListener('mousedown', e => { if ((e.target === this.root || e.target.classList.contains('lay')) && this.cursor && this.screen) { this.dropCursor(e.button === 2); } });
+    this.root.addEventListener('wheel', e => { if (this.screen && this.screen.onWheel && e.deltaY) { e.preventDefault(); this.screen.onWheel(Math.sign(e.deltaY)); } }, { passive: false });
   }
 
   get isOpen() { return !!this.screen; }
   icon(key) { return this.game.icons[key] || ''; }
 
   // ---------- rendering helpers ----------
-  fillSlot(div, s, ghost = null) {
-    div.textContent = '';
-    const show = s || ghost;
-    if (!show) return;
-    const img = el('img', ghost && !s ? 'ghost' : '', div);
-    img.src = this.icon(show.key);
-    if (s && s.count > 1) el('span', 'count', div).textContent = s.count;
-    const it = s && I[s.key];
-    if (it && it.durability && s.dmg) {
-      const d = el('div', 'dur', div), f = el('div', '', d), frac = 1 - s.dmg / it.durability;
-      f.style.width = `${frac * 100}%`;
-      f.style.background = `hsl(${frac * 120}, 90%, 45%)`;
-    }
-  }
-  slotEl(r, parent, cls = '') {
+  fillSlot(div, s, ghost = null) { fillItem(div, s, this.game.icons, ghost); }
+  // A slot whose 16x16 icon sits at (x, y) in the window, like the original's Slot coordinates.
+  slotEl(r, parent, cls = '', x, y) {
     const div = el('div', `gs ${cls}`, parent);
     div._ref = r;
+    if (x !== undefined) { const o = /\bbig\b/.test(cls) ? 5 : 1; at(div, x - o, y - o); }
+    if (r.placeholder) { div.classList.add('ph'); div.style.setProperty('--ph', `url(${sprites()['ph_' + r.placeholder]})`); }
     this.fillSlot(div, r.get(), r.ghost);
-    if (r.placeholder && !r.get()) div.dataset.ph = r.placeholder;
     div.addEventListener('mousedown', e => { e.preventDefault(); e.stopPropagation(); this.click(r, e); });
     div.addEventListener('dblclick', e => { e.preventDefault(); this.collect(r); });
     div.addEventListener('mouseenter', () => { this.hover = r; this.showTooltip(r.get()); });
@@ -63,11 +135,22 @@ export class GUI {
     this.slotEls.push(div);
     return div;
   }
-  grid(refs, cols, parent, cls = '') {
-    const g = el('div', 'grid', parent);
-    g.style.gridTemplateColumns = `repeat(${cols}, 40px)`;
-    refs.forEach(r => this.slotEl(r, g, cls));
-    return g;
+  gridAt(refs, cols, parent, x, y, cls = '') { refs.forEach((r, i) => this.slotEl(r, parent, cls, x + (i % cols) * 18, y + Math.floor(i / cols) * 18)); }
+  layout(cls = '') { return el('div', `lay ${cls}`, this.root); }
+  win(parent, w, h, cls = '') { const d = el('div', `win ${cls}`, parent); d.style.width = U(w); d.style.height = U(h); return d; }
+  // Dark-grey 8-px label; (x, y) is the top of the capitals, as in drawString.
+  label(win, text, x, y, center = false) { const l = el('div', center ? 'lbl c' : 'lbl', win); l.textContent = text; at(l, x, y - 1); return l; }
+  spr(parent, name, x, y, w, h, cls = '') { const d = el('div', `spr ${cls}`, parent); at(d, x, y, w, h); d.style.backgroundImage = `url(${sprites()[name]})`; return d; }
+  tip(e, lines) { e.addEventListener('mouseenter', () => { if (!this.cursor) this.showTip(typeof lines === 'function' ? lines() : lines); }); e.addEventListener('mouseleave', () => this.hideTooltip()); }
+  playerView(win, x, y, w, h, sc) {
+    const box = el('div', 'pview', win); at(box, x, y, w, h);
+    const c = el('canvas', '', box); c.width = 16; c.height = 32;
+    at(c, Math.floor((w - 16 * sc) / 2), h - 32 * sc - 3, 16 * sc, 32 * sc);
+    try {
+      const a = this.game.app, L = a.mobLayer('player');
+      let i = 0; for (let k = 0; k < 8; k++) if (a.mobLayers.get(`player_${k}`) === L) { i = k; break; }
+      c.getContext('2d').drawImage(a.skinPreview(i), 0, 0);
+    } catch { /* no skin preview available */ }
   }
   refresh() {
     for (const d of this.slotEls) this.fillSlot(d, d._ref.get(), d._ref.ghost);
@@ -77,34 +160,49 @@ export class GUI {
   }
   renderCursor() {
     const c = this.cursorEl;
-    c.textContent = '';
-    if (!this.cursor) { c.classList.add('hidden'); return; }
+    if (!this.cursor) { c.textContent = ''; c.classList.add('hidden'); return; }
     c.classList.remove('hidden');
-    const img = el('img', '', c); img.src = this.icon(this.cursor.key);
-    if (this.cursor.count > 1) el('span', 'count', c).textContent = this.cursor.count;
+    this.fillSlot(c, this.cursor);
     this.positionFloating();
   }
   positionFloating() {
     this.cursorEl.style.left = `${this.mx}px`; this.cursorEl.style.top = `${this.my}px`;
-    this.tooltip.style.left = `${this.mx + 16}px`; this.tooltip.style.top = `${this.my - 30}px`;
+    const t = this.tooltip;
+    if (t.classList.contains('hidden')) return;
+    // The original draws the text 12 px right of and 12 px above the pointer (the box starts 3 px further out), flipping left at the edge.
+    const gs = guiScale(), w = t.offsetWidth, h = t.offsetHeight;
+    let x = this.mx + 9 * gs, y = this.my - 15 * gs;
+    if (x + w > innerWidth - gs) x = Math.max(gs, this.mx - 13 * gs - w);
+    y = Math.max(gs, Math.min(y, innerHeight - h - gs));
+    t.style.left = `${x}px`; t.style.top = `${y}px`;
+  }
+  // Tooltip lines like the advanced (F3+H) tooltip: name, attribute lines, durability, then the item id in dark grey.
+  tipLines(s) {
+    const it = I[s.key];
+    if (!it) return [[s.key, '']];
+    const L = [[it.name, '']];
+    const melee = it.damage && it.kind !== 'bow';
+    if (melee || it.attackSpeed) { L.push(['', ''], ['When in Main Hand:', 'gray']); if (melee) L.push([` ${it.damage} Attack Damage`, 'green']); if (it.attackSpeed) L.push([` ${it.attackSpeed} Attack Speed`, 'green']); }
+    if (it.armor && (it.armor.points || it.armor.tough)) {
+      L.push(['', ''], [`When on ${['Head', 'Body', 'Legs', 'Feet'][it.armor.slot] || 'Body'}:`, 'gray']);
+      if (it.armor.points) L.push([`+${it.armor.points} Armor`, 'blue']);
+      if (it.armor.tough) L.push([`+${it.armor.tough} Armor Toughness`, 'blue']);
+    }
+    if (it.food && it.food.hunger) L.push([`Restores ${it.food.hunger / 2} Hunger`, 'blue']);
+    if (it.durability) L.push([`Durability: ${it.durability - (s.dmg || 0)} / ${it.durability}`, '']);
+    L.push([`blockhaven:${s.key}`, 'dark']);
+    return L;
+  }
+  showTip(lines) {
+    const t = this.tooltip;
+    t.textContent = '';
+    for (const [text, c] of lines) el('div', c ? `t-${c}` : '', t).textContent = text || ' ';
+    t.classList.remove('hidden');
+    this.positionFloating();
   }
   showTooltip(s) {
     if (!s || this.cursor) { this.hideTooltip(); return; }
-    const it = I[s.key];
-    const t = this.tooltip;
-    t.textContent = '';
-    el('div', '', t).textContent = it.name;
-    const lines = [];
-    if (it.damage && it.kind !== 'bow') lines.push(`${it.damage} Attack Damage`);
-    if (it.attackSpeed) lines.push(`${it.attackSpeed} Attack Speed`);
-    if (it.armor && it.armor.points) lines.push(`+${it.armor.points} Armor`);
-    if (it.armor && it.armor.tough) lines.push(`+${it.armor.tough} Armor Toughness`);
-    if (it.food && it.food.hunger) lines.push(`Restores ${it.food.hunger / 2} hunger`);
-    if (it.durability) lines.push(`Durability: ${it.durability - (s.dmg || 0)} / ${it.durability}`);
-    for (const l of lines) el('div', 'sub blue', t).textContent = l;
-    el('div', 'sub', t).textContent = `blockhaven:${s.key}`;
-    t.classList.remove('hidden');
-    this.positionFloating();
+    this.showTip(this.tipLines(s));
   }
   hideTooltip() { this.tooltip.classList.add('hidden'); }
 
@@ -191,6 +289,10 @@ export class GUI {
     if (!this.screen) return false;
     if (document.activeElement && document.activeElement.tagName === 'INPUT') { if (e.code === 'Escape') this.close(); return e.code !== 'Escape'; }
     if (e.code === 'Escape' || e.code === 'KeyE') { this.close(); return true; }
+    // Typing on a creative tab jumps to the search tab with that letter, like the original.
+    if (this.screen.kind === 'creative' && this.creativeTab !== 'search' && /^Key[A-Z]$/.test(e.code) && e.code !== 'KeyQ' && !e.ctrlKey && !e.metaKey && !e.altKey && e.key.length === 1) {
+      this.creativeTab = 'search'; this.search = e.key; this.creativeScroll = 0; this.switchTab(); return true;
+    }
     const h = this.hover;
     if (h && /^Digit[1-9]$/.test(e.code) && !h.output && !h.creative) {
       const n = Number(e.code.slice(5)) - 1, inv = this.game.inv.main;
@@ -224,15 +326,15 @@ export class GUI {
     const m = this.game.inv.main;
     return { hot: Array.from({ length: 9 }, (_, i) => ref(m, i)), main: Array.from({ length: 27 }, (_, i) => ref(m, 9 + i)) };
   }
-  // Standard player-inventory block (main 3x9 + hotbar) appended to a window.
-  playerSection(win) {
+  // The player-inventory block: "Inventory" label, 9x3 main grid and the hotbar row 4 px below it.
+  playerSection(win, y = 84, labelY = 72, x = 8) {
     const { hot, main } = this.invRefs();
-    el('div', 'title', win).textContent = 'Inventory';
-    this.grid(main, 9, win);
-    el('div', 'inv-sep', win);
-    this.grid(hot, 9, win);
+    if (labelY !== null) this.label(win, 'Inventory', x, labelY);
+    this.gridAt(main, 9, win, x, y);
+    this.gridAt(hot, 9, win, x, y + 58);
     return { hot, main };
   }
+  armorRefs() { const inv = this.game.inv; return ARMOR_SLOTS.map((piece, k) => ref(inv.armor, k, { accept: s => I[s.key].armor && I[s.key].armor.slot === k, limit: 1, placeholder: piece })); }
 
   // ---------- open / close ----------
   begin(kind) {
@@ -249,6 +351,7 @@ export class GUI {
     if (s.onClose) s.onClose();
     if (this.cursor) { const rest = this.game.inv.add(this.cursor); if (rest) this.game.dropStack({ ...this.cursor, count: rest }); this.cursor = null; }
     this.screen = null;
+    this.drag = null;
     this.root.classList.add('hidden');
     this.root.textContent = '';
     this.cursorEl.classList.add('hidden');
@@ -256,7 +359,7 @@ export class GUI {
     if (!silent) this.game.onGuiClose();
   }
 
-  craftingGrid(win, size, container, extra = {}) {
+  craftingGrid(win, size, container, gx, gy, ox, oy, big) {
     const g = this.game;
     const cells = Array.from({ length: size * size }, (_, i) => ref(container, i, { onChange: () => this.refresh() }));
     const result = () => {
@@ -281,20 +384,24 @@ export class GUI {
         g.onCraft(r);
       },
     };
-    const wrap = el('div', 'flex', win);
-    this.grid(cells, size, wrap);
-    el('div', 'arrow-r', wrap).textContent = '➜';
-    this.slotEl(out, wrap, 'big');
+    this.gridAt(cells, size, win, gx, gy);
+    this.slotEl(out, win, big ? 'big' : '', ox, oy);
     return { cells, out };
   }
 
+  // Recipe book panel (147x166, left of the window): search field, craftable filter, 5x4 pages of recipe buttons.
   recipeBook(parent, size, cells, container) {
-    const book = el('div', 'win recipe-book', parent);
-    el('div', 'title', book).textContent = 'Recipe Book';
-    const search = el('input', 'search', book);
-    search.type = 'text'; search.placeholder = 'Search…';
-    const gridEl = el('div', 'grid', book);
-    gridEl.style.gridTemplateColumns = 'repeat(5, 40px)';
+    const book = this.win(parent, 147, 166, 'book');
+    book.classList.toggle('hidden', !this.bookOpen);
+    const search = el('input', 'field', book);
+    search.type = 'text'; search.placeholder = 'Search...'; search.spellcheck = false; search.value = this.rbQuery;
+    at(search, 25, 13, 81, 14);
+    const filt = el('div', 'gbtn rb-filter', book); at(filt, 110, 12, 26, 16);
+    el('img', '', filt).src = this.icon('crafting_table');
+    this.tip(filt, () => [[this.rbCraftable ? 'Showing Craftable' : 'Showing All', '']]);
+    const gridEl = el('div', 'rb-grid', book); at(gridEl, 11, 31, 125, 100);
+    const pageL = this.label(book, '', 73, 141, true); pageL.classList.add('rb-page');
+    const prev = this.spr(book, 'pageBack', 38, 137, 12, 17, 'rb-arrow'), next = this.spr(book, 'pageFwd', 93, 137, 12, 17, 'rb-arrow');
     const inv = this.game.inv.main;
     const recipes = allRecipes().filter(r => r.w <= size && r.h <= size);
     const canMake = r => {
@@ -318,56 +425,63 @@ export class GUI {
       }
       this.refresh();
     };
+    let hovering = false;
     const draw = () => {
+      if (hovering) { hovering = false; this.hideTooltip(); }
       gridEl.textContent = '';
       const q = search.value.trim().toLowerCase();
-      const seen = new Set();
-      const list = recipes.filter(r => (!q || I[r.out].name.toLowerCase().includes(q)));
-      list.sort((a, b) => (canMake(b) - canMake(a)));
-      for (const r of list) {
-        if (seen.has(r.out) || seen.size > 160) continue;
-        seen.add(r.out);
-        const ok = canMake(r);
-        const d = el('div', `gs rb-slot ${ok ? '' : 'missing'}`, gridEl);
+      const seen = new Set(), list = [];
+      const all = recipes.filter(r => (!q || I[r.out].name.toLowerCase().includes(q))).map(r => [r, canMake(r)]);
+      all.sort((a, b) => b[1] - a[1]);
+      for (const [r, ok] of all) { if (seen.has(r.out) || (this.rbCraftable && !ok)) continue; seen.add(r.out); list.push([r, ok]); }
+      const pages = Math.max(1, Math.ceil(list.length / 20));
+      this.rbPage = Math.max(0, Math.min(this.rbPage, pages - 1));
+      list.slice(this.rbPage * 20, this.rbPage * 20 + 20).forEach(([r, ok], i) => {
+        const d = el('div', `rb-slot${ok ? '' : ' missing'}`, gridEl);
+        at(d, (i % 5) * 25, Math.floor(i / 5) * 25, 25, 25);
         this.fillSlot(d, { key: r.out, count: r.count });
-        d.title = I[r.out].name + (ok ? '' : ' (missing ingredients)');
-        d.addEventListener('mousedown', e => { e.preventDefault(); e.stopPropagation(); if (ok) fill(r); this.game.sound.click(0.4); });
-      }
+        d.addEventListener('mousedown', e => { e.preventDefault(); e.stopPropagation(); this.game.sound.click(0.4); if (ok) fill(r); });
+        d.addEventListener('mouseenter', () => { if (!this.cursor) { hovering = true; this.showTip(this.tipLines({ key: r.out, count: r.count })); } });
+        d.addEventListener('mouseleave', () => { hovering = false; this.hideTooltip(); });
+      });
+      pageL.textContent = pages > 1 ? `${this.rbPage + 1}/${pages}` : '';
+      prev.classList.toggle('hidden', this.rbPage <= 0);
+      next.classList.toggle('hidden', this.rbPage >= pages - 1);
+      filt.classList.toggle('on', this.rbCraftable);
     };
-    search.addEventListener('input', draw);
+    const btn = (e, f) => e.addEventListener('mousedown', ev => { ev.preventDefault(); ev.stopPropagation(); this.game.sound.click(0.4); f(); draw(); });
+    btn(prev, () => this.rbPage--); btn(next, () => this.rbPage++);
+    btn(filt, () => { this.rbCraftable = !this.rbCraftable; this.rbPage = 0; this.showTip([[this.rbCraftable ? 'Showing Craftable' : 'Showing All', '']]); });
+    search.addEventListener('input', () => { this.rbQuery = search.value; this.rbPage = 0; draw(); });
     search.addEventListener('keydown', e => e.stopPropagation());
+    search.addEventListener('mousedown', e => e.stopPropagation());
     draw();
-    return { draw };
+    return { draw, el: book };
+  }
+  // The green recipe-book button: shows/hides the book without rebuilding the window (the grid keeps its items).
+  bookButton(win, x, y, book) {
+    const b = this.spr(win, 'book', x, y, 20, 18, 'rb-toggle');
+    b.addEventListener('mousedown', e => { e.preventDefault(); e.stopPropagation(); this.game.sound.click(0.4); this.bookOpen = !this.bookOpen; book.classList.toggle('hidden', !this.bookOpen); });
   }
 
   openInventory() {
     if (this.game.creativeMenu) { this.openCreative(); return; }
     this.begin('inventory');
     const g = this.game, inv = g.inv;
-    const outer = el('div', 'flex', this.root);
-    outer.style.alignItems = 'flex-start';
-    let book = null;
-    if (this.bookOpen) book = el('div', '', outer);
-    const win = el('div', 'win', outer);
-    const top = el('div', 'flex', win);
-    const armorRefs = ARMOR_SLOTS.map((piece, k) => ref(inv.armor, k, { accept: s => I[s.key].armor && I[s.key].armor.slot === k, limit: 1, placeholder: piece }));
-    const acol = el('div', 'col', top);
-    for (const r of armorRefs) this.slotEl(r, acol, 'armor-empty');
-    const view = el('div', 'player-view', top);
-    this.playerCanvas = el('canvas', '', view);
-    this.playerCanvas.width = 110; this.playerCanvas.height = 150;
-    const offRef = ref(inv.offhand, 0);
-    this.slotEl(offRef, el('div', 'col', top));
-    const craftBox = el('div', 'col', top);
-    el('div', 'title', craftBox).textContent = 'Crafting';
-    const { cells, out } = this.craftingGrid(craftBox, 2, inv.craft);
-    el('div', 'inv-sep', win);
-    const { hot, main } = this.playerSection(win);
-    const toggle = el('div', 'rb-toggle', win);
-    const bi = el('img', '', toggle); bi.src = this.icon('book');
-    toggle.addEventListener('mousedown', e => { e.stopPropagation(); this.bookOpen = !this.bookOpen; this.openInventory(); });
-    let rb = null;
-    if (book) rb = this.recipeBook(book, 2, cells, inv.craft);
+    const lay = this.layout();
+    const win = this.win(lay, 176, 166);
+    const armorRefs = this.armorRefs();
+    armorRefs.forEach((r, k) => this.slotEl(r, win, '', 8, 8 + k * 18));
+    this.playerView(win, 25, 7, 51, 72, 2);
+    const offRef = ref(inv.offhand, 0, { placeholder: 'shield' });
+    this.slotEl(offRef, win, '', 77, 62);
+    this.label(win, 'Crafting', 97, 6);
+    const { cells } = this.craftingGrid(win, 2, inv.craft, 98, 18, 154, 28, false);
+    this.spr(win, 'arrow16', 135, 29, 16, 13);
+    const { hot, main } = this.playerSection(win, 84, null);
+    const rb = this.recipeBook(lay, 2, cells, inv.craft);
+    lay.insertBefore(rb.el, win);
+    this.bookButton(win, 104, 61, rb.el);
     this.screen.quickMove = (r, s) => {
       const it = I[s.key];
       if (armorRefs.includes(r) || cells.includes(r) || r === offRef) return this.moveInto(s, [...main, ...hot]);
@@ -375,23 +489,23 @@ export class GUI {
       if (hot.includes(r)) return this.moveInto(s, main);
       return this.moveInto(s, hot);
     };
-    this.screen.onRefresh = () => { if (rb) rb.draw(); };
+    this.screen.onRefresh = () => rb.draw();
     this.screen.onClose = () => { for (const c of cells) { const s = c.get(); if (s) { const rest = inv.add(s); if (rest) g.dropStack({ ...s, count: rest }); c.set(null); } } };
   }
 
   openCrafting() {
     this.begin('crafting');
     const g = this.game, inv = g.inv;
-    const outer = el('div', 'flex', this.root);
-    outer.style.alignItems = 'flex-start';
-    const bookHolder = el('div', '', outer);
-    const win = el('div', 'win', outer);
-    el('div', 'title', win).textContent = 'Crafting';
+    const lay = this.layout();
+    const win = this.win(lay, 176, 166);
+    this.label(win, 'Crafting', 29, 6);
     const grid = g.tableGrid;
-    const { cells } = this.craftingGrid(win, 3, grid);
-    el('div', 'inv-sep', win);
+    const { cells } = this.craftingGrid(win, 3, grid, 30, 17, 124, 35, true);
+    this.spr(win, 'arrow22', 90, 35, 22, 15);
     const { hot, main } = this.playerSection(win);
-    const rb = this.recipeBook(bookHolder, 3, cells, grid);
+    const rb = this.recipeBook(lay, 3, cells, grid);
+    lay.insertBefore(rb.el, win);
+    this.bookButton(win, 5, 34, rb.el);
     this.screen.quickMove = (r, s) => {
       if (cells.includes(r)) return this.moveInto(s, [...main, ...hot]);
       if (hot.includes(r)) return this.moveInto(s, main);
@@ -401,35 +515,37 @@ export class GUI {
     this.screen.onClose = () => { for (const c of cells) { const s = c.get(); if (s) { const rest = inv.add(s); if (rest) g.dropStack({ ...s, count: rest }); c.set(null); } } };
   }
 
+  // Chest-like containers: rows of 9 (a 3x3 grid for 9-slot dispensers, one centred row for hoppers).
   openChest(container, title = 'Chest', onClose = null) {
     this.begin('chest');
-    const win = el('div', 'win', this.root);
-    el('div', 'title', win).textContent = title;
-    const refs = container.slots.map((_, i) => ref(container, i));
-    this.grid(refs, 9, win);
-    el('div', 'inv-sep', win);
-    const { hot, main } = this.playerSection(win);
+    const n = container.slots.length, refs = container.slots.map((_, i) => ref(container, i));
+    const lay = this.layout();
+    let h, mainY;
+    if (n === 9) { h = 166; mainY = 84; }
+    else { const rows = Math.ceil(n / 9); h = 114 + rows * 18; mainY = h - 83; }
+    const win = this.win(lay, 176, h);
+    this.label(win, title, 8, 6);
+    if (n === 9) this.gridAt(refs, 3, win, 62, 17);
+    else this.gridAt(refs, 9, win, 8 + (9 - Math.min(9, n)) * 9, 18);
+    const { hot, main } = this.playerSection(win, mainY, mainY - 12);
     this.screen.quickMove = (r, s) => (refs.includes(r) ? this.moveInto(s, [...hot, ...main].reverse().reverse()) : this.moveInto(s, refs));
     this.screen.onClose = onClose;
   }
 
   openFurnace(be) {
     this.begin('furnace');
-    const win = el('div', 'win', this.root);
-    el('div', 'title', win).textContent = 'Furnace';
+    const lay = this.layout();
+    const win = this.win(lay, 176, 166);
+    this.label(win, 'Furnace', 88, 6, true);
     const c = be.container;
     const inRef = ref(c, 0), fuelRef = ref(c, 1, { accept: s => fuelOf(s.key) > 0 }), outRef = { output: true, get: () => c.get(2), set: s => c.set(2, s), take: () => { const s = c.get(2); c.set(2, null); this.game.onSmelt(s, be); } };
-    const box = el('div', 'flex', win);
-    box.style.margin = '6px 0 10px 40px';
-    const left = el('div', 'col', box);
-    this.slotEl(inRef, left);
-    const flame = el('div', 'flame-ind', left);
-    const flameFg = el('div', 'fg', flame);
-    this.slotEl(fuelRef, left);
-    const arrow = el('div', 'progress-arrow', box);
-    el('div', 'bg', arrow).textContent = '➜';
-    const fg = el('div', 'fg', arrow); fg.textContent = '➜';
-    this.slotEl(outRef, box, 'big');
+    this.slotEl(inRef, win, '', 56, 17);
+    this.slotEl(fuelRef, win, '', 56, 53);
+    this.slotEl(outRef, win, 'big', 116, 35);
+    this.spr(win, 'flameOff', 56, 36, 14, 14);
+    const flame = this.spr(win, 'flame', 56, 36, 14, 0, 'fill-up');
+    this.spr(win, 'furnaceArrow', 79, 34, 24, 16);
+    const arrowFg = this.spr(win, 'furnaceArrowFill', 79, 34, 0, 16, 'fill-right');
     const { hot, main } = this.playerSection(win);
     this.screen.quickMove = (r, s) => {
       if (r === inRef || r === fuelRef || r === outRef) return this.moveInto(s, [...hot, ...main]);
@@ -437,77 +553,92 @@ export class GUI {
       if (fuelOf(s.key)) return this.moveInto(s, [fuelRef]);
       return hot.includes(r) ? this.moveInto(s, main) : this.moveInto(s, hot);
     };
+    // Whole GUI pixels, like the original: the arrow fills left to right, the flame burns down from the top.
     this.screen.tick = () => {
-      fg.style.width = `${(be.cook || 0) * 100}%`;
-      flameFg.style.height = `${be.burnMax ? (be.burn / be.burnMax) * 100 : 0}%`;
+      arrowFg.style.width = U(Math.min(24, Math.ceil((be.cook || 0) * 24)));
+      const k = be.burnMax && be.burn > 0 ? Math.min(14, Math.ceil((be.burn / be.burnMax) * 13) + 1) : 0;
+      flame.style.top = U(50 - k); flame.style.height = U(k);
     };
+    this.screen.tick();
     this.screen.be = be;
   }
 
+  // Rebuilds the creative window on another tab, keeping the stack on the pointer (close() would put it away).
+  switchTab() { const keep = this.cursor; this.cursor = null; this.openCreative(); this.cursor = keep; this.renderCursor(); }
+  // Creative inventory: 195x136 panel, 26x32 tabs above and below, 9x5 item grid with a 14 px scrollbar.
   openCreative() {
     this.begin('creative');
-    const g = this.game;
-    const wrap = el('div', 'col', this.root);
-    const tabs = el('div', 'tabs', wrap);
-    const allTabs = [...TABS, ['search', 'Search'], ['inventory', 'Survival Inventory']];
+    const g = this.game, inv = g.inv, tab = this.creativeTab;
+    const lay = this.layout('tabbed');
+    const win = this.win(lay, 195, 136, 'creative');
+    const names = Object.fromEntries([...TABS, ['search', 'Search Items'], ['inventory', 'Survival Inventory']]);
     const tabIcon = { building: 'bricks', colored: 'cyan_wool', natural: 'grass_block', functional: 'crafting_table', redstone: 'redstone', tools: 'iron_pickaxe', combat: 'diamond_sword', food: 'apple', ingredients: 'iron_ingot', spawn_eggs: 'zombie_spawn_egg', search: 'compass', inventory: 'chest' };
-    for (const [k, name] of allTabs) {
-      const t = el('div', `tab ${k === this.creativeTab ? 'on' : ''}`, tabs);
-      t.title = name;
+    const rowsOfTabs = [['building', 'colored', 'natural', 'functional', 'redstone', null, 'search'], ['tools', 'combat', 'food', 'ingredients', 'spawn_eggs', null, 'inventory']];
+    rowsOfTabs.forEach((row, bot) => row.forEach((k, col) => {
+      if (!k) return;
+      const on = k === tab, t = el('div', `tab ${bot ? 'bot' : 'top'}${on ? ' on' : ''}${col === 0 ? ' first' : ''}${col === 6 ? ' last' : ''}`, win);
+      at(t, col === 6 ? 169 : col * 27, bot ? (on ? 133 : 132) : -28, 26, on ? 31 : 32);
       const im = el('img', '', t); im.src = this.icon(tabIcon[k]) || this.icon('stone');
-      t.addEventListener('mousedown', e => { e.stopPropagation(); this.creativeTab = k; this.openCreative(); });
-    }
-    const win = el('div', 'win', wrap);
-    const tabName = allTabs.find(t => t[0] === this.creativeTab)[1];
-    el('div', 'title', win).textContent = tabName;
+      at(im, 1, bot ? (on ? 2 : 3) : 5, 16, 16);
+      t.addEventListener('mousedown', e => { e.preventDefault(); e.stopPropagation(); if (k === this.creativeTab) return; g.sound.click(0.4); this.creativeTab = k; this.creativeScroll = 0; this.switchTab(); });
+      this.tip(t, [[names[k], '']]);
+    }));
     const { hot, main } = this.invRefs();
-    if (this.creativeTab === 'inventory') {
-      const inv = g.inv;
-      const armorRefs = ARMOR_SLOTS.map((piece, k) => ref(inv.armor, k, { accept: s => I[s.key].armor && I[s.key].armor.slot === k, limit: 1, placeholder: piece }));
-      const row = el('div', 'flex', win);
-      const acol = el('div', 'col', row);
-      for (const r of armorRefs) this.slotEl(r, acol, 'armor-empty');
-      this.slotEl(ref(inv.offhand, 0), row);
-      el('div', 'inv-sep', win);
-      this.grid(main, 9, win);
-      el('div', 'inv-sep', win);
+    if (tab === 'inventory') {
+      const armorRefs = this.armorRefs();
+      [[54, 6], [54, 33], [108, 6], [108, 33]].forEach(([x, y], k) => this.slotEl(armorRefs[k], win, '', x, y));
+      this.slotEl(ref(inv.offhand, 0, { placeholder: 'shield' }), win, '', 35, 20);
+      this.playerView(win, 73, 6, 32, 43, 1);
+      this.gridAt(main, 9, win, 9, 54);
+      const trash = this.slotEl({ trash: true, get: () => null, set: () => {} }, win, 'trash ph', 173, 112);
+      trash.style.setProperty('--ph', 'var(--spr-trash)');
+      this.tip(trash, [['Destroy Item', ''], ['Shift-click: clear the inventory', 'gray']]);
     } else {
-      let list;
-      if (this.creativeTab === 'search') {
-        const s = el('input', 'search', win);
-        s.type = 'text'; s.placeholder = 'Search items…'; s.value = this.search;
+      this.label(win, tab === 'search' ? 'Search' : names[tab], 8, 6); // our font runs wider than the original's: keep clear of the field
+      const list = () => (tab === 'search' ? ITEMS.filter(it => { const q = this.search.trim().toLowerCase(); return !q || it.name.toLowerCase().includes(q) || it.key.includes(q); }) : ITEMS.filter(it => it.tab === tab));
+      let items = list(), off = 0;
+      const extra = () => Math.max(0, Math.ceil(items.length / 9) - 5);
+      const refs = Array.from({ length: 45 }, (_, i) => ({ creative: true, get: () => { const it = items[off * 9 + i]; return it ? { key: it.key, count: 1 } : null; }, set: () => {} }));
+      this.gridAt(refs, 9, win, 9, 18);
+      const track = el('div', 'scroll-track', win); at(track, 174, 17, 14, 112);
+      const handle = el('div', 'scroll-handle', win); at(handle, 175, 18, 12, 15);
+      const setScroll = s => {
+        const n = extra();
+        this.creativeScroll = n ? Math.max(0, Math.min(1, s)) : 0;
+        off = Math.round(this.creativeScroll * n);
+        handle.style.top = U(18 + Math.round(95 * (n ? off / n : 0)));
+        handle.classList.toggle('off', !n);
+        this.refresh();
+      };
+      this.screen.onWheel = d => { const n = extra(); if (n) setScroll((off + d) / n); };
+      const dragTo = y => { const gs = guiScale(), r = track.getBoundingClientRect(); setScroll((y - r.top - 8.5 * gs) / (95 * gs)); };
+      for (const e of [track, handle]) e.addEventListener('mousedown', ev => { ev.preventDefault(); ev.stopPropagation(); if (!extra()) return; this.drag = dragTo; dragTo(ev.clientY); });
+      if (tab === 'search') {
+        const s = el('input', 'field csearch', win);
+        s.type = 'text'; s.spellcheck = false; s.value = this.search;
+        at(s, 81, 4, 88, 12);
         s.addEventListener('keydown', e => e.stopPropagation());
-        s.addEventListener('input', () => { this.search = s.value; draw(); });
+        s.addEventListener('mousedown', e => e.stopPropagation());
+        s.addEventListener('input', () => { this.search = s.value; items = list(); setScroll(0); });
         setTimeout(() => s.focus(), 0);
       }
-      const gridWrap = el('div', 'creative-grid', win);
-      const draw = () => {
-        gridWrap.textContent = '';
-        this.slotEls = this.slotEls.filter(d => !d._ref.creative);
-        const q = this.search.trim().toLowerCase();
-        list = this.creativeTab === 'search' ? ITEMS.filter(it => !q || it.name.toLowerCase().includes(q) || it.key.includes(q)) : ITEMS.filter(it => it.tab === this.creativeTab);
-        this.grid(list.map(it => ({ creative: true, get: () => ({ key: it.key, count: 1 }), set: () => {} })), 9, gridWrap);
-      };
-      draw();
-      el('div', 'inv-sep', win);
+      setScroll(this.creativeScroll);
     }
-    const bottom = el('div', 'flex', win);
-    this.grid(hot, 9, bottom);
-    this.slotEl({ trash: true, get: () => null, set: () => {} }, bottom, 'trash').title = 'Destroy item (shift-click: clear inventory)';
+    this.gridAt(hot, 9, win, 9, 112);
     this.screen.quickMove = (r, s) => (hot.includes(r) ? this.moveInto(s, main) : this.moveInto(s, hot));
   }
 
+  // Villager trading: 276x166, offers list on the left (88x20 buttons), payment slots, result and the level bar on the right.
   openTrade(villager) {
     this.begin('trade');
     const g = this.game;
-    const outer = el('div', 'flex', this.root);
-    outer.style.alignItems = 'flex-start';
-    const listWin = el('div', 'win', outer);
-    el('div', 'title', listWin).textContent = 'Trades';
-    const list = el('div', 'trade-list', listWin);
-    const win = el('div', 'win', outer);
-    el('div', 'title', win).textContent = `${villager.displayName} — ${['Novice', 'Apprentice', 'Journeyman', 'Expert', 'Master'][villager.level - 1] || ''}`;
-    const xpbar = el('div', 'xpbar', win); const xpf = el('div', '', xpbar);
+    const lay = this.layout();
+    const win = this.win(lay, 276, 166);
+    this.label(win, 'Trades', 53, 6, true);
+    this.label(win, `${villager.displayName} - ${['Novice', 'Apprentice', 'Journeyman', 'Expert', 'Master'][villager.level - 1] || ''}`, 187, 6, true);
+    const xpbar = el('div', 'txp', win); at(xpbar, 136, 16, 102, 5);
+    const xpf = el('div', '', xpbar);
+    const list = el('div', 'offers', win); at(list, 5, 18, 88, 140);
     const pay = g.tradeSlots;
     const payRefs = [ref(pay, 0), ref(pay, 1)];
     let sel = villager.trades[0] || null;
@@ -528,32 +659,39 @@ export class GUI {
         drawList();
       },
     };
-    const row = el('div', 'flex', win);
-    row.style.margin = '10px 0';
-    this.grid(payRefs, 2, row);
-    el('div', 'arrow-r', row).textContent = '➜';
-    this.slotEl(outRef, row, 'big');
-    const { hot, main } = this.playerSection(win);
+    this.slotEl(payRefs[0], win, '', 136, 37);
+    this.slotEl(payRefs[1], win, '', 162, 37);
+    this.spr(win, 'arrow22', 188, 38, 22, 15);
+    this.slotEl(outRef, win, '', 220, 37);
+    const { hot, main } = this.playerSection(win, 84, 72, 108);
     const fillPayment = t => {
       for (let i = 0; i < 2; i++) { const s = pay.get(i); if (s) { const rest = g.inv.add(s); pay.set(i, rest ? { ...s, count: rest } : null); } }
       const pull = (want, i) => { if (!want) return; const n = g.inv.main.remove(k => k === want.key, want.count * 1); if (n) pay.set(i, { key: want.key, count: n }); };
       pull(t.buy, 0); pull(t.buy2, 1);
     };
-    const tItem = (parent, s) => { const d = el('div', 'ti', parent); const im = el('img', '', d); im.src = this.icon(s.key); if (s.count > 1) el('span', 'count', d).textContent = s.count; };
+    const tItem = (parent, s, x) => { const d = el('div', 'ti', parent); d.style.left = U(x); fillItem(d, s, g.icons); this.tip(d, () => this.tipLines(s)); };
+    let offset = 0;
+    const scroller = el('div', 'scroll-handle', win);
     const drawList = () => {
       list.textContent = '';
-      for (const t of villager.trades) {
-        const d = el('div', `trade ${t === sel ? 'sel' : ''} ${t.uses >= t.maxUses ? 'out' : ''}`, list);
-        tItem(d, t.buy);
-        if (t.buy2) tItem(d, t.buy2); else el('div', 'ti', d);
-        el('span', '', d).textContent = '➜';
-        tItem(d, t.sell);
-        d.addEventListener('mousedown', e => { e.stopPropagation(); sel = t; fillPayment(t); drawList(); this.refresh(); });
-      }
+      const n = villager.trades.length;
+      offset = Math.max(0, Math.min(offset, n - 7));
+      scroller.classList.toggle('hidden', n <= 7);
+      at(scroller, 94, 18 + (n > 7 ? Math.round(113 * offset / (n - 7)) : 0), 6, 27);
+      villager.trades.slice(offset, offset + 7).forEach((t, i) => {
+        const d = el('div', `gbtn offer${t === sel ? ' sel' : ''}${t.uses >= t.maxUses ? ' out' : ''}`, list);
+        at(d, 0, i * 20, 88, 20);
+        tItem(d, t.buy, 5);
+        if (t.buy2) tItem(d, t.buy2, 30);
+        this.spr(d, t.uses >= t.maxUses ? 'outOfStock' : 'arrow10', 53, 6, 10, 9);
+        tItem(d, t.sell, 67);
+        d.addEventListener('mousedown', e => { e.preventDefault(); e.stopPropagation(); g.sound.click(0.4); sel = t; fillPayment(t); drawList(); this.refresh(); });
+      });
       const need = [0, 10, 70, 150, 250][villager.level] || 250, prev = [0, 0, 10, 70, 150][villager.level] || 0;
-      xpf.style.width = `${Math.min(100, ((villager.xp - prev) / Math.max(1, need - prev)) * 100)}%`;
+      xpf.style.width = U(Math.round(Math.max(0, Math.min(1, (villager.xp - prev) / Math.max(1, need - prev))) * 102));
     };
     drawList();
+    this.screen.onWheel = d => { offset += d; drawList(); };
     this.screen.quickMove = (r, s) => (payRefs.includes(r) ? this.moveInto(s, [...hot, ...main]) : this.moveInto(s, payRefs));
     this.screen.onClose = () => { for (let i = 0; i < 2; i++) { const s = pay.get(i); if (s) { const rest = g.inv.add(s); if (rest) g.dropStack({ ...s, count: rest }); pay.set(i, null); } } villager.trading = null; };
   }
@@ -562,48 +700,70 @@ export class GUI {
 }
 
 // ---------------- HUD ----------------
+let debugObserver = null;
 export class HUD {
-  constructor(game, sprites) {
-    this.game = game; this.sprites = sprites;
+  constructor(game, sprites_) {
+    sprites();
+    this.game = game; this.sprites = sprites_;
     this.hotbar = $('hotbar');
     this.last = {};
-    this.shakeT = 0;
     this.hotbarSlots = [];
     this.hotbar.textContent = ''; // a new HUD per world: never stack on the previous one's slots
-    for (let i = 0; i < 9; i++) { const s = el('div', 'slot', this.hotbar); this.hotbarSlots.push(s); }
+    this.sel = el('div', 'sel', this.hotbar);
+    for (let i = 0; i < 9; i++) { const s = el('div', 'slot', this.hotbar); at(s, 1 + i * 20, 1); this.hotbarSlots.push(s); }
     this.toastQ = [];
+    this.blinkT = 0; this.hpLast = undefined; this.hpShown = 0; this.tick = -1; this.jig = null;
+    // F3 text arrives as one string; give every line its own translucent backing like the original's debug screen.
+    const dbg = $('debug');
+    if (debugObserver) debugObserver.disconnect();
+    debugObserver = new MutationObserver(() => {
+      const f = dbg.firstChild;
+      if (!f || f.nodeType !== 3 || dbg.childNodes.length !== 1) return;
+      const lines = f.nodeValue.split('\n');
+      dbg.textContent = '';
+      for (const l of lines) el('div', '', dbg).textContent = l || ' ';
+    });
+    debugObserver.observe(dbg, { childList: true });
   }
-  fillSlot(div, s) {
-    div.textContent = '';
-    if (!s) return;
-    const img = el('img', '', div); img.src = this.game.icons[s.key] || '';
-    if (s.count > 1) el('span', 'count', div).textContent = s.count;
-    const it = I[s.key];
-    if (it && it.durability && s.dmg) {
-      const d = el('div', 'dur', div), f = el('div', '', d), frac = 1 - s.dmg / it.durability;
-      f.style.width = `${frac * 100}%`; f.style.background = `hsl(${frac * 120}, 90%, 45%)`;
-    }
-  }
+  fillSlot(div, s) { fillItem(div, s, this.game.icons); }
   renderHotbar() {
     const inv = this.game.inv;
-    this.hotbarSlots.forEach((d, i) => { this.fillSlot(d, inv.main.get(i)); d.classList.toggle('selected', i === inv.selected); });
+    this.hotbarSlots.forEach((d, i) => this.fillSlot(d, inv.main.get(i)));
+    this.sel.style.left = U(-1 + inv.selected * 20);
     const off = $('offhand-slot'), o = inv.offhand.get(0);
     off.classList.toggle('hidden', !o);
     this.fillSlot(off, o);
+    this.last.cd = null;
   }
-  row(id, n, full, half, empty, value, cap = 10, flip = false) {
-    const key = `${id}:${value}:${full}:${this.shakeK}`;
+  // One icon per 8 px (9 px sprites overlapping by 1): food, armor, air, mount health fallback.
+  row(id, n, full, half, empty, value, cap = 10) {
+    const key = `${n}:${value}:${full.length}:${half.length}:${full.slice(-24)}`;
     if (this.last[id] === key) return;
     this.last[id] = key;
     const r = $(id);
     r.textContent = '';
     for (let i = 0; i < Math.min(cap, n); i++) {
       const v = value - i * 2;
-      const im = el('img', '', r);
-      im.src = v >= 2 ? full : v === 1 ? half : empty;
-      if (this.shakeK && id === 'hearts-row' && (i + this.shakeK) % 3 === 0) im.classList.add('shake');
+      el('i', '', r).style.backgroundImage = `url(${v >= 2 ? full : v === 1 ? half : empty})`;
     }
-    void flip;
+  }
+  // Hearts, layered like the original: container (white while blinking after damage), lost health in white, then the heart.
+  hearts(id, n, hp, shown, blink, kind) {
+    const S = this.sprites, key = `${n}:${hp}:${shown}:${blink}:${kind}:${this.jig ? this.tick : 0}`;
+    if (this.last[id] === key) return;
+    this.last[id] = key;
+    const r = $(id);
+    r.textContent = '';
+    for (let i = 0; i < Math.min(10, n); i++) {
+      const v = hp - 2 * i, w = shown - 2 * i, L = [];
+      if (v >= 2) L.push(S[kind]); else if (v === 1) L.push(S[kind + 'Half'] || S[kind]);
+      if (blink && v < 2 && w > Math.max(0, v)) L.push(w >= 2 ? S.heartWhite : S.heartWhiteHalf);
+      L.push(blink ? S.heartBlink : S.heartEmpty);
+      const d = el('i', '', r);
+      d.style.backgroundImage = L.map(u => `url(${u})`).join(',');
+      const dy = this.jig && id === 'hearts-row' ? this.jig[i] : 0;
+      if (dy) d.style.transform = `translateY(${U(dy)})`;
+    }
   }
   // White sweep over hotbar items that are cooling down (ender pearls, a knocked-out shield).
   updateCooldowns() {
@@ -614,47 +774,58 @@ export class HUD {
       let o = d.querySelector('.cd');
       if (!c) { if (o) o.remove(); return; }
       if (!o) { o = document.createElement('div'); o.className = 'cd'; d.appendChild(o); }
-      o.style.height = `${Math.max(0, c.t / c.max) * 100}%`;
+      o.style.height = U(Math.ceil(Math.max(0, Math.min(1, c.t / c.max)) * 16));
     });
   }
   update(dt) {
     const g = this.game, S = this.sprites, st = g.stats;
     this.updateCooldowns();
     const survival = g.mode === 'survival' || g.mode === 'adventure' || g.mode === 'hardcore';
-    $('stats').style.visibility = survival ? 'visible' : 'hidden';
-    $('xp').style.visibility = survival ? 'visible' : 'hidden';
+    $('hud').classList.toggle('nostats', !survival);
     if (survival) {
-      const poison = st.effects.poison ? S.heartPoison : st.effects.wither ? S.heartWither : S.heart;
-      this.shakeT -= dt;
-      this.shakeK = st.health <= 4 && this.shakeT <= 0 ? (Math.floor(g.time * 12) % 3) + 1 : 0;
       const hp = Math.ceil(st.health);
-      this.row('hearts-row', Math.ceil(Math.max(20, st.maxHealth) / 2), poison, S.heartHalf, S.heartEmpty, hp);
+      if (this.hpLast === undefined) this.hpLast = this.hpShown = hp;
+      if (hp < this.hpLast) { this.blinkT = 1; this.hpShown = Math.max(this.hpShown, this.hpLast); } else if (hp > this.hpLast) this.blinkT = Math.max(this.blinkT, 0.5);
+      this.hpLast = hp;
+      if (this.blinkT > 0) { this.blinkT -= dt; if (this.blinkT <= 0) { this.blinkT = 0; this.hpShown = hp; } }
+      const blink = this.blinkT > 0 && Math.floor(this.blinkT / 0.15) % 2 === 1;
+      // Low health shakes the hearts a pixel at random each tick; regeneration runs a wave through them.
+      const tick = Math.floor(g.time * 20);
+      if (tick !== this.tick) {
+        this.tick = tick;
+        const low = st.health + st.absorption <= 4, regen = st.effects.regeneration;
+        this.jig = low || regen ? Array.from({ length: 10 }, (_, i) => (low ? Math.floor(Math.random() * 2) : 0) - (regen && i === tick % 25 ? 2 : 0)) : null;
+      }
+      const kind = st.effects.poison ? 'heartPoison' : st.effects.wither ? 'heartWither' : 'heart';
+      this.hearts('hearts-row', Math.ceil(Math.min(20, st.maxHealth) / 2), hp, this.hpShown, blink, kind);
       const abs = Math.ceil(st.absorption);
       $('hearts-row2').classList.toggle('hidden', abs <= 0);
-      if (abs > 0) this.row('hearts-row2', Math.ceil(abs / 2), S.heartGold, S.heartGold, S.heartEmpty, abs);
-      const hunger = st.effects.hunger ? S.foodHunger : S.food;
-      this.row('food-row', 10, hunger, S.foodHalf, S.foodEmpty, Math.ceil(st.food));
+      $('stats').classList.toggle('abs', abs > 0);
+      if (abs > 0) this.hearts('hearts-row2', Math.ceil(abs / 2), abs, abs, false, 'heartGold');
+      const hunger = !!st.effects.hunger;
+      if (!(g.riding && g.riding.saddled)) this.row('food-row', 10, hunger ? S.foodHunger : S.food, hunger ? S.foodHungerHalf : S.foodHalf, S.foodEmpty, Math.ceil(st.food));
       const ap = g.inv.armorPoints().pts;
       $('armor-row').classList.toggle('hidden', ap <= 0);
       if (ap > 0) this.row('armor-row', 10, S.armor, S.armorHalf, S.armorEmpty, ap);
       const underwater = g.player.headInWater && st.air < 300;
       $('air-row').classList.toggle('hidden', !underwater);
       if (underwater) this.row('air-row', Math.ceil(st.air / 30), S.bubble, S.bubble, S.bubble, 20);
-      $('xp-fill').style.width = `${st.xpProgress * 100}%`;
+      $('xp-fill').style.width = U(Math.min(182, Math.floor(st.xpProgress * 183)));
       $('xp-level').textContent = st.level > 0 ? st.level : '';
     }
     // Riding: the mount's health replaces hunger and the jump charge replaces the XP bar.
     const mount = g.riding && g.riding.saddled ? g.riding : null;
     if (mount) {
       const mh = Math.ceil(mount.maxHealth / 2), hp = Math.ceil(mount.health);
-      this.row('food-row', Math.min(10, mh), S.heart, S.heartHalf || S.heart, S.heartEmpty, Math.round(hp * Math.min(10, mh) / mh));
-      $('xp-fill').style.width = `${(g.jumpCharge || 0) * 100}%`; $('xp-fill').style.background = '#e8a030'; $('xp-level').textContent = '';
+      this.hearts('food-row', Math.min(10, mh), Math.round(hp * Math.min(10, mh) / mh), 0, false, 'heart');
+      $('xp-fill').style.width = U(Math.min(182, Math.floor((g.jumpCharge || 0) * 183))); $('xp-fill').classList.add('jump'); $('xp-level').textContent = '';
       this.wasRiding = true;
-    } else if (this.wasRiding) { this.wasRiding = false; $('xp-fill').style.background = ''; this.last = {}; }
+    } else if (this.wasRiding) { this.wasRiding = false; $('xp-fill').classList.remove('jump'); this.last = {}; }
+    if (g.bossBar) $('boss').style.setProperty('--boss', g.bossBar.color || '#e070ff');
     const cd = g.attackCooldown;
     const ind = $('attack-ind');
     ind.classList.toggle('hidden', !(survival && cd < 1 && cd > 0));
-    ind.firstChild.style.width = `${cd * 100}%`;
+    ind.firstChild.style.width = U(Math.min(16, Math.floor(cd * 17)));
     if (this.toastT > 0) { this.toastT -= dt; if (this.toastT <= 0) $('toast').classList.remove('show'); }
     else if (this.toastQ.length) this.showToast(...this.toastQ.shift());
   }
@@ -665,6 +836,6 @@ export class HUD {
     t.querySelector('.t1').textContent = title;
     t.querySelector('.t2').textContent = text;
     t.classList.add('show');
-    this.toastT = 4;
+    this.toastT = 5;
   }
 }

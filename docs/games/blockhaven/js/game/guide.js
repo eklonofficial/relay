@@ -1,11 +1,11 @@
 // The in-game guide: features, commands, crafting, farming, combat, villagers, dimensions and graphics.
-import { MusicPlayer } from './music.js?v=muoh3kij';
-import { BLOCKS, BLOCK_ITEMS, TEXTURES } from '../data/blocks.js?v=muoh3kij';
-import { ITEMS, I } from '../data/items.js?v=muoh3kij';
-import { SHAPED, SHAPELESS, SMELTING } from '../data/recipes.js?v=muoh3kij';
-import { MOBS } from '../data/mobs.js?v=muoh3kij';
-import { BIOMES } from '../gen/biomes.js?v=muoh3kij';
-import { COMMANDS } from './commands.js?v=muoh3kij';
+import { MusicPlayer } from './music.js?v=muok06n3';
+import { BLOCKS, BLOCK_ITEMS, TEXTURES } from '../data/blocks.js?v=muok06n3';
+import { ITEMS, I } from '../data/items.js?v=muok06n3';
+import { SHAPED, SHAPELESS, SMELTING } from '../data/recipes.js?v=muok06n3';
+import { MOBS } from '../data/mobs.js?v=muok06n3';
+import { BIOMES } from '../gen/biomes.js?v=muok06n3';
+import { COMMANDS } from './commands.js?v=muok06n3';
 
 const esc = s => String(s).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
 
@@ -162,9 +162,9 @@ export function guideSections(icons) {
         <tr><td>Wild</td><td>Amplified terrain: towering mountains, floating sky islands with waterfalls, giant stone pillars and natural stone arches.</td></tr>
         <tr><td>Superflat</td><td>Flat grassland for building.</td></tr>
       </table>
-      <h4>Graphics presets (Settings)</h4>
+      <h4>Graphics presets (Options)</h4>
       <table>
-        <tr><td>Disabled</td><td>Plain, fastest rendering for very weak devices.</td></tr>
+        <tr><td>Fast</td><td>Plain, fastest rendering for very weak devices.</td></tr>
         <tr><td>Regular</td><td>Smooth lighting, animated water and foliage, clouds, fog and colour grading. Made to run well on Chromebooks.</td></tr>
         <tr><td>High</td><td>Adds real-time sun shadows, god rays and bloom. For stronger laptops.</td></tr>
         <tr><td>PC</td><td>Everything at full quality: sharper, softer shadows, screen-space reflections on water, stronger god rays and bloom, and anti-aliasing. For gaming PCs.</td></tr>

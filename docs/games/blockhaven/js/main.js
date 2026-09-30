@@ -1,33 +1,33 @@
 // Blockhaven bootstrap: assets, menus, input, camera, frame loop.
-import { Demo, DEMO_SEED } from './demo.js?v=muoh3kij';
-import { armorModel, armorSkinKey, ARMOR_MATERIALS, ARMOR_PIECES, elytraModel } from './data/armor.js?v=muoh3kij';
-import { TEXTURES, TEX, B, BLOCKS, DIM, DIM_NAMES, SHAPE_OF, SHAPE, props } from './data/blocks.js?v=muoh3kij';
-import { I, ITEMS } from './data/items.js?v=muoh3kij';
-import { MOBS, PROFESSIONS, playerModel, saddleModel, PLAYER_SKINS } from './data/mobs.js?v=muoh3kij';
-import { Net, cleanCode, cleanName, cleanKey, cleanChat, chatLine, MAX_PLAYERS } from './net/net.js?v=muoh3kij';
-import { NameTags } from './net/nametags.js?v=muoh3kij';
-import { BIOMES } from './gen/biomes.js?v=muoh3kij';
-import { generateBlockTextures } from './render/blocktex.js?v=muoh3kij';
-import { generateItemTextures, ITEM_LAYER, FX_LAYER, ITEM_LAYER_COUNT } from './render/itemtex.js?v=muoh3kij';
-import { packModel, paintModel, SKIN, faceRects } from './render/mobtex.js?v=muoh3kij';
-import { buildMipChain } from './render/atlas.js?v=muoh3kij';
-import { Renderer, Batch } from './render/renderer.js?v=muoh3kij';
-import { World, UNLOADED } from './world/world.js?v=muoh3kij';
-import { createGenerator } from './gen/index.js?v=muoh3kij';
-import { Game } from './game/game.js?v=muoh3kij';
-import { Interact } from './game/interact.js?v=muoh3kij';
-import { Commands } from './game/commands.js?v=muoh3kij';
-import { GUI, HUD } from './game/ui.js?v=muoh3kij';
-import { buildIcons, hudSprites } from './game/icons.js?v=muoh3kij';
-import { Sound } from './game/audio.js?v=muoh3kij';
-import { buildLogo, buttonTexture, iconDataURL } from './render/logo.js?v=muoh3kij';
-import { computeEnv } from './game/env.js?v=muoh3kij';
-import { guideSections } from './game/guide.js?v=muoh3kij';
-import { listWorlds, loadWorld, saveWorld, deleteWorld } from './game/storage.js?v=muoh3kij';
-import { drawModel, rootMatrix, M } from './entity/entity.js?v=muoh3kij';
-import { itemMesh, emitItemMesh } from './entity/itemmesh.js?v=muoh3kij';
-import { Lightning } from './entity/objects.js?v=muoh3kij';
-import { compose, translation, rotationX, rotationY, rotationZ, scaling, forward, mat4 } from './core/math.js?v=muoh3kij';
+import { Demo, DEMO_SEED } from './demo.js?v=muok06n3';
+import { armorModel, armorSkinKey, ARMOR_MATERIALS, ARMOR_PIECES, elytraModel } from './data/armor.js?v=muok06n3';
+import { TEXTURES, TEX, B, BLOCKS, DIM, DIM_NAMES, SHAPE_OF, SHAPE, props } from './data/blocks.js?v=muok06n3';
+import { I, ITEMS } from './data/items.js?v=muok06n3';
+import { MOBS, PROFESSIONS, playerModel, saddleModel, PLAYER_SKINS } from './data/mobs.js?v=muok06n3';
+import { Net, cleanCode, cleanName, cleanKey, cleanChat, chatLine, MAX_PLAYERS } from './net/net.js?v=muok06n3';
+import { NameTags } from './net/nametags.js?v=muok06n3';
+import { BIOMES } from './gen/biomes.js?v=muok06n3';
+import { generateBlockTextures, drawBlockTexture } from './render/blocktex.js?v=muok06n3';
+import { generateItemTextures, ITEM_LAYER, FX_LAYER, ITEM_LAYER_COUNT } from './render/itemtex.js?v=muok06n3';
+import { packModel, paintModel, SKIN, faceRects } from './render/mobtex.js?v=muok06n3';
+import { buildMipChain } from './render/atlas.js?v=muok06n3';
+import { Renderer, Batch } from './render/renderer.js?v=muok06n3';
+import { World, UNLOADED } from './world/world.js?v=muok06n3';
+import { createGenerator } from './gen/index.js?v=muok06n3';
+import { Game } from './game/game.js?v=muok06n3';
+import { Interact } from './game/interact.js?v=muok06n3';
+import { Commands } from './game/commands.js?v=muok06n3';
+import { GUI, HUD } from './game/ui.js?v=muok06n3';
+import { buildIcons, hudSprites } from './game/icons.js?v=muok06n3';
+import { Sound } from './game/audio.js?v=muok06n3';
+import { buildLogo, buttonTexture, dirtTexture, iconDataURL } from './render/logo.js?v=muok06n3';
+import { computeEnv } from './game/env.js?v=muok06n3';
+import { guideSections } from './game/guide.js?v=muok06n3';
+import { listWorlds, loadWorld, saveWorld, deleteWorld } from './game/storage.js?v=muok06n3';
+import { drawModel, rootMatrix, M } from './entity/entity.js?v=muok06n3';
+import { itemMesh, emitItemMesh } from './entity/itemmesh.js?v=muok06n3';
+import { Lightning } from './entity/objects.js?v=muok06n3';
+import { compose, translation, rotationX, rotationY, rotationZ, scaling, forward, mat4 } from './core/math.js?v=muok06n3';
 
 const $ = id => document.getElementById(id);
 const SETTINGS_KEY = 'blockhaven.settings.v2';
@@ -92,6 +92,25 @@ function orient(d, n) {
 }
 const GRIP = orient([-0.42, 0.78, -0.46], [-0.5, 0.2, 0.85]);
 
+// ---------------- Minecraft-style widgets ----------------
+// Slider: wraps a range input in a button-like track with the label centred and an 8x20 handle;
+// the (invisible) input keeps handling the mouse, keyboard and 'input' events. Returns a refresh().
+function slider(id, label, fmt = v => v) {
+  const el = $(id), wrap = document.createElement('div'), lab = document.createElement('span'), knob = document.createElement('span');
+  wrap.className = 'slider'; lab.className = 'lab'; knob.className = 'knob';
+  el.replaceWith(wrap); wrap.append(el, lab, knob);
+  const refresh = () => { const v = Number(el.value); wrap.style.setProperty('--p', (v - el.min) / (el.max - el.min)); lab.textContent = `${label}: ${fmt(v)}`; };
+  el.addEventListener('input', refresh); refresh();
+  return refresh;
+}
+// Cycle button ("Difficulty: Normal"): each click moves to the next of opts = [[value, text], ...].
+function cycle(btn, label, opts, get, set) {
+  const draw = () => { const o = opts.find(o => o[0] === get()) || opts[0]; btn.textContent = `${label}: ${o[1]}`; };
+  btn.addEventListener('click', () => { const i = opts.findIndex(o => o[0] === get()); set(opts[(i + 1) % opts.length][0]); draw(); });
+  draw(); return draw;
+}
+const toggle = (btn, label, get, set) => cycle(btn, label, [[true, 'ON'], [false, 'OFF']], get, set);
+
 class App {
   constructor() {
     this.settings = settings;
@@ -109,6 +128,9 @@ class App {
   }
 
   init() {
+    // Menu textures first, so even the error screen has its dirt background.
+    const css = document.documentElement.style;
+    css.setProperty('--btn-tex', `url(${buttonTexture()})`); css.setProperty('--dirt-tex', `url(${dirtTexture(drawBlockTexture('dirt', 1))})`);
     try { this.renderer = new Renderer($('game')); } catch (e) { this.fatal(/WebGL 2 is not available/.test(e.message) ? 'Blockhaven needs WebGL 2, which this browser or device does not provide.' : `Graphics startup failed: ${e.message.split('\n')[0]}`); return false; }
     this.applyGraphics();
     // Textures.
@@ -138,6 +160,9 @@ class App {
     this.nametags = new NameTags($('nametags'));
     this.bindSettings(); this.bindMenus(); this.bindInput();
     $('splash').textContent = SPLASHES[Math.floor(Math.random() * SPLASHES.length)];
+    // Like Minecraft, the splash is scaled so it always spans about 100 GUI px (measured once the font is in).
+    const fitSplash = () => { const el = $('splash'), w = el.offsetWidth / (this.guiScale || 3) / (Number(getComputedStyle(el).getPropertyValue('--splash-scale')) || 1); el.style.setProperty('--splash-scale', Math.min(1.5, 110 / (w + 16)).toFixed(2)); };
+    fitSplash(); if (document.fonts && document.fonts.ready) document.fonts.ready.then(fitSplash);
     this.buildTitleArt();
     this.startPanorama();
     requestAnimationFrame(t => this.frame(t));
@@ -147,7 +172,6 @@ class App {
     const logo = buildLogo('BLOCKHAVEN', 'RANDOM AHH EDITION');
     $('logo').prepend(logo);
     $('logo').style.setProperty('--logo-w', logo.width);
-    document.documentElement.style.setProperty('--btn-tex', `url(${buttonTexture()})`);
     $('full-icon').src = iconDataURL('full');
     this.applyMute();
   }
@@ -156,7 +180,7 @@ class App {
     if (this.sound.setMusic) this.sound.setMusic(settings.muted ? 0 : settings.music / 100);
     $('mute-icon').src = iconDataURL(settings.muted ? 'mute' : 'sound');
   }
-  // Graphics presets: 0 Disabled, 1 Regular, 2 High, 3 PC.
+  // Graphics presets: 0 Fast, 1 Regular, 2 High, 3 PC.
   applyGraphics() {
     const q = Number(settings.graphics);
     this.renderer.setQuality(q);
@@ -166,7 +190,7 @@ class App {
     const secs = guideSections(this.icons), tabs = $('guide-tabs'), body = $('guide-body');
     tabs.textContent = '';
     const show = name => { body.innerHTML = secs[name]; body.scrollTop = 0; tabs.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.textContent === name)); };
-    for (const name of Object.keys(secs)) { const b = document.createElement('button'); b.textContent = name; b.addEventListener('click', () => { this.sound.click(); show(name); }); tabs.appendChild(b); }
+    for (const name of Object.keys(secs)) { const b = document.createElement('button'); b.className = 'small'; b.textContent = name; b.addEventListener('click', () => { this.sound.click(); show(name); }); tabs.appendChild(b); }
     show(Object.keys(secs)[0]);
   }
   fatal(msg) { $('title').classList.add('hidden'); $('error').classList.remove('hidden'); $('error').textContent = msg; }
@@ -202,6 +226,7 @@ class App {
   setMode(m) {
     this.mode = m;
     for (const id of ['title', 'worlds', 'create', 'loading', 'pause', 'death', 'mp']) $(id).classList.toggle('hidden', id !== m);
+    document.body.classList.toggle('ingame', !!this.game); // in a world, menus overlay the game instead of dirt
     if (m === 'pause') this.updatePauseMenu();
     $('hud').classList.toggle('hidden', !(m === 'play' || m === 'pause' || m === 'gui' || m === 'chat') || this.hudHidden);
     this.keys.clear(); this.mouse.left = this.mouse.right = false;
@@ -219,12 +244,13 @@ class App {
       try {
         const e = document.createElement('div'); e.className = 'world-entry';
         const th = document.createElement('div'); th.className = 'thumb'; if (typeof w.thumb === 'string' && w.thumb.startsWith('data:image/')) th.style.backgroundImage = `url(${w.thumb})`;
-        const info = document.createElement('div');
+        const info = document.createElement('div'); info.className = 'txt';
         const n = document.createElement('div'); n.className = 'name'; n.textContent = String(w.name || 'Untitled World');
-        const i = document.createElement('div'); i.className = 'info';
+        const i = document.createElement('div'), i2 = document.createElement('div'); i.className = i2.className = 'info';
         const mode = typeof w.mode === 'string' && w.mode ? w.mode : 'survival', day = Number.isFinite(w.day) ? w.day : 0;
-        i.textContent = `${new Date(w.lastPlayed || 0).toLocaleString()} · ${mode[0].toUpperCase() + mode.slice(1)} · ${w.type === 'wild' ? 'Wild' : w.type === 'flat' ? 'Superflat' : 'Default'} · Day ${day + 1}`;
-        info.append(n, i); e.append(th, info);
+        i.textContent = `(${new Date(w.lastPlayed || 0).toLocaleString()})`;
+        i2.textContent = `${mode[0].toUpperCase() + mode.slice(1)} Mode, ${w.type === 'wild' ? 'Wild' : w.type === 'flat' ? 'Superflat' : 'Default'}, Day ${day + 1}`;
+        info.append(n, i, i2); e.append(th, info);
         e.addEventListener('click', () => { list.querySelectorAll('.sel').forEach(x => x.classList.remove('sel')); e.classList.add('sel'); this.selectedWorld = w.id; $('btn-world-play').disabled = $('btn-world-delete').disabled = $('btn-world-download').disabled = false; });
         e.addEventListener('dblclick', () => this.playWorld(w.id));
         list.appendChild(e);
@@ -268,7 +294,7 @@ class App {
   }
   createWorld() {
     this.sound.unlock(); this.sound.click();
-    const opt = k => $('create').querySelector(`[data-opt=${k}] .on`).dataset.v;
+    const opt = k => $('create').querySelector(`[data-opt=${k}]`).dataset.v;
     const seedText = $('cw-seed').value;
     const meta = {
       id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
@@ -554,24 +580,24 @@ class App {
   }
 
   bindSettings() {
-    const bind = (id, key, label, apply) => {
+    const bind = (id, key, label, fmt, apply) => {
       const el = $(id);
       el.value = settings[key];
-      if (label) $(label).textContent = settings[key];
-      el.addEventListener('input', () => { settings[key] = Number(el.value); if (label) $(label).textContent = settings[key]; if (apply) apply(); });
+      el.addEventListener('input', () => { settings[key] = Number(el.value); if (apply) apply(); });
+      slider(id, label, fmt);
     };
-    bind('set-rd', 'renderDistance', 'rd-val');
-    bind('set-fov', 'fov', 'fov-val');
-    bind('set-sens', 'sensitivity', 'sens-val');
-    bind('set-bright', 'brightness', 'bright-val');
-    bind('set-vol', 'volume', 'vol-val', () => { settings.muted = false; this.applyMute(); });
-    bind('set-music', 'music', 'music-val', () => { settings.muted = false; this.applyMute(); });
-    $('set-gfx').value = settings.graphics;
-    $('set-gfx').addEventListener('change', () => { settings.graphics = Number($('set-gfx').value); this.applyGraphics(); store(SETTINGS_KEY, settings); });
-    for (const [id, k] of [['set-bob', 'bobbing'], ['set-clouds', 'clouds'], ['set-autojump', 'autoJump'], ['set-particles', 'particles'], ['set-dynres', 'dynamicRes']]) {
-      $(id).checked = settings[k];
-      $(id).addEventListener('change', () => { settings[k] = $(id).checked; if (this.game) this.game.player.autoJump = settings.autoJump; });
+    const pct = v => `${v}%`, vol = v => (v ? `${v}%` : 'OFF'), unmute = () => { settings.muted = false; this.applyMute(); };
+    bind('set-rd', 'renderDistance', 'Render Distance', v => `${v} chunks`);
+    bind('set-fov', 'fov', 'FOV', v => (v === 70 ? 'Normal' : v === 110 ? 'Quake Pro' : v));
+    bind('set-sens', 'sensitivity', 'Sensitivity', pct);
+    bind('set-bright', 'brightness', 'Brightness', v => (v === 0 ? 'Moody' : v === 100 ? 'Bright' : pct(v)));
+    bind('set-vol', 'volume', 'Master Volume', vol, unmute);
+    bind('set-music', 'music', 'Music', vol, unmute);
+    cycle($('set-gfx'), 'Graphics', [[0, 'Fast'], [1, 'Regular'], [2, 'High'], [3, 'PC']], () => Number(settings.graphics), v => { settings.graphics = v; this.applyGraphics(); store(SETTINGS_KEY, settings); });
+    for (const [id, k, label] of [['set-bob', 'bobbing', 'View Bobbing'], ['set-clouds', 'clouds', 'Clouds'], ['set-autojump', 'autoJump', 'Auto-Jump'], ['set-particles', 'particles', 'Particles'], ['set-dynres', 'dynamicRes', 'Dynamic Resolution']]) {
+      toggle($(id), label, () => !!settings[k], v => { settings[k] = v; if (this.game) this.game.player.autoJump = settings.autoJump; });
     }
+    for (const b of $('settings').querySelectorAll('.opts button')) b.addEventListener('click', () => this.sound.click());
   }
   bindMenus() {
     const click = (id, fn) => $(id).addEventListener('click', () => { this.sound.unlock(); this.sound.click(); fn(); });
@@ -585,27 +611,29 @@ class App {
     click('btn-world-delete', async () => { if (this.selectedWorld && confirm('Delete this world forever?')) { await deleteWorld(this.selectedWorld); this.showWorlds(); } });
     click('btn-create', () => this.createWorld());
     click('btn-create-cancel', () => this.showWorlds());
-    for (const group of $('create').querySelectorAll('.opt')) {
-      group.addEventListener('click', e => {
-        const b = e.target.closest('button');
-        if (!b) return;
-        group.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
-        this.sound.click();
-        this.updateCreateHint();
-      });
+    // Create-screen choices are cycle buttons; the current value lives in data-v.
+    const choices = {
+      mode: ['Game Mode', [['survival', 'Survival'], ['creative', 'Creative'], ['hardcore', 'Hardcore']]],
+      difficulty: ['Difficulty', [['peaceful', 'Peaceful'], ['easy', 'Easy'], ['normal', 'Normal'], ['hard', 'Hard']]],
+      type: ['World Type', [['default', 'Default'], ['wild', 'Wild'], ['flat', 'Superflat']]],
+      cheats: ['Allow Cheats', [['on', 'ON'], ['off', 'OFF']]],
+    };
+    for (const b of $('create').querySelectorAll('[data-opt]')) {
+      const [label, opts] = choices[b.dataset.opt];
+      cycle(b, label, opts, () => b.dataset.v, v => { b.dataset.v = v; this.sound.click(); this.updateCreateHint(); });
     }
     click('btn-settings', () => this.openPanel('settings'));
     click('btn-settings2', () => this.openPanel('settings'));
-    click('btn-settings-done', () => { $('settings').classList.add('hidden'); store(SETTINGS_KEY, settings); });
+    click('btn-settings-done', () => { this.closePanel('settings'); store(SETTINGS_KEY, settings); });
     click('btn-guide', () => this.openGuide());
     click('btn-demo', () => this.startDemo());
     click('btn-guide2', () => this.openGuide());
-    click('btn-guide-done', () => $('guide').classList.add('hidden'));
+    click('btn-guide-done', () => this.closePanel('guide'));
     click('btn-controls', () => this.openPanel('controls'));
     click('btn-mute', () => { settings.muted = !settings.muted; this.applyMute(); store(SETTINGS_KEY, settings); });
     click('btn-full', () => { if (document.fullscreenElement) document.exitFullscreen?.(); else document.documentElement.requestFullscreen?.().catch(() => {}); });
     click('btn-controls2', () => this.openPanel('controls'));
-    click('btn-controls-done', () => $('controls').classList.add('hidden'));
+    click('btn-controls-done', () => this.closePanel('controls'));
     click('btn-resume', () => this.requestLock());
     click('btn-quit', () => this.quitToTitle());
     click('btn-open', () => this.openToFriends());
@@ -621,12 +649,13 @@ class App {
     $('cw-seed').addEventListener('keydown', e => { if (e.key === 'Enter') this.createWorld(); });
   }
   updateCreateHint() {
-    const opt = k => $('create').querySelector(`[data-opt=${k}] .on`).dataset.v;
-    const t = { default: 'Continents, oceans, rivers, 40+ biomes, deep caves, villages and structures.', wild: 'Wild: amplified mountains, floating islands with waterfalls, giant stone pillars and natural arches.', flat: 'Superflat: a flat grassland, perfect for building.' }[opt('type')];
-    const m = { survival: 'Survival: gather resources, craft, stay alive.', creative: 'Creative: unlimited blocks, flight, instant breaking.', hardcore: 'Hardcore: survival on hard difficulty with one life.' }[opt('mode')];
-    $('cw-hint').textContent = `${m} ${t}`;
+    const opt = k => $('create').querySelector(`[data-opt=${k}]`).dataset.v;
+    $('cw-hint').textContent = { survival: 'Gather resources, craft and stay alive.', creative: 'Unlimited blocks, flight, instant breaking.', hardcore: 'Survival on hard difficulty with one life.' }[opt('mode')];
+    $('cw-type-hint').textContent = { default: 'Continents, oceans, rivers, 40+ biomes, deep caves, villages and structures.', wild: 'Amplified mountains, floating islands with waterfalls, giant stone pillars and natural arches.', flat: 'A flat grassland, perfect for building.' }[opt('type')];
   }
-  openPanel(id) { $(id).classList.remove('hidden'); }
+  // Options/Controls/Guide replace the pause menu while open, like Minecraft's sub-screens.
+  openPanel(id) { $(id).classList.remove('hidden'); if (this.mode === 'pause') $('pause').classList.add('hidden'); }
+  closePanel(id) { $(id).classList.add('hidden'); if (this.mode === 'pause') $('pause').classList.remove('hidden'); }
 
   // ---------------- input ----------------
   bindInput() {
