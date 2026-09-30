@@ -1,6 +1,6 @@
 // Entity base class, manager and the box-model renderer shared by every mob.
-import { moveEntity } from './physics.js?v=munlpvny';
-import { B } from '../data/blocks.js?v=munlpvny';
+import { moveEntity } from './physics.js?v=munm0grh';
+import { B } from '../data/blocks.js?v=munm0grh';
 
 let nextId = 1;
 export class Entity {
