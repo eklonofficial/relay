@@ -1,5 +1,5 @@
 // Item stacks and containers. A stack is { key, count, dmg?, tag? } or null.
-import { I, maxStack } from '../data/items.js?v=munkcr3r';
+import { I, maxStack } from '../data/items.js?v=munkil2j';
 
 export const stack = (key, count = 1, extra = {}) => (I[key] ? { key, count, ...extra } : null);
 export const clone = s => (s ? { ...s, tag: s.tag ? { ...s.tag } : undefined } : null);
@@ -56,8 +56,11 @@ export class PlayerInventory {
     this.craft = new Container(4);
     this.selected = 0;
   }
-  get held() { return this.main.get(this.selected); }
-  setHeld(s) { this.main.set(this.selected, s); }
+  // `hand` switches which hand the held-item helpers act on ('main' or 'off'), so every use
+  // action (eating, blocking, shooting, placing) works from the off-hand too.
+  get held() { return this.hand === 'off' ? this.offhand.get(0) : this.main.get(this.selected); }
+  get mainHeld() { return this.main.get(this.selected); }
+  setHeld(s) { if (this.hand === 'off') this.offhand.set(0, s); else this.main.set(this.selected, s); }
   // Hotbar first, then main.
   add(s) {
     if (!s) return 0;
@@ -68,8 +71,9 @@ export class PlayerInventory {
     const s = this.held;
     if (!s) return;
     s.count -= n;
-    if (s.count <= 0) this.main.set(this.selected, null);
-    else this.main.changed();
+    const c = this.hand === 'off' ? this.offhand : this.main, i = this.hand === 'off' ? 0 : this.selected;
+    if (s.count <= 0) c.set(i, null);
+    else c.changed();
   }
   // Damages the held item; returns true if it broke.
   damageHeld(amount = 1) {
@@ -77,8 +81,9 @@ export class PlayerInventory {
     const it = s && I[s.key];
     if (!it || !it.durability) return false;
     s.dmg = (s.dmg || 0) + amount;
-    if (s.dmg >= it.durability) { this.main.set(this.selected, null); return true; }
-    this.main.changed();
+    const c = this.hand === 'off' ? this.offhand : this.main, i = this.hand === 'off' ? 0 : this.selected;
+    if (s.dmg >= it.durability) { c.set(i, null); return true; }
+    c.changed();
     return false;
   }
   armorPoints() {

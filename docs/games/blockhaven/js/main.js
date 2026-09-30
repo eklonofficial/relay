@@ -1,30 +1,30 @@
 // Blockhaven bootstrap: assets, menus, input, camera, frame loop.
-import { Demo, DEMO_SEED } from './demo.js?v=munkcr3r';
-import { armorModel, armorSkinKey, ARMOR_MATERIALS, ARMOR_PIECES } from './data/armor.js?v=munkcr3r';
-import { TEXTURES, TEX, B, BLOCKS, DIM, DIM_NAMES, SHAPE_OF, SHAPE, props } from './data/blocks.js?v=munkcr3r';
-import { I, ITEMS } from './data/items.js?v=munkcr3r';
-import { MOBS, PROFESSIONS, playerModel } from './data/mobs.js?v=munkcr3r';
-import { BIOMES } from './gen/biomes.js?v=munkcr3r';
-import { generateBlockTextures } from './render/blocktex.js?v=munkcr3r';
-import { generateItemTextures, ITEM_LAYER, FX_LAYER, ITEM_LAYER_COUNT } from './render/itemtex.js?v=munkcr3r';
-import { packModel, paintModel, SKIN } from './render/mobtex.js?v=munkcr3r';
-import { buildMipChain } from './render/atlas.js?v=munkcr3r';
-import { Renderer, Batch } from './render/renderer.js?v=munkcr3r';
-import { World, UNLOADED } from './world/world.js?v=munkcr3r';
-import { createGenerator } from './gen/index.js?v=munkcr3r';
-import { Game } from './game/game.js?v=munkcr3r';
-import { Interact } from './game/interact.js?v=munkcr3r';
-import { Commands } from './game/commands.js?v=munkcr3r';
-import { GUI, HUD } from './game/ui.js?v=munkcr3r';
-import { buildIcons, hudSprites } from './game/icons.js?v=munkcr3r';
-import { Sound } from './game/audio.js?v=munkcr3r';
-import { computeEnv } from './game/env.js?v=munkcr3r';
-import { guideSections } from './game/guide.js?v=munkcr3r';
-import { listWorlds, loadWorld, saveWorld, deleteWorld } from './game/storage.js?v=munkcr3r';
-import { drawModel, rootMatrix, M } from './entity/entity.js?v=munkcr3r';
-import { itemMesh, emitItemMesh } from './entity/itemmesh.js?v=munkcr3r';
-import { Lightning } from './entity/objects.js?v=munkcr3r';
-import { compose, translation, rotationX, rotationY, rotationZ, scaling, forward, mat4 } from './core/math.js?v=munkcr3r';
+import { Demo, DEMO_SEED } from './demo.js?v=munkil2j';
+import { armorModel, armorSkinKey, ARMOR_MATERIALS, ARMOR_PIECES } from './data/armor.js?v=munkil2j';
+import { TEXTURES, TEX, B, BLOCKS, DIM, DIM_NAMES, SHAPE_OF, SHAPE, props } from './data/blocks.js?v=munkil2j';
+import { I, ITEMS } from './data/items.js?v=munkil2j';
+import { MOBS, PROFESSIONS, playerModel } from './data/mobs.js?v=munkil2j';
+import { BIOMES } from './gen/biomes.js?v=munkil2j';
+import { generateBlockTextures } from './render/blocktex.js?v=munkil2j';
+import { generateItemTextures, ITEM_LAYER, FX_LAYER, ITEM_LAYER_COUNT } from './render/itemtex.js?v=munkil2j';
+import { packModel, paintModel, SKIN } from './render/mobtex.js?v=munkil2j';
+import { buildMipChain } from './render/atlas.js?v=munkil2j';
+import { Renderer, Batch } from './render/renderer.js?v=munkil2j';
+import { World, UNLOADED } from './world/world.js?v=munkil2j';
+import { createGenerator } from './gen/index.js?v=munkil2j';
+import { Game } from './game/game.js?v=munkil2j';
+import { Interact } from './game/interact.js?v=munkil2j';
+import { Commands } from './game/commands.js?v=munkil2j';
+import { GUI, HUD } from './game/ui.js?v=munkil2j';
+import { buildIcons, hudSprites } from './game/icons.js?v=munkil2j';
+import { Sound } from './game/audio.js?v=munkil2j';
+import { computeEnv } from './game/env.js?v=munkil2j';
+import { guideSections } from './game/guide.js?v=munkil2j';
+import { listWorlds, loadWorld, saveWorld, deleteWorld } from './game/storage.js?v=munkil2j';
+import { drawModel, rootMatrix, M } from './entity/entity.js?v=munkil2j';
+import { itemMesh, emitItemMesh } from './entity/itemmesh.js?v=munkil2j';
+import { Lightning } from './entity/objects.js?v=munkil2j';
+import { compose, translation, rotationX, rotationY, rotationZ, scaling, forward, mat4 } from './core/math.js?v=munkil2j';
 
 const $ = id => document.getElementById(id);
 const SETTINGS_KEY = 'blockhaven.settings.v2';
@@ -673,6 +673,8 @@ class App {
     }
     const held = g.inv.held;
     if (held && mats.rightArm) this.renderItemAt(ctx, held.key, M.chain(mats.rightArm, M.t(-3, -10, -1), M.rx(-Math.PI / 2), M.s(10)), [b, b, b]);
+    const offItem = g.inv.offhand.get(0);
+    if (offItem && mats.leftArm) this.renderItemAt(ctx, offItem.key, M.chain(mats.leftArm, M.t(3, -10, -1), M.rx(-Math.PI / 2), M.s(10)), [b, b, b]);
   }
 
   drawWeather(ctx, cam, rain) {
@@ -716,6 +718,40 @@ class App {
   // (sin(f^2*pi) / sin(sqrt(f)*pi) curves over 0.3 s) and per-type display transforms, so swords
   // sit diagonally in the grip and chop down-and-across when swung.
   buildHand(dt, cam) {
+    const res = this.buildMainHand(dt, cam) || {};
+    const off = this.game.inv.offhand.get(0);
+    if (off && I[off.key]) this.addOffHand(res, off, dt);
+    return res;
+  }
+  // The off-hand item, mirrored to the left with its own swing; a raised shield while blocking.
+  addOffHand(res, off, dt) {
+    const g = this.game, p = g.player, it = this.interact, D2R = Math.PI / 180;
+    const item = I[off.key];
+    const f = it.swingOff > 0 ? 1 - it.swingOff : 0, sf = Math.sqrt(f);
+    const using = it.using && it.usingHand === 'off' ? it.using : null;
+    const bob = settings.bobbing ? p.bobAmount : 0, ph = p.bobPhase;
+    const sway = M.t(-Math.sin(ph) * 0.03 * bob - (this.swayX || 0) * 0.3, -Math.abs(Math.cos(ph)) * 0.035 * bob + (this.swayY || 0) * 0.2, 0);
+    const mirror = M.s(-1, 1, 1);
+    const g1 = Math.sin(f * f * Math.PI), h1 = Math.sin(sf * Math.PI);
+    const arm = M.chain(mirror, M.t(-0.4 * Math.sin(sf * Math.PI), 0.2 * Math.sin(sf * Math.PI * 2), -0.2 * Math.sin(f * Math.PI)), M.t(0.56, -0.52, -0.72), M.ry((45 - g1 * 20) * D2R), M.rz(-h1 * 20 * D2R), M.rx(-h1 * 80 * D2R), M.ry(-45 * D2R));
+    const l = g.world.lightAt(p.pos[0], p.pos[1] + 1.6, p.pos[2]);
+    const light = Math.max(Math.pow(0.8, 15 - l.sky) * g.env.skyLight[0], Math.pow(0.82, 15 - l.blk), g.env.ambient[0] + 0.05);
+    if (item.block && !item.flat) {
+      const m = M.chain(sway, arm, M.t(-0.06, 0.17, -0.06), M.ry(45 * D2R), M.rx(-6 * D2R), M.s(0.25), M.t(-0.5, -0.5, -0.5));
+      res.block2 = { id: item.block[0], meta: item.block[1], matrix: toMat4(m) };
+      res.light = res.light ?? light;
+      return;
+    }
+    let m;
+    if (using === 'shield' || (item.kind === 'shield' && g.blocking)) m = M.chain(sway, mirror, M.t(0.28, -0.38, -0.55), M.ry(-0.25), M.s(0.8), M.t(-0.5, -0.5, 0));
+    else if (using === 'eat') m = M.chain(sway, mirror, M.t(0.18, -0.36 + Math.sin(it.useT * 18) * 0.04, -0.58), M.ry(-40 * D2R), M.rx(20 * D2R), M.t(0.04, -0.02, 0.05), GRIP, M.s(0.54), M.t(-0.22, -0.22, 0));
+    else m = M.chain(sway, arm, M.t(0.04, -0.02, 0.05), GRIP, M.s(0.54), M.t(-0.22, -0.22, 0));
+    const batch = this.batches.hand2 || (this.batches.hand2 = new Batch());
+    batch.reset();
+    emitItemMesh(batch, itemMesh(off.key, this.itemPixels(off.key)), this.itemLayer(off.key), m, [light, light, light]);
+    res.batch2 = batch; res.batchTex2 = 'item'; res.light = res.light ?? light;
+  }
+  buildMainHand(dt, cam) {
     const g = this.game, p = g.player, it = this.interact;
     const D2R = Math.PI / 180;
     const f = this.debugSwing ?? (it.swing > 0 ? 1 - it.swing : 0), sf = Math.sqrt(f);

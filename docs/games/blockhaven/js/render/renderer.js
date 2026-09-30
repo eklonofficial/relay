@@ -1,8 +1,8 @@
-import { CHUNK, TEX, DIM } from '../data/blocks.js?v=munkcr3r';
-import { meshSingleBlock, STRIDE } from '../mesh/mesher.js?v=munkcr3r';
-import * as S from './shaders.js?v=munkcr3r';
-import { uploadArray } from './atlas.js?v=munkcr3r';
-import { mat4, perspective, multiply, invert, viewMatrix, frustumPlanes, boxVisible } from '../core/math.js?v=munkcr3r';
+import { CHUNK, TEX, DIM } from '../data/blocks.js?v=munkil2j';
+import { meshSingleBlock, STRIDE } from '../mesh/mesher.js?v=munkil2j';
+import * as S from './shaders.js?v=munkil2j';
+import { uploadArray } from './atlas.js?v=munkil2j';
+import { mat4, perspective, multiply, invert, viewMatrix, frustumPlanes, boxVisible } from '../core/math.js?v=munkil2j';
 
 // Graphics presets: 0 Disabled, 1 Regular, 2 High, 3 PC.
 export const QUALITY = [
@@ -492,13 +492,14 @@ export class Renderer {
       gl.clear(gl.DEPTH_BUFFER_BIT);
       const handProj = perspective(mat4(), 70 * Math.PI / 180, w / h, 0.01, 10);
       const hs = { ...s, camPos: [0, 0, 0] };
-      if (s.hand.block) {
-        const m = this.blockModel(s.hand.block.id, s.hand.block.meta);
+      for (const hb of [s.hand.block, s.hand.block2]) {
+        if (!hb) continue;
+        const m = this.blockModel(hb.id, hb.meta);
         if (m) {
           gl.useProgram(t.p);
           this.setEnv(t.u, hs, 1e4, 2e4, [0, 0, 0], 0);
           gl.uniformMatrix4fv(t.u.uViewProj, false, handProj);
-          gl.uniformMatrix4fv(t.u.uModel, false, s.hand.block.matrix);
+          gl.uniformMatrix4fv(t.u.uModel, false, hb.matrix);
           gl.uniform3f(t.u.uChunk, 0, 0, 0);
           const L = s.hand.light;
           gl.uniform3f(t.u.uSkyLight, L, L, L);
@@ -516,6 +517,14 @@ export class Renderer {
         gl.uniformMatrix4fv(e.u.uViewProj, false, handProj);
         gl.disable(gl.CULL_FACE);
         this.drawBatch(s.hand.batch, this.texFor(s.hand.batchTex), 0.5, false);
+        gl.enable(gl.CULL_FACE);
+      }
+      if (s.hand.batch2 && s.hand.batch2.quads) {
+        gl.useProgram(e.p);
+        this.setEnv(e.u, hs, 1e4, 2e4, [0, 0, 0], 0);
+        gl.uniformMatrix4fv(e.u.uViewProj, false, handProj);
+        gl.disable(gl.CULL_FACE);
+        this.drawBatch(s.hand.batch2, this.texFor(s.hand.batchTex2), 0.5, false);
         gl.enable(gl.CULL_FACE);
       }
     }

@@ -1,10 +1,10 @@
 // Player actions: mining, placing, using items and blocks, attacking.
-import { meleeDamage, isCrit, knockStrength, isSword } from './combat.js?v=munkcr3r';
-import { B, BLOCKS, SOLID, OPAQUE, SHAPE_OF, SHAPE, props, st, DIM, FACING_SHIFT, AXIS_SHIFT, VARIANT_MASK } from '../data/blocks.js?v=munkcr3r';
-import { I, breakTime } from '../data/items.js?v=munkcr3r';
-import { collisionBoxes, selectionBoxes } from '../data/shapes.js?v=munkcr3r';
-import { UNLOADED, posKey } from '../world/world.js?v=munkcr3r';
-import { forward } from '../core/math.js?v=munkcr3r';
+import { meleeDamage, isCrit, knockStrength, isSword } from './combat.js?v=munkil2j';
+import { B, BLOCKS, SOLID, OPAQUE, SHAPE_OF, SHAPE, props, st, DIM, FACING_SHIFT, AXIS_SHIFT, VARIANT_MASK } from '../data/blocks.js?v=munkil2j';
+import { I, breakTime } from '../data/items.js?v=munkil2j';
+import { collisionBoxes, selectionBoxes } from '../data/shapes.js?v=munkil2j';
+import { UNLOADED, posKey } from '../world/world.js?v=munkil2j';
+import { forward } from '../core/math.js?v=munkil2j';
 
 const DIRS = [[0, 1], [-1, 0], [0, -1], [1, 0]];
 export const dirIndex = (x, z) => (Math.abs(x) > Math.abs(z) ? (x > 0 ? 3 : 1) : (z > 0 ? 0 : 2));
@@ -48,14 +48,17 @@ export class Interact {
     else if ((input.attack || input.attackClicked) && this.target && !this.using) this.mine(dt, input.attackClicked);
     else { this.progress = 0; this.breakKey = ''; if (input.attackClicked) this.swing = 1; }
     // Use.
-    if (input.useClicked) this.useStart();
+    if (input.useClicked) this.useHands();
     if (this.using) {
+      g.inv.hand = this.usingHand || 'main';
       if (input.use) this.useHold(dt);
       else this.useRelease();
+      g.inv.hand = 'main';
     } else if (input.use && this.placeT > 0) {
       this.placeT -= dt;
-      if (this.placeT <= 0) { this.useStart(true); }
+      if (this.placeT <= 0) { this.useHands(true); }
     }
+    this.swingOff = Math.max(0, (this.swingOff || 0) - dt / 0.3);
     g.blocking = this.using === 'shield';
     g.player.usingItem = !!this.using && this.using !== 'shield';
     if (this.fish) this.fishTick(dt);
@@ -125,29 +128,42 @@ export class Interact {
     this.placeT = 0.22;
     if (g.mode === 'spectator') return;
     // Entities first.
-    if (this.entityTarget && !repeat) { if (this.entityTarget.interact && this.entityTarget.interact(held)) { this.swing = 1; return; } }
+    if (this.entityTarget && !repeat) { if (this.entityTarget.interact && this.entityTarget.interact(held)) { this.swing = 1; this.acted = true; return; } }
     // Blocks with their own interaction (unless sneaking with an item).
-    if (t && !(p.sneaking && held) && !repeat && this.useBlock(t, held)) { this.swing = 1; return; }
+    if (t && !(p.sneaking && held) && !repeat && this.useBlock(t, held)) { this.swing = 1; this.acted = true; return; }
     if (!it) return;
-    if (t && !repeat && this.toolUse(t)) return;
+    if (t && !repeat && this.toolUse(t)) { this.acted = true; return; }
     // Held-use items.
-    if (it.food) { if (g.stats.food < 20 || it.key === 'golden_apple' || it.key === 'enchanted_golden_apple' || it.key === 'chorus_fruit' || it.food.milk || g.mode === 'creative' || g.difficulty === 'peaceful') { this.using = 'eat'; this.useT = 0; } return; }
+    if (it.food) { if (g.stats.food < 20 || it.key === 'golden_apple' || it.key === 'enchanted_golden_apple' || it.key === 'chorus_fruit' || it.food.milk || g.mode === 'creative' || g.difficulty === 'peaceful') { this.using = 'eat'; this.useT = 0; this.acted = true; } return; }
     if (it.kind === 'bow') {
-      if (it.crossbow && held.tag && held.tag.loaded) { this.fireArrow(1, true); held.tag = null; g.inv.main.changed(); return; }
-      if (g.mode === 'creative' || g.inv.main.count('arrow') > 0 || g.inv.main.count('spectral_arrow') > 0) { this.using = it.crossbow ? 'crossbow' : 'bow'; this.useT = 0; g.sound.play('bow_draw', null, 0.5); }
+      if (it.crossbow && held.tag && held.tag.loaded) { this.fireArrow(1, true); held.tag = null; g.inv.main.changed(); g.inv.offhand.changed(); this.acted = true; return; }
+      if (g.mode === 'creative' || g.inv.main.count('arrow') > 0 || g.inv.main.count('spectral_arrow') > 0) { this.using = it.crossbow ? 'crossbow' : 'bow'; this.useT = 0; g.sound.play('bow_draw', null, 0.5); this.acted = true; }
       return;
     }
-    if (it.kind === 'shield') { this.using = 'shield'; return; }
-    if (it.kind === 'trident') { this.using = 'trident'; this.useT = 0; return; }
+    if (it.kind === 'shield') { this.using = 'shield'; this.acted = true; return; }
+    if (it.kind === 'trident') { this.using = 'trident'; this.useT = 0; this.acted = true; return; }
     if (it.kind === 'armor') {
       const slot = it.armor.slot;
-      if (!g.inv.armor.get(slot)) { g.inv.armor.set(slot, { ...held, count: 1 }); g.inv.consumeHeld(); g.sound.play('equip', null, 0.6); this.equip = 1; }
+      if (!g.inv.armor.get(slot)) { g.inv.armor.set(slot, { ...held, count: 1 }); g.inv.consumeHeld(); g.sound.play('equip', null, 0.6); this.equip = 1; this.acted = true; }
       return;
     }
-    if (it.use) { this.useItem(it, held, t); return; }
-    if (it.place && t) { this.plantSeed(t, it, held); return; }
-    if (it.block && t) this.place(t, it, held);
+    if (it.use) { this.useItem(it, held, t); this.acted = true; return; }
+    if (it.place && t) { this.plantSeed(t, it, held); this.acted = true; return; }
+    if (it.block && t) { this.place(t, it, held); this.acted = true; }
     else if (it.key === 'carved_pumpkin' && !g.inv.armor.get(0)) { g.inv.armor.set(0, { ...held, count: 1 }); g.inv.consumeHeld(); }
+  }
+  // Right click: the main hand acts first; if it does nothing, the off-hand item gets a turn
+  // (torches, food, a shield, a bow, blocks...).
+  useHands(repeat = false) {
+    const g = this.g, inv = g.inv;
+    this.acted = false; inv.hand = 'main';
+    this.useStart(repeat);
+    if (this.acted) { this.usingHand = 'main'; return; }
+    if (!inv.offhand.get(0)) return;
+    const swing = this.swing;
+    inv.hand = 'off';
+    try { this.useStart(repeat); } finally { inv.hand = 'main'; }
+    if (this.acted) { this.usingHand = 'off'; this.swing = swing; this.swingOff = 1; }
   }
   useHold(dt) {
     const g = this.g, held = g.inv.held;
