@@ -2,7 +2,7 @@
 // scripted camera shots — villages, mob parades, a forest fire, a night battle with explosions,
 // caves, a Nether fortress, the End and the Wither. Every shot is set up behind a fade while its
 // chunks stream in, then the camera follows smooth eased paths. Esc exits, Space skips.
-import { B, st, DIM } from './data/blocks.js?v=munf5yfg';
+import { B, st, DIM } from './data/blocks.js?v=munfaoam';
 
 const $ = id => document.getElementById(id);
 const ease = x => x * x * (3 - 2 * x);
@@ -146,8 +146,8 @@ async function atVillage(d, ctx) {
 const SHOTS = [
   {
     title: 'BLOCKHAVEN', sub: 'A whole voxel sandbox, written from scratch for the browser', dur: 11,
-    async setup(d, ctx) { const v = await atVillage(d, ctx); d.setTime(23600); ctx.p0 = [v[0] - 70, v[1] + 42, v[2] - 60]; ctx.p1 = [v[0] - 25, v[1] + 30, v[2] - 20]; await d.waitReady(ctx.p0[0], ctx.p0[1], ctx.p0[2], 3); },
-    cam: (u, ctx) => dolly(ctx.p0, ctx.p1, [ctx.v[0] + 40, ctx.v[1] + 10, ctx.v[2] + 60], [ctx.v[0] + 10, ctx.v[1], ctx.v[2] + 10])(u),
+    async setup(d, ctx) { const v = await atVillage(d, ctx); d.setTime(1200); ctx.p0 = [v[0] - 48, v[1] + 20, v[2] - 40]; ctx.p1 = [v[0] - 20, v[1] + 13, v[2] - 14]; await d.waitReady(ctx.p0[0], ctx.p0[1], ctx.p0[2], 3); },
+    cam: (u, ctx) => dolly(ctx.p0, ctx.p1, [ctx.v[0] + 10, ctx.v[1] + 2, ctx.v[2] + 14], [ctx.v[0] + 4, ctx.v[1], ctx.v[2] + 4])(u),
   },
   {
     title: 'Villages', sub: 'Five building styles · farms, smithies, libraries, temples · villagers with jobs and trades', dur: 12,
@@ -157,7 +157,21 @@ const SHOTS = [
   {
     title: '60 mobs', sub: 'Every creature modelled, skinned and animated in code', dur: 11,
     async setup(d, ctx) {
-      const v = await atVillage(d, ctx); d.setTime(5000);
+      let v = await atVillage(d, ctx); d.setTime(5000);
+      // Find open, flat grass away from the buildings so nothing blocks the camera.
+      const w = d.g.world; let spot = null;
+      const natural = new Set([B.GRASS_BLOCK, B.DIRT, B.SAND, B.PLANT, B.FLOWER, B.SNOW, B.SANDSTONE, B.GRAVEL, B.STONE]);
+      for (let r = 30; r < 120 && !spot; r += 5) for (let a = 0; a < 20 && !spot; a++) {
+        const x0 = Math.floor(v[0] + Math.cos(a / 20 * Math.PI * 2) * r), z0 = Math.floor(v[2] + Math.sin(a / 20 * Math.PI * 2) * r);
+        if (!d.ready(x0, z0, 1)) continue;
+        const h0 = w.heightAt(x0, z0); let ok = h0 >= 62;
+        for (let dx = -16; dx <= 18 && ok; dx += 2) for (let dz = -3; dz <= 9 && ok; dz += 3) {
+          const h = w.heightAt(x0 + dx, z0 + dz), id = w.getBlock(x0 + dx, h, z0 + dz);
+          if (Math.abs(h - h0) > 2 || !natural.has(id)) ok = false;
+        }
+        if (ok) spot = [x0 + 0.5, h0 + 1, z0 + 0.5];
+      }
+      if (spot) { v = spot; ctx.v = spot; await d.waitReady(spot[0], spot[1], spot[2], 2); }
       const types = ['cow', 'sheep', 'pig', 'chicken', 'horse', 'fox', 'wolf', 'llama', 'rabbit', 'panda', 'goat', 'polar_bear', 'mooshroom', 'donkey', 'cat', 'camel'];
       ctx.line = [];
       types.forEach((t, i) => {
@@ -278,7 +292,13 @@ const SHOTS = [
       for (let i = 0; i < 5; i++) { const ex = x - 8 + i * 4, ez = z + 6; d.spawn('enderman', ex + 0.5, d.ground(ex, ez), ez + 0.5); }
       ctx.c = [x, y, z];
     },
-    cam: (u, ctx) => { const o = orbit(ctx.c, 18, 7, 2.2, 3.4, 4)(u); if (ctx.w && !ctx.w.dead) o.look = lerp3(o.look, [ctx.w.pos[0], ctx.w.pos[1] + 2, ctx.w.pos[2]], 0.7); return o; },
+    cam: (u, ctx) => {
+      // Follow the Wither itself, smoothing its motion so the camera never jerks.
+      const w = ctx.w && !ctx.w.dead ? ctx.w.pos : ctx.c;
+      ctx.fc = ctx.fc ? lerp3(ctx.fc, w, 0.04) : w.slice();
+      const o = orbit([ctx.fc[0], ctx.fc[1] - 2, ctx.fc[2]], 11, 3, 2.2, 3.5, 3)(u);
+      return o;
+    },
   },
   {
     title: 'BLOCKHAVEN', sub: 'Every texture, model, sound and song is generated in code · Press Esc to play', dur: 12,
