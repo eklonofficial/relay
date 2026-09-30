@@ -36,7 +36,7 @@ const hex = v => `rgb(${v[0] | 0},${v[1] | 0},${v[2] | 0})`;
 export function buildLogo(title, subtitle) {
   const CELL = 4, DEPTH = 4, g = cells(title), gw = g[0].length, gh = 6;
   const sub = cells(subtitle, 2), SC = 2, sw = sub[0].length * SC;
-  const W = Math.max(gw * CELL, sw + 8) + DEPTH + 4, top = 2, H = top + gh * CELL + DEPTH + 2 + SC * 6 - 2 + 4;
+  const W = Math.max(gw * CELL, sw + 8) + DEPTH + 4, top = 2, SUB_GAP = 4, H = top + gh * CELL + DEPTH + SUB_GAP + SC * 6 + 3;
   const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
   const x = cv.getContext('2d');
   const ox = ((W - DEPTH - gw * CELL) >> 1) + 1, on = (cx, cy) => cy >= 0 && cy < gh && cx >= 0 && cx < gw && g[cy][cx];
@@ -70,7 +70,7 @@ export function buildLogo(title, subtitle) {
   }
   x.putImageData(img, 0, 0);
   // Subtitle plate lettering: light letters with a dark rim, overlapping the logo's base.
-  const sy = top + gh * CELL + DEPTH - 2, sx = (W - sw) >> 1;
+  const sy = top + gh * CELL + DEPTH + SUB_GAP, sx = (W - sw) >> 1;
   const sOn = (cx, cy) => cy >= 0 && cy < 6 && cx >= 0 && cx < sub[0].length && sub[cy][cx];
   const subPx = [];
   for (let Y = -1; Y <= 6 * SC; Y++) for (let X = -1; X <= sw; X++) {
