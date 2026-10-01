@@ -1,8 +1,8 @@
 // Container GUIs (inventory, crafting, chest, furnace, creative, trading) and the HUD, laid out in GUI pixels
 // (1 unit = var(--u)) at the original's coordinates: 176x166 panels, 18x18 slots, 16x16 icons.
-import { I, ITEMS, TABS, maxStack, ARMOR_SLOTS, iconKey } from '../data/items.js?v=muphwqr9';
-import { findRecipe, allRecipes, matches, SMELTING, TAGS } from '../data/recipes.js?v=muphwqr9';
-import { same } from './inventory.js?v=muphwqr9';
+import { I, ITEMS, TABS, maxStack, ARMOR_SLOTS, iconKey } from '../data/items.js?v=mupl457j';
+import { findRecipe, allRecipes, matches, SMELTING, TAGS } from '../data/recipes.js?v=mupl457j';
+import { same } from './inventory.js?v=mupl457j';
 
 const $ = id => document.getElementById(id);
 const el = (tag, cls, parent) => { const e = document.createElement(tag); if (cls) e.className = cls; if (parent) parent.appendChild(e); return e; };

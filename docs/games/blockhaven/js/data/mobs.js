@@ -1,6 +1,6 @@
 // Mob roster: stats, AI archetype, drops, box models and procedural skins.
 // Model space: 1 unit = 1/16 block, feet at y=0, the mob faces -Z.
-import { D, pal, shade as shadeHex } from '../render/mobtex.js?v=muphwqr9';
+import { D, pal, shade as shadeHex } from '../render/mobtex.js?v=mupl457j';
 
 const box = (o, s, style, extra = {}) => ({ o, s, style, ...extra });
 const part = (pivot, boxes, extra = {}) => ({ pivot, boxes, ...extra });

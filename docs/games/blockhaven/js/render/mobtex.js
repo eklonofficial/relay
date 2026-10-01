@@ -1,5 +1,5 @@
 // Mob skins: packs every model box into a 64x64 layer (MC-style box unwrap) and paints its faces.
-import { Painter, shade, mixHex } from './paint.js?v=muphwqr9';
+import { Painter, shade, mixHex } from './paint.js?v=mupl457j';
 
 export const SKIN = 64;
 
