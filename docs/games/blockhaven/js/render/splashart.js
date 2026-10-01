@@ -1,23 +1,24 @@
 // The startup splash. On a deep red field, BLOCKHAVEN is set in its own geometric display face
-// (thick strokes, rounded outer corners, square counters and small notches). The word assembles
-// from hundreds of white tiles that fly up out of the depth, letter by letter, then resolve into
-// the crisp vector logo with a flash of light, a shine sweeping across it and a burst of sparks;
-// the subtitle eases in with its tracking closing up, and a slim loading bar runs underneath.
-// When the game is ready, the logo swells slightly as a circle opens from the centre onto the
-// title screen.
+// (thick strokes, rounded outer corners, square counters and small notches) and shown as solid
+// 3D letters in perspective. Each letter arrives as a tumbling white block that spins into place
+// while it morphs into its glyph: corners round off, counters and notches open, and the block
+// thins into a slab. The whole word turns to face the camera, flashes as it lands with a shine
+// sweeping across and a burst of sparks, then sways gently while the game finishes loading. On
+// exit the word turns away and swells as a circle opens from the centre onto the title screen.
 //
 // Timeline (kept from the loading-screen mod this follows): the letters take 1.6 s, at double
 // speed when loading races ahead; finished loading holds the bar at 90% until the letters are in;
 // then the bar fades over 1 s and everything else over the next.
 //
-// Pure 2D-canvas drawing and timing, so it runs in a worker (render/splashworker.js) and keeps
-// moving while the page is busy starting the game.
+// Pure 2D-canvas drawing (the 3D is projected by hand, the extrusion drawn as stacked slices) and
+// timing, so it runs in a worker (render/splashworker.js) and keeps moving while the page is busy.
 
 export const SPLASH_BG = '#dc1f3d';
 const WORD = 'BLOCKHAVEN', SUBTITLE = 'RANDOM AHH EDITION';
 const ANIM_SECONDS = 1.6;
 const H = 10, S = 3.1, GAP = 1.45; // cap height, stroke width and letter gap, in glyph units
-const CELL = 0.5; // tile size, in glyph units
+const CAM = 70; // camera distance, in glyph units
+const DEPTH = 3.6; // slab thickness of the finished letters
 
 const clamp01 = v => (v < 0 ? 0 : v > 1 ? 1 : v);
 const easeOutCubic = t => 1 - (1 - t) ** 3;
@@ -61,45 +62,45 @@ const GLYPHS = {
   N: { w: 9.8, parts: () => [rect(0, 0, 9.8, H, [0.5, 4.2, 0.5, 0.5]), hole(rect(S, S, 9.8 - 2 * S, H - S, [0.2, 1.2, 0, 0])), hole(rect(0, 4.55, 0.9, 0.9))] },
 };
 
-// Nonzero winding test for the tiles.
-function inside(polys, x, y) {
-  let wn = 0;
-  for (const P of polys) for (let i = 0, n = P.length; i < n; i++) {
-    const a = P[i], b = P[(i + 1) % n];
-    if (a[1] <= y) { if (b[1] > y && (b[0] - a[0]) * (y - a[1]) - (x - a[0]) * (b[1] - a[1]) > 0) wn++; }
-    else if (b[1] <= y && (b[0] - a[0]) * (y - a[1]) - (x - a[0]) * (b[1] - a[1]) < 0) wn--;
-  }
-  return wn !== 0;
-}
-
 // Small deterministic random numbers, so every launch looks the same.
 function rng(seed) { let s = seed >>> 0; return () => { s = (s + 0x6d2b79f5) >>> 0; let t = s; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+
+
+// 3x3 rotation (yaw about y, then pitch about x, then roll about z), row-major.
+function rot(rx, ry, rz) {
+  const cx = Math.cos(rx), sx = Math.sin(rx), cy = Math.cos(ry), sy = Math.sin(ry), cz = Math.cos(rz), sz = Math.sin(rz);
+  // Rz * Rx * Ry
+  const a = [cy, 0, sy, sx * sy, cx, -sx * cy, -cx * sy, sx, cx * cy];
+  return [cz * a[0] - sz * a[3], cz * a[1] - sz * a[4], cz * a[2] - sz * a[5],
+    sz * a[0] + cz * a[3], sz * a[1] + cz * a[4], sz * a[2] + cz * a[5], a[6], a[7], a[8]];
+}
+const mul = (A, B) => [0, 1, 2].flatMap(r => [0, 1, 2].map(c => A[r * 3] * B[c] + A[r * 3 + 1] * B[3 + c] + A[r * 3 + 2] * B[6 + c]));
+const app = (M, x, y, z) => [M[0] * x + M[1] * y + M[2] * z, M[3] * x + M[4] * y + M[5] * z, M[6] * x + M[7] * y + M[8] * z];
+const LIGHT = (() => { const v = [-0.35, -0.6, -1], l = Math.hypot(...v); return v.map(c => c / l); })();
 
 export class SplashArt {
   constructor({ reduced = false } = {}) {
     this.reduced = reduced;
-    // Lay the word out, centred on (0, 0) in glyph units.
+    // Lay the word out along x, centred on 0. Each letter keeps its polygons around its own
+    // centre, with the block it starts as: every outline point pushed out along its ray to the
+    // letter's bounding box, and every counter or notch shrunk to its centre.
     let x = 0;
-    this.letters = [...WORD].map(ch => { const g = GLYPHS[ch], l = { ch, x, w: g.w, polys: g.parts() }; x += g.w + GAP; return l; });
-    this.span = x - GAP;
-    for (const l of this.letters) { const dx = l.x - this.span / 2; l.polys = l.polys.map(P => P.map(([a, b]) => [a + dx, b - H / 2])); l.cx = dx + l.w / 2; }
-    // Tiles: every cell whose centre is inside a letter; each flies in on its own path.
-    const r = rng(1312);
-    this.tiles = [];
-    this.letters.forEach((l, li) => {
-      for (let gy = 0; gy < H / CELL; gy++) for (let gx = 0; gx < Math.ceil(l.w / CELL); gx++) {
-        const hx = l.x - this.span / 2 + (gx + 0.5) * CELL, hy = -H / 2 + (gy + 0.5) * CELL;
-        if (!inside(l.polys, hx, hy)) continue;
-        // Each letter's tiles rise from a loose cloud beneath it, columns sweeping left to right.
-        const col = (hx + this.span / 2) / this.span;
-        this.tiles.push({
-          hx, hy, li,
-          sx: hx + (r() - 0.5) * 7, sy: hy + 7 + r() * 9,
-          z: 0.25 + r() * 0.8, rot: (r() - 0.5) * 5,
-          delay: col * 0.42 + r() * 0.1 + (1 - gy * CELL / H) * 0.05,
-        });
-      }
+    this.letters = [...WORD].map((ch, i) => {
+      const g = GLYPHS[ch], hw = g.w / 2, hh = H / 2;
+      const polys = g.parts().map((P, k) => {
+        const pts = P.map(([a, b]) => [a - hw, b - hh]);
+        let from;
+        if (k === 0) from = pts.map(([a, b]) => { const s = Math.min(Math.abs(a) > 1e-6 ? hw / Math.abs(a) : 1e9, Math.abs(b) > 1e-6 ? hh / Math.abs(b) : 1e9); return [a * s, b * s]; });
+        else { const c = pts.reduce((s, [a, b]) => [s[0] + a / pts.length, s[1] + b / pts.length], [0, 0]); from = pts.map(() => c.slice()); }
+        return { pts, from };
+      });
+      const l = { ch, i, x, w: g.w, polys };
+      x += g.w + GAP;
+      return l;
     });
+    this.span = x - GAP;
+    for (const l of this.letters) l.cx = l.x + l.w / 2 - this.span / 2;
+    const r = rng(1312);
     // Ambient squares drifting behind everything.
     this.motes = Array.from({ length: 18 }, () => ({ x: r() * 2 - 1, y: r() * 2 - 1, s: 0.03 + r() * 0.09, sp: 0.01 + r() * 0.03, rot: r() * 6, vr: (r() - 0.5) * 0.3, a: 0.02 + r() * 0.04 }));
     this.sparks = [];
@@ -110,6 +111,7 @@ export class SplashArt {
     this.sub = 0;
     this.fade = -1;
     this.t = 0;
+    this.idle = reduced ? 9 : 0; // seconds since the letters landed
     this.burst = reduced;
     this.w = 1; this.h = 1; this.dpr = 1; this.cssW = 1; this.cssH = 1;
   }
@@ -120,6 +122,7 @@ export class SplashArt {
 
   step(dt) {
     this.t += dt;
+    if (this.anim >= 1) this.idle += dt;
     for (const m of this.motes) { m.y -= m.sp * dt; m.rot += m.vr * dt; if (m.y < -1.2) m.y += 2.4; }
     for (const s of this.sparks) { s.x += s.vx * dt; s.y += s.vy * dt; s.vx *= 0.9 ** (dt * 60); s.vy = s.vy * 0.9 ** (dt * 60) + 6 * dt; s.life -= dt; }
     this.sparks = this.sparks.filter(s => s.life > 0);
@@ -127,16 +130,16 @@ export class SplashArt {
     if (this.fade >= 0) { this.fade += dt; return; }
     if ((this.actual >= 0.6 && this.anim < 0.5) || this.ready) this.fast = true;
     this.anim = Math.min(1, this.anim + dt / ANIM_SECONDS * (this.fast ? 2 : 1));
-    if (!this.burst && this.anim >= 0.78) { this.burst = true; this.spawnBurst(); }
+    if (!this.burst && this.anim >= 0.97) { this.burst = true; this.spawnBurst(); }
     const target = this.ready && this.anim < 1 ? Math.min(this.actual, 0.9) : this.actual;
     this.shown += (target - this.shown) * (1 - 0.95 ** (dt * 60));
     if (this.ready && this.anim >= 1) this.fade = 0;
   }
   spawnBurst() {
     const r = rng(77);
-    for (let i = 0; i < 70; i++) {
+    for (let i = 0; i < 80; i++) {
       const l = this.letters[Math.floor(r() * this.letters.length)];
-      const a = r() * Math.PI * 2, sp = 6 + r() * 18;
+      const a = r() * Math.PI * 2, sp = 6 + r() * 20;
       this.sparks.push({ x: l.cx + (r() - 0.5) * l.w, y: (r() - 0.5) * H, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp * 0.7 - 4, s: 0.18 + r() * 0.3, life: 0.6 + r() * 0.8, max: 1.4 });
     }
   }
@@ -151,12 +154,11 @@ export class SplashArt {
     // Logo layout: the word spans 62% of the width (or the height allows), centred a little high.
     const unit = Math.min(w * 0.62, h * 1.25) / this.span;
     const cx = w / 2, cy = h * 0.46;
-    const swell = 1 + 0.06 * easeOutCubic(out) + 0.012 * Math.sin(this.t * 1.6) * (this.anim >= 1 ? 1 : 0);
-    const u = unit * swell, logoA = 1 - out;
+    const u = unit * (1 + 0.08 * easeOutCubic(out)), logoA = 1 - out;
     ctx.globalAlpha = logoA;
-    this.drawWord(ctx, cx, cy, u);
+    this.drawWord(ctx, cx, cy, u, out);
     this.drawSparks(ctx, cx, cy, u, logoA);
-    if (this.sub > 0) this.drawSubtitle(ctx, cx, cy + u * (H / 2 + 3.9), u, logoA * this.sub);
+    if (this.sub > 0) this.drawSubtitle(ctx, cx, cy + u * (H / 2 + 4.2), u, logoA * this.sub);
     if (barAlpha > 0) this.drawBar(ctx, cx, h * 0.82, Math.min(w * 0.34, unit * this.span * 0.6), barAlpha * logoA);
     // Exit: a circle opens from the centre onto the title screen underneath.
     if (iris > 0) {
@@ -197,53 +199,94 @@ export class SplashArt {
     ctx.closePath(); ctx.fill();
   }
 
-  // Tiles flying in until ~78% of the animation, then the vector word fading up over them.
-  drawWord(ctx, cx, cy, u) {
-    const a = this.anim, vector = this.reduced ? 1 : clamp01((a - 0.74) / 0.12);
-    const base = ctx.globalAlpha;
-    if (vector < 1) {
-      ctx.fillStyle = '#ffffff';
-      for (const t of this.tiles) {
-        const p = clamp01((a / 0.8 - t.delay) / 0.38);
-        if (p <= 0) continue;
-        const e = easeOutBack(p), k = 1 + t.z * (1 - easeOutCubic(p)); // nearer the camera while in flight
-        const x = cx + lerp(t.sx, t.hx, e) * u * k + (k - 1) * (cx - cx), y = cy + lerp(t.sy, t.hy, e) * u * k;
-        const s = CELL * u * Math.min(1, 0.25 + p) * k * 1.06;
-        ctx.globalAlpha = base * Math.min(1, p * 3) * (1 - vector);
-        this.square(ctx, x, y, s, t.rot * (1 - easeOutCubic(p)));
-      }
-      ctx.globalAlpha = base;
-    }
-    if (vector > 0) {
-      ctx.globalAlpha = base * vector;
-      ctx.fillStyle = '#ffffff';
-      this.wordPath(ctx, cx, cy, u);
-      ctx.fill();
-      // A brief flash as the word resolves, then a shine sweeping across it.
-      const flash = this.reduced ? 0 : clamp01(1 - Math.abs(a - 0.86) / 0.08) * 0.7;
-      const sweep = this.reduced ? -1 : (a - 0.84) / 0.16;
-      if ((flash > 0 || (sweep > 0 && sweep < 1)) && ctx.save) {
-        ctx.save();
-        this.wordPath(ctx, cx, cy, u);
-        ctx.clip();
-        if (flash > 0) { ctx.globalAlpha = base * flash; ctx.fillStyle = '#ffe6ea'; ctx.fillRect(0, 0, this.w, this.h); }
-        if (sweep > 0 && sweep < 1 && ctx.createLinearGradient) {
-          const span = this.span * u, x0 = cx - span / 2 - span * 0.3 + sweep * span * 1.6;
-          const g = ctx.createLinearGradient(x0 - u * 6, cy - u * 6, x0 + u * 6, cy + u * 6);
-          g.addColorStop(0, 'rgba(255,200,210,0)'); g.addColorStop(0.5, 'rgba(255,190,200,0.9)'); g.addColorStop(1, 'rgba(255,200,210,0)');
-          ctx.globalAlpha = base; ctx.fillStyle = g; ctx.fillRect(0, 0, this.w, this.h);
+  // Where each letter is in its flight: position offset, spin, morph (0 block .. 1 glyph), depth.
+  letterState(l) {
+    const a = this.anim, i = l.i, si = i * 0.04;
+    const p = clamp01((a - si) / 0.45), e = easeOutCubic(p);
+    const er = easeOutBack(clamp01((a - si) / 0.62));
+    const sgn = i % 2 ? 1 : -1;
+    const m = easeInOut(clamp01((a - si - 0.22) / 0.38));
+    return {
+      px: l.cx * 0.7 * (1 - e), py: (-24 - (i % 3) * 4) * (1 - e), pz: 40 * (1 - e),
+      rx: 1.7 * sgn * (1 - er), ry: (-2.6 - 0.5 * (i % 3)) * (1 - er), rz: 0.6 * ((i % 4) - 1.5) / 1.5 * (1 - er),
+      m, dep: lerp(l.w * 0.95, DEPTH, m), sc: 0.35 + 0.65 * easeOutBack(clamp01(p * 1.5)), alpha: clamp01(p * 5),
+    };
+  }
+
+  // The word as solid letters: each extruded slab drawn as stacked slices from the far face to
+  // the near one, the near face lit, letters painted far to near.
+  drawWord(ctx, cx, cy, u, out) {
+    const base = ctx.globalAlpha, idle = this.idle;
+    const g = easeInOut(clamp01(this.anim / 0.97));
+    const sway = this.reduced ? 0 : 0.1 * clamp01(idle / 1.2);
+    const G = rot(0.32 * (1 - g) + 0.2 * g + sway * 0.35 * Math.sin(this.t * 0.53 + 1), -0.45 * (1 - g) + sway * Math.sin(this.t * 0.7) + 0.9 * out * out, 0);
+    const proj = (v) => { const z = v[2] + CAM; const k = u * CAM / Math.max(1, z); return [cx + v[0] * k, cy + v[1] * k]; };
+    const items = this.letters.map(l => {
+      const st = this.letterState(l), M = mul(G, rot(st.rx, st.ry, st.rz));
+      const T = app(G, l.cx + st.px, st.py, st.pz), dz = app(M, 0, 0, 1);
+      // Morphed outline points, in world space at the slab's mid-plane.
+      const polys = l.polys.map(P => P.pts.map((q, k) => {
+        const f = P.from[k], x = lerp(f[0], q[0], st.m) * st.sc, y = lerp(f[1], q[1], st.m) * st.sc;
+        const v = app(M, x, y, 0); return [v[0] + T[0], v[1] + T[1], v[2] + T[2]];
+      }));
+      const half = st.dep * st.sc / 2;
+      // Does the front (-z) face look at the camera, which sits at (0, 0, -CAM)?
+      const fc = [T[0] - dz[0] * half, T[1] - dz[1] * half, T[2] - dz[2] * half];
+      const front = -(dz[0] * -fc[0] + dz[1] * -fc[1] + dz[2] * (-CAM - fc[2])) > 0;
+      return { l, st, polys, dz, half, front, depth: T[2] };
+    }).sort((A, B) => B.depth - A.depth);
+    const faces = [];
+    for (const it of items) {
+      const { st, polys, dz, half, front } = it;
+      if (st.alpha <= 0) continue;
+      // Slices from the far face to the near one; enough that the side walls read as solid.
+      const near = front ? -1 : 1, kz = u * CAM / Math.max(1, it.depth + CAM);
+      const n = Math.max(2, Math.min(96, Math.ceil(Math.hypot(dz[0], dz[1]) * half * 2 * kz / 0.9)));
+      const nf = front ? [-dz[0], -dz[1], -dz[2]] : dz;
+      const lit = Math.max(0, nf[0] * LIGHT[0] + nf[1] * LIGHT[1] + nf[2] * LIGHT[2]);
+      for (let s = 0; s <= n; s++) {
+        const t = s / n, z = -near * half + near * 2 * half * t; // far face .. near face
+        ctx.beginPath();
+        let face = s === n ? [] : null;
+        for (const P of polys) {
+          P.forEach((v, k) => {
+            const q = proj([v[0] + dz[0] * z, v[1] + dz[1] * z, v[2] + dz[2] * z]);
+            if (k) ctx.lineTo(q[0], q[1]); else ctx.moveTo(q[0], q[1]);
+            if (face) (face[face.length - 1] && k ? face[face.length - 1].push(q) : face.push([q]));
+          });
+          ctx.closePath();
         }
-        ctx.restore();
+        if (s < n) {
+          const c = 0.25 + 0.6 * t;
+          ctx.fillStyle = `rgb(${Math.round(lerp(150, 238, c))},${Math.round(lerp(52, 200, c))},${Math.round(lerp(70, 208, c))})`;
+        } else {
+          const v = Math.round(222 + 33 * lit);
+          ctx.fillStyle = `rgb(${v},${v},${v})`;
+          faces.push(face);
+        }
+        ctx.globalAlpha = base * st.alpha;
+        ctx.fill();
       }
     }
     ctx.globalAlpha = base;
-  }
-  wordPath(ctx, cx, cy, u) {
-    ctx.beginPath();
-    for (const l of this.letters) for (const P of l.polys) {
-      P.forEach(([x, y], k) => (k ? ctx.lineTo(cx + x * u, cy + y * u) : ctx.moveTo(cx + x * u, cy + y * u)));
-      ctx.closePath();
+    // As the letters land: a flash, then a shine sweeping across the faces.
+    const flash = this.reduced ? 0 : clamp01(1 - idle / 0.3) * (idle > 0 ? 0.75 : 0);
+    const sweep = this.reduced ? -1 : (idle - 0.15) / 0.8;
+    if ((flash > 0 || (sweep > 0 && sweep < 1)) && ctx.save && faces.length) {
+      ctx.save();
+      ctx.beginPath();
+      for (const f of faces) for (const P of f) { P.forEach((q, k) => (k ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1]))); ctx.closePath(); }
+      ctx.clip();
+      if (flash > 0) { ctx.globalAlpha = base * flash; ctx.fillStyle = '#ffe6ea'; ctx.fillRect(0, 0, this.w, this.h); }
+      if (sweep > 0 && sweep < 1 && ctx.createLinearGradient) {
+        const span = this.span * u, x0 = cx - span / 2 - span * 0.3 + sweep * span * 1.6;
+        const gr = ctx.createLinearGradient(x0 - u * 6, cy - u * 6, x0 + u * 6, cy + u * 6);
+        gr.addColorStop(0, 'rgba(255,170,185,0)'); gr.addColorStop(0.5, 'rgba(255,160,175,0.85)'); gr.addColorStop(1, 'rgba(255,170,185,0)');
+        ctx.globalAlpha = base; ctx.fillStyle = gr; ctx.fillRect(0, 0, this.w, this.h);
+      }
+      ctx.restore();
     }
+    ctx.globalAlpha = base;
   }
   drawSparks(ctx, cx, cy, u, a) {
     ctx.fillStyle = '#ffffff';
