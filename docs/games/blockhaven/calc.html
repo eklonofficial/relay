@@ -387,7 +387,15 @@ function onKey(e, r) {
   } else if (e.key === 'ArrowUp' && i > 0) { e.preventDefault(); rows[i - 1].input.focus(); }
   else if (e.key === 'ArrowDown' && i < rows.length - 1) { e.preventDefault(); rows[i + 1].input.focus(); }
 }
+// Embedded (the game's quick-hide cover): hand control back to the game instead of navigating.
+const embedded = window.parent !== window;
 function launch() {
+  if (embedded) {
+    const r = rows.find(q => q.input.value.toLowerCase().replace(/[\s*]/g, '') === SECRET);
+    if (r) { r.input.blur(); removeRow(r, false); }
+    parent.postMessage({ bh: 'resume' }, location.origin);
+    return;
+  }
   document.getElementById('veil').classList.add('on');
   setTimeout(() => { location.href = 'index.html'; }, 380);
 }
@@ -722,7 +730,12 @@ window.addEventListener('resize', resize);
 new ResizeObserver(resize).observe(graphEl);
 makeRow(); ensureGhost();
 resize();
-rows[0].input.focus();
+if (!embedded) rows[0].input.focus();
+addEventListener('message', e => {
+  if (e.source !== parent || !e.data || e.data.bh !== 'show') return;
+  resize();
+  rows[rows.length - 1].input.focus();
+});
 </script>
 </body>
 </html>
