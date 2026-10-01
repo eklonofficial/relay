@@ -1,8 +1,8 @@
 // Chunk storage, streaming, edits and queries for one dimension.
-import { CHUNK, HEIGHT, PAD, PS, B, OPAQUE, SOLID, EMIT, ATTEN, VARIANT_MASK, SHAPE_OF, SHAPE, DIM } from '../data/blocks.js?v=muou0jex';
-import { VOLUME_SIZE } from '../mesh/mesher.js?v=muou0jex';
-import { selectionBoxes, collisionBoxes } from '../data/shapes.js?v=muou0jex';
-import { sinceOf } from '../gen/versions.js?v=muou0jex';
+import { CHUNK, HEIGHT, PAD, PS, B, OPAQUE, SOLID, EMIT, ATTEN, VARIANT_MASK, SHAPE_OF, SHAPE, DIM } from '../data/blocks.js?v=muovqjts';
+import { VOLUME_SIZE } from '../mesh/mesher.js?v=muovqjts';
+import { selectionBoxes, collisionBoxes } from '../data/shapes.js?v=muovqjts';
+import { sinceOf } from '../gen/versions.js?v=muovqjts';
 
 export const UNLOADED = 255;
 export const chunkKey = (cx, cz) => `${cx},${cz}`;
@@ -38,7 +38,7 @@ export class World {
     const count = Math.max(1, Math.min(4, (navigator.hardwareConcurrency || 4) - 1));
     this.workers = [];
     for (let i = 0; i < count; i++) {
-      const w = new Worker(new URL('../worker.js?v=muou0jex', import.meta.url), { type: 'module' });
+      const w = new Worker(new URL('../worker.js?v=muovqjts', import.meta.url), { type: 'module' });
       w.busy = 0;
       w.onmessage = e => this.onWorkerMessage(w, e.data);
       w.onerror = e => console.error('worker error', e.message);

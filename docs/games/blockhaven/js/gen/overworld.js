@@ -1,11 +1,11 @@
 // Overworld generator: climate-driven biomes, 3D density terrain, noise + worm caves, underground
 // biomes, ores, surface rules, trees and vegetation. World types: 'default', 'wild' (amplified,
 // floating islands, stone pillars and arches) and 'flat'.
-import { Simplex, hash2, hash3, mulberry32 } from '../core/noise.js?v=muou0jex';
-import { B, st, CHUNK, HEIGHT, SEA, COLORS } from '../data/blocks.js?v=muou0jex';
-import { BI, OCEANS, COLD } from './biomes.js?v=muou0jex';
-import { ChunkBuilder, CI } from './chunk.js?v=muou0jex';
-import * as T from './trees.js?v=muou0jex';
+import { Simplex, hash2, hash3, mulberry32 } from '../core/noise.js?v=muovqjts';
+import { B, st, CHUNK, HEIGHT, SEA, COLORS } from '../data/blocks.js?v=muovqjts';
+import { BI, OCEANS, COLD } from './biomes.js?v=muovqjts';
+import { ChunkBuilder, CI } from './chunk.js?v=muovqjts';
+import * as T from './trees.js?v=muovqjts';
 
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
@@ -610,12 +610,22 @@ export function createOverworld(seed, type = 'default') {
   }
 
   // ---------------- trees ----------------
+  // Tree candidates per column, before spacing thins them (a forest ends up with ~8 trees per
+  // chunk, a dark forest or jungle ~14).
   const TREE_DENSITY = {
-    [BI.FOREST]: 0.055, [BI.FLOWER_FOREST]: 0.025, [BI.BIRCH_FOREST]: 0.055, [BI.DARK_FOREST]: 0.1, [BI.TAIGA]: 0.05,
-    [BI.SNOWY_TAIGA]: 0.045, [BI.OLD_GROWTH_TAIGA]: 0.05, [BI.PLAINS]: 0.0035, [BI.SUNFLOWER_PLAINS]: 0.002, [BI.SAVANNA]: 0.009,
-    [BI.JUNGLE]: 0.09, [BI.BAMBOO_JUNGLE]: 0.03, [BI.SWAMP]: 0.014, [BI.MANGROVE_SWAMP]: 0.04, [BI.CHERRY_GROVE]: 0.02,
-    [BI.MEADOW]: 0.0025, [BI.WINDSWEPT_HILLS]: 0.008, [BI.GROVE]: 0.03, [BI.SNOWY_PLAINS]: 0.0025, [BI.MUSHROOM_FIELDS]: 0.005,
+    [BI.FOREST]: 0.07, [BI.FLOWER_FOREST]: 0.03, [BI.BIRCH_FOREST]: 0.07, [BI.DARK_FOREST]: 0.1, [BI.TAIGA]: 0.06,
+    [BI.SNOWY_TAIGA]: 0.05, [BI.OLD_GROWTH_TAIGA]: 0.065, [BI.PLAINS]: 0.0035, [BI.SUNFLOWER_PLAINS]: 0.002, [BI.SAVANNA]: 0.009,
+    [BI.JUNGLE]: 0.09, [BI.BAMBOO_JUNGLE]: 0.03, [BI.SWAMP]: 0.014, [BI.MANGROVE_SWAMP]: 0.04, [BI.CHERRY_GROVE]: 0.025,
+    [BI.MEADOW]: 0.0025, [BI.WINDSWEPT_HILLS]: 0.008, [BI.GROVE]: 0.035, [BI.SNOWY_PLAINS]: 0.0025, [BI.MUSHROOM_FIELDS]: 0.005,
     [BI.RIVER]: 0.0, [BI.ICE_SPIKES]: 0.012, [BI.STONY_PEAKS]: 0, [BI.SNOWY_SLOPES]: 0.002,
+  };
+  // Closed-canopy biomes only keep trunks from touching; elsewhere trees keep about two blocks of room.
+  const TREE_GAP = { [BI.DARK_FOREST]: 1, [BI.JUNGLE]: 1, [BI.BAMBOO_JUNGLE]: 1, [BI.MANGROVE_SWAMP]: 1 };
+  // Slow variation in density: glades and clearings between thicker groves.
+  const groveNoise = N(0x6e0e);
+  const grove = (x, z) => {
+    const n = groveNoise.noise2(x / 56, z / 56) * 0.7 + groveNoise.noise2(x / 19 + 40, z / 19 - 40) * 0.3;
+    return Math.max(0.15, Math.min(1.35, 0.85 + n * 0.75));
   };
   function trees(w, cols) {
     const M = 8;
@@ -623,8 +633,18 @@ export function createOverworld(seed, type = 'default') {
       const h = hash2(x, z, seed ^ 0x7ee5);
       if (h > 0.12) continue;
       const col = column(x, z), biome = col.biome;
-      const dens = TREE_DENSITY[biome] || 0;
+      const dens = (TREE_DENSITY[biome] || 0) * grove(x, z);
       if (h >= dens) continue;
+      // Spacing: a candidate gives way to any nearby candidate with a lower hash (deterministic
+      // across chunk borders, since it only looks at hashes).
+      const gap = TREE_GAP[biome] ?? 2, r2 = gap === 1 ? 2 : 5;
+      let crowded = false;
+      for (let dz = -gap; dz <= gap && !crowded; dz++) for (let dx = -gap; dx <= gap; dx++) {
+        if ((!dx && !dz) || dx * dx + dz * dz > r2) continue;
+        const h2 = hash2(x + dx, z + dz, seed ^ 0x7ee5);
+        if (h2 < h) { crowded = true; break; }
+      }
+      if (crowded) continue;
       if (col.t.h < SEA - 1) continue;
       const y = surfaceY(x, z) + 1;
       if (y <= SEA + 1 && biome !== BI.MANGROVE_SWAMP && biome !== BI.SWAMP) continue;

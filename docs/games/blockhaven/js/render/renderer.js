@@ -1,15 +1,15 @@
-import { CHUNK, TEX, DIM } from '../data/blocks.js?v=muou0jex';
-import { meshSingleBlock, STRIDE } from '../mesh/mesher.js?v=muou0jex';
-import * as S from './shaders.js?v=muou0jex';
-import { uploadArray } from './atlas.js?v=muou0jex';
-import { mat4, perspective, multiply, invert, viewMatrix, frustumPlanes, boxVisible } from '../core/math.js?v=muou0jex';
+import { CHUNK, TEX, DIM } from '../data/blocks.js?v=muovqjts';
+import { meshSingleBlock, STRIDE } from '../mesh/mesher.js?v=muovqjts';
+import * as S from './shaders.js?v=muovqjts';
+import { uploadArray } from './atlas.js?v=muovqjts';
+import { mat4, perspective, multiply, invert, viewMatrix, frustumPlanes, boxVisible } from '../core/math.js?v=muovqjts';
 
 // Graphics presets: 0 Disabled, 1 Regular, 2 High, 3 PC.
 export const QUALITY = [
   { name: 'Disabled', shadow: 0, god: 0, bloom: 0, ssr: 0 },
-  { name: 'Regular', shadow: 0, god: 0, bloom: 0, ssr: 20 },
-  { name: 'High', shadow: 2048, shadowR: 72, pcf: 1, god: 40, bloom: 0.2, ssr: 32 },
-  { name: 'PC', shadow: 4096, shadowR: 112, pcf: 2, god: 80, bloom: 0.24, ssr: 56 },
+  { name: 'Regular', shadow: 0, god: 14, bloom: 0, ssr: 20 },
+  { name: 'High', shadow: 2048, shadowR: 72, pcf: 1, god: 24, bloom: 0.2, ssr: 32 },
+  { name: 'PC', shadow: 4096, shadowR: 112, pcf: 2, god: 36, bloom: 0.24, ssr: 56 },
 ];
 
 const MAX_QUADS = 1 << 18;
@@ -62,6 +62,7 @@ export class Renderer {
     this.post = this.program(S.POST_VS, S.POST_FS);
     this.shadowProg = this.program(S.TERRAIN_VS, S.SHADOW_FS);
     this.bloomProg = this.program(S.POST_VS, S.BLOOM_FS);
+    this.godProg = this.program(S.POST_VS, S.GOD_FS);
     this.quality = 1;
     // 1x1 compare-mode depth texture so the shadow sampler is always valid.
     this.dummyShadow = this.depthTexture(1, 1, true);
@@ -175,8 +176,8 @@ export class Renderer {
     const gl = this.gl;
     this.width = w; this.height = h;
     this.canvas.width = w; this.canvas.height = h;
-    for (const f of [this.sceneFbo, this.copyFbo, this.bloomFboA, this.bloomFboB]) if (f) gl.deleteFramebuffer(f);
-    for (const t of [this.sceneTex, this.sceneDepth, this.copyTex, this.copyDepth, this.bloomA, this.bloomB]) if (t) gl.deleteTexture(t);
+    for (const f of [this.sceneFbo, this.copyFbo, this.bloomFboA, this.bloomFboB, this.godFboA, this.godFboB]) if (f) gl.deleteFramebuffer(f);
+    for (const t of [this.sceneTex, this.sceneDepth, this.copyTex, this.copyDepth, this.bloomA, this.bloomB, this.godA, this.godB]) if (t) gl.deleteTexture(t);
     this.sceneTex = this.colorTexture(w, h);
     this.sceneDepth = this.depthTexture(w, h, false);
     this.sceneFbo = this.fbo(this.sceneTex, this.sceneDepth);
@@ -187,6 +188,8 @@ export class Renderer {
     this.bloomSize = [bw, bh];
     this.bloomA = this.colorTexture(bw, bh); this.bloomB = this.colorTexture(bw, bh);
     this.bloomFboA = this.fbo(this.bloomA, null); this.bloomFboB = this.fbo(this.bloomB, null);
+    this.godA = this.colorTexture(bw, bh); this.godB = this.colorTexture(bw, bh);
+    this.godFboA = this.fbo(this.godA, null); this.godFboB = this.fbo(this.godB, null);
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
   }
 
@@ -470,6 +473,8 @@ export class Renderer {
     gl.uniformMatrix4fv(l.u.uModel, false, IDENTITY);
     gl.uniform1i(l.u.uTex, 0);
     gl.uniform1f(l.u.uSSR, ssr ? Q.ssr : 0);
+    gl.uniform1f(l.u.uClouds, s.clouds ? 1 : 0);
+    gl.uniform1f(l.u.uRain, s.rain || 0);
     gl.uniform2f(l.u.uNearFar, 0.05, 1200);
     gl.uniform2f(l.u.uScreen, w, h);
     gl.activeTexture(gl.TEXTURE4); gl.bindTexture(gl.TEXTURE_2D, this.copyTex);
@@ -537,6 +542,36 @@ export class Renderer {
     gl.bindVertexArray(this.emptyVao);
     gl.disable(gl.DEPTH_TEST);
     gl.disable(gl.BLEND);
+    // Sun position on screen for god rays.
+    let sun = [0, 0, 0];
+    if (Q.god && s.dim === DIM.OVERWORLD && s.medium === 0) {
+      const d = env.sunDir, sp = [s.camPos[0] + d[0] * 500, s.camPos[1] + d[1] * 500, s.camPos[2] + d[2] * 500];
+      const m = viewProj;
+      const cx = m[0] * sp[0] + m[4] * sp[1] + m[8] * sp[2] + m[12], cy = m[1] * sp[0] + m[5] * sp[1] + m[9] * sp[2] + m[13], cw = m[3] * sp[0] + m[7] * sp[1] + m[11] * sp[2] + m[15];
+      if (cw > 0) {
+        const u = cx / cw * 0.5 + 0.5, v = cy / cw * 0.5 + 0.5;
+        const onScreen = 1 - Math.min(1, Math.max(0, Math.max(Math.abs(u - 0.5), Math.abs(v - 0.5)) * 2 - 1) * 1.5);
+        const strength = 0.45 * onScreen * Math.max(0, Math.min(1, d[1] * 4 + 0.2)) * (1 - (s.rain || 0));
+        sun = [u, v, strength];
+      }
+    }
+    // God rays: trace at quarter resolution, blur once, composite in the post pass.
+    if (sun[2] > 0.001) {
+      const [bw, bh] = this.bloomSize, gp = this.godProg, bp = this.bloomProg;
+      gl.viewport(0, 0, bw, bh);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, this.godFboA);
+      gl.useProgram(gp.p);
+      gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, this.sceneDepth);
+      gl.uniform1i(gp.u.uDepth, 1);
+      gl.uniform3f(gp.u.uSun, sun[0], sun[1], sun[2]);
+      gl.uniform2f(gp.u.uAspect, w / h, 1);
+      gl.uniform1f(gp.u.uSamples, Q.god);
+      gl.drawArrays(gl.TRIANGLES, 0, 3);
+      gl.useProgram(bp.p);
+      const pass = (src, dst, mode) => { gl.bindFramebuffer(gl.FRAMEBUFFER, dst); gl.bindTexture(gl.TEXTURE_2D, src); gl.uniform1i(bp.u.uSrc, 1); gl.uniform1i(bp.u.uMode, mode); gl.uniform2f(bp.u.uTexel, 1 / bw, 1 / bh); gl.drawArrays(gl.TRIANGLES, 0, 3); };
+      pass(this.godA, this.godFboB, 1); pass(this.godB, this.godFboA, 2);
+      gl.activeTexture(gl.TEXTURE0);
+    }
     if (Q.bloom) {
       const bp = this.bloomProg, [bw, bh] = this.bloomSize;
       gl.useProgram(bp.p);
@@ -554,26 +589,13 @@ export class Renderer {
     gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, this.sceneTex);
     gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, this.sceneDepth);
     gl.activeTexture(gl.TEXTURE6); gl.bindTexture(gl.TEXTURE_2D, this.bloomA);
+    gl.activeTexture(gl.TEXTURE7); gl.bindTexture(gl.TEXTURE_2D, this.godA);
     gl.activeTexture(gl.TEXTURE0);
-    gl.uniform1i(p.u.uScene, 1); gl.uniform1i(p.u.uDepth, 2); gl.uniform1i(p.u.uBloom, 6);
+    gl.uniform1i(p.u.uScene, 1); gl.uniform1i(p.u.uDepth, 2); gl.uniform1i(p.u.uBloom, 6); gl.uniform1i(p.u.uGod, 7);
     gl.uniform1i(p.u.uQuality, this.quality);
     gl.uniform2f(p.u.uTexel, 1 / w, 1 / h);
-    // Sun position on screen for god rays.
-    let sun = [0, 0, 0];
-    if (Q.god && s.dim === DIM.OVERWORLD && s.medium === 0) {
-      const d = env.sunDir, sp = [s.camPos[0] + d[0] * 500, s.camPos[1] + d[1] * 500, s.camPos[2] + d[2] * 500];
-      const m = viewProj;
-      const cx = m[0] * sp[0] + m[4] * sp[1] + m[8] * sp[2] + m[12], cy = m[1] * sp[0] + m[5] * sp[1] + m[9] * sp[2] + m[13], cw = m[3] * sp[0] + m[7] * sp[1] + m[11] * sp[2] + m[15];
-      if (cw > 0) {
-        const u = cx / cw * 0.5 + 0.5, v = cy / cw * 0.5 + 0.5;
-        const onScreen = 1 - Math.min(1, Math.max(0, Math.max(Math.abs(u - 0.5), Math.abs(v - 0.5)) * 2 - 1) * 1.5);
-        const strength = 0.45 * onScreen * Math.max(0, Math.min(1, d[1] * 4 + 0.2)) * (1 - (s.rain || 0));
-        sun = [u, v, strength];
-      }
-    }
     gl.uniform3f(p.u.uSun, sun[0], sun[1], sun[2]);
     gl.uniform3fv(p.u.uSunColor, env.sunColor);
-    gl.uniform1f(p.u.uGodSamples, Q.god || 1);
     gl.uniform1f(p.u.uBloomStrength, Q.bloom || 0);
     gl.uniform1f(p.u.uMedium, s.medium);
     gl.uniform1f(p.u.uTime, s.time);

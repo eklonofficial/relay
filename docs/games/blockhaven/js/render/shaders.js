@@ -1,4 +1,4 @@
-import { VF } from '../data/blocks.js?v=muou0jex';
+import { VF } from '../data/blocks.js?v=muovqjts';
 
 const HEADER = `#version 300 es
 precision highp float;
@@ -283,9 +283,41 @@ flat in int vFlags;
 flat in int vNormal;
 out vec4 outColor;
 
-float waterHeight(vec2 p) {
-  return sin(p.x * 1.7 + uTime * 1.8) * 0.035 + sin(p.y * 2.3 - uTime * 1.3) * 0.03
-       + sin((p.x + p.y) * 3.1 + uTime * 2.4) * 0.015 + (vnoise(p * 1.6 + uTime * 0.45) - 0.5) * 0.07;
+uniform float uClouds;
+uniform float uRain;
+// The sky as the water reflects it, with the near cloud layer (same pattern as the sky's own).
+vec3 reflectSky(vec3 P, vec3 R) {
+  vec3 c = skyColor(R);
+  if (uClouds > 0.5 && R.y > 0.02) {
+    float t = (260.0 - P.y) / R.y;
+    if (t > 0.0) {
+      vec2 q = (P.xz + R.xz * t) * 0.006 + vec2(uTime * 0.006, uTime * 0.0025);
+      float cover = smoothstep(0.48 - uRain * 0.3, 0.78 - uRain * 0.3, fbm(q));
+      vec3 cc = vec3(0.92, 0.94, 1.0) * clamp(uSkyLight * 1.1, vec3(0.06), vec3(1.0)) + uSunColor * 0.12;
+      c = mix(c, cc, cover * exp(-t * 0.0008) * smoothstep(0.02, 0.18, R.y) * 0.9);
+    }
+  }
+  return c;
+}
+// Slope of the water surface: four directional wave trains plus fine noise, the detail fading
+// with distance so far water settles into a clean mirror instead of glittering noise.
+vec2 waterSlope(vec2 p, float dist) {
+  vec2 g = vec2(0.0);
+  const vec4 W[4] = vec4[4](vec4(0.96, 0.28, 0.95, 0.040), vec4(-0.55, 0.83, 1.70, 0.024), vec4(0.24, -0.97, 3.10, 0.013), vec4(0.80, 0.60, 5.30, 0.007));
+  const float SP[4] = float[4](1.25, 1.6, 2.3, 3.1);
+  for (int i = 0; i < 4; i++) {
+    vec2 d = W[i].xy; float f = W[i].z;
+    g += d * f * W[i].w * cos(dot(d, p) * f + uTime * SP[i]);
+  }
+  // Choppy detail: two noise octaves drifting against each other.
+  float e = 0.05;
+  vec2 q = p * 2.6 + vec2(uTime * 0.35, -uTime * 0.27);
+  float n0 = vnoise(q);
+  g += vec2(vnoise(q + vec2(e, 0.0)) - n0, vnoise(q + vec2(0.0, e)) - n0) / e * 0.03;
+  vec2 q2 = mat2(0.8, -0.6, 0.6, 0.8) * p * 6.3 - vec2(uTime * 0.6, uTime * 0.45);
+  float m0 = vnoise(q2);
+  g += vec2(vnoise(q2 + vec2(e, 0.0)) - m0, vnoise(q2 + vec2(0.0, e)) - m0) / e * 0.012 / (1.0 + dist * 0.04);
+  return g / (1.0 + dist * 0.012);
 }
 const vec3 NORMALS[7] = vec3[7](vec3(1, 0, 0), vec3(-1, 0, 0), vec3(0, 1, 0), vec3(0, -1, 0), vec3(0, 0, 1), vec3(0, 0, -1), vec3(0, 1, 0));
 
@@ -307,44 +339,67 @@ void main() {
     return;
   }
   vec3 N = NORMALS[vNormal];
-  if (vFlags == F_WATER_TOP || vFlags == F_WATER) {
-    // Seamless world-space ripples instead of the tiled texture (no per-block grid lines).
-    vec3 wp = vFlags == F_WATER_TOP ? vec3(vWorld.x, 0.0, vWorld.z) : vWorld;
-    vec2 q = (vNormal < 2 ? wp.zy : vNormal > 3 ? wp.xy : wp.xz);
-    float n = vnoise(q * 0.9 + vec2(uTime * 0.12, uTime * 0.07)) * 0.6 + vnoise(q * 2.3 - vec2(uTime * 0.2, -uTime * 0.1)) * 0.4;
-    t = vec4(vec3(0.6 + n * 0.28), t.a);
-  }
-  if (vFlags == F_WATER_TOP) {
-    vec2 p = vWorld.xz;
-    float e = 0.08;
-    float h0 = waterHeight(p);
-    N = normalize(vec3((h0 - waterHeight(p + vec2(e, 0.0))) / e, 1.0, (h0 - waterHeight(p + vec2(0.0, e))) / e));
+  if (vFlags != F_WATER_TOP && vFlags != F_WATER) {
+    // Other translucent liquids keep the plain lit texture.
+    vec3 col = applyLight(t.rgb * vTint, vLight, vAO, vShade);
+    outColor = vec4(applyFog(col, vWorld), t.a);
+    return;
   }
   vec3 V = normalize(uCamPos - vWorld);
-  float cosT = abs(dot(N, V));
-  float fres = 0.03 + 0.97 * pow(1.0 - cosT, 5.0);
+  float dist = length(uCamPos - vWorld);
+  if (vFlags == F_WATER_TOP) {
+    vec2 sl = waterSlope(vWorld.xz, dist);
+    N = normalize(vec3(-sl.x, 1.0, -sl.y));
+  }
   float skyVis = pow(0.8, 15.0 * (1.0 - vLight.x));
-  vec3 base = applyLight(t.rgb * vTint * 1.25, vLight, 3.0, vShade);
-  vec3 refl = skyColor(reflect(-V, N)) * mix(0.2, 1.0, skyVis);
-  float alpha = uMedium > 0.5 ? 0.55 : mix(0.66, 0.94, fres);
+  // The water body: deep, tinted and only lightly lit, so the surface reads as clear, not milky.
+  vec3 body = applyLight(vTint * vec3(0.24, 0.36, 0.44) + vec3(0.01, 0.025, 0.04), vLight, 3.0, vShade);
+  // Schlick Fresnel for water (F0 = 0.02): see-through looking down, a mirror at grazing angles.
+  float cosT = clamp(dot(N, V), 0.0, 1.0);
+  float fres = 0.02 + 0.98 * pow(1.0 - cosT, 5.0);
+  if (uMedium > 0.5) fres = 0.0; // from below, the surface shows the world above (no sky mirror)
+  vec3 R = reflect(-V, N); R.y = abs(R.y);
+  vec3 refl = reflectSky(vWorld, R) * mix(0.15, 1.0, skyVis);
+  float bodyOpacity = uMedium > 0.5 ? 0.45 : 0.5;
+  vec3 under = vec3(0.0);
+  bool refr = false;
   if (uSSR > 0.5 && vFlags == F_WATER_TOP && uMedium < 0.5) {
     float hit;
     // Reflect off a calmer normal: full-strength ripples scatter the ray into the shore and bed.
-    vec3 Nr = normalize(mix(vec3(0.0, 1.0, 0.0), N, 0.3));
+    vec3 Nr = normalize(mix(vec3(0.0, 1.0, 0.0), N, 0.35));
     vec3 Rr = reflect(-V, Nr); Rr.y = max(Rr.y, 0.02);
     vec3 sr = traceSSR(vWorld + vec3(0.0, 0.05, 0.0), Rr, hit);
     refl = mix(refl, sr, hit);
-    // Refraction: see the bottom through the water, bent by the waves.
-    vec2 suv = gl_FragCoord.xy / uScreen + N.xz * 0.03;
-    float depthBelow = linDepth(texture(uOpaqueDepth, suv).r) - length(uCamPos - vWorld);
-    vec3 under = texture(uOpaque, suv).rgb;
-    float clarity = exp(-max(depthBelow, 0.0) * 0.18);
-    base = mix(base, under * vTint * 1.6, clarity * 0.75);
-    alpha = mix(0.75, 1.0, fres);
+    // Refraction: see the bottom through the water, bent by the waves and fading with depth.
+    vec2 suv = gl_FragCoord.xy / uScreen + N.xz * 0.025;
+    float depthBelow = linDepth(texture(uOpaqueDepth, suv).r) - dist;
+    if (depthBelow < 0.0) { suv = gl_FragCoord.xy / uScreen; depthBelow = linDepth(texture(uOpaqueDepth, suv).r) - dist; }
+    vec3 bed = texture(uOpaque, suv).rgb;
+    // Sunlit caustics dancing on the bed, strongest in the shallows.
+    vec3 bp = vWorld - V * max(depthBelow, 0.0);
+    vec2 cq = bp.xz * 1.1 + bp.y * 0.3;
+    float ca = 1.0 - abs(vnoise(cq + vec2(uTime * 0.5, uTime * 0.3)) - vnoise(cq * 1.3 - vec2(uTime * 0.4, -uTime * 0.35) + 3.1));
+    ca = pow(ca, 9.0) * smoothstep(0.0, 0.6, depthBelow) * exp(-max(depthBelow, 0.0) * 0.25);
+    bed = bed * vec3(0.78, 1.0, 0.96) + uSunColor * ca * 0.45 * skyVis * max(uSunDir.y, 0.0);
+    vec3 absorb = exp(-max(depthBelow, 0.0) * vec3(0.45, 0.16, 0.11));
+    under = mix(body, bed, absorb);
+    refr = true;
   }
-  vec3 col = mix(base, refl * vec3(0.8, 0.9, 1.0), clamp(fres * (uSSR > 0.5 ? 1.3 : 1.0), 0.0, uSSR > 0.5 ? 0.85 : 0.6));
+  // Sun glints: a sharp sparkle on the ripples plus a broad sheen.
   vec3 H = normalize(uSunDir + V);
-  col += uSunColor * pow(max(dot(N, H), 0.0), 240.0) * 3.0 * skyVis;
+  float nh = max(dot(N, H), 0.0);
+  vec3 spec = uSunColor * (pow(nh, 900.0) * 9.0 + pow(nh, 90.0) * 0.18) * skyVis * step(0.0, uSunDir.y + 0.05);
+  vec3 col; float alpha;
+  if (refr) {
+    col = mix(under, refl, fres) + spec;
+    alpha = 1.0;
+  } else {
+    // Blended over the scene: result = refl*F + (1-F)*(body*k + scene*(1-k)).
+    float k = vFlags == F_WATER ? 0.62 : bodyOpacity;
+    alpha = fres + (1.0 - fres) * k;
+    col = (refl * fres + body * (1.0 - fres) * k) / max(alpha, 1e-3) + spec / max(alpha, 1e-3);
+    alpha = clamp(alpha + dot(spec, vec3(0.33)), 0.0, 1.0);
+  }
   outColor = vec4(applyFog(col, vWorld), alpha);
 }
 `;
@@ -522,15 +577,44 @@ void main() {
 }
 `;
 
+// God rays at quarter resolution: march from each pixel towards the sun, counting how much open
+// sky lies along the way (trees, hills and clouds of terrain cut it into shafts). A per-pixel
+// jittered start hides the banding of the few samples; a blur pass then smooths the result.
+export const GOD_FS = HEADER + `
+uniform sampler2D uDepth;
+uniform vec3 uSun;
+uniform vec2 uAspect;
+uniform float uSamples;
+in vec2 vUV;
+out vec4 outColor;
+void main() {
+  vec2 toSun = vUV - uSun.xy;
+  float fall = pow(max(0.0, 1.0 - length(toSun * uAspect) * 0.62), 1.8);
+  if (fall <= 0.0) { outColor = vec4(0.0); return; }
+  float jit = fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))));
+  vec2 d = toSun / uSamples * 0.92;
+  vec2 p = vUV - d * jit;
+  float illum = 0.0, decay = 1.0, wsum = 0.0;
+  for (int i = 0; i < 64; i++) {
+    if (float(i) >= uSamples) break;
+    float sky = texture(uDepth, clamp(p, 0.001, 0.999)).r >= 0.99999 ? 1.0 : 0.0;
+    illum += sky * decay; wsum += decay;
+    decay *= 0.955;
+    p -= d;
+  }
+  outColor = vec4(illum / wsum * fall, 0.0, 0.0, 1.0);
+}
+`;
+
 export const POST_FS = HEADER + `
 uniform sampler2D uScene;
 uniform sampler2D uDepth;
 uniform sampler2D uBloom;
+uniform sampler2D uGod;
 uniform int uQuality;
 uniform vec2 uTexel;
 uniform vec3 uSun;
 uniform vec3 uSunColor;
-uniform float uGodSamples;
 uniform float uBloomStrength;
 uniform float uMedium;
 uniform float uTime;
@@ -571,24 +655,10 @@ void main() {
   }
   vec3 c = uQuality >= 1 ? fxaa(uv) : texture(uScene, uv).rgb;
   if (uQuality == 0) { outColor = vec4(c * (1.0 - uDark) + uFlash, 1.0); return; }
-  // God rays: march towards the sun through sky pixels, fading with distance from the sun.
-  if (uQuality >= 2 && uSun.z > 0.001) {
-    vec2 toSun = uv - uSun.xy;
-    vec2 asp = vec2(uTexel.y / uTexel.x, 1.0);
-    float fall = pow(max(0.0, 1.0 - length(toSun * asp) * 1.3), 2.6);
-    if (fall > 0.0) {
-      vec2 d = toSun / uGodSamples * 0.95;
-      vec2 p = uv;
-      float illum = 0.0, decay = 1.0, wsum = 0.0;
-      for (int i = 0; i < 96; i++) {
-        if (float(i) >= uGodSamples) break;
-        p -= d;
-        float sky = texture(uDepth, clamp(p, 0.001, 0.999)).r >= 0.99999 ? 1.0 : 0.0;
-        illum += sky * decay; wsum += decay;
-        decay *= 0.97;
-      }
-      c += uSunColor * (illum / wsum) * fall * uSun.z * 0.3;
-    }
+  // God rays (traced at quarter resolution in GOD_FS), warm with the sun's colour.
+  if (uSun.z > 0.001) {
+    float g = texture(uGod, uv).r;
+    c += uSunColor * g * uSun.z * 0.6 * (1.0 - 0.3 * luma(c));
   }
   if (uQuality >= 2) c += texture(uBloom, uv).rgb * uBloomStrength;
   if (uMedium > 0.5 && uMedium < 1.5) c = mix(c, c * vec3(0.4, 0.62, 1.0), 0.55);
