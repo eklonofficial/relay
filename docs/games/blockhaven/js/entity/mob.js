@@ -1,14 +1,15 @@
 // Living mobs: physics, AI archetypes, combat, breeding/taming, trading and animation.
-import { Entity, drawModel, rootMatrix, M } from './entity.js?v=mupl457j';
-import { Projectile, renderStack } from './objects.js?v=mupl457j';
-import { MOBS, PROFESSIONS } from '../data/mobs.js?v=mupl457j';
-import { B, BLOCKS, SOLID } from '../data/blocks.js?v=mupl457j';
-import { UNLOADED } from '../world/world.js?v=mupl457j';
-import { villagerTrades } from '../game/trades.js?v=mupl457j';
-import { findPath, clearWalk } from './pathfind.js?v=mupl457j';
-import { ARMOR_BYPASS, armorStats, armorReduce, applyInvul } from '../game/combat.js?v=mupl457j';
-import { armorSkinKey } from '../data/armor.js?v=mupl457j';
-import { I } from '../data/items.js?v=mupl457j';
+import { Entity, drawModel, rootMatrix, M } from './entity.js?v=mupn7rzu';
+import { Projectile, renderStack } from './objects.js?v=mupn7rzu';
+import { MOBS, PROFESSIONS } from '../data/mobs.js?v=mupn7rzu';
+import { B, BLOCKS, SOLID } from '../data/blocks.js?v=mupn7rzu';
+import { UNLOADED } from '../world/world.js?v=mupn7rzu';
+import { villagerTrades } from '../game/trades.js?v=mupn7rzu';
+import { findPath, clearWalk } from './pathfind.js?v=mupn7rzu';
+import { ARMOR_BYPASS, armorStats, armorReduce, applyInvul } from '../game/combat.js?v=mupn7rzu';
+import { armorSkinKey } from '../data/armor.js?v=mupn7rzu';
+import { I } from '../data/items.js?v=mupn7rzu';
+import { dragonInit, dragonAI, dragonDamage, dragonDying, dragonHead } from './dragon.js?v=mupn7rzu';
 
 const rnd = (a, b) => a + Math.random() * (b - a);
 const rint = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
@@ -86,7 +87,7 @@ export class Mob extends Entity {
     this.effects = {};
     this.gravity = d.flying ? 0 : 28;
     if (type === 'villager' || type === 'wandering_trader') this.initVillager(opts);
-    if (type === 'ender_dragon') { this.phase = 'circle'; this.phaseT = 0; this.circleA = 0; this.projectileImmune = false; }
+    if (type === 'ender_dragon') dragonInit(this);
     if (d.slowFall) this.slowFall = true;
     this.eggT = rnd(300, 600);
   }
@@ -108,7 +109,7 @@ export class Mob extends Entity {
     if (this.def.fireImmune && (src.kind === 'fire' || src.kind === 'lava')) return false;
     if (this.mobType === 'enderman' && src.kind === 'projectile') { this.teleportRandom(); return false; }
     if (this.mobType === 'wither' && (this.spawnT > 0 || (this.armored && src.kind === 'projectile'))) return false;
-    if (this.mobType === 'ender_dragon' && src.kind !== 'explosion' && src.kind !== 'player' && src.kind !== 'projectile' && src.kind !== 'kill') return false;
+    if (this.mobType === 'ender_dragon') { amount = dragonDamage(this, amount, src); if (amount <= 0) return false; }
     const hit = applyInvul(this, amount);
     if (hit.amount <= 0) return false;
     amount = hit.amount;
@@ -155,7 +156,6 @@ export class Mob extends Entity {
       if (byPlayer && d.xp) g.spawnXp(this.pos, rint(d.xp[0], d.xp[1]) * (d.sizes ? this.size : 1));
     }
     if (d.sizes && this.size > 1) for (let k = 0; k < rint(2, 4); k++) g.spawnMob(this.mobType, this.pos[0] + rnd(-0.5, 0.5), this.pos[1] + 0.5, this.pos[2] + rnd(-0.5, 0.5), { size: this.size / 2 });
-    if (this.mobType === 'ender_dragon') g.onDragonDeath(this);
     if (src.attacker === g.playerEntity) g.onKill(this);
   }
   setFire(s) { if (!this.def.fireImmune) this.fire = Math.max(this.fire, s); }
@@ -351,7 +351,7 @@ export class Mob extends Entity {
     const g = this.game, d = this.def;
     if (this.deathT > 0) {
       this.deathT += dt;
-      if (this.mobType === 'ender_dragon') { this.pos[1] += dt * 2; if (Math.random() < 0.5) g.particles.explosion([this.pos[0] + rnd(-4, 4), this.pos[1] + rnd(0, 4), this.pos[2] + rnd(-4, 4)], 1); if (this.deathT > 8) this.dead = true; return; }
+      if (this.mobType === 'ender_dragon') { dragonDying(this, dt); return; }
       this.physics(dt);
       if (this.deathT > 1) { this.dead = true; g.particles.smoke(this.center(), 8); }
       return;
@@ -854,51 +854,14 @@ export class Mob extends Entity {
       }
     }
   }
-  aiDragon(dt) {
-    const g = this.game;
-    this.phaseT -= dt;
-    // Crystals heal.
-    const crystal = g.entities.near(this.pos, 40, e => e.type === 'end_crystal')[0];
-    if (crystal && this.health < this.maxHealth) { this.health = Math.min(this.maxHealth, this.health + dt); this.beam = crystal; } else this.beam = null;
-    const p = this.focus.pos;
-    let goal;
-    if (this.phase === 'circle') {
-      this.circleA += dt * 0.25;
-      goal = [Math.cos(this.circleA) * 60, 90 + Math.sin(this.circleA * 2) * 10, Math.sin(this.circleA) * 60];
-      if (this.phaseT <= 0) { const r = Math.random(); this.phase = r < 0.4 ? 'charge' : r < 0.75 ? 'strafe' : 'perch'; this.phaseT = this.phase === 'perch' ? 10 : 6; }
-    } else if (this.phase === 'charge') {
-      goal = [p[0], p[1] + 1, p[2]];
-      if (this.distTo(goal) < 5 || this.phaseT <= 0) { this.phase = 'circle'; this.phaseT = rnd(8, 14); }
-    } else if (this.phase === 'strafe') {
-      goal = [p[0] + Math.cos(this.circleA) * 30, p[1] + 20, p[2] + Math.sin(this.circleA) * 30];
-      this.circleA += dt * 0.4;
-      if (this.attackT <= 0 && this.playerTargetable()) { this.attackT = 2.5; this.shoot('dragon_fireball', this.focus, 20); }
-      if (this.phaseT <= 0) { this.phase = 'circle'; this.phaseT = rnd(8, 14); }
-    } else {
-      const top = g.world.heightAt(0, 0);
-      goal = [0, (top > 0 ? top : 64) + 2, 0];
-      if (this.distTo(goal) < 3) { this.vel = [0, 0, 0]; this.lookAt(p, 2, dt); if (this.attackT <= 0 && this.distToPlayer() < 20 && this.playerTargetable()) { this.attackT = 2; this.shoot('dragon_fireball', this.focus, 16); } }
-      if (this.phaseT <= 0) { this.phase = 'circle'; this.phaseT = rnd(10, 15); }
-    }
-    if (goal) {
-      const dx = goal[0] - this.pos[0], dy = goal[1] - this.pos[1], dz = goal[2] - this.pos[2], n = Math.hypot(dx, dy, dz) || 1;
-      const sp = this.phase === 'charge' ? 22 : 14;
-      if (n > 2) { this.vel[0] += (dx / n * sp - this.vel[0]) * dt * 1.5; this.vel[1] += (dy / n * sp - this.vel[1]) * dt * 1.5; this.vel[2] += (dz / n * sp - this.vel[2]) * dt * 1.5; this.yaw += wrap(Math.atan2(-this.vel[0], -this.vel[2]) - this.yaw) * Math.min(1, dt * 2); }
-    }
-    // Body contact damage and knockback.
-    if (this.distToPlayer() < 5 && this.attackT <= 0 && this.playerTargetable()) {
-      this.attackT = 1;
-      const dx = p[0] - this.pos[0], dz = p[2] - this.pos[2], n = Math.hypot(dx, dz) || 1;
-      this.focus.hurt(10, { kind: 'mob', attacker: this, knock: [dx / n, dz / n], knockStrength: 16 });
-      if (this.focus === g.playerEntity) g.player.vel[1] = 10;
-    }
-    // Destroy blocks it flies through (not end stone/obsidian/bedrock).
-    if (g.rules.mobGriefing && Math.random() < dt * 10) {
-      const x = Math.floor(this.pos[0] + rnd(-3, 3)), y = Math.floor(this.pos[1] + rnd(0, 3)), z = Math.floor(this.pos[2] + rnd(-3, 3));
-      const id = g.world.getBlock(x, y, z);
-      if (id !== B.AIR && id !== UNLOADED && id !== B.END_STONE && id !== B.OBSIDIAN && id !== B.BEDROCK && id !== B.END_PORTAL && BLOCKS[id].hardness !== Infinity) g.setBlock(x, y, z, B.AIR, 0);
-    }
+  aiDragon(dt) { dragonAI(this, dt); }
+  // Extra hit boxes beyond the main one: the dragon's head and neck reach well past its body.
+  partBoxes() {
+    if (this.mobType !== 'ender_dragon') return null;
+    const h = dragonHead(this), n = [(this.pos[0] + h[0]) / 2, (this.pos[1] + 2.2 + h[1]) / 2, (this.pos[2] + h[2]) / 2];
+    return [[h[0] - 1, h[1] - 1, h[2] - 1, h[0] + 1, h[1] + 1, h[2] + 1], [n[0] - 0.8, n[1] - 0.8, n[2] - 0.8, n[0] + 0.8, n[1] + 0.8, n[2] + 0.8]];
   }
+
   growUp() {
     this.baby = false;
     const d = this.def;
@@ -1004,11 +967,15 @@ export class Mob extends Entity {
       case 'ghast': for (let i = 0; i < 9; i++) P[`t${i}`] = [Math.sin(t * 1.5 + i) * 0.3, 0, Math.cos(t * 1.2 + i) * 0.2]; break;
       case 'snowgolem': P.head = head; break;
       case 'dragon': {
-        const f = Math.sin(t * 2.2);
-        P.wingR = [0, 0, f * 0.7]; P.wingL = [0, 0, -f * 0.7];
+        // Wings beat in flight and fold while perched; perched, the neck dips and the head turns
+        // to follow its target (dragonHead() in dragon.js tracks the same curve).
+        const perch = this.perch || 0, turn = this.headTurn || 0;
+        const f = Math.sin(t * 2.2) * (1 - perch * 0.85);
+        P.wingR = [0, 0, f * 0.7 - perch * 0.35]; P.wingL = [0, 0, -f * 0.7 + perch * 0.35];
         P.pivots = {};
-        for (let i = 0; i < 5; i++) P.pivots[`neck${i}`] = [0, 30 + Math.sin(t * 1.5 - i * 0.4) * 2 * (i + 1) * 0.5, -32 - i * 10];
-        P.pivots.head = [0, 30 + Math.sin(t * 1.5 - 2) * 3, -80];
+        for (let i = 0; i < 5; i++) { const s = i * 10, bob = Math.sin(t * 1.5 - i * 0.4) * (i + 1) * (1 - perch * 0.6); P.pivots[`neck${i}`] = [-Math.sin(turn) * s, 30 + bob - perch * (i + 1) * 2.6, -32 - Math.cos(turn) * s]; }
+        P.pivots.head = [-Math.sin(turn) * 48, 30 + Math.sin(t * 1.5 - 2) * 3 * (1 - perch * 0.6) - perch * 16, -32 - Math.cos(turn) * 48];
+        P.head = [perch * 0.35, turn, 0];
         for (let i = 0; i < 12; i++) P.pivots[`tail${i}`] = [Math.sin(t * 1.2 + i * 0.4) * i * 1.2, 30 + Math.sin(t * 1.5 + i * 0.3) * i * 0.6, 32 + i * 10];
         break;
       }
@@ -1067,6 +1034,16 @@ export class Mob extends Entity {
       for (const [ox, oz] of [[wd, 0], [0, wd]]) ctx.itemFx.quad([[eye[0] - ox, eye[1], eye[2] - oz], [to[0] - ox, to[1], to[2] - oz], [to[0] + ox, to[1], to[2] + oz], [eye[0] + ox, eye[1], eye[2] + oz]], [0, 0, 1, 1], layer, col);
       ctx.itemFx.quad([[eye[0], eye[1] - wd, eye[2]], [to[0], to[1] - wd, to[2]], [to[0], to[1] + wd, to[2]], [eye[0], eye[1] + wd, eye[2]]], [0, 0, 1, 1], layer, col);
     }
+    // Dying: shafts of light burst out of the body.
+    if (this.mobType === 'ender_dragon' && this.deathT > 0) {
+      const layer = g.fxLayer('white'), c = [this.pos[0], this.pos[1] + 2.4, this.pos[2]], k = Math.min(1, this.deathT / 8);
+      for (let i = 0; i < 12; i++) {
+        const a = i * 2.39996 + this.deathT * 0.3 * (i % 2 ? 1 : -1), b = Math.sin(i * 1.7 + this.deathT * 0.2) * 1.2;
+        const d = [Math.cos(a) * Math.cos(b), Math.sin(b), Math.sin(a) * Math.cos(b)], L = 6 + k * 18 + (i % 3) * 3, w = 0.6 + k * 1.2;
+        const s = [-d[2], 0, d[0]], e = [c[0] + d[0] * L, c[1] + d[1] * L, c[2] + d[2] * L];
+        ctx.itemFx.quad([[c[0], c[1], c[2]], [e[0] - s[0] * w, e[1], e[2] - s[2] * w], [e[0] + s[0] * w, e[1], e[2] + s[2] * w], [c[0], c[1] + 0.01, c[2]]], [0, 0, 1, 1], layer, [1.3, 1.1, 1.4, 0.35 * (0.4 + k * 0.6)]);
+      }
+    }
     if (this.beam) {
       const c = this.beam.pos, layer = g.fxLayer('white');
       ctx.itemFx.quad([[c[0] - 0.1, c[1] + 1, c[2]], [this.pos[0] - 0.1, this.pos[1] + 2, this.pos[2]], [this.pos[0] + 0.1, this.pos[1] + 2, this.pos[2]], [c[0] + 0.1, c[1] + 1, c[2]]], [0, 0, 1, 1], layer, [1.2, 0.6, 1.4, 0.7]);
@@ -1084,7 +1061,7 @@ export class Mob extends Entity {
 }
 
 // Moves an entity without gravity handling (fliers/swimmers).
-import { moveEntity } from './physics.js?v=mupl457j';
+import { moveEntity } from './physics.js?v=mupn7rzu';
 function import_move(e, dt) { moveEntity(e.world, e, e.vel[0] * dt, e.vel[1] * dt, e.vel[2] * dt); }
 
 // Renders a held item using a part matrix (model units).

@@ -1,6 +1,6 @@
 // Item registry: every block item plus tools, weapons, armor, food and materials.
-import { BLOCK_ITEMS, BLOCKS, COLORS, SHAPE, st } from './blocks.js?v=mupl457j';
-import { EGG_MOBS } from './mobs.js?v=mupl457j';
+import { BLOCK_ITEMS, BLOCKS, COLORS, SHAPE, st } from './blocks.js?v=mupn7rzu';
+import { EGG_MOBS } from './mobs.js?v=mupn7rzu';
 
 export const ITEMS = [];
 export const I = {};          // key -> item
@@ -122,6 +122,7 @@ for (const k of ['stick', 'coal', 'charcoal', 'raw_iron', 'raw_gold', 'raw_coppe
 I.redstone.placeBlock = [BLOCKS.find(b => b && b.key === 'redstone_wire').id, 0]; I.redstone.tab = 'redstone';
 I.stick.fuel = 5; I.coal.fuel = 80; I.charcoal.fuel = 80; I.blaze_rod.fuel = 120; I.bowl.fuel = 5; I.lava_bucket.fuel = 1000;
 I.nether_wart.place = 'nether_wart';
+I.glass_bottle.use = 'bottle'; I.glass_bottle.tab = 'tools';
 for (const c of COLORS) add(`${c}_dye`, { tab: 'ingredients', dye: c });
 
 // ---- spawn eggs (filled in by the mob registry) ----

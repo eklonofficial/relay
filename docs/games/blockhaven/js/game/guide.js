@@ -1,11 +1,11 @@
 // The in-game guide: features, commands, crafting, farming, combat, villagers, dimensions and graphics.
-import { MusicPlayer } from './music.js?v=mupl457j';
-import { BLOCKS, BLOCK_ITEMS, TEXTURES } from '../data/blocks.js?v=mupl457j';
-import { ITEMS, I } from '../data/items.js?v=mupl457j';
-import { SHAPED, SHAPELESS, SMELTING } from '../data/recipes.js?v=mupl457j';
-import { MOBS } from '../data/mobs.js?v=mupl457j';
-import { BIOMES } from '../gen/biomes.js?v=mupl457j';
-import { COMMANDS } from './commands.js?v=mupl457j';
+import { MusicPlayer } from './music.js?v=mupn7rzu';
+import { BLOCKS, BLOCK_ITEMS, TEXTURES } from '../data/blocks.js?v=mupn7rzu';
+import { ITEMS, I } from '../data/items.js?v=mupn7rzu';
+import { SHAPED, SHAPELESS, SMELTING } from '../data/recipes.js?v=mupn7rzu';
+import { MOBS } from '../data/mobs.js?v=mupn7rzu';
+import { BIOMES } from '../gen/biomes.js?v=mupn7rzu';
+import { COMMANDS } from './commands.js?v=mupn7rzu';
 
 const esc = s => String(s).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
 
@@ -186,7 +186,8 @@ export function guideSections(icons) {
       <h4>The Nether</h4>
       <p>Build a rectangular frame of obsidian (at least 4 wide and 5 tall), then light the inside with flint and steel. Stand in the purple portal to travel. One block in the Nether is eight in the Overworld, making it a fast-travel network. The Nether has five biomes (Nether Wastes, Crimson and Warped Forests, Soul Sand Valley, Basalt Deltas), lava oceans, glowstone, quartz and gold ore, ancient debris for netherite, and fortresses guarded by blazes and wither skeletons. Water evaporates there and beds explode!</p>
       <h4>The End</h4>
-      <p>Craft eyes of ender (ender pearl + blaze powder) and throw them — they fly towards the nearest stronghold. Deep inside is the portal room: fill all twelve frames with eyes to open the gateway. In the End, destroy the healing end crystals on the obsidian pillars, then defeat the Ender Dragon. Its death opens the exit portal and leaves the dragon egg.</p>`,
+      <p>Craft eyes of ender (ender pearl + blaze powder) and throw them — they fly towards the nearest stronghold. Deep inside is the portal room: fill all twelve frames with eyes to open the gateway. In the End, destroy the healing end crystals on the obsidian pillars (breaking the one that's healing the dragon also hurts it), then defeat the Ender Dragon.</p>
+      <p><b>How the dragon fights:</b> it circles the island, swooping down to strafe you with fireballs or charge at you, and its wings fling you aside. Fireballs leave a lingering purple cloud that hurts while you stand in it; catch some in a glass bottle for dragon's breath. The fewer crystals are left, the more often it lands on the portal in the middle. There it looks for you, roars and breathes fire. That's the time to hit its head, which takes full damage (its body only takes about a quarter), but arrows glance off while it's perched. Its death opens the exit portal; the first kill also leaves the dragon egg and a huge burst of experience.</p>`,
     'Worlds & graphics': `
       <h4>World types</h4>
       <table>

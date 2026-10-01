@@ -1,11 +1,11 @@
 // Player actions: mining, placing, using items and blocks, attacking.
-import { meleeDamage, isCrit, knockStrength, isSword, SWEEP_DAMAGE, SHIELD_DELAY, SHIELD_DISABLE } from './combat.js?v=mupl457j';
-import { B, BLOCKS, SOLID, OPAQUE, SHAPE_OF, SHAPE, props, st, DIM, FACING_SHIFT, AXIS_SHIFT, VARIANT_MASK } from '../data/blocks.js?v=mupl457j';
-import { I, breakTime } from '../data/items.js?v=mupl457j';
-import { collisionBoxes, selectionBoxes } from '../data/shapes.js?v=mupl457j';
-import { UNLOADED, posKey } from '../world/world.js?v=mupl457j';
-import { forward } from '../core/math.js?v=mupl457j';
-import { KIND } from './redstone.js?v=mupl457j';
+import { meleeDamage, isCrit, knockStrength, isSword, SWEEP_DAMAGE, SHIELD_DELAY, SHIELD_DISABLE } from './combat.js?v=mupn7rzu';
+import { B, BLOCKS, SOLID, OPAQUE, SHAPE_OF, SHAPE, props, st, DIM, FACING_SHIFT, AXIS_SHIFT, VARIANT_MASK } from '../data/blocks.js?v=mupn7rzu';
+import { I, breakTime } from '../data/items.js?v=mupn7rzu';
+import { collisionBoxes, selectionBoxes } from '../data/shapes.js?v=mupn7rzu';
+import { UNLOADED, posKey } from '../world/world.js?v=mupn7rzu';
+import { forward } from '../core/math.js?v=mupn7rzu';
+import { KIND } from './redstone.js?v=mupn7rzu';
 
 const DIRS = [[0, 1], [-1, 0], [0, -1], [1, 0]];
 export const CROSSBOW_CHARGE = 1.25; // seconds (25 ticks)
@@ -27,10 +27,13 @@ export class Interact {
     const g = this.g, p = g.player, eye = p.eyePos(), dir = forward(p.yaw, p.pitch);
     this.target = g.mode === 'spectator' ? null : g.world.raycast(eye, dir, this.reach);
     let best = null, bt = this.target ? this.target.t : this.reach;
-    if (g.mode !== 'spectator') for (const e of g.entities.near(eye, this.reach + 3, o => o.isLiving && !o.dead && !(o.deathT > 0) && o !== g.riding)) {
+    if (g.mode !== 'spectator') for (const e of g.entities.near(eye, this.reach + 9, o => o.isLiving && !o.dead && !(o.deathT > 0) && o !== g.riding)) {
       const pad = 0.1;
-      const t = g.world.rayBox(eye, dir, [e.pos[0] - e.hw - pad, e.pos[1] - pad, e.pos[2] - e.hw - pad, e.pos[0] + e.hw + pad, e.pos[1] + e.h + pad, e.pos[2] + e.hw + pad]);
-      if (t && t.t < bt) { best = e; bt = t.t; }
+      // Big mobs (the dragon) add boxes for parts outside their main one, like its head and neck.
+      for (const b of [[e.pos[0] - e.hw, e.pos[1], e.pos[2] - e.hw, e.pos[0] + e.hw, e.pos[1] + e.h, e.pos[2] + e.hw], ...((e.partBoxes && e.partBoxes()) || [])]) {
+        const t = g.world.rayBox(eye, dir, [b[0] - pad, b[1] - pad, b[2] - pad, b[3] + pad, b[4] + pad, b[5] + pad]);
+        if (t && t.t < bt) { best = e; bt = t.t; }
+      }
     }
     this.entityTarget = best;
     if (best) this.target = null;
@@ -487,6 +490,25 @@ export class Interact {
         else if (t) g.launchFirework([t.x + 0.5 + t.nx * 0.6, t.y + 0.5 + t.ny * 0.6, t.z + 0.5 + t.nz * 0.6]);
         else return;
         if (!creative) g.inv.consumeHeld();
+        return;
+      }
+      case 'bottle': {
+        // Scoop dragon's breath out of a lingering cloud the crosshair passes through.
+        const cloud = g.entities.list.find(e => {
+          if (!e.breath || e.dead) return false;
+          for (let s = 0; s <= this.reach; s += 0.25) {
+            const q = [eye[0] + f[0] * s, eye[1] + f[1] * s, eye[2] + f[2] * s];
+            if (Math.hypot(q[0] - e.pos[0], q[2] - e.pos[2]) < e.radius && q[1] > e.pos[1] - 0.5 && q[1] < e.pos[1] + 1.5) return true;
+          }
+          return false;
+        });
+        if (!cloud) return;
+        cloud.radius -= 0.5;
+        const full = { key: 'dragon_breath', count: 1 };
+        if (!creative) g.inv.consumeHeld();
+        if (g.inv.add(full)) g.dropStack(full);
+        g.sound.play('drink', p.pos, 0.5);
+        this.swing = 1;
         return;
       }
       case 'bucket': {

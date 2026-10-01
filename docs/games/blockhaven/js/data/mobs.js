@@ -1,6 +1,6 @@
 // Mob roster: stats, AI archetype, drops, box models and procedural skins.
 // Model space: 1 unit = 1/16 block, feet at y=0, the mob faces -Z.
-import { D, pal, shade as shadeHex } from '../render/mobtex.js?v=mupl457j';
+import { D, pal, shade as shadeHex } from '../render/mobtex.js?v=mupn7rzu';
 
 const box = (o, s, style, extra = {}) => ({ o, s, style, ...extra });
 const part = (pivot, boxes, extra = {}) => ({ pivot, boxes, ...extra });
@@ -610,7 +610,7 @@ mob('wither', {
 
 // --- the dragon ---
 mob('ender_dragon', {
-  hw: 4, h: 4, health: 200, speed: 12, kind: 'boss', ai: 'dragon', flying: true, fireImmune: true, attack: { dmg: 10, cd: 1 }, egg: ['#1a1a1a', '#e070ff'], drops: [], xp: [12000, 12000], sound: 'dragon', knockbackResist: 1, noEgg: true,
+  hw: 4, h: 4, health: 200, speed: 12, kind: 'boss', ai: 'dragon', flying: true, fireImmune: true, attack: { dmg: 10, cd: 1 }, egg: ['#1a1a1a', '#e070ff'], drops: [], sound: 'dragon', knockbackResist: 1, noEgg: true,
   model: () => {
     const sc = S('#221c28', 'scales', { top: D.stripes('#3a3044', 4, true) }, 0.2), belly = S('#2e2834', 'noise', null, 0.15);
     const parts = {
