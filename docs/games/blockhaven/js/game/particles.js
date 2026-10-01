@@ -1,7 +1,7 @@
 // Particles: block fragments (block texture array) and effect sprites (item texture array).
-import { FACE_TEX, VARIANT_MASK, TINT_OF, SOLID, B } from '../data/blocks.js?v=mupp1ffq';
-import { UNLOADED } from '../world/world.js?v=mupp1ffq';
-import { billboard } from '../entity/objects.js?v=mupp1ffq';
+import { FACE_TEX, VARIANT_MASK, TINT_OF, SOLID, B } from '../data/blocks.js?v=mupp7m39';
+import { UNLOADED } from '../world/world.js?v=mupp7m39';
+import { billboard } from '../entity/objects.js?v=mupp7m39';
 
 const MAX = 1400;
 const FX_PROPS = {

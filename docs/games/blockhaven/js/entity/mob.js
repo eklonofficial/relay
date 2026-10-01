@@ -1,15 +1,15 @@
 // Living mobs: physics, AI archetypes, combat, breeding/taming, trading and animation.
-import { Entity, drawModel, rootMatrix, M } from './entity.js?v=mupp1ffq';
-import { Projectile, renderStack } from './objects.js?v=mupp1ffq';
-import { MOBS, PROFESSIONS } from '../data/mobs.js?v=mupp1ffq';
-import { B, BLOCKS, SOLID } from '../data/blocks.js?v=mupp1ffq';
-import { UNLOADED } from '../world/world.js?v=mupp1ffq';
-import { villagerTrades } from '../game/trades.js?v=mupp1ffq';
-import { findPath, clearWalk } from './pathfind.js?v=mupp1ffq';
-import { ARMOR_BYPASS, armorStats, armorReduce, applyInvul } from '../game/combat.js?v=mupp1ffq';
-import { armorSkinKey } from '../data/armor.js?v=mupp1ffq';
-import { I } from '../data/items.js?v=mupp1ffq';
-import { dragonInit, dragonAI, dragonDamage, dragonDying, dragonHead } from './dragon.js?v=mupp1ffq';
+import { Entity, drawModel, rootMatrix, M } from './entity.js?v=mupp7m39';
+import { Projectile, renderStack } from './objects.js?v=mupp7m39';
+import { MOBS, PROFESSIONS } from '../data/mobs.js?v=mupp7m39';
+import { B, BLOCKS, SOLID } from '../data/blocks.js?v=mupp7m39';
+import { UNLOADED } from '../world/world.js?v=mupp7m39';
+import { villagerTrades } from '../game/trades.js?v=mupp7m39';
+import { findPath, clearWalk } from './pathfind.js?v=mupp7m39';
+import { ARMOR_BYPASS, armorStats, armorReduce, applyInvul } from '../game/combat.js?v=mupp7m39';
+import { armorSkinKey } from '../data/armor.js?v=mupp7m39';
+import { I } from '../data/items.js?v=mupp7m39';
+import { dragonInit, dragonAI, dragonDamage, dragonDying, dragonHead } from './dragon.js?v=mupp7m39';
 
 const rnd = (a, b) => a + Math.random() * (b - a);
 const rint = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
@@ -1062,7 +1062,7 @@ export class Mob extends Entity {
 }
 
 // Moves an entity without gravity handling (fliers/swimmers).
-import { moveEntity } from './physics.js?v=mupp1ffq';
+import { moveEntity } from './physics.js?v=mupp7m39';
 function import_move(e, dt) { moveEntity(e.world, e, e.vel[0] * dt, e.vel[1] * dt, e.vel[2] * dt); }
 
 // Renders a held item using a part matrix (model units).
