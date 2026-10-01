@@ -1,6 +1,6 @@
 // Collision and selection boxes per block state, in block units (0..1, fences reach 1.5).
-import { SHAPE, SHAPE_OF, SOLID, B } from './blocks.js?v=muoxc0st';
-import { boxUp6, boxAttach } from './orient.js?v=muoxc0st';
+import { SHAPE, SHAPE_OF, SOLID, B } from './blocks.js?v=muph3n9b';
+import { boxUp6, boxAttach } from './orient.js?v=muph3n9b';
 
 const P = 1 / 16;
 // Rotate a canonical (+Z-facing) box by `facing` quarter turns about the block centre.

@@ -1,4 +1,4 @@
-import { VF } from '../data/blocks.js?v=muoxc0st';
+import { VF } from '../data/blocks.js?v=muph3n9b';
 
 const HEADER = `#version 300 es
 precision highp float;
@@ -169,17 +169,14 @@ flat in int vFlags;
 flat in int vNormal;
 out vec4 outColor;
 
-vec3 lava(vec3 w) {
-  vec3 px = floor(w * 16.0 + 0.001) / 16.0;
-  vec2 q = px.xz * 0.55 + vec2(px.y * 0.35, -px.y * 0.2);
-  float n = fbm(q + vec2(uTime * 0.07, uTime * 0.045));
-  float n2 = fbm(q * 2.2 - vec2(uTime * 0.11, uTime * 0.02));
-  vec3 col = mix(vec3(0.5, 0.06, 0.01), vec3(1.0, 0.42, 0.04), smoothstep(0.25, 0.75, n));
-  return mix(col, vec3(1.0, 0.88, 0.38), smoothstep(0.62, 0.9, n2) * 0.85) * 1.15;
-}
-
 void main() {
-  if (vFlags == F_LAVA) { outColor = vec4(applyFog(lava(vWorld), vWorld), 1.0); return; }
+  // The mesher selects the pack's still/flowing lava layer. Keep lava emissive, but
+  // use that texture rather than replacing both layers with procedural noise.
+  if (vFlags == F_LAVA) {
+    vec3 col = texture(uTex, vUV).rgb * 1.1;
+    outColor = vec4(applyFog(col, vWorld), 1.0);
+    return;
+  }
   if (vFlags == F_END_PORTAL) {
     vec3 d = normalize(vWorld - uCamPos);
     vec3 col = vec3(0.02, 0.04, 0.06);
