@@ -1,37 +1,37 @@
 // Blockhaven bootstrap: assets, menus, input, camera, frame loop.
-import { Demo, DEMO_SEED } from './demo.js?v=muox46vc';
-import { armorModel, armorSkinKey, ARMOR_MATERIALS, ARMOR_PIECES, elytraModel } from './data/armor.js?v=muox46vc';
-import { TEXTURES, TEX, B, BLOCKS, DIM, DIM_NAMES, SHAPE_OF, SHAPE, props, HEIGHT } from './data/blocks.js?v=muox46vc';
-import { I, ITEMS } from './data/items.js?v=muox46vc';
-import { MOBS, PROFESSIONS, playerModel, saddleModel, PLAYER_SKINS } from './data/mobs.js?v=muox46vc';
-import { Net, cleanCode, cleanName, cleanKey, cleanChat, chatLine, MAX_PLAYERS } from './net/net.js?v=muox46vc';
-import { NameTags } from './net/nametags.js?v=muox46vc';
-import { BIOMES } from './gen/biomes.js?v=muox46vc';
-import { generateBlockTextures, drawBlockTexture } from './render/blocktex.js?v=muox46vc';
-import { generateItemTextures, ITEM_LAYER, FX_LAYER, ITEM_LAYER_COUNT, flatTexFor } from './render/itemtex.js?v=muox46vc';
-import { Zip, storedPack, savePack, removePack, applyBlockTextures, applyItemTextures, indexSounds } from './render/pack.js?v=muox46vc';
-import { packModel, paintModel, SKIN, faceRects } from './render/mobtex.js?v=muox46vc';
-import { buildMipChain } from './render/atlas.js?v=muox46vc';
-import { Renderer, Batch } from './render/renderer.js?v=muox46vc';
-import { World, UNLOADED } from './world/world.js?v=muox46vc';
-import { createGenerator } from './gen/index.js?v=muox46vc';
-import { Game } from './game/game.js?v=muox46vc';
-import { Interact, CROSSBOW_CHARGE } from './game/interact.js?v=muox46vc';
-import { SpawnPrep, STATUS_COLOR } from './game/spawnprep.js?v=muox46vc';
-import { splash } from './splash.js?v=muox46vc';
-import { Commands } from './game/commands.js?v=muox46vc';
-import { GUI, HUD } from './game/ui.js?v=muox46vc';
-import { buildIcons, hudSprites } from './game/icons.js?v=muox46vc';
-import { Sound } from './game/audio.js?v=muox46vc';
-import { buildLogo, buttonTexture, dirtTexture, iconDataURL } from './render/logo.js?v=muox46vc';
-import { computeEnv } from './game/env.js?v=muox46vc';
-import { guideSections } from './game/guide.js?v=muox46vc';
-import { listWorlds, loadWorld, saveWorld, deleteWorld } from './game/storage.js?v=muox46vc';
-import { importJavaWorld, exportJavaWorld } from './game/javaworld.js?v=muox46vc';
-import { drawModel, rootMatrix, M } from './entity/entity.js?v=muox46vc';
-import { itemMesh, emitItemMesh, clearItemMeshes } from './entity/itemmesh.js?v=muox46vc';
-import { Lightning } from './entity/objects.js?v=muox46vc';
-import { compose, translation, rotationX, rotationY, rotationZ, scaling, forward, mat4 } from './core/math.js?v=muox46vc';
+import { Demo, DEMO_SEED } from './demo.js?v=muoxc0st';
+import { armorModel, armorSkinKey, ARMOR_MATERIALS, ARMOR_PIECES, elytraModel } from './data/armor.js?v=muoxc0st';
+import { TEXTURES, TEX, B, BLOCKS, DIM, DIM_NAMES, SHAPE_OF, SHAPE, props, HEIGHT } from './data/blocks.js?v=muoxc0st';
+import { I, ITEMS } from './data/items.js?v=muoxc0st';
+import { MOBS, PROFESSIONS, playerModel, saddleModel, PLAYER_SKINS } from './data/mobs.js?v=muoxc0st';
+import { Net, cleanCode, cleanName, cleanKey, cleanChat, chatLine, MAX_PLAYERS } from './net/net.js?v=muoxc0st';
+import { NameTags } from './net/nametags.js?v=muoxc0st';
+import { BIOMES } from './gen/biomes.js?v=muoxc0st';
+import { generateBlockTextures, drawBlockTexture } from './render/blocktex.js?v=muoxc0st';
+import { generateItemTextures, ITEM_LAYER, FX_LAYER, ITEM_LAYER_COUNT, flatTexFor } from './render/itemtex.js?v=muoxc0st';
+import { Zip, storedPack, savePack, removePack, applyBlockTextures, applyItemTextures, indexSounds } from './render/pack.js?v=muoxc0st';
+import { packModel, paintModel, SKIN, faceRects } from './render/mobtex.js?v=muoxc0st';
+import { buildMipChain } from './render/atlas.js?v=muoxc0st';
+import { Renderer, Batch } from './render/renderer.js?v=muoxc0st';
+import { World, UNLOADED } from './world/world.js?v=muoxc0st';
+import { createGenerator } from './gen/index.js?v=muoxc0st';
+import { Game } from './game/game.js?v=muoxc0st';
+import { Interact, CROSSBOW_CHARGE } from './game/interact.js?v=muoxc0st';
+import { SpawnPrep, STATUS_COLOR } from './game/spawnprep.js?v=muoxc0st';
+import { splash } from './splash.js?v=muoxc0st';
+import { Commands } from './game/commands.js?v=muoxc0st';
+import { GUI, HUD } from './game/ui.js?v=muoxc0st';
+import { buildIcons, hudSprites } from './game/icons.js?v=muoxc0st';
+import { Sound } from './game/audio.js?v=muoxc0st';
+import { buildLogo, buttonTexture, dirtTexture, iconDataURL } from './render/logo.js?v=muoxc0st';
+import { computeEnv } from './game/env.js?v=muoxc0st';
+import { guideSections } from './game/guide.js?v=muoxc0st';
+import { listWorlds, loadWorld, saveWorld, deleteWorld } from './game/storage.js?v=muoxc0st';
+import { importJavaWorld, exportJavaWorld } from './game/javaworld.js?v=muoxc0st';
+import { drawModel, rootMatrix, M } from './entity/entity.js?v=muoxc0st';
+import { itemMesh, emitItemMesh, clearItemMeshes } from './entity/itemmesh.js?v=muoxc0st';
+import { Lightning } from './entity/objects.js?v=muoxc0st';
+import { compose, translation, rotationX, rotationY, rotationZ, scaling, forward, mat4 } from './core/math.js?v=muoxc0st';
 
 const $ = id => document.getElementById(id);
 // Resolves after the page has painted what was just put on screen.
@@ -307,7 +307,9 @@ class App {
     this.showLoading('message', 'Reading Java world...');
     try {
       const zip = await Zip.open(file);
-      const meta = await importJavaWorld(zip, (p, text) => { $('load-msg').textContent = `${text} (${Math.round(p * 100)}%)`; });
+      const meta = await importJavaWorld(zip, (p, text) => { $('load-msg').textContent = `${text} (${Math.round(p * 100)}%)`; }, {
+        askBeyond: async () => confirm('What should be around the imported area?\n\nOK: generate new terrain, so the world goes on forever (it won\'t match the edges of the map).\nCancel: leave empty space around it, as maps are meant to be played.'),
+      });
       const existing = await listWorlds();
       if (existing.some(e => e.name === meta.name)) meta.name = `${meta.name} (Java)`;
       await saveWorld(meta);
@@ -332,6 +334,11 @@ class App {
     this.showLoading('message', 'Reading world data...');
     const meta = await loadWorld(id);
     if (!meta) { this.showWorlds(); return; }
+    // Java worlds imported before the "beyond the edges" choice existed: ask once.
+    if (meta.java && meta.java.beyond === undefined) {
+      meta.java.beyond = confirm('This world was imported from Java Edition.\n\nOK: generate new terrain around the imported area, so the world goes on forever (it won\'t match the edges of the map).\nCancel: leave empty space around it, as maps are meant to be played.') ? 'terrain' : 'void';
+      await saveWorld(meta);
+    }
     await nextPaint();
     this.startGame(meta);
   }
