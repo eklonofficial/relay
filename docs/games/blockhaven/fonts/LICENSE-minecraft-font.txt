@@ -1,0 +1,11 @@
+Minecraft font (minecraft-regular.woff2, minecraft-bold.woff2)
+
+Font: "Minecraft" Regular and Bold, Copyright (c) 2017 by Jacob Debono.
+Source: https://www.fontspace.com/minecraft-font-f28180
+License: Public Domain (as published on FontSpace; the font's own license field reads
+"Free for Commercial Use").
+
+A fan-made recreation of the game's font; not made or endorsed by Mojang.
+
+Modifications: converted to WOFF2 and added glyphs for … → ← ↑ ↓ × ° and mappings for
+– ‘ ’ “ ” (tools/font.py).

@@ -56,3 +56,12 @@ test('--check fails when stamps disagree, and write mode repairs it', () => {
   assert.equal(run().status, 0);
   assert.equal(run('--check').status, 0);
 });
+
+test('--check fails when the splash module count is out of date, and write mode repairs it', () => {
+  edit('index.html', s => s.replace(/data-modules="\d*"/, 'data-modules="3"'));
+  const r = run('--check');
+  assert.equal(r.status, 1);
+  assert.match(r.stderr, /data-modules is 3, but the page loads \d+ modules/);
+  assert.equal(run().status, 0);
+  assert.equal(run('--check').status, 0);
+});

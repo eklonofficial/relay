@@ -1,8 +1,8 @@
 // Chunk storage, streaming, edits and queries for one dimension.
-import { CHUNK, HEIGHT, PAD, PS, B, OPAQUE, SOLID, EMIT, ATTEN, VARIANT_MASK, SHAPE_OF, SHAPE, DIM } from '../data/blocks.js?v=muono2ew';
-import { VOLUME_SIZE } from '../mesh/mesher.js?v=muono2ew';
-import { selectionBoxes, collisionBoxes } from '../data/shapes.js?v=muono2ew';
-import { sinceOf } from '../gen/versions.js?v=muono2ew';
+import { CHUNK, HEIGHT, PAD, PS, B, OPAQUE, SOLID, EMIT, ATTEN, VARIANT_MASK, SHAPE_OF, SHAPE, DIM } from '../data/blocks.js?v=muoqcjyl';
+import { VOLUME_SIZE } from '../mesh/mesher.js?v=muoqcjyl';
+import { selectionBoxes, collisionBoxes } from '../data/shapes.js?v=muoqcjyl';
+import { sinceOf } from '../gen/versions.js?v=muoqcjyl';
 
 export const UNLOADED = 255;
 export const chunkKey = (cx, cz) => `${cx},${cz}`;
@@ -38,7 +38,7 @@ export class World {
     const count = Math.max(1, Math.min(4, (navigator.hardwareConcurrency || 4) - 1));
     this.workers = [];
     for (let i = 0; i < count; i++) {
-      const w = new Worker(new URL('../worker.js?v=muono2ew', import.meta.url), { type: 'module' });
+      const w = new Worker(new URL('../worker.js?v=muoqcjyl', import.meta.url), { type: 'module' });
       w.busy = 0;
       w.onmessage = e => this.onWorkerMessage(w, e.data);
       w.onerror = e => console.error('worker error', e.message);
@@ -60,6 +60,22 @@ export class World {
   }
 
   chunk(cx, cz) { return this.chunks.get(chunkKey(cx, cz)); }
+  // Makes sure chunk (cx, cz) is generated or on its way; false when every worker is busy.
+  // update() calls it for the chunks around the player, spawn preparation for the spawn area.
+  generate(cx, cz) {
+    let c = this.chunk(cx, cz);
+    if (!c) {
+      c = { cx, cz, key: chunkKey(cx, cz), ids: null, meta: null, biomes: null, heights: null, light: null, genPending: false, meshPending: false, version: 1, meshedVersion: 0, maxY: 0, gpu: null, priority: 0, failed: 0 };
+      this.chunks.set(c.key, c);
+    }
+    if (c.ids || c.genPending || c.failed >= 3) return true;
+    const w = this.pickWorker();
+    if (!w) return false;
+    c.genPending = true;
+    w.busy++;
+    w.postMessage({ type: 'gen', job: this.nextJob++, seed: this.seed, dim: this.dim, worldType: this.worldType, cx, cz });
+    return true;
+  }
   chunkAt(x, z) { return this.chunks.get(chunkKey(Math.floor(x / CHUNK), Math.floor(z / CHUNK))); }
 
   onWorkerMessage(w, m) {
@@ -128,20 +144,7 @@ export class World {
       wanted.push([pcx + dx, pcz + dz, dx * dx + dz * dz]);
     }
     wanted.sort((a, b) => a[2] - b[2]);
-    for (const [cx, cz] of wanted) {
-      let c = this.chunk(cx, cz);
-      if (!c) {
-        c = { cx, cz, key: chunkKey(cx, cz), ids: null, meta: null, biomes: null, heights: null, light: null, genPending: false, meshPending: false, version: 1, meshedVersion: 0, maxY: 0, gpu: null, priority: 0, failed: 0 };
-        this.chunks.set(c.key, c);
-      }
-      if (!c.ids && !c.genPending && c.failed < 3) {
-        const w = this.pickWorker();
-        if (!w) break;
-        c.genPending = true;
-        w.busy++;
-        w.postMessage({ type: 'gen', job: this.nextJob++, seed: this.seed, dim: this.dim, worldType: this.worldType, cx, cz });
-      }
-    }
+    for (const [cx, cz] of wanted) if (!this.generate(cx, cz)) break;
     const toMesh = [];
     for (const [cx, cz, d2] of wanted) {
       if (d2 > (radius + 0.5) ** 2) continue;
