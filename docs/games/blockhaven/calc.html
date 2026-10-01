@@ -1,0 +1,731 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Graphing Calculator</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%232f72dc'/%3E%3Cpath d='M5 25 C11 25 12 7 16 7 S21 25 27 25' fill='none' stroke='white' stroke-width='2.6' stroke-linecap='round'/%3E%3C/svg%3E">
+<style>
+  :root {
+    --bar: #2a2a2a; --panel: #f9f9f9; --line: #dddddd; --text: #222222; --muted: #8a8a8a;
+    --accent: #2f72dc; --err: #e8a33d; --paper: #ffffff;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--paper); color: var(--text); font: 14px/1.3 "Helvetica Neue", Helvetica, Arial, sans-serif; overflow: hidden; }
+  button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; padding: 0; }
+  svg { display: block; }
+  #top { height: 44px; background: var(--bar); color: #fff; display: flex; align-items: center; padding: 0 10px; gap: 10px; position: relative; z-index: 3; }
+  #top .title { font-size: 16px; padding-left: 10px; border-left: 1px solid #555; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; outline: none; border-radius: 3px; }
+  #top .title:focus { background: #3a3a3a; }
+  #top .brand { position: absolute; left: 50%; transform: translateX(-50%); font-size: 21px; font-weight: 300; letter-spacing: 0.5px; white-space: nowrap; pointer-events: none; }
+  #top .right { margin-left: auto; display: flex; gap: 14px; align-items: center; }
+  #top .ic { opacity: 0.9; width: 22px; height: 22px; display: grid; place-items: center; }
+  #top .ic:hover { opacity: 1; }
+  main { position: absolute; inset: 44px 0 0 0; display: flex; }
+  #panel { width: 446px; min-width: 446px; background: var(--panel); border-right: 1px solid #ccc; display: flex; flex-direction: column; position: relative; z-index: 2; box-shadow: 1px 0 4px rgba(0,0,0,0.06); }
+  #panel.hidden { display: none; }
+  #tools { height: 48px; display: flex; align-items: center; padding: 0 10px; gap: 10px; background: linear-gradient(#fafafa, #ececec); border-bottom: 1px solid #d6d6d6; }
+  #tools .sp { flex: 1; }
+  #tools button { width: 28px; height: 28px; display: grid; place-items: center; color: #555; border-radius: 4px; }
+  #tools button:hover { background: rgba(0,0,0,0.06); color: #222; }
+  #tools button:disabled { color: #c3c3c3; background: none; cursor: default; }
+  #list { flex: 1; overflow-y: auto; }
+  .row { display: flex; min-height: 54px; border-bottom: 1px solid var(--line); background: #fff; position: relative; }
+  .row .gut { width: 36px; flex: none; background: #f1f1f1; color: #9a9a9a; font-size: 10px; position: relative; border-right: 1px solid var(--line); }
+  .row .gut .n { position: absolute; left: 3px; top: 3px; }
+  .row .gut .sw { position: absolute; left: 7px; top: 16px; width: 22px; height: 22px; border-radius: 50%; display: none; }
+  .row .gut .sw::after { content: ''; position: absolute; inset: 6px; border-radius: 50%; background: #fff; }
+  .row.graph .gut .sw { display: block; }
+  .row.ghost .gut { background: #f6f6f6; }
+  .row.focus .gut { background: var(--accent); color: #fff; border-right-color: var(--accent); }
+  .row.focus .gut .sw { box-shadow: 0 0 0 2px #fff; }
+  .row.focus { box-shadow: inset 0 0 0 1px var(--accent); }
+  .row .body { flex: 1; min-width: 0; padding: 12px 34px 10px 14px; }
+  .row input.ex { width: 100%; border: 0; outline: none; background: transparent; font: 21px/1.3 "Times New Roman", Times, serif; color: var(--text); padding: 0; }
+  .row .out { display: none; margin-top: 4px; text-align: right; }
+  .row .out span { display: inline-block; background: #f1f1f1; border-radius: 3px; padding: 2px 8px; font: 17px "Times New Roman", Times, serif; color: #333; }
+  .row.val .out { display: block; }
+  .row .warn { display: none; position: absolute; left: 7px; top: 16px; width: 22px; height: 22px; color: var(--err); }
+  .row.err .warn { display: block; }
+  .row.err .gut .sw { display: none; }
+  .row .msg { display: none; font-size: 12px; color: #9b6b1f; margin-top: 4px; }
+  .row.err .msg { display: block; }
+  .row .chips { display: none; margin-top: 6px; font-size: 12px; color: #666; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .row.undef .chips { display: flex; }
+  .row .chips button { border: 1px solid #c8c8c8; background: #fafafa; border-radius: 3px; padding: 2px 9px; font: italic 15px "Times New Roman", Times, serif; color: #333; }
+  .row .chips button:hover { border-color: var(--accent); color: var(--accent); }
+  .row .slide { display: none; align-items: center; gap: 8px; margin-top: 6px; font-size: 12px; color: #888; }
+  .row.slider .slide { display: flex; }
+  .row .slide input { flex: 1; accent-color: var(--accent); }
+  .row .del { position: absolute; right: 8px; top: 14px; width: 22px; height: 22px; color: #bbb; display: none; place-items: center; }
+  .row:hover .del, .row.focus .del { display: grid; }
+  .row .del:hover { color: #666; }
+  #graph { flex: 1; position: relative; overflow: hidden; touch-action: none; cursor: default; }
+  #graph.drag { cursor: grabbing; }
+  #cv { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  .fab { position: absolute; right: 4px; display: flex; flex-direction: column; background: #f4f4f4; border: 1px solid #cfcfcf; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.12); }
+  .fab button { width: 36px; height: 34px; display: grid; place-items: center; color: #555; }
+  .fab button + button { border-top: 1px solid #ddd; }
+  .fab button:hover { background: #e9e9e9; color: #222; }
+  #wrench { top: 6px; }
+  #zoom { top: 50px; }
+  #show { position: absolute; left: 8px; top: 8px; width: 36px; height: 34px; background: #f4f4f4; border: 1px solid #cfcfcf; border-radius: 4px; display: none; place-items: center; color: #555; }
+  #panel.hidden ~ #graph #show { display: grid; }
+  .pop { position: absolute; z-index: 10; background: #fff; border: 1px solid #ccc; border-radius: 6px; box-shadow: 0 4px 18px rgba(0,0,0,0.18); padding: 12px 14px; font-size: 13px; display: none; }
+  .pop.open { display: block; }
+  .pop label { display: flex; align-items: center; gap: 8px; padding: 4px 0; cursor: pointer; }
+  .pop h4 { margin: 0 0 6px; font-size: 13px; }
+  .pop code { font: 14px "Times New Roman", Times, serif; background: #f2f2f2; padding: 0 4px; border-radius: 3px; }
+  .pop .seg { display: flex; border: 1px solid #ccc; border-radius: 4px; overflow: hidden; margin-top: 6px; }
+  .pop .seg button { flex: 1; padding: 4px 10px; }
+  .pop .seg button.on { background: var(--accent); color: #fff; }
+  #help { right: 10px; top: 50px; width: 290px; line-height: 1.6; }
+  #settings { left: 300px; top: 92px; width: 200px; }
+  #veil { position: fixed; inset: 0; background: #000; opacity: 0; pointer-events: none; transition: opacity 0.35s; z-index: 50; }
+  #veil.on { opacity: 1; pointer-events: auto; }
+  @media (max-width: 760px) {
+    #top .brand { display: none; }
+    main { flex-direction: column; }
+    #panel { width: 100%; min-width: 0; height: 42%; border-right: 0; border-bottom: 1px solid #ccc; }
+    #settings { left: auto; right: 10px; }
+  }
+</style>
+</head>
+<body>
+<header id="top">
+  <button class="ic" title="Graphs" aria-label="Graphs"><svg width="22" height="18" viewBox="0 0 22 18" fill="none" stroke="#fff" stroke-width="1.6"><path d="M1.5 3.5v12h16l3-8H5l-3.5 8"/><path d="M1.5 3.5h6l1.5 2h7.5v2"/></svg></button>
+  <div class="title" id="gtitle" contenteditable="true" spellcheck="false">Untitled Graph</div>
+  <div class="brand">graphing calculator</div>
+  <div class="right">
+    <button class="ic" id="helpb" title="Help" aria-label="Help"><svg width="20" height="20" viewBox="0 0 20 20"><circle cx="10" cy="10" r="9" fill="#fff"/><path d="M7.3 7.6a2.8 2.8 0 1 1 3.9 2.6c-.8.4-1.2.9-1.2 1.8v.4" fill="none" stroke="#2a2a2a" stroke-width="2" stroke-linecap="round"/><circle cx="10" cy="15" r="1.2" fill="#2a2a2a"/></svg></button>
+  </div>
+</header>
+<main>
+  <aside id="panel">
+    <div id="tools">
+      <button id="add" title="Add expression" aria-label="Add expression"><svg width="18" height="18" viewBox="0 0 18 18"><path d="M9 2v14M2 9h14" stroke="currentColor" stroke-width="2.6"/></svg></button>
+      <span class="sp"></span>
+      <button id="undo" title="Undo" aria-label="Undo" disabled><svg width="22" height="16" viewBox="0 0 22 16" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M6 3L2 7l4 4"/><path d="M2.5 7H13a6 6 0 0 1 6 6"/></svg></button>
+      <button id="redo" title="Redo" aria-label="Redo" disabled><svg width="22" height="16" viewBox="0 0 22 16" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M16 3l4 4-4 4"/><path d="M19.5 7H9a6 6 0 0 0-6 6"/></svg></button>
+      <span class="sp"></span>
+      <button id="gear" title="Settings" aria-label="Settings"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M19.4 13a7.6 7.6 0 0 0 0-2l2.1-1.6-2-3.5-2.5 1a7.4 7.4 0 0 0-1.7-1L15 3h-4l-.4 2.9a7.4 7.4 0 0 0-1.7 1l-2.5-1-2 3.5L6.6 11a7.6 7.6 0 0 0 0 2l-2.1 1.6 2 3.5 2.5-1a7.4 7.4 0 0 0 1.7 1L11 21h4l.4-2.9a7.4 7.4 0 0 0 1.7-1l2.5 1 2-3.5zM13 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z" transform="translate(-1 0)"/></svg></button>
+      <button id="hide" title="Hide list" aria-label="Hide list"><svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 3L3 9l6 6M15 3L9 9l6 6"/></svg></button>
+    </div>
+    <div id="list"></div>
+  </aside>
+  <section id="graph">
+    <canvas id="cv"></canvas>
+    <div class="fab" id="wrench"><button id="wrenchb" title="Graph settings" aria-label="Graph settings"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M22.7 19l-9.1-9.1c.9-2.3.4-5-1.5-6.9-2-2-5-2.4-7.4-1.3L9 6 6 9 1.6 4.7C.4 7.1.9 10.1 2.9 12.1c1.9 1.9 4.6 2.4 6.9 1.5l9.1 9.1c.4.4 1 .4 1.4 0l2.3-2.3c.5-.4.5-1.1.1-1.4z"/></svg></button></div>
+    <div class="fab" id="zoom">
+      <button id="zin" title="Zoom in" aria-label="Zoom in"><svg width="14" height="14" viewBox="0 0 14 14"><path d="M7 1v12M1 7h12" stroke="currentColor" stroke-width="2.2"/></svg></button>
+      <button id="zout" title="Zoom out" aria-label="Zoom out"><svg width="14" height="14" viewBox="0 0 14 14"><path d="M1 7h12" stroke="currentColor" stroke-width="2.2"/></svg></button>
+      <button id="zhome" title="Default viewport" aria-label="Default viewport"><svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1.5L1 7.5h2v7h4v-4.5h2v4.5h4v-7h2z"/></svg></button>
+    </div>
+    <button id="show" title="Show list" aria-label="Show list"><svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 3l6 6-6 6M3 3l6 6-6 6"/></svg></button>
+  </section>
+</main>
+<div class="pop" id="help">
+  <h4>Graphing calculator</h4>
+  Type an expression on each line. Press Enter for a new line.<br>
+  <code>y = x^2 - 3</code> &nbsp;<code>x^2 + y^2 = 9</code><br>
+  <code>f(x) = sin(x)/x</code> &nbsp;<code>a = 2</code> (slider)<br>
+  <code>y &gt; |x| - 2</code> &nbsp;<code>(1, 3)</code> &nbsp;<code>5!/3</code><br>
+  Functions: sin cos tan sec csc cot, arcsin arccos arctan, sinh cosh tanh, sqrt cbrt abs, ln log exp, floor ceil round sign, min max mod.<br>
+  Drag the graph to pan, scroll or pinch to zoom.
+</div>
+<div class="pop" id="settings">
+  <label><input type="checkbox" id="optGrid" checked> Grid</label>
+  <label><input type="checkbox" id="optMinor" checked> Minor gridlines</label>
+  <label><input type="checkbox" id="optNums" checked> Axis numbers</label>
+  <div class="seg"><button id="rad" class="on">Radians</button><button id="deg">Degrees</button></div>
+</div>
+<div id="veil"></div>
+<script>
+'use strict';
+// ---------------------------------------------------------------- math
+const COLORS = ['#c74440', '#2d70b3', '#388c46', '#6042a6', '#fa7e19', '#000000'];
+let degrees = false;
+const toRad = v => degrees ? v * Math.PI / 180 : v, fromRad = v => degrees ? v * 180 / Math.PI : v;
+function gamma(z) {
+  if (z < 0.5) return Math.PI / (Math.sin(Math.PI * z) * gamma(1 - z));
+  const g = 7, c = [0.99999999999980993, 676.5203681218851, -1259.1392167224028, 771.32342877765313, -176.61502916214059, 12.507343278686905, -0.13857109526572012, 9.9843695780195716e-6, 1.5056327351493116e-7];
+  z -= 1; let x = c[0]; for (let i = 1; i < g + 2; i++) x += c[i] / (z + i);
+  const t = z + g + 0.5; return Math.sqrt(2 * Math.PI) * t ** (z + 0.5) * Math.exp(-t) * x;
+}
+const fact = n => { if (Number.isInteger(n)) { if (n < 0) return NaN; let r = 1; for (let i = 2; i <= n && r < Infinity; i++) r *= i; return r; } return gamma(n + 1); };
+const FUNCS = {
+  sin: x => Math.sin(toRad(x)), cos: x => Math.cos(toRad(x)), tan: x => Math.tan(toRad(x)),
+  sec: x => 1 / Math.cos(toRad(x)), csc: x => 1 / Math.sin(toRad(x)), cot: x => 1 / Math.tan(toRad(x)),
+  arcsin: x => fromRad(Math.asin(x)), arccos: x => fromRad(Math.acos(x)), arctan: (y, x) => fromRad(x === undefined ? Math.atan(y) : Math.atan2(y, x)),
+  sinh: Math.sinh, cosh: Math.cosh, tanh: Math.tanh,
+  sqrt: Math.sqrt, cbrt: Math.cbrt, abs: Math.abs, ln: Math.log, log: (x, b) => b === undefined ? Math.log10(x) : Math.log(x) / Math.log(b), exp: Math.exp,
+  floor: Math.floor, ceil: Math.ceil, round: Math.round, sign: Math.sign, sgn: Math.sign,
+  min: (...a) => Math.min(...a), max: (...a) => Math.max(...a), mod: (a, b) => ((a % b) + b) % b,
+};
+FUNCS.asin = FUNCS.arcsin; FUNCS.acos = FUNCS.arccos; FUNCS.atan = FUNCS.arctan;
+const CONSTS = { pi: Math.PI, tau: Math.PI * 2, e: Math.E };
+const NAMES = [...Object.keys(FUNCS), ...Object.keys(CONSTS)].sort((a, b) => b.length - a.length);
+
+class MathError extends Error {}
+class Undefined extends Error { constructor(name) { super(`"${name}" is not defined`); this.name = name; } }
+
+function tokenize(src) {
+  const s = src.replace(/π/g, 'pi').replace(/τ/g, 'tau').replace(/\*\*/g, '^').replace(/[·×]/g, '*').replace(/[−–]/g, '-').replace(/÷/g, '/')
+    .replace(/≤/g, '<=').replace(/≥/g, '>=').replace(/√/g, 'sqrt');
+  const out = [];
+  for (let i = 0; i < s.length;) {
+    const c = s[i];
+    if (/\s/.test(c)) { i++; continue; }
+    if (/[0-9.]/.test(c)) {
+      const m = /^(\d+\.?\d*|\.\d+)/.exec(s.slice(i));
+      if (!m) throw new MathError('Malformed number');
+      out.push({ k: 'num', v: parseFloat(m[1]) }); i += m[1].length; continue;
+    }
+    if (/[a-z]/i.test(c)) {
+      const rest = s.slice(i);
+      const name = NAMES.find(n => rest.startsWith(n));
+      if (name) { out.push({ k: name in FUNCS ? 'fn' : 'const', v: name }); i += name.length; }
+      else { out.push({ k: 'id', v: c }); i++; }
+      continue;
+    }
+    const two = s.slice(i, i + 2);
+    if (two === '<=' || two === '>=') { out.push({ k: 'op', v: two }); i += 2; continue; }
+    if ('+-*/^(),=|!<>[]{}'.includes(c)) { out.push({ k: 'op', v: c === '[' || c === '{' ? '(' : c === ']' || c === '}' ? ')' : c }); i++; continue; }
+    throw new MathError(`Unexpected "${c}"`);
+  }
+  return out;
+}
+
+// Recursive descent with implicit multiplication (2x, 3sin x, x(x+1), mx).
+function parse(tokens, userFns) {
+  let p = 0, absDepth = 0;
+  const peek = () => tokens[p], isOp = v => peek() && peek().k === 'op' && peek().v === v;
+  const expect = v => { if (!isOp(v)) throw new MathError(peek() ? `Expected "${v}"` : 'Incomplete expression'); p++; };
+  const startsPrimary = t => t && (t.k !== 'op' || t.v === '(' || (t.v === '|' && absDepth === 0));
+  function expr() {
+    let a = term();
+    while (isOp('+') || isOp('-')) { const o = tokens[p++].v; a = { t: o, a, b: term() }; }
+    return a;
+  }
+  function term() {
+    let a = unary();
+    for (;;) {
+      if (isOp('*') || isOp('/')) { const o = tokens[p++].v; a = { t: o, a, b: unary() }; }
+      else if (startsPrimary(peek())) a = { t: '*', a, b: power() };
+      else return a;
+    }
+  }
+  function unary() {
+    if (isOp('-')) { p++; return { t: 'neg', a: unary() }; }
+    if (isOp('+')) { p++; return unary(); }
+    return power();
+  }
+  function power() {
+    const b = postfix();
+    if (isOp('^')) { p++; return { t: '^', a: b, b: unary() }; }
+    return b;
+  }
+  function postfix() {
+    let a = primary();
+    while (isOp('!')) { p++; a = { t: 'fact', a }; }
+    return a;
+  }
+  function args() {
+    const list = [expr()];
+    while (isOp(',')) { p++; list.push(expr()); }
+    expect(')');
+    return list;
+  }
+  function primary() {
+    const t = tokens[p++];
+    if (!t) throw new MathError('Incomplete expression');
+    if (t.k === 'num') return { t: 'num', v: t.v };
+    if (t.k === 'const') return { t: 'num', v: CONSTS[t.v] };
+    if (t.k === 'op' && t.v === '(') {
+      const a = expr();
+      if (isOp(',')) { p++; const b = expr(); expect(')'); return { t: 'pt', a, b }; }
+      expect(')'); return a;
+    }
+    if (t.k === 'op' && t.v === '|') { absDepth++; const a = expr(); absDepth--; expect('|'); return { t: 'call', f: 'abs', args: [a] }; }
+    if (t.k === 'fn') {
+      // sin^2(x) means (sin x)^2.
+      let pw = null;
+      if (isOp('^')) { p++; pw = postfix(); }
+      let call;
+      if (isOp('(')) { p++; call = { t: 'call', f: t.v, args: args() }; }
+      else call = { t: 'call', f: t.v, args: [power()] };
+      return pw ? { t: '^', a: call, b: pw } : call;
+    }
+    if (t.k === 'id') {
+      if (userFns.has(t.v) && isOp('(')) { p++; return { t: 'ucall', f: t.v, args: args() }; }
+      return { t: 'var', v: t.v };
+    }
+    throw new MathError(`Unexpected "${t.v}"`);
+  }
+  const REL = ['=', '<', '>', '<=', '>='];
+  const lhs = expr();
+  let rel = null, rhs = null;
+  if (peek() && peek().k === 'op' && REL.includes(peek().v)) { rel = tokens[p++].v; rhs = expr(); }
+  if (p < tokens.length) throw new MathError(`Unexpected "${tokens[p].v}"`);
+  return { lhs, rel, rhs };
+}
+
+function varsOf(n, set = new Set()) {
+  if (!n) return set;
+  if (n.t === 'var') set.add(n.v);
+  for (const k of ['a', 'b']) if (n[k]) varsOf(n[k], set);
+  if (n.args) n.args.forEach(a => varsOf(a, set));
+  return set;
+}
+
+// Compiles a tree into a closure over {x, y, a} (a: the parameter of a user function).
+function compile(n, scope, param = null, depth = 0) {
+  if (depth > 40) throw new MathError('Definitions refer to each other in a loop');
+  const c = k => compile(k, scope, param, depth);
+  switch (n.t) {
+    case 'num': { const v = n.v; return () => v; }
+    case 'var':
+      if (n.v === param) return e => e.a;
+      if (n.v === 'x') return e => e.x;
+      if (n.v === 'y') return e => e.y;
+      if (n.v in scope.vars) { const v = scope.vars[n.v]; return () => v; }
+      throw new Undefined(n.v);
+    case '+': { const a = c(n.a), b = c(n.b); return e => a(e) + b(e); }
+    case '-': { const a = c(n.a), b = c(n.b); return e => a(e) - b(e); }
+    case '*': { const a = c(n.a), b = c(n.b); return e => a(e) * b(e); }
+    case '/': { const a = c(n.a), b = c(n.b); return e => a(e) / b(e); }
+    case '^': { const a = c(n.a), b = c(n.b); return e => { const x = a(e), y = b(e); if (x < 0 && !Number.isInteger(y)) { const r = Math.round(1 / y); if (Math.abs(1 / y - r) < 1e-9 && r % 2) return -((-x) ** y); } return x ** y; }; }
+    case 'neg': { const a = c(n.a); return e => -a(e); }
+    case 'fact': { const a = c(n.a); return e => fact(a(e)); }
+    case 'pt': throw new MathError('Points can only stand on their own line');
+    case 'call': {
+      const f = FUNCS[n.f], as = n.args.map(c);
+      if (as.length === 1) { const a0 = as[0]; return e => f(a0(e)); }
+      return e => f(...as.map(a => a(e)));
+    }
+    case 'ucall': {
+      const def = scope.fns[n.f];
+      if (n.args.length !== 1) throw new MathError(`${n.f} takes one argument`);
+      const body = compile(def.body, scope, def.param, depth + 1), a0 = c(n.args[0]);
+      return e => body({ x: e.x, y: e.y, a: a0(e) });
+    }
+  }
+  throw new MathError('Cannot evaluate');
+}
+// Free variables of a tree, looking through user functions.
+function missing(n, scope, param = null, seen = new Set()) {
+  const out = new Set();
+  (function walk(k, prm) {
+    if (!k) return;
+    if (k.t === 'var' && k.v !== prm && k.v !== 'x' && k.v !== 'y' && !(k.v in scope.vars)) out.add(k.v);
+    if (k.t === 'ucall' && !seen.has(k.f)) { seen.add(k.f); const d = scope.fns[k.f]; if (d) walk(d.body, d.param); }
+    for (const s of ['a', 'b']) if (k[s]) walk(k[s], prm);
+    if (k.args) k.args.forEach(a => walk(a, prm));
+  })(n, param);
+  return out;
+}
+const usesVar = (n, v, scope, seen = new Set()) => {
+  if (!n) return false;
+  if (n.t === 'var') return n.v === v;
+  if (n.t === 'ucall' && !seen.has(n.f)) { seen.add(n.f); const d = scope.fns[n.f]; if (d && d.param !== v && usesVar(d.body, v, scope, seen)) return true; }
+  return usesVar(n.a, v, scope, seen) || usesVar(n.b, v, scope, seen) || (n.args || []).some(a => usesVar(a, v, scope, seen));
+};
+function fmt(v) {
+  if (Number.isNaN(v)) return 'undefined';
+  if (!Number.isFinite(v)) return v > 0 ? '∞' : '-∞';
+  const a = Math.abs(v);
+  if (a !== 0 && (a >= 1e12 || a < 1e-6)) return v.toExponential(5).replace(/\.?0+e/, 'e').replace('e+', '×10^').replace('e-', '×10^-');
+  return String(parseFloat(v.toPrecision(10)));
+}
+
+// ---------------------------------------------------------------- expression list
+const listEl = document.getElementById('list');
+let rows = [], nextId = 0, focusRow = null;
+
+function makeRow(text = '', after = null, at = -1) {
+  const id = nextId++;
+  const el = document.createElement('div');
+  el.className = 'row';
+  el.innerHTML = `<div class="gut"><span class="n"></span><i class="sw"></i><svg class="warn" viewBox="0 0 24 24"><path d="M12 2L1 21h22z" fill="currentColor"/><path d="M12 9v5" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/><circle cx="12" cy="17.3" r="1.4" fill="#fff"/></svg></div>
+    <div class="body"><input class="ex" spellcheck="false" autocomplete="off" autocapitalize="off" aria-label="Expression"><div class="out"><span></span></div><div class="msg"></div>
+    <div class="chips"></div><div class="slide"><span class="lo"></span><input type="range"><span class="hi"></span></div></div>
+    <button class="del" title="Delete" aria-label="Delete"><svg width="14" height="14" viewBox="0 0 14 14"><path d="M2 2l10 10M12 2L2 12" stroke="currentColor" stroke-width="2.4"/></svg></button>`;
+  const r = { id, el, color: COLORS[id % COLORS.length], input: el.querySelector('input.ex') };
+  r.input.value = text;
+  el.querySelector('.sw').style.background = r.color;
+  const idx = at >= 0 ? at : after ? rows.indexOf(after) + 1 : rows.length;
+  rows.splice(idx, 0, r);
+  listEl.insertBefore(el, rows[idx + 1] ? rows[idx + 1].el : null);
+  r.input.addEventListener('focus', () => { focusRow = r; refreshFocus(); });
+  r.input.addEventListener('blur', () => setTimeout(() => { if (focusRow === r && document.activeElement !== r.input) { focusRow = null; refreshFocus(); } }, 0));
+  r.input.addEventListener('input', () => { ensureGhost(); changed(); });
+  r.input.addEventListener('keydown', e => onKey(e, r));
+  el.querySelector('.del').addEventListener('mousedown', e => { e.preventDefault(); removeRow(r, true); });
+  el.addEventListener('mousedown', e => { if (e.target === el || e.target.closest('.gut')) { e.preventDefault(); r.input.focus(); } });
+  const range = el.querySelector('.slide input');
+  range.addEventListener('input', () => { r.input.value = `${r.slideName}=${fmt(parseFloat(range.value))}`; changed(); });
+  return r;
+}
+function renumber() { rows.forEach((r, i) => { r.el.querySelector('.n').textContent = i + 1; r.el.classList.toggle('ghost', i === rows.length - 1 && !r.input.value); }); }
+function refreshFocus() { rows.forEach(r => r.el.classList.toggle('focus', r === focusRow)); }
+function ensureGhost() { if (!rows.length || rows[rows.length - 1].input.value.trim()) makeRow(); renumber(); }
+function removeRow(r, keepFocus) {
+  const i = rows.indexOf(r);
+  rows.splice(i, 1); r.el.remove();
+  if (!rows.length) makeRow();
+  ensureGhost();
+  if (keepFocus) rows[Math.max(0, i - 1)].input.focus();
+  changed();
+}
+const SECRET = 'y=mx+b';
+function onKey(e, r) {
+  const i = rows.indexOf(r);
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    if (r.input.value.toLowerCase().replace(/[\s*]/g, '') === SECRET) { launch(); return; }
+    const n = rows[i + 1] && !rows[i + 1].input.value ? rows[i + 1] : makeRow('', r);
+    renumber(); n.input.focus(); changed();
+  } else if (e.key === 'Backspace' && !r.input.value && rows.length > 1 && i > 0) {
+    e.preventDefault(); removeRow(r, true);
+  } else if (e.key === 'ArrowUp' && i > 0) { e.preventDefault(); rows[i - 1].input.focus(); }
+  else if (e.key === 'ArrowDown' && i < rows.length - 1) { e.preventDefault(); rows[i + 1].input.focus(); }
+}
+function launch() {
+  document.getElementById('veil').classList.add('on');
+  setTimeout(() => { location.href = 'index.html'; }, 380);
+}
+
+// Undo / redo over the whole list.
+const hist = [[]]; let hpos = 0, histT = 0;
+const snapshot = () => rows.map(r => r.input.value).filter((v, i, a) => v || i < a.length - 1);
+function changed() {
+  clearTimeout(histT);
+  histT = setTimeout(() => {
+    const s = snapshot();
+    if (JSON.stringify(s) === JSON.stringify(hist[hpos])) return;
+    hist.splice(hpos + 1); hist.push(s); hpos = hist.length - 1; updateUndo();
+  }, 350);
+  evaluate(); requestDraw();
+}
+function restore(s) {
+  rows.forEach(r => r.el.remove()); rows = [];
+  s.forEach(t => makeRow(t)); ensureGhost(); evaluate(); requestDraw();
+}
+function updateUndo() { document.getElementById('undo').disabled = hpos <= 0; document.getElementById('redo').disabled = hpos >= hist.length - 1; }
+document.getElementById('undo').onclick = () => { if (hpos > 0) { hpos--; restore(hist[hpos]); updateUndo(); } };
+document.getElementById('redo').onclick = () => { if (hpos < hist.length - 1) { hpos++; restore(hist[hpos]); updateUndo(); } };
+document.getElementById('add').onclick = () => { const r = makeRow('', focusRow || rows[rows.length - 2] || null); ensureGhost(); r.input.focus(); };
+
+// ---------------------------------------------------------------- evaluation
+let drawables = [];
+function setState(r, cls, msg = '') {
+  const el = r.el;
+  for (const c of ['graph', 'val', 'err', 'undef', 'slider']) el.classList.toggle(c, cls.includes(c));
+  el.querySelector('.msg').textContent = msg;
+}
+function evaluate() {
+  const parsed = rows.map(r => {
+    const text = r.input.value.trim();
+    if (!text) return { r, empty: true };
+    const fd = /^([a-zA-Z])\s*\(\s*([a-zA-Z])\s*\)\s*=(.+)$/.exec(text);
+    return { r, text, fdef: fd && !/^[xye]$/.test(fd[1]) ? { name: fd[1], param: fd[2], src: fd[3] } : null };
+  });
+  const fnNames = new Set(parsed.filter(q => q.fdef).map(q => q.fdef.name));
+  const scope = { vars: {}, fns: {} };
+  for (const q of parsed) {
+    if (q.empty) continue;
+    try {
+      if (q.fdef) { const b = parse(tokenize(q.fdef.src), fnNames); if (b.rel) throw new MathError(`Unexpected "${b.rel}"`); q.body = b.lhs; }
+      else q.ast = parse(tokenize(q.text), fnNames);
+    } catch (e) { q.error = e.message; }
+  }
+  // Definitions: functions, then variables resolved in as many passes as needed.
+  const seenDef = new Map();
+  for (const q of parsed) {
+    if (q.error || q.empty) continue;
+    if (q.fdef) {
+      if (scope.fns[q.fdef.name]) { q.error = `"${q.fdef.name}" is defined more than once`; continue; }
+      scope.fns[q.fdef.name] = { param: q.fdef.param, body: q.body };
+    } else if (q.ast.rel === '=' && q.ast.lhs.t === 'var' && q.ast.lhs.v !== 'x' && q.ast.lhs.v !== 'y' && !usesVar(q.ast.rhs, 'x', scope) && !usesVar(q.ast.rhs, 'y', scope)) {
+      const name = q.ast.lhs.v;
+      if (seenDef.has(name)) { q.error = `"${name}" is defined more than once`; continue; }
+      seenDef.set(name, q); q.def = name;
+    }
+  }
+  for (let pass = 0; pass <= seenDef.size; pass++) {
+    let progress = false;
+    for (const [name, q] of seenDef) {
+      if (name in scope.vars || q.error) continue;
+      try { scope.vars[name] = compile(q.ast.rhs, scope)({ x: 0, y: 0, a: 0 }); progress = true; }
+      catch (e) { if (!(e instanceof Undefined)) q.error = e.message; }
+    }
+    if (!progress) break;
+  }
+  drawables = [];
+  for (const q of parsed) {
+    const r = q.r;
+    if (q.empty) { setState(r, []); continue; }
+    if (q.error) { setState(r, ['err'], q.error); continue; }
+    try {
+      const out = classify(q, scope);
+      if (out.missing && out.missing.size) {
+        setState(r, ['undef']);
+        const chips = r.el.querySelector('.chips');
+        chips.innerHTML = 'add slider: ';
+        const names = [...out.missing].sort();
+        for (const n of names) { const b = document.createElement('button'); b.textContent = n; b.onmousedown = e => { e.preventDefault(); addSliders(r, [n]); }; chips.appendChild(b); }
+        if (names.length > 1) { const b = document.createElement('button'); b.textContent = 'all'; b.style.fontStyle = 'normal'; b.onmousedown = e => { e.preventDefault(); addSliders(r, names); }; chips.appendChild(b); }
+        continue;
+      }
+      const cls = [];
+      if (out.value !== undefined || out.text) { cls.push('val'); r.el.querySelector('.out span').textContent = out.text || `= ${fmt(out.value)}`; }
+      if (out.draw) { cls.push('graph'); drawables.push({ ...out.draw, color: r.color }); }
+      if (out.slider) {
+        cls.push('slider');
+        r.slideName = out.slider.name;
+        const range = r.el.querySelector('.slide input'), v = out.slider.value;
+        const lo = Math.min(-10, Math.floor(v)), hi = Math.max(10, Math.ceil(v));
+        range.min = lo; range.max = hi; range.step = 0.1;
+        if (document.activeElement !== range) range.value = v;
+        r.el.querySelector('.lo').textContent = lo; r.el.querySelector('.hi').textContent = hi;
+      }
+      setState(r, cls);
+    } catch (e) { setState(r, ['err'], e instanceof Undefined || e instanceof MathError ? e.message : 'Cannot evaluate'); }
+  }
+}
+// Sliders go just above the expression that uses them.
+function addSliders(r, names) {
+  for (const n of names) makeRow(`${n}=1`, null, rows.indexOf(r));
+  ensureGhost(); changed();
+}
+function classify(q, scope) {
+  if (q.fdef) {
+    const d = scope.fns[q.fdef.name], miss = missing(d.body, scope, d.param);
+    if (miss.size) return { missing: miss };
+    const body = compile(d.body, scope, d.param);
+    return { draw: { kind: 'yx', f: x => body({ x, y: 0, a: x }) } };
+  }
+  const { lhs, rel, rhs } = q.ast;
+  if (q.def) {
+    const miss = missing(rhs, scope);
+    if (miss.size) return { missing: miss };
+    const v = scope.vars[q.def];
+    return rhs.t === 'num' || (rhs.t === 'neg' && rhs.a.t === 'num') ? { slider: { name: q.def, value: v } } : { value: v };
+  }
+  if (!rel) {
+    if (lhs.t === 'pt') {
+      const miss = new Set([...missing(lhs.a, scope), ...missing(lhs.b, scope)]);
+      if (miss.size) return { missing: miss };
+      if (usesVar(lhs, 'x', scope) || usesVar(lhs, 'y', scope)) throw new MathError('Point coordinates must be numbers');
+      const px = compile(lhs.a, scope)({}), py = compile(lhs.b, scope)({});
+      return { draw: { kind: 'pt', x: px, y: py } };
+    }
+    const miss = missing(lhs, scope);
+    if (miss.size) return { missing: miss };
+    if (usesVar(lhs, 'y', scope)) throw new MathError('Try writing an equation, like y = ...');
+    const f = compile(lhs, scope);
+    if (!usesVar(lhs, 'x', scope)) return { value: f({ x: 0, y: 0 }) };
+    return { draw: { kind: 'yx', f: x => f({ x, y: 0 }) } };
+  }
+  const miss = new Set([...missing(lhs, scope), ...missing(rhs, scope)]);
+  if (miss.size) return { missing: miss };
+  if (rel === '=') {
+    const isV = (n, v) => n.t === 'var' && n.v === v;
+    if (isV(lhs, 'y') && !usesVar(rhs, 'y', scope)) { const f = compile(rhs, scope); return { draw: { kind: 'yx', f: x => f({ x, y: 0 }) } }; }
+    if (isV(rhs, 'y') && !usesVar(lhs, 'y', scope)) { const f = compile(lhs, scope); return { draw: { kind: 'yx', f: x => f({ x, y: 0 }) } }; }
+    if (isV(lhs, 'x') && !usesVar(rhs, 'x', scope)) { const f = compile(rhs, scope); return { draw: { kind: 'xy', f: y => f({ x: 0, y }) } }; }
+    if (isV(rhs, 'x') && !usesVar(lhs, 'x', scope)) { const f = compile(lhs, scope); return { draw: { kind: 'xy', f: y => f({ x: 0, y }) } }; }
+  }
+  if (!usesVar(lhs, 'x', scope) && !usesVar(lhs, 'y', scope) && !usesVar(rhs, 'x', scope) && !usesVar(rhs, 'y', scope)) {
+    const a = compile(lhs, scope)({}), b = compile(rhs, scope)({});
+    const ok = rel === '=' ? Math.abs(a - b) < 1e-9 : rel === '<' ? a < b : rel === '>' ? a > b : rel === '<=' ? a <= b : a >= b;
+    return { text: ok ? 'true' : 'false' };
+  }
+  const L = compile(lhs, scope), R = compile(rhs, scope);
+  const F = (x, y) => { const e = { x, y }; return L(e) - R(e); };
+  return { draw: { kind: 'implicit', F, rel } };
+}
+
+// ---------------------------------------------------------------- graph
+const cv = document.getElementById('cv'), g = cv.getContext('2d'), graphEl = document.getElementById('graph');
+let W = 1, H = 1, dpr = 1;
+const view = { cx: 0, cy: 0, s: 50 };
+const opts = { grid: true, minor: true, nums: true };
+function homeView() { view.cx = 0; view.cy = 0; view.s = Math.max(20, W / 20); }
+const sx = x => W / 2 + (x - view.cx) * view.s, sy = y => H / 2 - (y - view.cy) * view.s;
+const wx = px => view.cx + (px - W / 2) / view.s, wy = py => view.cy - (py - H / 2) / view.s;
+function resize() {
+  const b = graphEl.getBoundingClientRect(), first = W === 1;
+  dpr = window.devicePixelRatio || 1; W = Math.max(1, b.width); H = Math.max(1, b.height);
+  cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
+  if (first) homeView();
+  requestDraw();
+}
+let pending = false;
+function requestDraw() { if (!pending) { pending = true; requestAnimationFrame(() => { pending = false; draw(); }); } }
+function niceStep(unitsPer100px) {
+  const p = 10 ** Math.floor(Math.log10(unitsPer100px)), m = unitsPer100px / p;
+  const major = (m < 1.5 ? 1 : m < 3.5 ? 2 : m < 7.5 ? 5 : 10) * p;
+  return { major, minor: major / (Math.round(major / p) === 2 ? 4 : 5) };
+}
+const label = v => String(parseFloat(v.toPrecision(12)));
+function draw() {
+  g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  g.fillStyle = '#fff'; g.fillRect(0, 0, W, H);
+  const { major, minor } = niceStep(100 / view.s);
+  const x0 = wx(0), x1 = wx(W), y0 = wy(H), y1 = wy(0);
+  const lines = (step, color, width) => {
+    g.strokeStyle = color; g.lineWidth = width; g.beginPath();
+    for (let x = Math.ceil(x0 / step) * step; x <= x1; x += step) { const p = Math.round(sx(x)) + 0.5; g.moveTo(p, 0); g.lineTo(p, H); }
+    for (let y = Math.ceil(y0 / step) * step; y <= y1; y += step) { const p = Math.round(sy(y)) + 0.5; g.moveTo(0, p); g.lineTo(W, p); }
+    g.stroke();
+  };
+  if (opts.grid) { if (opts.minor) lines(minor, '#ececec', 1); lines(major, '#d0d0d0', 1); }
+  // Axes.
+  const ax = Math.round(sx(0)) + 0.5, ay = Math.round(sy(0)) + 0.5;
+  g.strokeStyle = '#3a3a3a'; g.lineWidth = 1.2; g.beginPath();
+  if (ax >= 0 && ax <= W) { g.moveTo(ax, 0); g.lineTo(ax, H); }
+  if (ay >= 0 && ay <= H) { g.moveTo(0, ay); g.lineTo(W, ay); }
+  g.stroke();
+  // Curves.
+  for (const d of drawables) plot(d);
+  if (opts.nums) {
+    g.font = '13px "Helvetica Neue", Arial, sans-serif'; g.lineJoin = 'round';
+    const txt = (s, x, y, align, base) => { g.textAlign = align; g.textBaseline = base; g.lineWidth = 4; g.strokeStyle = 'rgba(255,255,255,0.92)'; g.strokeText(s, x, y); g.fillStyle = '#222'; g.fillText(s, x, y); };
+    const ly = Math.min(Math.max(ay + 5, 4), H - 18), lx = Math.min(Math.max(ax - 6, 30), W - 6);
+    for (let x = Math.ceil(x0 / major) * major; x <= x1; x += major) {
+      if (Math.abs(x) < major / 2) continue;
+      const s = label(x), hw = g.measureText(s).width / 2 + 2, px = sx(x);
+      if (px - hw < 0 || px + hw > W) continue;
+      txt(s, px, ly, 'center', 'top');
+    }
+    for (let y = Math.ceil(y0 / major) * major; y <= y1; y += major) { const py = sy(y); if (Math.abs(y) < major / 2 || py < 8 || py > H - 8) continue; txt(label(y), lx, py, 'right', 'middle'); }
+    if (ax > 0 && ax < W && ay > 0 && ay < H) txt('0', ax - 6, ay + 5, 'right', 'top');
+  }
+}
+function plot(d) {
+  g.strokeStyle = d.color; g.fillStyle = d.color; g.lineWidth = 2.5; g.lineJoin = 'round'; g.lineCap = 'round';
+  if (d.kind === 'pt') {
+    const px = sx(d.x), py = sy(d.y);
+    if (!Number.isFinite(px) || !Number.isFinite(py)) return;
+    g.beginPath(); g.arc(px, py, 5, 0, Math.PI * 2); g.fill();
+    g.font = '13px "Helvetica Neue", Arial, sans-serif'; g.textAlign = 'left'; g.textBaseline = 'bottom';
+    g.lineWidth = 4; g.strokeStyle = 'rgba(255,255,255,0.9)'; const s = `(${fmt(d.x)}, ${fmt(d.y)})`; g.strokeText(s, px + 8, py - 6); g.fillStyle = '#333'; g.fillText(s, px + 8, py - 6);
+    return;
+  }
+  if (d.kind === 'yx' || d.kind === 'xy') {
+    const n = d.kind === 'yx' ? W : H, step = 0.75;
+    g.beginPath();
+    let pen = false, prev = 0;
+    for (let i = -1; i <= n + 1; i += step) {
+      let v;
+      try { v = d.f(d.kind === 'yx' ? wx(i) : wy(i)); } catch { v = NaN; }
+      if (!Number.isFinite(v)) { pen = false; continue; }
+      let q = d.kind === 'yx' ? sy(v) : sx(v);
+      const span = d.kind === 'yx' ? H : W;
+      if (pen && Math.abs(q - prev) > span * 1.5) pen = false;
+      prev = q; q = Math.max(-1e4, Math.min(1e4, q));
+      const X = d.kind === 'yx' ? i : q, Y = d.kind === 'yx' ? q : i;
+      if (pen) g.lineTo(X, Y); else g.moveTo(X, Y);
+      pen = true;
+    }
+    g.stroke();
+    return;
+  }
+  // Implicit curves and inequality regions on a sampled grid (marching squares).
+  const cell = 4, cols = Math.ceil(W / cell) + 1, rws = Math.ceil(H / cell) + 1;
+  const v = new Float64Array(cols * rws);
+  for (let j = 0; j < rws; j++) { const y = wy(j * cell); for (let i = 0; i < cols; i++) { let f; try { f = d.F(wx(i * cell), y); } catch { f = NaN; } v[j * cols + i] = f; } }
+  const strict = d.rel === '<' || d.rel === '>', region = d.rel && d.rel !== '=';
+  const inside = f => (d.rel === '<' || d.rel === '<=') ? f < 0 : f > 0;
+  if (region) {
+    g.globalAlpha = 0.25; g.beginPath();
+    for (let j = 0; j < rws - 1; j++) for (let i = 0; i < cols - 1; i++) {
+      const m = (v[j * cols + i] + v[j * cols + i + 1] + v[(j + 1) * cols + i] + v[(j + 1) * cols + i + 1]) / 4;
+      if (Number.isFinite(m) && inside(m)) g.rect(i * cell, j * cell, cell, cell);
+    }
+    g.fill(); g.globalAlpha = 1;
+  }
+  g.beginPath();
+  if (strict) g.setLineDash([8, 6]);
+  const lerpT = (a, b) => a / (a - b);
+  for (let j = 0; j < rws - 1; j++) for (let i = 0; i < cols - 1; i++) {
+    const a = v[j * cols + i], b = v[j * cols + i + 1], c = v[(j + 1) * cols + i + 1], e = v[(j + 1) * cols + i];
+    if (!(Number.isFinite(a) && Number.isFinite(b) && Number.isFinite(c) && Number.isFinite(e))) continue;
+    const pts = [];
+    const X = i * cell, Y = j * cell;
+    if ((a > 0) !== (b > 0)) pts.push([X + cell * lerpT(a, b), Y]);
+    if ((b > 0) !== (c > 0)) pts.push([X + cell, Y + cell * lerpT(b, c)]);
+    if ((e > 0) !== (c > 0)) pts.push([X + cell * lerpT(e, c), Y + cell]);
+    if ((a > 0) !== (e > 0)) pts.push([X, Y + cell * lerpT(a, e)]);
+    if (pts.length < 2) continue;
+    // Skip sign flips across poles (tan, 1/x): the values jump instead of crossing zero.
+    const big = Math.max(Math.abs(a), Math.abs(b), Math.abs(c), Math.abs(e)), sc = 1 / view.s;
+    if (big > 200 * sc * cell && Math.min(Math.abs(a), Math.abs(b), Math.abs(c), Math.abs(e)) > 20 * sc * cell) continue;
+    g.moveTo(pts[0][0], pts[0][1]); g.lineTo(pts[1][0], pts[1][1]);
+    if (pts.length === 4) { g.moveTo(pts[2][0], pts[2][1]); g.lineTo(pts[3][0], pts[3][1]); }
+  }
+  g.stroke(); g.setLineDash([]);
+}
+
+// Pan and zoom.
+const pointers = new Map(); let pinch = null;
+graphEl.addEventListener('pointerdown', e => {
+  if (e.target.closest('.fab, #show')) return;
+  graphEl.setPointerCapture(e.pointerId); pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  graphEl.classList.add('drag');
+  if (pointers.size === 2) { const [p, q] = [...pointers.values()]; pinch = { d: Math.hypot(p.x - q.x, p.y - q.y), s: view.s }; }
+});
+graphEl.addEventListener('pointermove', e => {
+  const p = pointers.get(e.pointerId); if (!p) return;
+  if (pointers.size === 1) { view.cx -= (e.clientX - p.x) / view.s; view.cy += (e.clientY - p.y) / view.s; }
+  p.x = e.clientX; p.y = e.clientY;
+  if (pointers.size === 2 && pinch) {
+    const [a, b] = [...pointers.values()], r = graphEl.getBoundingClientRect();
+    zoomAt((a.x + b.x) / 2 - r.left, (a.y + b.y) / 2 - r.top, pinch.s * Math.hypot(a.x - b.x, a.y - b.y) / pinch.d / view.s);
+  }
+  requestDraw();
+});
+const up = e => { pointers.delete(e.pointerId); if (pointers.size < 2) pinch = null; if (!pointers.size) graphEl.classList.remove('drag'); };
+graphEl.addEventListener('pointerup', up); graphEl.addEventListener('pointercancel', up);
+function zoomAt(px, py, k) {
+  const x = wx(px), y = wy(py);
+  view.s = Math.min(1e7, Math.max(1e-5, view.s * k));
+  view.cx = x - (px - W / 2) / view.s; view.cy = y + (py - H / 2) / view.s;
+  requestDraw();
+}
+graphEl.addEventListener('wheel', e => {
+  e.preventDefault();
+  const r = graphEl.getBoundingClientRect();
+  zoomAt(e.clientX - r.left, e.clientY - r.top, Math.exp(-e.deltaY * (e.deltaMode ? 0.05 : 0.0015)));
+}, { passive: false });
+document.getElementById('zin').onclick = () => zoomAt(W / 2, H / 2, 1.5);
+document.getElementById('zout').onclick = () => zoomAt(W / 2, H / 2, 1 / 1.5);
+document.getElementById('zhome').onclick = () => { homeView(); requestDraw(); };
+
+// Panels and settings.
+const panel = document.getElementById('panel');
+document.getElementById('hide').onclick = () => { panel.classList.add('hidden'); resize(); };
+document.getElementById('show').onclick = () => { panel.classList.remove('hidden'); resize(); };
+const pops = { help: document.getElementById('help'), settings: document.getElementById('settings') };
+const toggle = (k, e) => { e.stopPropagation(); for (const [n, p] of Object.entries(pops)) p.classList.toggle('open', n === k && !p.classList.contains('open')); };
+document.getElementById('helpb').onclick = e => toggle('help', e);
+document.getElementById('gear').onclick = e => toggle('settings', e);
+document.getElementById('wrenchb').onclick = e => { toggle('settings', e); };
+document.addEventListener('click', e => { if (!e.target.closest('.pop')) Object.values(pops).forEach(p => p.classList.remove('open')); });
+document.getElementById('optGrid').onchange = e => { opts.grid = e.target.checked; requestDraw(); };
+document.getElementById('optMinor').onchange = e => { opts.minor = e.target.checked; requestDraw(); };
+document.getElementById('optNums').onchange = e => { opts.nums = e.target.checked; requestDraw(); };
+const setAngle = d => { degrees = d; document.getElementById('rad').classList.toggle('on', !d); document.getElementById('deg').classList.toggle('on', d); evaluate(); requestDraw(); };
+document.getElementById('rad').onclick = () => setAngle(false);
+document.getElementById('deg').onclick = () => setAngle(true);
+document.getElementById('gtitle').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); e.target.blur(); } });
+
+window.addEventListener('resize', resize);
+new ResizeObserver(resize).observe(graphEl);
+makeRow(); ensureGhost();
+resize();
+rows[0].input.focus();
+</script>
+</body>
+</html>
