@@ -1,11 +1,11 @@
 // The in-game guide: features, commands, crafting, farming, combat, villagers, dimensions and graphics.
-import { MusicPlayer } from './music.js?v=mupp1ffq';
-import { BLOCKS, BLOCK_ITEMS, TEXTURES } from '../data/blocks.js?v=mupp1ffq';
-import { ITEMS, I } from '../data/items.js?v=mupp1ffq';
-import { SHAPED, SHAPELESS, SMELTING } from '../data/recipes.js?v=mupp1ffq';
-import { MOBS } from '../data/mobs.js?v=mupp1ffq';
-import { BIOMES } from '../gen/biomes.js?v=mupp1ffq';
-import { COMMANDS } from './commands.js?v=mupp1ffq';
+import { MusicPlayer } from './music.js?v=mupp7m39';
+import { BLOCKS, BLOCK_ITEMS, TEXTURES } from '../data/blocks.js?v=mupp7m39';
+import { ITEMS, I } from '../data/items.js?v=mupp7m39';
+import { SHAPED, SHAPELESS, SMELTING } from '../data/recipes.js?v=mupp7m39';
+import { MOBS } from '../data/mobs.js?v=mupp7m39';
+import { BIOMES } from '../gen/biomes.js?v=mupp7m39';
+import { COMMANDS } from './commands.js?v=mupp7m39';
 
 const esc = s => String(s).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
 
@@ -198,6 +198,17 @@ export function guideSections(icons) {
         <tr><td>Bows &amp; crossbows</td><td>Power, Punch, Flame, Infinity, Multishot, Quick Charge, Piercing</td></tr>
         <tr><td>Others</td><td>Luck of the Sea, Lure (fishing), Impaling (tridents), Curse of Binding (can't take it off), Curse of Vanishing (gone when you die)</td></tr>
       </table>`,
+    'Elytra flight': `
+      <p>Find an elytra in the chest at the top of an end city, wear it in the chest slot, then jump and press jump again while falling to glide. Look down to dive and pick up speed, pull up to climb; firework rockets (right-click while gliding) boost you along.</p>
+      <h4>Barrel Roll Flight</h4>
+      <p>With <b>Barrel Roll Flight</b> on (Settings, on by default) gliding works like the "Do a Barrel Roll" mod: you steer in full 3D and can roll, loop and fly upside down.</p>
+      <table>
+        <tr><td>Mouse up/down</td><td>Pitch the nose up or down (relative to your view, even when you're on your side)</td></tr>
+        <tr><td>Mouse left/right</td><td>Roll. Turn on <b>Flight: Mouse Yaws</b> to yaw with the mouse and roll with A/D instead</td></tr>
+        <tr><td>A / D</td><td>Rudder: yaw left and right</td></tr>
+        <tr><td>Banking</td><td>Roll to one side and the elytra turns that way, like a plane</td></tr>
+      </table>
+      <p>When you land the view levels out again. Turn the setting off for the classic controls.</p>`,
     Dimensions: `
       <h4>The Nether</h4>
       <p>Build a rectangular frame of obsidian (at least 4 wide and 5 tall), then light the inside with flint and steel. Stand in the purple portal to travel. One block in the Nether is eight in the Overworld, making it a fast-travel network. The Nether has five biomes (Nether Wastes, Crimson and Warped Forests, Soul Sand Valley, Basalt Deltas), lava oceans, glowstone, quartz and gold ore, ancient debris for netherite, and fortresses guarded by blazes and wither skeletons. Water evaporates there and beds explode!</p>

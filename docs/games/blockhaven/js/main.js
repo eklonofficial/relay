@@ -1,38 +1,39 @@
 // Blockhaven bootstrap: assets, menus, input, camera, frame loop.
-import { Demo, DEMO_SEED } from './demo.js?v=mupp1ffq';
-import { armorModel, armorSkinKey, ARMOR_MATERIALS, ARMOR_PIECES, elytraModel } from './data/armor.js?v=mupp1ffq';
-import { TEXTURES, TEX, B, BLOCKS, DIM, DIM_NAMES, SHAPE_OF, SHAPE, props, HEIGHT } from './data/blocks.js?v=mupp1ffq';
-import { I, ITEMS } from './data/items.js?v=mupp1ffq';
-import { MOBS, PROFESSIONS, playerModel, saddleModel, PLAYER_SKINS } from './data/mobs.js?v=mupp1ffq';
-import { Net, cleanCode, cleanName, cleanKey, cleanChat, chatLine, MAX_PLAYERS, wakeRelays, diagnoseNetwork } from './net/net.js?v=mupp1ffq';
-import { NameTags } from './net/nametags.js?v=mupp1ffq';
-import { BIOMES } from './gen/biomes.js?v=mupp1ffq';
-import { generateBlockTextures, drawBlockTexture } from './render/blocktex.js?v=mupp1ffq';
-import { generateItemTextures, ITEM_LAYER, FX_LAYER, ITEM_LAYER_COUNT, flatTexFor } from './render/itemtex.js?v=mupp1ffq';
-import { Zip, storedPack, savePack, removePack, applyBlockTextures, applyItemTextures, indexSounds } from './render/pack.js?v=mupp1ffq';
-import { packModel, paintModel, SKIN, faceRects } from './render/mobtex.js?v=mupp1ffq';
-import { buildMipChain } from './render/atlas.js?v=mupp1ffq';
-import { Renderer, Batch } from './render/renderer.js?v=mupp1ffq';
-import { World, UNLOADED } from './world/world.js?v=mupp1ffq';
-import { createGenerator } from './gen/index.js?v=mupp1ffq';
-import { Game } from './game/game.js?v=mupp1ffq';
-import { Interact, crossbowCharge } from './game/interact.js?v=mupp1ffq';
-import { SpawnPrep, STATUS_COLOR } from './game/spawnprep.js?v=mupp1ffq';
-import { splash } from './splash.js?v=mupp1ffq';
-import { Commands } from './game/commands.js?v=mupp1ffq';
-import { GUI, HUD } from './game/ui.js?v=mupp1ffq';
-import { buildIcons, hudSprites } from './game/icons.js?v=mupp1ffq';
-import { Sound } from './game/audio.js?v=mupp1ffq';
-import { buildLogo, buttonTexture, dirtTexture, iconDataURL } from './render/logo.js?v=mupp1ffq';
-import { computeEnv } from './game/env.js?v=mupp1ffq';
-import { guideSections } from './game/guide.js?v=mupp1ffq';
-import { listWorlds, loadWorld, saveWorld, deleteWorld } from './game/storage.js?v=mupp1ffq';
-import { importJavaWorld, exportJavaWorld } from './game/javaworld.js?v=mupp1ffq';
-import { drawModel, rootMatrix, M } from './entity/entity.js?v=mupp1ffq';
-import { itemMesh, emitItemMesh, clearItemMeshes } from './entity/itemmesh.js?v=mupp1ffq';
-import { Lightning } from './entity/objects.js?v=mupp1ffq';
-import { compose, translation, rotationX, rotationY, rotationZ, scaling, forward, mat4 } from './core/math.js?v=mupp1ffq';
-import { hasGlint } from './data/enchantments.js?v=mupp1ffq';
+import { Demo, DEMO_SEED } from './demo.js?v=mupp7m39';
+import { armorModel, armorSkinKey, ARMOR_MATERIALS, ARMOR_PIECES, elytraModel } from './data/armor.js?v=mupp7m39';
+import { TEXTURES, TEX, B, BLOCKS, DIM, DIM_NAMES, SHAPE_OF, SHAPE, props, HEIGHT } from './data/blocks.js?v=mupp7m39';
+import { I, ITEMS } from './data/items.js?v=mupp7m39';
+import { MOBS, PROFESSIONS, playerModel, saddleModel, PLAYER_SKINS } from './data/mobs.js?v=mupp7m39';
+import { Net, cleanCode, cleanName, cleanKey, cleanChat, chatLine, MAX_PLAYERS, wakeRelays, diagnoseNetwork } from './net/net.js?v=mupp7m39';
+import { NameTags } from './net/nametags.js?v=mupp7m39';
+import { BIOMES } from './gen/biomes.js?v=mupp7m39';
+import { generateBlockTextures, drawBlockTexture } from './render/blocktex.js?v=mupp7m39';
+import { generateItemTextures, ITEM_LAYER, FX_LAYER, ITEM_LAYER_COUNT, flatTexFor } from './render/itemtex.js?v=mupp7m39';
+import { Zip, storedPack, savePack, removePack, applyBlockTextures, applyItemTextures, indexSounds } from './render/pack.js?v=mupp7m39';
+import { packModel, paintModel, SKIN, faceRects } from './render/mobtex.js?v=mupp7m39';
+import { buildMipChain } from './render/atlas.js?v=mupp7m39';
+import { Renderer, Batch } from './render/renderer.js?v=mupp7m39';
+import { World, UNLOADED } from './world/world.js?v=mupp7m39';
+import { createGenerator } from './gen/index.js?v=mupp7m39';
+import { Game } from './game/game.js?v=mupp7m39';
+import { Interact, crossbowCharge } from './game/interact.js?v=mupp7m39';
+import { SpawnPrep, STATUS_COLOR } from './game/spawnprep.js?v=mupp7m39';
+import { splash } from './splash.js?v=mupp7m39';
+import { Commands } from './game/commands.js?v=mupp7m39';
+import { GUI, HUD } from './game/ui.js?v=mupp7m39';
+import { buildIcons, hudSprites } from './game/icons.js?v=mupp7m39';
+import { Sound } from './game/audio.js?v=mupp7m39';
+import { buildLogo, buttonTexture, dirtTexture, iconDataURL } from './render/logo.js?v=mupp7m39';
+import { computeEnv } from './game/env.js?v=mupp7m39';
+import { guideSections } from './game/guide.js?v=mupp7m39';
+import { listWorlds, loadWorld, saveWorld, deleteWorld } from './game/storage.js?v=mupp7m39';
+import { importJavaWorld, exportJavaWorld } from './game/javaworld.js?v=mupp7m39';
+import { drawModel, rootMatrix, M } from './entity/entity.js?v=mupp7m39';
+import { itemMesh, emitItemMesh, clearItemMeshes } from './entity/itemmesh.js?v=mupp7m39';
+import { Lightning } from './entity/objects.js?v=mupp7m39';
+import { compose, translation, rotationX, rotationY, rotationZ, scaling, forward, mat4 } from './core/math.js?v=mupp7m39';
+import { hasGlint } from './data/enchantments.js?v=mupp7m39';
+import { BarrelRoll } from './game/barrelroll.js?v=mupp7m39';
 
 const $ = id => document.getElementById(id);
 // Resolves after the page has painted what was just put on screen.
@@ -44,7 +45,7 @@ const store = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } ca
 const LOW_END = /CrOS/.test(navigator.userAgent) || (navigator.deviceMemory && navigator.deviceMemory <= 4) || (navigator.hardwareConcurrency || 8) <= 4;
 const settings = Object.assign({
   renderDistance: LOW_END ? 6 : 8, fov: 70, sensitivity: 100, brightness: 50, volume: 60, music: 40,
-  bobbing: true, clouds: true, autoJump: true, particles: true, dynamicRes: true, graphics: LOW_END ? 1 : 2, rawInput: true, lowLatency: !LOW_END,
+  bobbing: true, clouds: true, autoJump: true, particles: true, dynamicRes: true, barrelRoll: true, barrelRollYaw: false, graphics: LOW_END ? 1 : 2, rawInput: true, lowLatency: !LOW_END,
 }, load(SETTINGS_KEY) || {});
 // Minecraft's default FOV is 70; move anyone still on our old default (75) over once.
 if (!settings.fovMigrated) { if (settings.fov === 75) settings.fov = 70; settings.fovMigrated = true; store(SETTINGS_KEY, settings); }
@@ -122,6 +123,7 @@ class App {
     this.settings = settings;
     this.mode = 'title';
     this.keys = new Set();
+    this.dabr = new BarrelRoll();
     this.mouse = { left: false, right: false, leftClicked: false, rightClicked: false };
     this.locked = false; this.hudHidden = false; this.debug = false; this.view = 0;
     this.time = 0; this.lastFrame = 0; this.fps = 60; this.frames = 0; this.fpsT = 0;
@@ -756,7 +758,7 @@ class App {
     bind('set-vol', 'volume', 'Master Volume', vol, unmute);
     bind('set-music', 'music', 'Music', vol, unmute);
     cycle($('set-gfx'), 'Graphics', [[0, 'Fast'], [1, 'Regular'], [2, 'High'], [3, 'PC']], () => Number(settings.graphics), v => { settings.graphics = v; this.applyGraphics(); store(SETTINGS_KEY, settings); });
-    for (const [id, k, label] of [['set-bob', 'bobbing', 'View Bobbing'], ['set-clouds', 'clouds', 'Clouds'], ['set-autojump', 'autoJump', 'Auto-Jump'], ['set-particles', 'particles', 'Particles'], ['set-dynres', 'dynamicRes', 'Dynamic Resolution'], ['set-raw', 'rawInput', 'Raw Input'], ['set-lowlat', 'lowLatency', 'Low Latency']]) {
+    for (const [id, k, label] of [['set-bob', 'bobbing', 'View Bobbing'], ['set-clouds', 'clouds', 'Clouds'], ['set-autojump', 'autoJump', 'Auto-Jump'], ['set-particles', 'particles', 'Particles'], ['set-dynres', 'dynamicRes', 'Dynamic Resolution'], ['set-raw', 'rawInput', 'Raw Input'], ['set-lowlat', 'lowLatency', 'Low Latency'], ['set-dabr', 'barrelRoll', 'Barrel Roll Flight'], ['set-dabryaw', 'barrelRollYaw', 'Flight: Mouse Yaws']]) {
       toggle($(id), label, () => !!settings[k], v => {
         settings[k] = v; if (this.game) this.game.player.autoJump = settings.autoJump;
         if (k === 'lowLatency') { store(SETTINGS_KEY, settings); if (confirm('Low Latency changes how the game draws to the screen and applies after a reload. Reload now?')) location.reload(); }
@@ -863,6 +865,8 @@ class App {
       if (performance.now() - (this.lockedAt || 0) < 60 || (mag > 1200 && mag > avg * 12 + 400)) { this.mouseAvg = avg * 0.9; return; }
       this.mouseAvg = avg * 0.8 + mag * 0.2;
       const sens = settings.sensitivity / 100 * 0.0022, p = this.game.player;
+      // Barrel-roll flight takes the mouse while gliding.
+      if (this.dabr.active) { this.dabr.look(dx, dy, sens, !!settings.barrelRollYaw); p.yaw = this.dabr.yaw; p.pitch = Math.max(-1.56, Math.min(1.56, this.dabr.pitch)); return; }
       p.yaw -= dx * sens;
       p.pitch = Math.max(-1.56, Math.min(1.56, p.pitch - dy * sens));
     };
@@ -974,7 +978,8 @@ class App {
     const eye = p.eyePos();
     const rx = Math.cos(p.yaw), rz = -Math.sin(p.yaw);
     let pos = [eye[0] + rx * Math.sin(ph) * 0.03 * bob, eye[1] + (Math.abs(Math.cos(ph)) * 0.07 - 0.04) * bob, eye[2] + rz * Math.sin(ph) * 0.03 * bob];
-    let yaw = p.yaw, pitch = p.pitch, roll = Math.sin(ph) * 0.006 * bob;
+    let yaw = p.yaw, pitch = p.pitch, roll = Math.sin(ph) * 0.006 * bob + this.dabr.cameraRoll(dt);
+    if (this.dabr.active) { yaw = this.dabr.yaw; pitch = this.dabr.pitch; }
     if (this.shakeAmt > 0) { roll += (Math.random() - 0.5) * this.shakeAmt * 0.08; this.shakeAmt = Math.max(0, this.shakeAmt - dt * 2); }
     if (!g.alive) { roll = Math.min(1.2, (this.deathRoll = (this.deathRoll || 0) + dt * 2)); pos[1] -= Math.min(1.2, this.deathRoll); } else this.deathRoll = 0;
     if (this.view > 0) {
@@ -1133,6 +1138,14 @@ class App {
       if (this.mode !== 'play') for (const k of Object.keys(input)) input[k] = false;
       if (g.alive) {
         if (g.mode === 'spectator') p.speedMul = this.specSpeed || 1;
+        // Elytra flight with free rotation ("Do a Barrel Roll"): starts once you're gliding.
+        const dabrOn = settings.barrelRoll !== false && g.mode !== 'spectator';
+        if (p.gliding && dabrOn && !this.dabr.active) this.dabr.start(p.yaw, p.pitch);
+        if (this.dabr.active && (!p.gliding || !dabrOn || !g.alive)) this.dabr.stop();
+        if (this.dabr.active) {
+          this.dabr.update(dt, input, !!settings.barrelRollYaw, Math.hypot(p.vel[0], p.vel[1], p.vel[2]) * 20 / 30);
+          p.yaw = this.dabr.yaw; p.pitch = Math.max(-1.56, Math.min(1.56, this.dabr.pitch));
+        }
         if (g.riding) g.rideControl(dt, input); else p.update(dt, input);
       }
       g.update(dt);
