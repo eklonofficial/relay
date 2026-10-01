@@ -1,6 +1,6 @@
 // What a broken block drops, given the tool used.
-import { props, CROP_STAGES, CROP_AGE_SHIFT, B } from '../data/blocks.js?v=muovqjts';
-import { I, canHarvest } from '../data/items.js?v=muovqjts';
+import { props, CROP_STAGES, CROP_AGE_SHIFT, B } from '../data/blocks.js?v=muowej42';
+import { I, canHarvest } from '../data/items.js?v=muowej42';
 
 const rint = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
 const ORE_XP = { coal: [0, 2], diamond: [3, 7], emerald: [3, 7], lapis: [2, 5], redstone: [1, 5], nether_quartz: [2, 5], nether_gold: [0, 1] };

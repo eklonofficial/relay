@@ -1,36 +1,36 @@
 // Blockhaven bootstrap: assets, menus, input, camera, frame loop.
-import { Demo, DEMO_SEED } from './demo.js?v=muovqjts';
-import { armorModel, armorSkinKey, ARMOR_MATERIALS, ARMOR_PIECES, elytraModel } from './data/armor.js?v=muovqjts';
-import { TEXTURES, TEX, B, BLOCKS, DIM, DIM_NAMES, SHAPE_OF, SHAPE, props, HEIGHT } from './data/blocks.js?v=muovqjts';
-import { I, ITEMS } from './data/items.js?v=muovqjts';
-import { MOBS, PROFESSIONS, playerModel, saddleModel, PLAYER_SKINS } from './data/mobs.js?v=muovqjts';
-import { Net, cleanCode, cleanName, cleanKey, cleanChat, chatLine, MAX_PLAYERS } from './net/net.js?v=muovqjts';
-import { NameTags } from './net/nametags.js?v=muovqjts';
-import { BIOMES } from './gen/biomes.js?v=muovqjts';
-import { generateBlockTextures, drawBlockTexture } from './render/blocktex.js?v=muovqjts';
-import { generateItemTextures, ITEM_LAYER, FX_LAYER, ITEM_LAYER_COUNT, flatTexFor } from './render/itemtex.js?v=muovqjts';
-import { Zip, storedPack, savePack, removePack, applyBlockTextures, applyItemTextures, indexSounds } from './render/pack.js?v=muovqjts';
-import { packModel, paintModel, SKIN, faceRects } from './render/mobtex.js?v=muovqjts';
-import { buildMipChain } from './render/atlas.js?v=muovqjts';
-import { Renderer, Batch } from './render/renderer.js?v=muovqjts';
-import { World, UNLOADED } from './world/world.js?v=muovqjts';
-import { createGenerator } from './gen/index.js?v=muovqjts';
-import { Game } from './game/game.js?v=muovqjts';
-import { Interact, CROSSBOW_CHARGE } from './game/interact.js?v=muovqjts';
-import { SpawnPrep, STATUS_COLOR } from './game/spawnprep.js?v=muovqjts';
-import { splash } from './splash.js?v=muovqjts';
-import { Commands } from './game/commands.js?v=muovqjts';
-import { GUI, HUD } from './game/ui.js?v=muovqjts';
-import { buildIcons, hudSprites } from './game/icons.js?v=muovqjts';
-import { Sound } from './game/audio.js?v=muovqjts';
-import { buildLogo, buttonTexture, dirtTexture, iconDataURL } from './render/logo.js?v=muovqjts';
-import { computeEnv } from './game/env.js?v=muovqjts';
-import { guideSections } from './game/guide.js?v=muovqjts';
-import { listWorlds, loadWorld, saveWorld, deleteWorld } from './game/storage.js?v=muovqjts';
-import { drawModel, rootMatrix, M } from './entity/entity.js?v=muovqjts';
-import { itemMesh, emitItemMesh, clearItemMeshes } from './entity/itemmesh.js?v=muovqjts';
-import { Lightning } from './entity/objects.js?v=muovqjts';
-import { compose, translation, rotationX, rotationY, rotationZ, scaling, forward, mat4 } from './core/math.js?v=muovqjts';
+import { Demo, DEMO_SEED } from './demo.js?v=muowej42';
+import { armorModel, armorSkinKey, ARMOR_MATERIALS, ARMOR_PIECES, elytraModel } from './data/armor.js?v=muowej42';
+import { TEXTURES, TEX, B, BLOCKS, DIM, DIM_NAMES, SHAPE_OF, SHAPE, props, HEIGHT } from './data/blocks.js?v=muowej42';
+import { I, ITEMS } from './data/items.js?v=muowej42';
+import { MOBS, PROFESSIONS, playerModel, saddleModel, PLAYER_SKINS } from './data/mobs.js?v=muowej42';
+import { Net, cleanCode, cleanName, cleanKey, cleanChat, chatLine, MAX_PLAYERS } from './net/net.js?v=muowej42';
+import { NameTags } from './net/nametags.js?v=muowej42';
+import { BIOMES } from './gen/biomes.js?v=muowej42';
+import { generateBlockTextures, drawBlockTexture } from './render/blocktex.js?v=muowej42';
+import { generateItemTextures, ITEM_LAYER, FX_LAYER, ITEM_LAYER_COUNT, flatTexFor } from './render/itemtex.js?v=muowej42';
+import { Zip, storedPack, savePack, removePack, applyBlockTextures, applyItemTextures, indexSounds } from './render/pack.js?v=muowej42';
+import { packModel, paintModel, SKIN, faceRects } from './render/mobtex.js?v=muowej42';
+import { buildMipChain } from './render/atlas.js?v=muowej42';
+import { Renderer, Batch } from './render/renderer.js?v=muowej42';
+import { World, UNLOADED } from './world/world.js?v=muowej42';
+import { createGenerator } from './gen/index.js?v=muowej42';
+import { Game } from './game/game.js?v=muowej42';
+import { Interact, CROSSBOW_CHARGE } from './game/interact.js?v=muowej42';
+import { SpawnPrep, STATUS_COLOR } from './game/spawnprep.js?v=muowej42';
+import { splash } from './splash.js?v=muowej42';
+import { Commands } from './game/commands.js?v=muowej42';
+import { GUI, HUD } from './game/ui.js?v=muowej42';
+import { buildIcons, hudSprites } from './game/icons.js?v=muowej42';
+import { Sound } from './game/audio.js?v=muowej42';
+import { buildLogo, buttonTexture, dirtTexture, iconDataURL } from './render/logo.js?v=muowej42';
+import { computeEnv } from './game/env.js?v=muowej42';
+import { guideSections } from './game/guide.js?v=muowej42';
+import { listWorlds, loadWorld, saveWorld, deleteWorld } from './game/storage.js?v=muowej42';
+import { drawModel, rootMatrix, M } from './entity/entity.js?v=muowej42';
+import { itemMesh, emitItemMesh, clearItemMeshes } from './entity/itemmesh.js?v=muowej42';
+import { Lightning } from './entity/objects.js?v=muowej42';
+import { compose, translation, rotationX, rotationY, rotationZ, scaling, forward, mat4 } from './core/math.js?v=muowej42';
 
 const $ = id => document.getElementById(id);
 // Resolves after the page has painted what was just put on screen.
@@ -754,22 +754,23 @@ class App {
       this.suppressPause = false;
     });
     canvas.addEventListener('click', () => { if (!this.demo && (this.mode === 'play' || this.mode === 'loading') && !this.locked) this.requestLock(); });
-    // Pointer events carry fractional movement (mousemove rounds to whole pixels, which swallows
-    // slow, small motions and feels like a deadzone). pointerrawupdate is also delivered at the
-    // device's full rate instead of once per frame.
-    const moveEvent = 'onpointerrawupdate' in window ? 'pointerrawupdate' : 'onpointermove' in window ? 'pointermove' : 'mousemove';
-    document.addEventListener(moveEvent, e => {
-      if (!this.locked || this.mode !== 'play' || !this.game) return;
-      let dx = e.movementX, dy = e.movementY;
-      // Some browsers occasionally report a huge bogus jump (especially right after locking or
-      // when the event queue stalls); drop deltas that are wildly out of line with recent motion.
+    // Mouse look. pointermove carries fractional movement (mousemove rounds to whole pixels, which
+    // swallows slow, small motions and feels like a dead zone), and each event's movement covers
+    // everything since the previous one. pointerrawupdate is not used: Chrome can drop small raw
+    // deltas between its updates, which is exactly the dead-zone feel.
+    const look = (dx, dy) => {
+      if (!this.locked || this.mode !== 'play' || !this.game || (!dx && !dy)) return;
+      // Ignore the first moments after locking and absurd one-off jumps some browsers report when
+      // the lock engages or the event queue stalls; ordinary fast flicks always get through.
       const mag = Math.abs(dx) + Math.abs(dy), avg = this.mouseAvg || 0;
-      if (performance.now() - (this.lockedAt || 0) < 120 || (mag > 250 && mag > avg * 8 + 60)) { this.mouseAvg = avg * 0.9; return; }
+      if (performance.now() - (this.lockedAt || 0) < 60 || (mag > 1200 && mag > avg * 12 + 400)) { this.mouseAvg = avg * 0.9; return; }
       this.mouseAvg = avg * 0.8 + mag * 0.2;
       const s = settings.sensitivity / 100 * 0.0022, p = this.game.player;
       p.yaw -= dx * s;
       p.pitch = Math.max(-1.56, Math.min(1.56, p.pitch - dy * s));
-    });
+    };
+    if ('onpointermove' in window) document.addEventListener('pointermove', e => look(e.movementX, e.movementY));
+    else document.addEventListener('mousemove', e => look(e.movementX, e.movementY));
     document.addEventListener('mousedown', e => {
       if (this.mode !== 'play' || !this.locked) return;
       if (e.button === 0) { this.mouse.left = true; this.mouse.leftClicked = true; }
