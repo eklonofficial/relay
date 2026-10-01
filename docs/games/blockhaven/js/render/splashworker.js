@@ -1,8 +1,8 @@
 // Runs the startup splash on its own thread (see js/splash.js), drawing into a canvas handed over
 // with transferControlToOffscreen, so it keeps animating while the page builds the game.
-import { SplashArt } from './splashart.js?v=mupht1t9';
+import { SplashArt } from './splashart.js?v=muphwqr9';
 
-let art = null, ctx = null, canvas = null, last = 0;
+let art = null, ctx = null, canvas = null, last = 0, painted = false;
 const raf = self.requestAnimationFrame ? f => self.requestAnimationFrame(f) : f => setTimeout(() => f(performance.now()), 16);
 
 self.onmessage = e => {
@@ -24,6 +24,7 @@ function frame(t) {
   last = t;
   art.step(dt);
   art.draw(ctx);
+  if (!painted) { painted = true; self.postMessage({ type: 'painted' }); }
   if (art.done) { self.postMessage({ type: 'done' }); return; }
   raf(frame);
 }

@@ -4,9 +4,9 @@
 // state to the others, who draw a "puppet" copy. Hitting a puppet, picking up a puppet item or
 // right-clicking a puppet mob is forwarded to the owner. When the owner wanders off (or leaves)
 // the entity is handed to a player who is still near it, so the world keeps working for everyone.
-import { Mob } from '../entity/mob.js?v=mupht1t9';
-import { ItemEntity, XpOrb, Projectile, FallingBlock, PrimedTnt } from '../entity/objects.js?v=mupht1t9';
-import { EndCrystal } from '../entity/crystal.js?v=mupht1t9';
+import { Mob } from '../entity/mob.js?v=muphwqr9';
+import { ItemEntity, XpOrb, Projectile, FallingBlock, PrimedTnt } from '../entity/objects.js?v=muphwqr9';
+import { EndCrystal } from '../entity/crystal.js?v=muphwqr9';
 
 const SHARE_R = 96; // entities this close to another player are streamed to them
 const HAND_R = 48; // an entity this close to another player (and far from us) is handed over
