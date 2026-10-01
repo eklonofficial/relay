@@ -9,14 +9,14 @@
 // Heights: Blockhaven worlds are 256 tall with the sea surface at y=64; Java's overworld runs
 // -64..319 with its sea surface at y=62, so overworld blocks shift by 2 (Java y -2..253 is kept).
 // The Nether and the End keep their y.
-import { BLOCKS, B, CHUNK, HEIGHT, DIM, SHAPE } from '../data/blocks.js?v=muowuzbj';
-import { BIOMES } from '../gen/biomes.js?v=muowuzbj';
-import { I } from '../data/items.js?v=muowuzbj';
-import { createGenerator } from '../gen/index.js?v=muowuzbj';
-import { readNbt, writeNbt, readRegion, writeRegion, maybeGunzip, gzip, TAG, byte, short, int, long, float, double, string, compound, list, longArray } from './nbt.js?v=muowuzbj';
-import { toJava, fromJava, biomeToJava } from './javablocks.js?v=muowuzbj';
-import { encodeChunk, decodeChunk, putChunks, getChunk } from './storage.js?v=muowuzbj';
-import { SAVE_VERSION } from './migrate.js?v=muowuzbj';
+import { BLOCKS, B, CHUNK, HEIGHT, DIM, SHAPE } from '../data/blocks.js?v=muox46vc';
+import { BIOMES } from '../gen/biomes.js?v=muox46vc';
+import { I } from '../data/items.js?v=muox46vc';
+import { createGenerator } from '../gen/index.js?v=muox46vc';
+import { readNbt, writeNbt, readRegion, writeRegion, maybeGunzip, gzip, TAG, byte, short, int, long, float, double, string, compound, list, longArray } from './nbt.js?v=muox46vc';
+import { toJava, fromJava, biomeToJava } from './javablocks.js?v=muox46vc';
+import { encodeChunk, decodeChunk, putChunks, getChunk } from './storage.js?v=muox46vc';
+import { SAVE_VERSION } from './migrate.js?v=muox46vc';
 
 const DATA_VERSION = 3465; // 1.20.1
 const Y_SHIFT = [2, 0, 0];
@@ -165,12 +165,25 @@ function javaChunkToOurs(nbt, dim) {
 }
 
 // ---------------- import ----------------
+// A helpful message for a zip that is not a Java world.
+function whatIsThis(names) {
+  const has = re => names.some(n => re.test(n));
+  if (has(/(^|\/)shaders\.properties$/) || has(/(^|\/)shaders\/(program|lib|world-?\d)\//)) {
+    return 'This is a shader pack (for OptiFine or Iris), not a world. Blockhaven has its own shaders built in, so shader packs are not used. If the download also came with a map, import the folder that contains level.dat.';
+  }
+  if (has(/(^|\/)pack\.mcmeta$/) && has(/(^|\/)assets\//)) return 'This is a resource pack, not a world. Load it from Options -> Resource Packs instead.';
+  if (has(/(^|\/)levelname\.txt$/) || has(/(^|\/)db\/.*\.ldb$/)) return 'This is a Bedrock Edition world, which is not supported. Only Java Edition worlds (1.13 or newer) can be imported.';
+  if (has(/\.mca$/)) return 'This zip has region files but no level.dat. Zip the whole world folder (the one with level.dat in it), not just its region folder.';
+  return 'No Java world found in this zip. Zip the world folder itself: the one that contains level.dat and a region folder (in Minecraft: Singleplayer -> select the world -> Edit -> Open World Folder).';
+}
+
 // zip: a Zip (render/pack.js). Returns the new world's save record.
 export async function importJavaWorld(zip, onProgress = () => {}) {
   const names = [...zip.entries.keys()];
-  const levelPath = names.filter(n => /(^|\/)level\.dat$/.test(n)).sort((a, b) => a.length - b.length)[0];
-  if (!levelPath) throw new Error('No level.dat in this zip. Zip the world folder itself (the one with level.dat in it).');
-  const root = levelPath.slice(0, -'level.dat'.length);
+  const shortest = re => names.filter(n => re.test(n)).sort((a, b) => a.length - b.length)[0];
+  const levelPath = shortest(/(^|\/)level\.dat$/) || shortest(/(^|\/)level\.dat_old$/);
+  if (!levelPath) throw new Error(whatIsThis(names));
+  const root = levelPath.slice(0, levelPath.lastIndexOf('/') + 1);
   zip.root = '';
   const level = readNbt(await maybeGunzip(await zip.bytes(levelPath)));
   const D = level.Data || level;
