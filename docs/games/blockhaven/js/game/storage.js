@@ -21,7 +21,7 @@ function open() {
 }
 async function tx(mode, fn, store = STORE) {
   const db = await open();
-  if (!db) return fn(null);
+  if (!db) { const r = fn(null); return r && r.result !== undefined ? r.result : r; }
   return new Promise((resolve, reject) => {
     const t = db.transaction(store, mode), s = t.objectStore(store);
     const r = fn(s);

@@ -9,9 +9,10 @@
 // own hands, or their own water/fire/sand simulation) broadcasts it once; everyone else mirrors it
 // silently, so nothing is applied twice. The host keeps the authoritative save, including each
 // guest's inventory and position, and owns the clock and the weather.
-import { RemotePlayer } from './remote.js?v=muowej42';
-import { EntitySync } from './share.js?v=muowej42';
-import { hostRoom, joinRoom } from './transport.js?v=muowej42';
+import { RemotePlayer } from './remote.js?v=muown4x2';
+import { getChunk } from '../game/storage.js?v=muown4x2';
+import { EntitySync } from './share.js?v=muown4x2';
+import { hostRoom, joinRoom } from './transport.js?v=muown4x2';
 
 export const MAX_PLAYERS = 5;
 const PREFIX = 'blockhaven-v1-';
@@ -65,7 +66,7 @@ function loadLib() {
   if (!libPromise) {
     libPromise = new Promise((resolve, reject) => {
       const s = document.createElement('script');
-      s.src = new URL('../../vendor/peerjs.min.js?v=muowej42', import.meta.url).href;
+      s.src = new URL('../../vendor/peerjs.min.js?v=muown4x2', import.meta.url).href;
       s.onload = () => resolve();
       s.onerror = () => { libPromise = null; reject(new Error('Could not load the multiplayer library. Check your connection.')); };
       document.head.appendChild(s);
@@ -241,6 +242,7 @@ export class Net {
     return {
       name: s.name, seed: s.seed, seedText: s.seedText, type: s.type, mode: s.mode, difficulty: s.difficulty, cheats: s.cheats, rules: s.rules,
       time: s.time, day: s.day, weather: s.weather, spawn: s.spawn, dragonKilled: s.dragonKilled, dims, saved, genVersion: s.genVersion, palette: s.palette,
+      java: s.java ? { dims: s.java.dims } : undefined,
     };
   }
 
@@ -298,6 +300,33 @@ export class Net {
     this.pendingPlayers = null;
     this.app.onPlayersChanged();
   }
+  // Imported Java worlds: guests fetch those chunks from the host, which keeps them in storage.
+  requestChunk(d, k) {
+    const key = `${d}/${k}`;
+    this.chunkWaits = this.chunkWaits || new Map();
+    if (this.chunkWaits.has(key)) return this.chunkWaits.get(key).p;
+    let resolve;
+    const p = new Promise(r => { resolve = r; });
+    const t = setTimeout(() => { this.chunkWaits.delete(key); resolve(null); }, 30000);
+    this.chunkWaits.set(key, { p, resolve: v => { clearTimeout(t); this.chunkWaits.delete(key); resolve(v); } });
+    this.send({ t: 'ichunk', d, k });
+    return p;
+  }
+  chunkArrived(m) {
+    const w = this.chunkWaits && this.chunkWaits.get(`${m.d}/${m.k}`);
+    if (!w) return;
+    let bytes = null;
+    try { if (typeof m.b === 'string') { const s = atob(m.b); bytes = new Uint8Array(s.length); for (let i = 0; i < s.length; i++) bytes[i] = s.charCodeAt(i); } } catch { bytes = null; }
+    w.resolve(bytes);
+  }
+  async serveChunk(to, d, k) {
+    const g = this.game;
+    if (!/^-?\d+,-?\d+$/.test(k) || !g.meta.java || !(g.meta.java.dims?.[d] || []).includes(k)) { this.sendTo(to, { t: 'ichunkd', d, k, b: null }); return; }
+    const raw = await getChunk(`${g.meta.id}/${d}/${k}`);
+    let b = null;
+    if (raw) { let s = ''; for (let i = 0; i < raw.length; i += 0x8000) s += String.fromCharCode(...raw.subarray(i, i + 0x8000)); b = btoa(s); }
+    this.sendTo(to, { t: 'ichunkd', d, k, b });
+  }
   onHostLost() {
     if (this.closed) return;
     this.closed = true;
@@ -343,6 +372,8 @@ export class Net {
       case 'own': if (g) this.share.onOwn(m); break;
       case 'handover': if (g && this.isHost) this.share.onHandover(m); break;
       case 'pop': if (g) g.applyRemotePopulated(m.d, m.k); break;
+      case 'ichunk': if (g && this.isHost && from) this.serveChunk(from.id, m.d | 0, String(m.k || '')); break;
+      case 'ichunkd': if (!this.isHost) this.chunkArrived(m); break;
       case 'rsuse': if (g && this.isHost && m.d === g.dim && Array.isArray(m.p)) g.rs.use(m.p[0] | 0, m.p[1] | 0, m.p[2] | 0); break;
       case 'hit': if (g) this.onHit(m); break;
       case 'env': if (g && !this.isHost) this.applyEnv(m); break;

@@ -1,36 +1,37 @@
 // Blockhaven bootstrap: assets, menus, input, camera, frame loop.
-import { Demo, DEMO_SEED } from './demo.js?v=muowej42';
-import { armorModel, armorSkinKey, ARMOR_MATERIALS, ARMOR_PIECES, elytraModel } from './data/armor.js?v=muowej42';
-import { TEXTURES, TEX, B, BLOCKS, DIM, DIM_NAMES, SHAPE_OF, SHAPE, props, HEIGHT } from './data/blocks.js?v=muowej42';
-import { I, ITEMS } from './data/items.js?v=muowej42';
-import { MOBS, PROFESSIONS, playerModel, saddleModel, PLAYER_SKINS } from './data/mobs.js?v=muowej42';
-import { Net, cleanCode, cleanName, cleanKey, cleanChat, chatLine, MAX_PLAYERS } from './net/net.js?v=muowej42';
-import { NameTags } from './net/nametags.js?v=muowej42';
-import { BIOMES } from './gen/biomes.js?v=muowej42';
-import { generateBlockTextures, drawBlockTexture } from './render/blocktex.js?v=muowej42';
-import { generateItemTextures, ITEM_LAYER, FX_LAYER, ITEM_LAYER_COUNT, flatTexFor } from './render/itemtex.js?v=muowej42';
-import { Zip, storedPack, savePack, removePack, applyBlockTextures, applyItemTextures, indexSounds } from './render/pack.js?v=muowej42';
-import { packModel, paintModel, SKIN, faceRects } from './render/mobtex.js?v=muowej42';
-import { buildMipChain } from './render/atlas.js?v=muowej42';
-import { Renderer, Batch } from './render/renderer.js?v=muowej42';
-import { World, UNLOADED } from './world/world.js?v=muowej42';
-import { createGenerator } from './gen/index.js?v=muowej42';
-import { Game } from './game/game.js?v=muowej42';
-import { Interact, CROSSBOW_CHARGE } from './game/interact.js?v=muowej42';
-import { SpawnPrep, STATUS_COLOR } from './game/spawnprep.js?v=muowej42';
-import { splash } from './splash.js?v=muowej42';
-import { Commands } from './game/commands.js?v=muowej42';
-import { GUI, HUD } from './game/ui.js?v=muowej42';
-import { buildIcons, hudSprites } from './game/icons.js?v=muowej42';
-import { Sound } from './game/audio.js?v=muowej42';
-import { buildLogo, buttonTexture, dirtTexture, iconDataURL } from './render/logo.js?v=muowej42';
-import { computeEnv } from './game/env.js?v=muowej42';
-import { guideSections } from './game/guide.js?v=muowej42';
-import { listWorlds, loadWorld, saveWorld, deleteWorld } from './game/storage.js?v=muowej42';
-import { drawModel, rootMatrix, M } from './entity/entity.js?v=muowej42';
-import { itemMesh, emitItemMesh, clearItemMeshes } from './entity/itemmesh.js?v=muowej42';
-import { Lightning } from './entity/objects.js?v=muowej42';
-import { compose, translation, rotationX, rotationY, rotationZ, scaling, forward, mat4 } from './core/math.js?v=muowej42';
+import { Demo, DEMO_SEED } from './demo.js?v=muown4x2';
+import { armorModel, armorSkinKey, ARMOR_MATERIALS, ARMOR_PIECES, elytraModel } from './data/armor.js?v=muown4x2';
+import { TEXTURES, TEX, B, BLOCKS, DIM, DIM_NAMES, SHAPE_OF, SHAPE, props, HEIGHT } from './data/blocks.js?v=muown4x2';
+import { I, ITEMS } from './data/items.js?v=muown4x2';
+import { MOBS, PROFESSIONS, playerModel, saddleModel, PLAYER_SKINS } from './data/mobs.js?v=muown4x2';
+import { Net, cleanCode, cleanName, cleanKey, cleanChat, chatLine, MAX_PLAYERS } from './net/net.js?v=muown4x2';
+import { NameTags } from './net/nametags.js?v=muown4x2';
+import { BIOMES } from './gen/biomes.js?v=muown4x2';
+import { generateBlockTextures, drawBlockTexture } from './render/blocktex.js?v=muown4x2';
+import { generateItemTextures, ITEM_LAYER, FX_LAYER, ITEM_LAYER_COUNT, flatTexFor } from './render/itemtex.js?v=muown4x2';
+import { Zip, storedPack, savePack, removePack, applyBlockTextures, applyItemTextures, indexSounds } from './render/pack.js?v=muown4x2';
+import { packModel, paintModel, SKIN, faceRects } from './render/mobtex.js?v=muown4x2';
+import { buildMipChain } from './render/atlas.js?v=muown4x2';
+import { Renderer, Batch } from './render/renderer.js?v=muown4x2';
+import { World, UNLOADED } from './world/world.js?v=muown4x2';
+import { createGenerator } from './gen/index.js?v=muown4x2';
+import { Game } from './game/game.js?v=muown4x2';
+import { Interact, CROSSBOW_CHARGE } from './game/interact.js?v=muown4x2';
+import { SpawnPrep, STATUS_COLOR } from './game/spawnprep.js?v=muown4x2';
+import { splash } from './splash.js?v=muown4x2';
+import { Commands } from './game/commands.js?v=muown4x2';
+import { GUI, HUD } from './game/ui.js?v=muown4x2';
+import { buildIcons, hudSprites } from './game/icons.js?v=muown4x2';
+import { Sound } from './game/audio.js?v=muown4x2';
+import { buildLogo, buttonTexture, dirtTexture, iconDataURL } from './render/logo.js?v=muown4x2';
+import { computeEnv } from './game/env.js?v=muown4x2';
+import { guideSections } from './game/guide.js?v=muown4x2';
+import { listWorlds, loadWorld, saveWorld, deleteWorld } from './game/storage.js?v=muown4x2';
+import { importJavaWorld, exportJavaWorld } from './game/javaworld.js?v=muown4x2';
+import { drawModel, rootMatrix, M } from './entity/entity.js?v=muown4x2';
+import { itemMesh, emitItemMesh, clearItemMeshes } from './entity/itemmesh.js?v=muown4x2';
+import { Lightning } from './entity/objects.js?v=muown4x2';
+import { compose, translation, rotationX, rotationY, rotationZ, scaling, forward, mat4 } from './core/math.js?v=muown4x2';
 
 const $ = id => document.getElementById(id);
 // Resolves after the page has painted what was just put on screen.
@@ -249,7 +250,7 @@ class App {
     list.textContent = '';
     const worlds = await listWorlds();
     this.selectedWorld = null;
-    $('btn-world-play').disabled = $('btn-world-delete').disabled = $('btn-world-download').disabled = true;
+    $('btn-world-play').disabled = $('btn-world-delete').disabled = $('btn-world-download').disabled = $('btn-world-java-export').disabled = true;
     if (!worlds.length) { const d = document.createElement('div'); d.className = 'empty-note'; d.textContent = 'No worlds yet — create one!'; list.appendChild(d); return; }
     for (const w of worlds) {
       // One damaged save must not hide the rest of the list.
@@ -263,7 +264,7 @@ class App {
         i.textContent = `(${new Date(w.lastPlayed || 0).toLocaleString()})`;
         i2.textContent = `${mode[0].toUpperCase() + mode.slice(1)} Mode, ${w.type === 'wild' ? 'Wild' : w.type === 'flat' ? 'Superflat' : 'Default'}, Day ${day + 1}`;
         info.append(n, i, i2); e.append(th, info);
-        e.addEventListener('click', () => { list.querySelectorAll('.sel').forEach(x => x.classList.remove('sel')); e.classList.add('sel'); this.selectedWorld = w.id; $('btn-world-play').disabled = $('btn-world-delete').disabled = $('btn-world-download').disabled = false; });
+        e.addEventListener('click', () => { list.querySelectorAll('.sel').forEach(x => x.classList.remove('sel')); e.classList.add('sel'); this.selectedWorld = w.id; $('btn-world-play').disabled = $('btn-world-delete').disabled = $('btn-world-download').disabled = $('btn-world-java-export').disabled = false; });
         e.addEventListener('dblclick', () => this.playWorld(w.id));
         list.appendChild(e);
       } catch (err) { console.warn('skipping broken world', w && w.id, err); }
@@ -297,6 +298,31 @@ class App {
       await saveWorld(w);
       this.showWorlds();
     } catch (e) { alert(`Could not upload the world: ${e.message}`); }
+  }
+  // Java Edition worlds: a zipped world folder in, a zipped 1.20.1 world folder out.
+  async importJava(file) {
+    this.showLoading('message', 'Reading Java world...');
+    try {
+      const zip = await Zip.open(file);
+      const meta = await importJavaWorld(zip, (p, text) => { $('load-msg').textContent = `${text} (${Math.round(p * 100)}%)`; });
+      const existing = await listWorlds();
+      if (existing.some(e => e.name === meta.name)) meta.name = `${meta.name} (Java)`;
+      await saveWorld(meta);
+    } catch (e) { console.error(e); alert(`Could not import the world: ${e.message}`); }
+    this.showWorlds();
+  }
+  async exportJava(id) {
+    const w = id && await loadWorld(id);
+    if (!w) return;
+    this.showLoading('message', 'Converting to Java Edition...');
+    try {
+      const { blob, name } = await exportJavaWorld(w, (p, text) => { $('load-msg').textContent = `${text} (${Math.round(p * 100)}%)`; });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob); a.download = name;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+    } catch (e) { console.error(e); alert(`Could not export the world: ${e.message}`); }
+    this.showWorlds();
   }
   async playWorld(id) {
     this.sound.unlock(); this.sound.click();
@@ -493,7 +519,7 @@ class App {
       mode: sv.mode || (m.mode === 'hardcore' ? 'survival' : m.mode), hardcore: m.mode === 'hardcore', difficulty: m.difficulty, cheats: m.cheats,
       rules: { ...(m.rules || {}), doWeatherCycle: false }, time: m.time, day: m.day, weather: m.weather, spawn, dragonKilled: m.dragonKilled, dims: m.dims,
       inventory: sv.inventory, enderChest: sv.enderChest, stats: sv.stats, advancements: sv.advancements,
-      player: sv.player || { pos: spawn.slice(), yaw: Math.PI * 0.75, pitch: 0, flying: false, dim: 0 }, guest: true, genVersion: m.genVersion, palette: m.palette,
+      player: sv.player || { pos: spawn.slice(), yaw: Math.PI * 0.75, pitch: 0, flying: false, dim: 0 }, guest: true, genVersion: m.genVersion, palette: m.palette, java: m.java,
     };
     this.net = net;
     this.startGame(meta);
@@ -691,6 +717,9 @@ class App {
     click('btn-world-download', () => this.downloadWorld(this.selectedWorld));
     click('btn-world-upload', () => $('world-file').click());
     $('world-file').addEventListener('change', e => { const f = e.target.files && e.target.files[0]; e.target.value = ''; if (f) this.uploadWorld(f); });
+    click('btn-world-java-import', () => $('java-file').click());
+    $('java-file').addEventListener('change', e => { const f = e.target.files && e.target.files[0]; e.target.value = ''; if (f) this.importJava(f); });
+    click('btn-world-java-export', () => this.exportJava(this.selectedWorld));
     click('btn-world-back', () => { if (this.hostAfterLoad) this.showMultiplayer(); else this.setMode('title'); });
     click('btn-world-new', () => { this.setMode('create'); $('cw-name').focus(); $('cw-name').select(); this.updateCreateHint(); });
     click('btn-world-play', () => this.selectedWorld && this.playWorld(this.selectedWorld));
