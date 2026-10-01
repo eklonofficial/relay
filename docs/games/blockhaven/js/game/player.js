@@ -1,7 +1,8 @@
 // First-person player movement: walking, sprinting, sneaking, swimming, climbing, flying and spectating.
-import { B, BLOCKS, SHAPE_OF, SHAPE, props } from '../data/blocks.js?v=mupp7m39';
-import { moveEntity } from '../entity/physics.js?v=mupp7m39';
-import { UNLOADED } from '../world/world.js?v=mupp7m39';
+import { B, BLOCKS, SHAPE_OF, SHAPE, props } from '../data/blocks.js?v=muppeqq8';
+import { moveEntity } from '../entity/physics.js?v=muppeqq8';
+import { UNLOADED } from '../world/world.js?v=muppeqq8';
+import { fluidPush, heightAt } from './fluid.js?v=muppeqq8';
 
 export class Player {
   constructor(world) {
@@ -54,12 +55,17 @@ export class Player {
   sampleMedium() {
     const w = this.world;
     const feet = this.blockAt(0.1), mid = this.blockAt(0.9);
-    const isWater = id => id === B.WATER || id === B.SEAGRASS;
-    this.inWater = isWater(feet) || isWater(mid);
-    this.inLava = feet === B.LAVA || mid === B.LAVA;
-    const head = w.getBlock(this.pos[0], this.pos[1] + this.eye, this.pos[2]);
-    this.headInWater = isWater(head);
-    this.headInLava = head === B.LAVA;
+    // In a fluid only where the box reaches below its surface (Entity.updateFluidHeightAndDoFluidPushing).
+    const box = [this.pos[0] - this.hw, this.pos[1], this.pos[2] - this.hw, this.pos[0] + this.hw, this.pos[1] + this.h, this.pos[2] + this.hw];
+    const m = this.pushMotion || [0, 0, 0], pushed = !this.flying && !this.noClip;
+    this.waterHeight = fluidPush(w, box, m, false, 0.014, pushed, false);
+    this.lavaHeight = fluidPush(w, box, m, true, w.dim === 1 ? 0.007 : 0.0023333333333333335, pushed, false);
+    this.inWater = this.waterHeight > 0; this.inLava = this.lavaHeight > 0;
+    // Eye in a fluid: its surface is above the eye less 1/9 of a block (Entity.updateFluidOnEyes).
+    const ey = this.pos[1] + this.eye - 0.11111111, by = Math.floor(ey);
+    const wh = heightAt(w, this.pos[0], ey, this.pos[2], false), lh = heightAt(w, this.pos[0], ey, this.pos[2], true);
+    this.headInWater = wh > 0 && by + wh > ey;
+    this.headInLava = lh > 0 && by + lh > ey;
     const cl = id => id !== UNLOADED && BLOCKS[id] && BLOCKS[id].climbable;
     this.climbing = !this.flying && (cl(feet) || cl(mid));
     this.inWeb = feet === B.COBWEB || mid === B.COBWEB || feet === B.SWEET_BERRY_BUSH;
@@ -104,8 +110,8 @@ export class Player {
 
   tick(input) {
     const wasInWater = this.inWater;
-    this.sampleMedium();
     const m = [this.vel[0] / 20, this.vel[1] / 20, this.vel[2] / 20];
+    this.pushMotion = m; this.sampleMedium(); this.pushMotion = null;
     if (this.inWater && !wasInWater && m[1] < -0.2 && this.onSplash) this.onSplash();
 
     // ---- input (Player.aiStep) ----
@@ -122,8 +128,10 @@ export class Player {
     // ---- jumping ----
     this.jumpDelay = Math.max(0, (this.jumpDelay || 0) - 1);
     if (input.jump && !this.flying && !this.gliding) {
-      if (this.inWater || this.inLava) m[1] += 0.04;
-      else if (this.onGround && this.jumpDelay === 0) {
+      // LivingEntity.aiStep: swim up unless standing in fluid no deeper than 0.4, where you jump.
+      const depth = this.inLava ? this.lavaHeight : this.waterHeight, wet = this.inWater && depth > 0, shallow = this.onGround && !(depth > 0.4);
+      if ((wet && !shallow) || (!wet && this.inLava && !shallow)) m[1] += 0.04;
+      else if ((this.onGround || (wet && depth <= 0.4)) && this.jumpDelay === 0) {
         m[1] = 0.42 * this.jumpFactor() + this.jumpBoost * 0.1;
         if (this.sprinting) { m[0] += -Math.sin(this.yaw) * 0.2; m[2] += -Math.cos(this.yaw) * 0.2; }
         this.jumpDelay = 10;

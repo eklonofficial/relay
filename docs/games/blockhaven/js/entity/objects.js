@@ -1,13 +1,15 @@
 // Non-living entities: dropped items, XP orbs, projectiles, falling blocks, primed TNT, lightning.
-import { Entity, M } from './entity.js?v=mupp7m39';
-import { itemMesh, emitItemMesh } from './itemmesh.js?v=mupp7m39';
-import { I } from '../data/items.js?v=mupp7m39';
-import { B, BLOCKS, SOLID, OPAQUE } from '../data/blocks.js?v=mupp7m39';
-import { compose, translation, rotationX, rotationY, rotationZ, scaling } from '../core/math.js?v=mupp7m39';
-import { maxStack } from '../data/items.js?v=mupp7m39';
-import { AreaCloud } from './cloud.js?v=mupp7m39';
-import { AQUATIC } from '../game/combat.js?v=mupp7m39';
-import { hasGlint } from '../data/enchantments.js?v=mupp7m39';
+import { Entity, M } from './entity.js?v=muppeqq8';
+import { itemMesh, emitItemMesh } from './itemmesh.js?v=muppeqq8';
+import { I } from '../data/items.js?v=muppeqq8';
+import { B, BLOCKS, SOLID, OPAQUE } from '../data/blocks.js?v=muppeqq8';
+import { compose, translation, rotationX, rotationY, rotationZ, scaling } from '../core/math.js?v=muppeqq8';
+import { maxStack } from '../data/items.js?v=muppeqq8';
+import { moveEntity } from './physics.js?v=muppeqq8';
+import { fluidPush } from '../game/fluid.js?v=muppeqq8';
+import { AreaCloud } from './cloud.js?v=muppeqq8';
+import { AQUATIC } from '../game/combat.js?v=muppeqq8';
+import { hasGlint } from '../data/enchantments.js?v=muppeqq8';
 
 // Billboarded sprite quad facing the camera.
 export function billboard(batch, ctx, x, y, z, size, layer, color, uv = [0, 0, 1, 1]) {
@@ -46,9 +48,32 @@ export class ItemEntity extends Entity {
     if (vel) this.vel = vel.slice();
     else this.vel = [(Math.random() - 0.5) * 2, 3, (Math.random() - 0.5) * 2];
   }
+  // ItemEntity.tick, stepped at 20 ticks per second: gravity, drag, floating up through water and
+  // riding its currents (so item streams carry drops like the original).
+  itemPhysics(dt) {
+    this.prev[0] = this.pos[0]; this.prev[1] = this.pos[1]; this.prev[2] = this.pos[2];
+    const w = this.world, m = [this.vel[0] / 20, this.vel[1] / 20, this.vel[2] / 20];
+    this.tickAcc = Math.min(0.25, (this.tickAcc || 0) + dt);
+    while (this.tickAcc >= 0.05) {
+      this.tickAcc -= 0.05;
+      const box = [this.pos[0] - this.hw, this.pos[1], this.pos[2] - this.hw, this.pos[0] + this.hw, this.pos[1] + this.h, this.pos[2] + this.hw];
+      const wh = fluidPush(w, box, m, false, 0.014, true, true), lh = fluidPush(w, box, m, true, w.dim === 1 ? 0.007 : 0.0023333333333333335, true, true);
+      this.inWater = wh > 0; this.inLava = lh > 0;
+      if (wh > 0.1 || lh > 0.1) { const k = wh > 0.1 ? 0.99 : 0.95; m[0] *= k; m[1] += m[1] < 0.06 ? 5e-4 : 0; m[2] *= k; }
+      else m[1] -= 0.04;
+      this.vel = m;
+      moveEntity(w, this, m[0], m[1], m[2]);
+      const below = this.onGround ? w.getBlock(this.pos[0], this.pos[1] - 0.5, this.pos[2]) : 0;
+      const f = this.onGround ? (BLOCKS[below] && BLOCKS[below].slippery ? 0.98 : below === B.SLIME_BLOCK ? 0.8 : 0.6) * 0.98 : 0.98;
+      m[0] *= f; m[1] *= 0.98; m[2] *= f;
+      if (this.onGround && m[1] < 0) m[1] *= -0.5;
+    }
+    this.vel = [m[0] * 20, m[1] * 20, m[2] * 20];
+    if (this.pos[1] < -64) this.dead = true;
+  }
   update(dt) {
-    this.physics(dt);
-    if (this.inWater) this.vel[1] += 20 * dt;
+    this.itemPhysics(dt);
+    if (this.dead) return;
     if (this.inLava || this.fire > 0) { this.dead = true; this.game.particles.smoke(this.pos, 4); this.game.sound.play('fizz', this.pos, 0.4); return; }
     this.pickupDelay -= dt;
     if (this.age > 300) { this.dead = true; return; }
