@@ -330,6 +330,8 @@ for (const c of ['carrots', 'potatoes', 'beetroots', 'nether_wart']) for (let i 
 for (const c of ['pumpkin_stem', 'melon_stem']) for (let i = 0; i < 8; i++) tex(`${c}_stage${i}`);
 for (let i = 0; i < 10; i++) tex(`destroy_${i}`);
 for (const t of ['bed_top_head', 'end_portal_frame_eye', 'water_flow', 'lava_flow', 'lantern_hanging']) tex(t);
+// Flowing liquid tops: the whole (twice as large) flow frame, turned along the current like Java's.
+for (const t of ['water_flow_top', 'lava_flow_top', 'water_overlay']) tex(t);
 for (const t of ['redstone_dust_line', 'repeater_on', 'comparator_on', 'lever_base', 'observer_back', 'observer_back_on', 'daylight_detector_inverted_top',
   'piston_inner', 'hopper_inside', 'dispenser_front_vertical', 'dropper_front_vertical', 'bedrock', 'cobblestone']) tex(t);
 export const CROP_STAGES = [8, 4, 4, 4, 8, 8, 4];

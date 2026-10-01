@@ -1,9 +1,9 @@
 // Chat commands (cheats) with Minecraft-style syntax, ~relative coordinates and suggestions.
-import { B, STATE, DIM, BLOCKS } from '../data/blocks.js?v=muppik1r';
-import { I, ITEMS } from '../data/items.js?v=muppik1r';
-import { MOBS } from '../data/mobs.js?v=muppik1r';
-import { BIOMES } from '../gen/biomes.js?v=muppik1r';
-import { ENCHANTS, canEnchant, compatible, enchantsOf, setEnchants, enchantName } from '../data/enchantments.js?v=muppik1r';
+import { B, STATE, DIM, BLOCKS } from '../data/blocks.js?v=mupq37b9';
+import { I, ITEMS } from '../data/items.js?v=mupq37b9';
+import { MOBS } from '../data/mobs.js?v=mupq37b9';
+import { BIOMES } from '../gen/biomes.js?v=mupq37b9';
+import { ENCHANTS, canEnchant, compatible, enchantsOf, setEnchants, enchantName } from '../data/enchantments.js?v=mupq37b9';
 
 const MODES = { survival: 'survival', s: 'survival', 0: 'survival', creative: 'creative', c: 'creative', 1: 'creative', adventure: 'adventure', a: 'adventure', 2: 'adventure', spectator: 'spectator', sp: 'spectator', 3: 'spectator' };
 const DIMS = { overworld: DIM.OVERWORLD, 'minecraft:overworld': DIM.OVERWORLD, nether: DIM.NETHER, the_nether: DIM.NETHER, 'minecraft:the_nether': DIM.NETHER, end: DIM.END, the_end: DIM.END, 'minecraft:the_end': DIM.END };

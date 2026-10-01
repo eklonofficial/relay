@@ -1,39 +1,39 @@
 // Blockhaven bootstrap: assets, menus, input, camera, frame loop.
-import { Demo, DEMO_SEED } from './demo.js?v=muppik1r';
-import { armorModel, armorSkinKey, ARMOR_MATERIALS, ARMOR_PIECES, elytraModel } from './data/armor.js?v=muppik1r';
-import { TEXTURES, TEX, B, BLOCKS, DIM, DIM_NAMES, SHAPE_OF, SHAPE, props, HEIGHT } from './data/blocks.js?v=muppik1r';
-import { I, ITEMS } from './data/items.js?v=muppik1r';
-import { MOBS, PROFESSIONS, playerModel, saddleModel, PLAYER_SKINS } from './data/mobs.js?v=muppik1r';
-import { Net, cleanCode, cleanName, cleanKey, cleanChat, chatLine, MAX_PLAYERS, wakeRelays, diagnoseNetwork } from './net/net.js?v=muppik1r';
-import { NameTags } from './net/nametags.js?v=muppik1r';
-import { BIOMES } from './gen/biomes.js?v=muppik1r';
-import { generateBlockTextures, drawBlockTexture } from './render/blocktex.js?v=muppik1r';
-import { generateItemTextures, ITEM_LAYER, FX_LAYER, ITEM_LAYER_COUNT, flatTexFor } from './render/itemtex.js?v=muppik1r';
-import { Zip, storedPack, savePack, removePack, applyBlockTextures, applyItemTextures, indexSounds } from './render/pack.js?v=muppik1r';
-import { packModel, paintModel, SKIN, faceRects } from './render/mobtex.js?v=muppik1r';
-import { buildMipChain } from './render/atlas.js?v=muppik1r';
-import { Renderer, Batch } from './render/renderer.js?v=muppik1r';
-import { World, UNLOADED } from './world/world.js?v=muppik1r';
-import { createGenerator } from './gen/index.js?v=muppik1r';
-import { Game } from './game/game.js?v=muppik1r';
-import { Interact, crossbowCharge } from './game/interact.js?v=muppik1r';
-import { SpawnPrep, STATUS_COLOR } from './game/spawnprep.js?v=muppik1r';
-import { splash } from './splash.js?v=muppik1r';
-import { Commands } from './game/commands.js?v=muppik1r';
-import { GUI, HUD } from './game/ui.js?v=muppik1r';
-import { buildIcons, hudSprites } from './game/icons.js?v=muppik1r';
-import { Sound } from './game/audio.js?v=muppik1r';
-import { buildLogo, buttonTexture, dirtTexture, iconDataURL } from './render/logo.js?v=muppik1r';
-import { computeEnv } from './game/env.js?v=muppik1r';
-import { guideSections } from './game/guide.js?v=muppik1r';
-import { listWorlds, loadWorld, saveWorld, deleteWorld } from './game/storage.js?v=muppik1r';
-import { importJavaWorld, exportJavaWorld } from './game/javaworld.js?v=muppik1r';
-import { drawModel, rootMatrix, M } from './entity/entity.js?v=muppik1r';
-import { itemMesh, emitItemMesh, clearItemMeshes } from './entity/itemmesh.js?v=muppik1r';
-import { Lightning } from './entity/objects.js?v=muppik1r';
-import { compose, translation, rotationX, rotationY, rotationZ, scaling, forward, mat4 } from './core/math.js?v=muppik1r';
-import { hasGlint } from './data/enchantments.js?v=muppik1r';
-import { BarrelRoll } from './game/barrelroll.js?v=muppik1r';
+import { Demo, DEMO_SEED } from './demo.js?v=mupq37b9';
+import { armorModel, armorSkinKey, ARMOR_MATERIALS, ARMOR_PIECES, elytraModel } from './data/armor.js?v=mupq37b9';
+import { TEXTURES, TEX, B, BLOCKS, DIM, DIM_NAMES, SHAPE_OF, SHAPE, props, HEIGHT } from './data/blocks.js?v=mupq37b9';
+import { I, ITEMS } from './data/items.js?v=mupq37b9';
+import { MOBS, PROFESSIONS, playerModel, saddleModel, PLAYER_SKINS } from './data/mobs.js?v=mupq37b9';
+import { Net, cleanCode, cleanName, cleanKey, cleanChat, chatLine, MAX_PLAYERS, wakeRelays, diagnoseNetwork } from './net/net.js?v=mupq37b9';
+import { NameTags } from './net/nametags.js?v=mupq37b9';
+import { BIOMES } from './gen/biomes.js?v=mupq37b9';
+import { generateBlockTextures, drawBlockTexture } from './render/blocktex.js?v=mupq37b9';
+import { generateItemTextures, ITEM_LAYER, FX_LAYER, ITEM_LAYER_COUNT, flatTexFor } from './render/itemtex.js?v=mupq37b9';
+import { Zip, storedPack, savePack, removePack, applyBlockTextures, applyItemTextures, indexSounds } from './render/pack.js?v=mupq37b9';
+import { packModel, paintModel, SKIN, faceRects } from './render/mobtex.js?v=mupq37b9';
+import { buildMipChain } from './render/atlas.js?v=mupq37b9';
+import { Renderer, Batch } from './render/renderer.js?v=mupq37b9';
+import { World, UNLOADED } from './world/world.js?v=mupq37b9';
+import { createGenerator } from './gen/index.js?v=mupq37b9';
+import { Game } from './game/game.js?v=mupq37b9';
+import { Interact, crossbowCharge } from './game/interact.js?v=mupq37b9';
+import { SpawnPrep, STATUS_COLOR } from './game/spawnprep.js?v=mupq37b9';
+import { splash } from './splash.js?v=mupq37b9';
+import { Commands } from './game/commands.js?v=mupq37b9';
+import { GUI, HUD } from './game/ui.js?v=mupq37b9';
+import { buildIcons, hudSprites } from './game/icons.js?v=mupq37b9';
+import { Sound } from './game/audio.js?v=mupq37b9';
+import { buildLogo, buttonTexture, dirtTexture, iconDataURL } from './render/logo.js?v=mupq37b9';
+import { computeEnv } from './game/env.js?v=mupq37b9';
+import { guideSections } from './game/guide.js?v=mupq37b9';
+import { listWorlds, loadWorld, saveWorld, deleteWorld } from './game/storage.js?v=mupq37b9';
+import { importJavaWorld, exportJavaWorld } from './game/javaworld.js?v=mupq37b9';
+import { drawModel, rootMatrix, M } from './entity/entity.js?v=mupq37b9';
+import { itemMesh, emitItemMesh, clearItemMeshes } from './entity/itemmesh.js?v=mupq37b9';
+import { Lightning } from './entity/objects.js?v=mupq37b9';
+import { compose, translation, rotationX, rotationY, rotationZ, scaling, forward, mat4 } from './core/math.js?v=mupq37b9';
+import { hasGlint } from './data/enchantments.js?v=mupq37b9';
+import { BarrelRoll } from './game/barrelroll.js?v=mupq37b9';
 
 const $ = id => document.getElementById(id);
 // Resolves after the page has painted what was just put on screen.
@@ -700,8 +700,9 @@ class App {
   // Apply one Java resource pack over the current textures and sounds. Player-selected packs
   // layer over the bundled defaults, so an omitted asset keeps the built-in replacement.
   async applyPack(zip, soundOverlay = false) {
-    const nb = await applyBlockTextures(zip, TEXTURES, this.blockTex);
-    if (nb) this.renderer.setBlockTextures(buildMipChain(this.blockTex), TEXTURES.length);
+    if (!this.blockAnims) this.blockAnims = new Map();
+    const nb = await applyBlockTextures(zip, TEXTURES, this.blockTex, this.blockAnims);
+    if (nb) { this.renderer.setBlockTextures(buildMipChain(this.blockTex), TEXTURES.length); this.renderer.setAnimations(this.blockAnims); }
     const entries = [];
     for (const it of ITEMS) if (ITEM_LAYER[it.key] !== undefined) entries.push([it.key, ITEM_LAYER[it.key], it.block ? flatTexFor(it) : null]);
     for (const f of ['bow_pulling_0', 'bow_pulling_1', 'bow_pulling_2', 'crossbow_pulling_0', 'crossbow_pulling_1', 'crossbow_pulling_2', 'crossbow_arrow', 'crossbow_firework', 'fishing_rod_cast']) if (FX_LAYER[f] !== undefined) entries.push([f, FX_LAYER[f], null]);
@@ -1012,6 +1013,8 @@ class App {
     // Java's width / 2 and height / 2: the GUI size is the window over the scale, rounded up.
     const hw = Math.floor(Math.ceil(window.innerWidth / gs) / 2), hh = Math.floor(Math.ceil(window.innerHeight / gs) / 2);
     if (hw !== this.guiHalfW || hh !== this.guiHalfH) { this.guiHalfW = hw; this.guiHalfH = hh; document.documentElement.style.setProperty('--half-w', hw); document.documentElement.style.setProperty('--half-h', hh); }
+    const tick = Math.floor(this.time * 20);
+    if (tick !== this.lastTick) { this.lastTick = tick; this.renderer.animate(tick); } // the 20 Hz client tick
     if (!this.game) { this.framePanorama(dt); return; }
     this.frameGame(dt);
   }
