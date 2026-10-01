@@ -1,11 +1,11 @@
 // The in-game guide: features, commands, crafting, farming, combat, villagers, dimensions and graphics.
-import { MusicPlayer } from './music.js?v=muown4x2';
-import { BLOCKS, BLOCK_ITEMS, TEXTURES } from '../data/blocks.js?v=muown4x2';
-import { ITEMS, I } from '../data/items.js?v=muown4x2';
-import { SHAPED, SHAPELESS, SMELTING } from '../data/recipes.js?v=muown4x2';
-import { MOBS } from '../data/mobs.js?v=muown4x2';
-import { BIOMES } from '../gen/biomes.js?v=muown4x2';
-import { COMMANDS } from './commands.js?v=muown4x2';
+import { MusicPlayer } from './music.js?v=muowuzbj';
+import { BLOCKS, BLOCK_ITEMS, TEXTURES } from '../data/blocks.js?v=muowuzbj';
+import { ITEMS, I } from '../data/items.js?v=muowuzbj';
+import { SHAPED, SHAPELESS, SMELTING } from '../data/recipes.js?v=muowuzbj';
+import { MOBS } from '../data/mobs.js?v=muowuzbj';
+import { BIOMES } from '../gen/biomes.js?v=muowuzbj';
+import { COMMANDS } from './commands.js?v=muowuzbj';
 
 const esc = s => String(s).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
 
@@ -35,6 +35,9 @@ export function guideSections(icons) {
         <li><b>Redstone:</b> dust, torches, repeaters, comparators, pistons, observers, hoppers, droppers, dispensers and more, simulated like Java Edition.</li>
         <li><b>Simulation:</b> flowing water and lava with levels, obsidian and cobblestone generation, falling sand, fire spread, TNT and explosions, weather with rain, snow, thunder and lightning.</li>
         <li><b>Dimensions:</b> the Nether (portals, fortresses, five biomes) and the End (strongholds, eyes of ender, end crystals and the Ender Dragon).</li>
+        <li><b>Java Edition worlds:</b> import your Minecraft: Java Edition worlds (1.13 or newer) and export any Blockhaven world back to Java 1.20.1 — see <b>Java worlds &amp; packs</b>.</li>
+        <li><b>Resource packs:</b> load a Java Edition resource pack to replace block, item and sound assets.</li>
+        <li><b>Graphics:</b> reflective water with Fresnel, cloud reflections and caustics, god rays at sunrise and sunset, real-time shadows and bloom, render distance up to 32 chunks on the High and PC presets.</li>
       </ul>
       <h4>Some of the ${ITEMS.length} items</h4>
       ${strip(['diamond_sword', 'netherite_pickaxe', 'bow', 'crossbow', 'trident', 'shield', 'diamond_chestplate', 'golden_apple', 'ender_eye', 'blaze_rod', 'totem_of_undying', 'fishing_rod', 'bucket', 'lava_bucket', 'flint_and_steel', 'compass', 'clock', 'bone_meal', 'wheat', 'carrot', 'emerald', 'redstone', 'amethyst_shard', 'name_tag', 'saddle', 'cake' in I ? 'cake' : 'cookie', 'pumpkin_pie', 'enchanted_golden_apple', 'zombie_spawn_egg', 'creeper_spawn_egg'])}
@@ -72,8 +75,33 @@ export function guideSections(icons) {
       <p>The host's world is the real one: it is saved on the host's computer along with every guest's inventory and position, so guests can leave and come back later. Everyone sees the same mobs, animals, dropped items and XP; monsters chase whichever player is nearest. Block changes, chests and furnaces, chat, day/night and weather are shared too. Name tags show through walls at any distance, except for sneaking players.</p>
       <p>PvP is on: swords, axes, arrows and explosions hurt other players, with armour, shields and knockback working as usual.</p>
       <p>If joining fails from a different network, the network may block direct connections; see MULTIPLAYER.md in the project for the free fix.</p>
+      <p>Imported Java worlds work in multiplayer too: guests receive the imported terrain from the host as they explore.</p>
       <h4>Moving worlds</h4>
       <p>In <b>Singleplayer</b>, select a world and press <b>Download</b> to save it as a <b>.bhworld</b> file; <b>Upload</b> adds such a file as a new world, on this or any other computer. Worlds from older versions keep all their builds, items and progress, and pick up new structures, with their loot and mobs, across the world; your own changes always win.</p>`,
+    'Java worlds & packs': `
+      <h4>Import a Java Edition world</h4>
+      <ol>
+        <li>In Minecraft: Java Edition, find the world folder: <b>Singleplayer</b> → select the world → <b>Edit</b> → <b>Open World Folder</b> (or <code>.minecraft/saves/&lt;world name&gt;</code>). The right folder is the one containing <code>level.dat</code> and a <code>region</code> folder.</li>
+        <li>Zip that folder (Windows: right-click → <b>Send to</b> → <b>Compressed (zipped) folder</b>; Mac: right-click → <b>Compress</b>).</li>
+        <li>In Blockhaven: <b>Singleplayer</b> → <b>Import Java World…</b> and choose the zip. It appears in the world list, ready to play.</li>
+      </ol>
+      <table>
+        <tr><td>Versions</td><td>Java Edition <b>1.13 or newer</b> (including 1.18–1.21 worlds). Older worlds (1.12 and before) must first be opened and saved once in 1.13 or newer. Bedrock Edition worlds are not supported.</td></tr>
+        <tr><td>What comes across</td><td>Every generated chunk in the Overworld, Nether and End; biomes; chest, barrel, hopper, dispenser and dropper contents; the world name, seed, time, game mode, difficulty and spawn; your position and inventory.</td></tr>
+        <tr><td>Blocks</td><td>Blocks Blockhaven has keep their state (stairs facing, slab halves, log axes, doors, redstone settings...). Blocks it lacks become the closest one it has: polished granite stairs → stone stairs, glazed terracotta → plain terracotta; signs, banners and candles are left out.</td></tr>
+        <tr><td>Height</td><td>Blockhaven worlds are 256 blocks tall, so the Overworld keeps Java heights −2 to 253 (sea levels line up); anything deeper or higher is cut off.</td></tr>
+        <tr><td>Beyond the edge</td><td>Past the chunks you imported, Blockhaven generates its own terrain, so you'll see a seam where the two meet.</td></tr>
+        <tr><td>Not imported</td><td>Mobs and other entities, signs' text, enchantments and item names.</td></tr>
+      </table>
+      <h4>Export a world to Java Edition</h4>
+      <ol>
+        <li><b>Singleplayer</b> → select a world → <b>Export to Java</b>. A <b>.zip</b> downloads.</li>
+        <li>Unzip it into your Minecraft <code>saves</code> folder (Java Edition → <b>Singleplayer</b> → any world → <b>Edit</b> → <b>Open World Folder</b>, then go up one level).</li>
+        <li>Open it with Java Edition <b>1.20.1 or newer</b> (newer versions upgrade it automatically).</li>
+      </ol>
+      <p>The export contains every chunk you've visited, edited or imported in all three dimensions, with chests, your position and your inventory. Minecraft generates its own terrain beyond them.</p>
+      <h4>Resource packs</h4>
+      <p><b>Options</b> → <b>Resource Packs...</b> and choose a Java Edition resource pack <b>.zip</b>. Its block textures, item textures and sounds replace Blockhaven's own (anything the pack doesn't include keeps the built-in look). The pack stays in this browser; choose the button again to remove it.</p>`,
     Commands: `
       <p>Open chat with <code>T</code> or <code>/</code>. Commands need <b>Allow Cheats</b> (set when creating a world). Press <code>Tab</code> to complete names, and <code>↑</code>/<code>↓</code> for history. Coordinates accept <code>~</code> for "relative to me", e.g. <code>/tp ~ ~20 ~</code>.</p>
       <table>${Object.entries(COMMANDS).map(([k, v]) => `<tr><td>/${k} ${esc(v.args)}</td><td>${esc(v.desc)}</td></tr>`).join('')}</table>
@@ -169,6 +197,13 @@ export function guideSections(icons) {
         <tr><td>High</td><td>Adds real-time sun shadows, god rays and bloom. For stronger laptops.</td></tr>
         <tr><td>PC</td><td>Everything at full quality: sharper, softer shadows, screen-space reflections on water, stronger god rays and bloom, and anti-aliasing. For gaming PCs.</td></tr>
       </table>
-      <p>Dynamic resolution (on by default) briefly lowers resolution only if the frame rate drops, keeping play smooth on slower machines.</p>`,
+      <p>Dynamic resolution (on by default) briefly lowers resolution only if the frame rate drops, keeping play smooth on slower machines.</p>
+      <p><b>Render distance</b> goes up to 14 chunks, or <b>32 chunks</b> on the High and PC presets. Far distances need a strong PC and a lot of memory.</p>
+      <h4>Mouse &amp; latency (Options)</h4>
+      <table>
+        <tr><td>Raw Input</td><td>On by default, like Minecraft. Uses your mouse's own movement without the operating system's pointer acceleration, which otherwise shrinks slow movements and feels like a dead zone. Turn it off if your browser doesn't support it.</td></tr>
+        <tr><td>Low Latency</td><td>Draws straight to the screen, skipping a frame of browser buffering, so the view reacts sooner. On by default except on Chromebooks; turn it off if you see flicker or tearing. Changing it reloads the page.</td></tr>
+        <tr><td>F3</td><td>The debug screen shows mouse samples per second, whether raw input is active, and the latency mode, as well as FPS, position and more.</td></tr>
+      </table>`,
   };
 }

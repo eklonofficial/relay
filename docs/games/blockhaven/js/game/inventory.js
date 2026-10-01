@@ -1,5 +1,5 @@
 // Item stacks and containers. A stack is { key, count, dmg?, tag? } or null.
-import { I, maxStack } from '../data/items.js?v=muown4x2';
+import { I, maxStack } from '../data/items.js?v=muowuzbj';
 
 export const stack = (key, count = 1, extra = {}) => (I[key] ? { key, count, ...extra } : null);
 export const clone = s => (s ? { ...s, tag: s.tag ? { ...s.tag } : undefined } : null);
