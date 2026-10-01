@@ -1,11 +1,11 @@
 // The in-game guide: features, commands, crafting, farming, combat, villagers, dimensions and graphics.
-import { MusicPlayer } from './music.js?v=muowuzbj';
-import { BLOCKS, BLOCK_ITEMS, TEXTURES } from '../data/blocks.js?v=muowuzbj';
-import { ITEMS, I } from '../data/items.js?v=muowuzbj';
-import { SHAPED, SHAPELESS, SMELTING } from '../data/recipes.js?v=muowuzbj';
-import { MOBS } from '../data/mobs.js?v=muowuzbj';
-import { BIOMES } from '../gen/biomes.js?v=muowuzbj';
-import { COMMANDS } from './commands.js?v=muowuzbj';
+import { MusicPlayer } from './music.js?v=muox46vc';
+import { BLOCKS, BLOCK_ITEMS, TEXTURES } from '../data/blocks.js?v=muox46vc';
+import { ITEMS, I } from '../data/items.js?v=muox46vc';
+import { SHAPED, SHAPELESS, SMELTING } from '../data/recipes.js?v=muox46vc';
+import { MOBS } from '../data/mobs.js?v=muox46vc';
+import { BIOMES } from '../gen/biomes.js?v=muox46vc';
+import { COMMANDS } from './commands.js?v=muox46vc';
 
 const esc = s => String(s).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
 
@@ -86,6 +86,7 @@ export function guideSections(icons) {
         <li>In Blockhaven: <b>Singleplayer</b> → <b>Import Java World…</b> and choose the zip. It appears in the world list, ready to play.</li>
       </ol>
       <table>
+        <tr><td>Which file?</td><td>A <b>.zip</b> of the world folder (the one with <code>level.dat</code>). Downloads that come as <b>.rar</b> or <b>.7z</b> must be extracted first (7-Zip, WinRAR), then the world folder zipped. Map downloads often also include a <b>shader pack</b> (a <code>shaders</code> folder with <code>shaders.properties</code>) or a <b>resource pack</b> (<code>pack.mcmeta</code>): those aren't worlds. Blockhaven has its own shaders built in; resource packs go in Options → Resource Packs.</td></tr>
         <tr><td>Versions</td><td>Java Edition <b>1.13 or newer</b> (including 1.18–1.21 worlds). Older worlds (1.12 and before) must first be opened and saved once in 1.13 or newer. Bedrock Edition worlds are not supported.</td></tr>
         <tr><td>What comes across</td><td>Every generated chunk in the Overworld, Nether and End; biomes; chest, barrel, hopper, dispenser and dropper contents; the world name, seed, time, game mode, difficulty and spawn; your position and inventory.</td></tr>
         <tr><td>Blocks</td><td>Blocks Blockhaven has keep their state (stairs facing, slab halves, log axes, doors, redstone settings...). Blocks it lacks become the closest one it has: polished granite stairs → stone stairs, glazed terracotta → plain terracotta; signs, banners and candles are left out.</td></tr>

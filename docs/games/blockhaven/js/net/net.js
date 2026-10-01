@@ -9,10 +9,10 @@
 // own hands, or their own water/fire/sand simulation) broadcasts it once; everyone else mirrors it
 // silently, so nothing is applied twice. The host keeps the authoritative save, including each
 // guest's inventory and position, and owns the clock and the weather.
-import { RemotePlayer } from './remote.js?v=muowuzbj';
-import { getChunk } from '../game/storage.js?v=muowuzbj';
-import { EntitySync } from './share.js?v=muowuzbj';
-import { hostRoom, joinRoom } from './transport.js?v=muowuzbj';
+import { RemotePlayer } from './remote.js?v=muox46vc';
+import { getChunk } from '../game/storage.js?v=muox46vc';
+import { EntitySync } from './share.js?v=muox46vc';
+import { hostRoom, joinRoom } from './transport.js?v=muox46vc';
 
 export const MAX_PLAYERS = 5;
 const PREFIX = 'blockhaven-v1-';
@@ -66,7 +66,7 @@ function loadLib() {
   if (!libPromise) {
     libPromise = new Promise((resolve, reject) => {
       const s = document.createElement('script');
-      s.src = new URL('../../vendor/peerjs.min.js?v=muowuzbj', import.meta.url).href;
+      s.src = new URL('../../vendor/peerjs.min.js?v=muox46vc', import.meta.url).href;
       s.onload = () => resolve();
       s.onerror = () => { libPromise = null; reject(new Error('Could not load the multiplayer library. Check your connection.')); };
       document.head.appendChild(s);

@@ -32,7 +32,12 @@ export class Zip {
     const tail = new DataView(await blob.slice(Math.max(0, blob.size - 65557)).arrayBuffer());
     let eocd = -1;
     for (let i = tail.byteLength - 22; i >= 0; i--) if (tail.getUint32(i, true) === 0x06054b50) { eocd = i; break; }
-    if (eocd < 0) throw new Error('This file is not a .zip.');
+    if (eocd < 0) {
+      const head = new Uint8Array(await blob.slice(0, 8).arrayBuffer());
+      if (head[0] === 0x52 && head[1] === 0x61 && head[2] === 0x72 && head[3] === 0x21) throw new Error('This is a .rar file, which browsers cannot open. Extract it first (for example with 7-Zip or WinRAR), then zip the folder you need and choose that .zip.');
+      if (head[0] === 0x37 && head[1] === 0x7a && head[2] === 0xbc && head[3] === 0xaf) throw new Error('This is a .7z file, which browsers cannot open. Extract it first, then zip the folder you need and choose that .zip.');
+      throw new Error('This file is not a .zip.');
+    }
     const n = tail.getUint16(eocd + 10, true), size = tail.getUint32(eocd + 12, true), off = tail.getUint32(eocd + 16, true);
     const cd = new DataView(await blob.slice(off, off + size).arrayBuffer());
     const dec = new TextDecoder();
