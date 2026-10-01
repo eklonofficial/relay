@@ -1,8 +1,8 @@
-import { CHUNK, TEX, DIM } from '../data/blocks.js?v=muown4x2';
-import { meshSingleBlock, STRIDE } from '../mesh/mesher.js?v=muown4x2';
-import * as S from './shaders.js?v=muown4x2';
-import { uploadArray } from './atlas.js?v=muown4x2';
-import { mat4, perspective, multiply, invert, viewMatrix, frustumPlanes, boxVisible } from '../core/math.js?v=muown4x2';
+import { CHUNK, TEX, DIM } from '../data/blocks.js?v=muowuzbj';
+import { meshSingleBlock, STRIDE } from '../mesh/mesher.js?v=muowuzbj';
+import * as S from './shaders.js?v=muowuzbj';
+import { uploadArray } from './atlas.js?v=muowuzbj';
+import { mat4, perspective, multiply, invert, viewMatrix, frustumPlanes, boxVisible } from '../core/math.js?v=muowuzbj';
 
 // Graphics presets: 0 Disabled, 1 Regular, 2 High, 3 PC.
 export const QUALITY = [
@@ -48,8 +48,9 @@ export class Batch {
 }
 
 export class Renderer {
-  constructor(canvas) {
-    const gl = canvas.getContext('webgl2', { antialias: false, alpha: false, depth: true, powerPreference: 'high-performance', preserveDrawingBuffer: false });
+  constructor(canvas, opts = {}) {
+    // desynchronized (low latency) draws straight to the screen, skipping a frame of compositor buffering.
+    const gl = canvas.getContext('webgl2', { antialias: false, alpha: false, depth: true, powerPreference: 'high-performance', preserveDrawingBuffer: false, desynchronized: !!opts.lowLatency });
     if (!gl) throw new Error('WebGL 2 is not available in this browser.');
     this.gl = gl;
     this.canvas = canvas;

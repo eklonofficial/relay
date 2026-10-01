@@ -381,7 +381,7 @@
 <body>
 <div id="boot"><canvas id="boot-canvas"></canvas></div>
 <!-- data-modules: how many modules the page loads, kept up to date by tools/stamp.mjs (the splash's download progress) -->
-<script type="module" id="boot-script" src="js/splash.js?v=muown4x2" data-modules="68"></script>
+<script type="module" id="boot-script" src="js/splash.js?v=muowuzbj" data-modules="68"></script>
 <canvas id="game"></canvas>
 
 <div id="demo" class="hidden">
@@ -502,7 +502,7 @@
   <div class="body">
     <div class="opts">
       <button class="half" id="set-gfx">Graphics</button>
-      <input type="range" id="set-rd" min="3" max="14">
+      <input type="range" id="set-rd" min="3" max="32">
       <input type="range" id="set-fov" min="50" max="110">
       <input type="range" id="set-sens" min="10" max="250">
       <input type="range" id="set-bright" min="0" max="100">
@@ -513,6 +513,8 @@
       <button class="half" id="set-autojump">Auto-Jump</button>
       <button class="half" id="set-particles">Particles</button>
       <button class="half" id="set-dynres">Dynamic Resolution</button>
+      <button class="half" id="set-raw">Raw Input</button>
+      <button class="half" id="set-lowlat">Low Latency</button>
       <button class="half" id="set-pack">Resource Packs...</button>
       <input type="file" id="pack-file" accept=".zip,application/zip" hidden>
     </div>
@@ -557,7 +559,7 @@
 </div>
 
 <div id="error" class="screen dirt hidden"></div>
-<script defer src="net-config.js?v=muown4x2"></script>
-<script type="module" src="js/main.js?v=muown4x2"></script>
+<script defer src="net-config.js?v=muowuzbj"></script>
+<script type="module" src="js/main.js?v=muowuzbj"></script>
 </body>
 </html>

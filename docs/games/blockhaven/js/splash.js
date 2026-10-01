@@ -5,7 +5,7 @@
 //   0 - 0.3  modules downloaded (counted against the module graph, from the tools/stamp.mjs count)
 //   0.3 - 1  main.js's own steps: textures, then the title panorama streaming in
 // then calls splash.ready(). The splash plays its animation out, fades, and removes itself.
-import { SplashArt } from './render/splashart.js?v=muown4x2';
+import { SplashArt } from './render/splashart.js?v=muowuzbj';
 
 const root = document.getElementById('boot'), canvas = document.getElementById('boot-canvas');
 const reduced = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
@@ -26,7 +26,7 @@ function finish() {
 if (!root || !canvas) stopped = true;
 else if ('transferControlToOffscreen' in canvas && typeof Worker === 'function') {
   const off = canvas.transferControlToOffscreen();
-  const worker = new Worker(new URL('./render/splashworker.js?v=muown4x2', import.meta.url), { type: 'module' });
+  const worker = new Worker(new URL('./render/splashworker.js?v=muowuzbj', import.meta.url), { type: 'module' });
   worker.onmessage = e => { if (e.data.type === 'done') { worker.terminate(); finish(); } };
   worker.onerror = () => { worker.terminate(); finish(); }; // e.g. no module workers: just get out of the way
   worker.postMessage({ type: 'init', canvas: off, reduced, ...size() }, [off]);

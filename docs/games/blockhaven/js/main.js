@@ -1,37 +1,37 @@
 // Blockhaven bootstrap: assets, menus, input, camera, frame loop.
-import { Demo, DEMO_SEED } from './demo.js?v=muown4x2';
-import { armorModel, armorSkinKey, ARMOR_MATERIALS, ARMOR_PIECES, elytraModel } from './data/armor.js?v=muown4x2';
-import { TEXTURES, TEX, B, BLOCKS, DIM, DIM_NAMES, SHAPE_OF, SHAPE, props, HEIGHT } from './data/blocks.js?v=muown4x2';
-import { I, ITEMS } from './data/items.js?v=muown4x2';
-import { MOBS, PROFESSIONS, playerModel, saddleModel, PLAYER_SKINS } from './data/mobs.js?v=muown4x2';
-import { Net, cleanCode, cleanName, cleanKey, cleanChat, chatLine, MAX_PLAYERS } from './net/net.js?v=muown4x2';
-import { NameTags } from './net/nametags.js?v=muown4x2';
-import { BIOMES } from './gen/biomes.js?v=muown4x2';
-import { generateBlockTextures, drawBlockTexture } from './render/blocktex.js?v=muown4x2';
-import { generateItemTextures, ITEM_LAYER, FX_LAYER, ITEM_LAYER_COUNT, flatTexFor } from './render/itemtex.js?v=muown4x2';
-import { Zip, storedPack, savePack, removePack, applyBlockTextures, applyItemTextures, indexSounds } from './render/pack.js?v=muown4x2';
-import { packModel, paintModel, SKIN, faceRects } from './render/mobtex.js?v=muown4x2';
-import { buildMipChain } from './render/atlas.js?v=muown4x2';
-import { Renderer, Batch } from './render/renderer.js?v=muown4x2';
-import { World, UNLOADED } from './world/world.js?v=muown4x2';
-import { createGenerator } from './gen/index.js?v=muown4x2';
-import { Game } from './game/game.js?v=muown4x2';
-import { Interact, CROSSBOW_CHARGE } from './game/interact.js?v=muown4x2';
-import { SpawnPrep, STATUS_COLOR } from './game/spawnprep.js?v=muown4x2';
-import { splash } from './splash.js?v=muown4x2';
-import { Commands } from './game/commands.js?v=muown4x2';
-import { GUI, HUD } from './game/ui.js?v=muown4x2';
-import { buildIcons, hudSprites } from './game/icons.js?v=muown4x2';
-import { Sound } from './game/audio.js?v=muown4x2';
-import { buildLogo, buttonTexture, dirtTexture, iconDataURL } from './render/logo.js?v=muown4x2';
-import { computeEnv } from './game/env.js?v=muown4x2';
-import { guideSections } from './game/guide.js?v=muown4x2';
-import { listWorlds, loadWorld, saveWorld, deleteWorld } from './game/storage.js?v=muown4x2';
-import { importJavaWorld, exportJavaWorld } from './game/javaworld.js?v=muown4x2';
-import { drawModel, rootMatrix, M } from './entity/entity.js?v=muown4x2';
-import { itemMesh, emitItemMesh, clearItemMeshes } from './entity/itemmesh.js?v=muown4x2';
-import { Lightning } from './entity/objects.js?v=muown4x2';
-import { compose, translation, rotationX, rotationY, rotationZ, scaling, forward, mat4 } from './core/math.js?v=muown4x2';
+import { Demo, DEMO_SEED } from './demo.js?v=muowuzbj';
+import { armorModel, armorSkinKey, ARMOR_MATERIALS, ARMOR_PIECES, elytraModel } from './data/armor.js?v=muowuzbj';
+import { TEXTURES, TEX, B, BLOCKS, DIM, DIM_NAMES, SHAPE_OF, SHAPE, props, HEIGHT } from './data/blocks.js?v=muowuzbj';
+import { I, ITEMS } from './data/items.js?v=muowuzbj';
+import { MOBS, PROFESSIONS, playerModel, saddleModel, PLAYER_SKINS } from './data/mobs.js?v=muowuzbj';
+import { Net, cleanCode, cleanName, cleanKey, cleanChat, chatLine, MAX_PLAYERS } from './net/net.js?v=muowuzbj';
+import { NameTags } from './net/nametags.js?v=muowuzbj';
+import { BIOMES } from './gen/biomes.js?v=muowuzbj';
+import { generateBlockTextures, drawBlockTexture } from './render/blocktex.js?v=muowuzbj';
+import { generateItemTextures, ITEM_LAYER, FX_LAYER, ITEM_LAYER_COUNT, flatTexFor } from './render/itemtex.js?v=muowuzbj';
+import { Zip, storedPack, savePack, removePack, applyBlockTextures, applyItemTextures, indexSounds } from './render/pack.js?v=muowuzbj';
+import { packModel, paintModel, SKIN, faceRects } from './render/mobtex.js?v=muowuzbj';
+import { buildMipChain } from './render/atlas.js?v=muowuzbj';
+import { Renderer, Batch } from './render/renderer.js?v=muowuzbj';
+import { World, UNLOADED } from './world/world.js?v=muowuzbj';
+import { createGenerator } from './gen/index.js?v=muowuzbj';
+import { Game } from './game/game.js?v=muowuzbj';
+import { Interact, CROSSBOW_CHARGE } from './game/interact.js?v=muowuzbj';
+import { SpawnPrep, STATUS_COLOR } from './game/spawnprep.js?v=muowuzbj';
+import { splash } from './splash.js?v=muowuzbj';
+import { Commands } from './game/commands.js?v=muowuzbj';
+import { GUI, HUD } from './game/ui.js?v=muowuzbj';
+import { buildIcons, hudSprites } from './game/icons.js?v=muowuzbj';
+import { Sound } from './game/audio.js?v=muowuzbj';
+import { buildLogo, buttonTexture, dirtTexture, iconDataURL } from './render/logo.js?v=muowuzbj';
+import { computeEnv } from './game/env.js?v=muowuzbj';
+import { guideSections } from './game/guide.js?v=muowuzbj';
+import { listWorlds, loadWorld, saveWorld, deleteWorld } from './game/storage.js?v=muowuzbj';
+import { importJavaWorld, exportJavaWorld } from './game/javaworld.js?v=muowuzbj';
+import { drawModel, rootMatrix, M } from './entity/entity.js?v=muowuzbj';
+import { itemMesh, emitItemMesh, clearItemMeshes } from './entity/itemmesh.js?v=muowuzbj';
+import { Lightning } from './entity/objects.js?v=muowuzbj';
+import { compose, translation, rotationX, rotationY, rotationZ, scaling, forward, mat4 } from './core/math.js?v=muowuzbj';
 
 const $ = id => document.getElementById(id);
 // Resolves after the page has painted what was just put on screen.
@@ -43,7 +43,7 @@ const store = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } ca
 const LOW_END = /CrOS/.test(navigator.userAgent) || (navigator.deviceMemory && navigator.deviceMemory <= 4) || (navigator.hardwareConcurrency || 8) <= 4;
 const settings = Object.assign({
   renderDistance: LOW_END ? 6 : 8, fov: 70, sensitivity: 100, brightness: 50, volume: 60, music: 40,
-  bobbing: true, clouds: true, autoJump: true, particles: true, dynamicRes: true, graphics: LOW_END ? 1 : 2,
+  bobbing: true, clouds: true, autoJump: true, particles: true, dynamicRes: true, graphics: LOW_END ? 1 : 2, rawInput: true, lowLatency: !LOW_END,
 }, load(SETTINGS_KEY) || {});
 // Minecraft's default FOV is 70; move anyone still on our old default (75) over once.
 if (!settings.fovMigrated) { if (settings.fov === 75) settings.fov = 70; settings.fovMigrated = true; store(SETTINGS_KEY, settings); }
@@ -139,7 +139,7 @@ class App {
     // Menu textures first, so even the error screen has its dirt background.
     const css = document.documentElement.style;
     css.setProperty('--btn-tex', `url(${buttonTexture()})`); css.setProperty('--dirt-tex', `url(${dirtTexture(drawBlockTexture('dirt', 1))})`);
-    try { this.renderer = new Renderer($('game')); } catch (e) { this.fatal(/WebGL 2 is not available/.test(e.message) ? 'Blockhaven needs WebGL 2, which this browser or device does not provide.' : `Graphics startup failed: ${e.message.split('\n')[0]}`); return false; }
+    try { this.renderer = new Renderer($('game'), { lowLatency: settings.lowLatency }); } catch (e) { this.fatal(/WebGL 2 is not available/.test(e.message) ? 'Blockhaven needs WebGL 2, which this browser or device does not provide.' : `Graphics startup failed: ${e.message.split('\n')[0]}`); return false; }
     this.applyGraphics();
     // Textures.
     this.blockTex = generateBlockTextures();
@@ -197,6 +197,9 @@ class App {
   applyGraphics() {
     const q = Number(settings.graphics);
     this.renderer.setQuality(q);
+    // Render distance goes up to 32 chunks on the High and PC presets, 14 otherwise.
+    const rdMax = q >= 2 ? 32 : 14, rd = $('set-rd');
+    if (rd) { rd.max = rdMax; if (settings.renderDistance > rdMax) { settings.renderDistance = rdMax; rd.value = rdMax; rd.dispatchEvent(new Event('input')); } }
   }
   openGuide() {
     this.openPanel('guide');
@@ -628,9 +631,14 @@ class App {
   requestLock() {
     const c = $('game');
     let r;
+    // Raw Input (on by default, as in Minecraft) asks for the mouse's own movement, without the
+    // operating system's pointer acceleration, which shrinks slow movements almost to nothing.
+    const plain = () => { this.rawInput = false; try { const r2 = c.requestPointerLock(); if (r2 && r2.catch) r2.catch(() => {}); } catch { /* ignore */ } };
+    if (settings.rawInput === false) { plain(); return; }
     try { r = c.requestPointerLock({ unadjustedMovement: true }); } catch { r = null; }
-    if (r && r.catch) r.catch(() => { const r2 = c.requestPointerLock(); if (r2 && r2.catch) r2.catch(() => {}); });
-    else if (!r && document.pointerLockElement !== c) { try { c.requestPointerLock(); } catch { /* ignore */ } }
+    if (r && r.then) r.then(() => { this.rawInput = true; }, plain);
+    else if (!r && document.pointerLockElement !== c) plain();
+    else this.rawInput = null; // the browser does not say
   }
 
   // Apply one Java resource pack over the current textures and sounds. Player-selected packs
@@ -694,8 +702,11 @@ class App {
     bind('set-vol', 'volume', 'Master Volume', vol, unmute);
     bind('set-music', 'music', 'Music', vol, unmute);
     cycle($('set-gfx'), 'Graphics', [[0, 'Fast'], [1, 'Regular'], [2, 'High'], [3, 'PC']], () => Number(settings.graphics), v => { settings.graphics = v; this.applyGraphics(); store(SETTINGS_KEY, settings); });
-    for (const [id, k, label] of [['set-bob', 'bobbing', 'View Bobbing'], ['set-clouds', 'clouds', 'Clouds'], ['set-autojump', 'autoJump', 'Auto-Jump'], ['set-particles', 'particles', 'Particles'], ['set-dynres', 'dynamicRes', 'Dynamic Resolution']]) {
-      toggle($(id), label, () => !!settings[k], v => { settings[k] = v; if (this.game) this.game.player.autoJump = settings.autoJump; });
+    for (const [id, k, label] of [['set-bob', 'bobbing', 'View Bobbing'], ['set-clouds', 'clouds', 'Clouds'], ['set-autojump', 'autoJump', 'Auto-Jump'], ['set-particles', 'particles', 'Particles'], ['set-dynres', 'dynamicRes', 'Dynamic Resolution'], ['set-raw', 'rawInput', 'Raw Input'], ['set-lowlat', 'lowLatency', 'Low Latency']]) {
+      toggle($(id), label, () => !!settings[k], v => {
+        settings[k] = v; if (this.game) this.game.player.autoJump = settings.autoJump;
+        if (k === 'lowLatency') { store(SETTINGS_KEY, settings); if (confirm('Low Latency changes how the game draws to the screen and applies after a reload. Reload now?')) location.reload(); }
+      });
     }
     // Resource packs: chosen from this computer, stored in this browser, applied on reload.
     $('set-pack').addEventListener('click', async () => {
@@ -783,23 +794,33 @@ class App {
       this.suppressPause = false;
     });
     canvas.addEventListener('click', () => { if (!this.demo && (this.mode === 'play' || this.mode === 'loading') && !this.locked) this.requestLock(); });
-    // Mouse look. pointermove carries fractional movement (mousemove rounds to whole pixels, which
-    // swallows slow, small motions and feels like a dead zone), and each event's movement covers
-    // everything since the previous one. pointerrawupdate is not used: Chrome can drop small raw
-    // deltas between its updates, which is exactly the dead-zone feel.
-    const look = (dx, dy) => {
-      if (!this.locked || this.mode !== 'play' || !this.game || (!dx && !dy)) return;
+    // Mouse look. Chrome batches mouse events whenever the page is busy (every frame at 60 fps),
+    // and a batched event does not reliably carry the movement of every sample inside it: that
+    // loss is the dead-zone / laggy feel. So every sample is taken from getCoalescedEvents() and
+    // summed. Raw updates (delivered as soon as the mouse moves) are used where the browser has
+    // them; plain pointer moves only while no raw updates arrive, so nothing is counted twice.
+    const take = (dx, dy) => {
+      if (!dx && !dy) return;
+      this.mouseStats.n++;
       // Ignore the first moments after locking and absurd one-off jumps some browsers report when
       // the lock engages or the event queue stalls; ordinary fast flicks always get through.
       const mag = Math.abs(dx) + Math.abs(dy), avg = this.mouseAvg || 0;
       if (performance.now() - (this.lockedAt || 0) < 60 || (mag > 1200 && mag > avg * 12 + 400)) { this.mouseAvg = avg * 0.9; return; }
       this.mouseAvg = avg * 0.8 + mag * 0.2;
-      const s = settings.sensitivity / 100 * 0.0022, p = this.game.player;
-      p.yaw -= dx * s;
-      p.pitch = Math.max(-1.56, Math.min(1.56, p.pitch - dy * s));
+      const sens = settings.sensitivity / 100 * 0.0022, p = this.game.player;
+      p.yaw -= dx * sens;
+      p.pitch = Math.max(-1.56, Math.min(1.56, p.pitch - dy * sens));
     };
-    if ('onpointermove' in window) document.addEventListener('pointermove', e => look(e.movementX, e.movementY));
-    else document.addEventListener('mousemove', e => look(e.movementX, e.movementY));
+    const samples = e => {
+      if (!this.locked || this.mode !== 'play' || !this.game) return;
+      const list = e.getCoalescedEvents ? e.getCoalescedEvents() : null;
+      if (list && list.length) for (const c of list) take(c.movementX, c.movementY);
+      else take(e.movementX, e.movementY);
+    };
+    this.mouseStats = { n: 0, src: '', rate: 0, t: performance.now() };
+    if ('onpointerrawupdate' in window) document.addEventListener('pointerrawupdate', e => { this.lastRaw = performance.now(); this.mouseStats.src = 'raw'; samples(e); });
+    if ('onpointermove' in window) document.addEventListener('pointermove', e => { if (performance.now() - (this.lastRaw || 0) < 250) return; this.mouseStats.src = 'move'; samples(e); });
+    else document.addEventListener('mousemove', e => { this.mouseStats.src = 'mouse'; samples(e); });
     document.addEventListener('mousedown', e => {
       if (this.mode !== 'play' || !this.locked) return;
       if (e.button === 0) { this.mouse.left = true; this.mouse.leftClicked = true; }
@@ -954,6 +975,11 @@ class App {
     this.lastDrawn = now;
     this.fence = gl.fenceSync(gl.SYNC_GPU_COMMANDS_COMPLETE, 0);
     gl.flush();
+  }
+  mouseRate() {
+    const m = this.mouseStats, now = performance.now(), dt = (now - m.t) / 1000;
+    if (dt >= 0.5) { m.rate = Math.round(m.n / dt); m.n = 0; m.t = now; }
+    return m.rate;
   }
   // Dynamic resolution keeps the frame rate smooth on slow GPUs, only touching resolution when truly needed.
   adaptResolution(realDt) {
@@ -1396,7 +1422,8 @@ class App {
           `Chunk: ${Math.floor(pos[0] / 16)} ${Math.floor(pos[2] / 16)}   Biome: ${b ? b.name : '?'}   Dimension: ${DIM_NAMES[g.dim]}\n` +
           `Light: sky ${l.sky} block ${l.blk}   Day ${g.day + 1} ${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}   ${g.weather.rain > 0.5 ? (g.weather.thunder > 0.5 ? 'Thunder' : 'Rain') : 'Clear'}\n` +
           `Chunks: ${g.world.chunks.size} loaded, ${this.renderer.stats.chunks} drawn   Quads: ${this.renderer.stats.quads.toLocaleString()}   Entities: ${g.entities.list.length}\n` +
-          `Mode: ${g.mode}${g.hardcore ? ' (hardcore)' : ''}   Difficulty: ${g.difficulty}   Seed: ${g.seed}` +
+          `Mode: ${g.mode}${g.hardcore ? ' (hardcore)' : ''}   Difficulty: ${g.difficulty}   Seed: ${g.seed}\n` +
+          `Mouse: ${this.mouseRate()} samples/s via ${this.mouseStats.src || '-'}   Raw input: ${this.rawInput === true ? 'on' : this.rawInput === false ? 'off' : '?'}   Low latency: ${settings.lowLatency ? 'on' : 'off'}` +
           (t ? `\nTarget: ${props(t.id, t.meta).name} @ ${t.x} ${t.y} ${t.z}` : this.interact.entityTarget ? `\nTarget: ${this.interact.entityTarget.displayName || this.interact.entityTarget.type} (${Math.ceil(this.interact.entityTarget.health || 0)} HP)` : '');
       }
     }

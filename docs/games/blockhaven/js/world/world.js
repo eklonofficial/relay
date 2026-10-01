@@ -1,9 +1,9 @@
 // Chunk storage, streaming, edits and queries for one dimension.
-import { CHUNK, HEIGHT, PAD, PS, B, OPAQUE, SOLID, EMIT, ATTEN, VARIANT_MASK, SHAPE_OF, SHAPE, DIM } from '../data/blocks.js?v=muown4x2';
-import { VOLUME_SIZE } from '../mesh/mesher.js?v=muown4x2';
-import { selectionBoxes, collisionBoxes } from '../data/shapes.js?v=muown4x2';
-import { sinceOf } from '../gen/versions.js?v=muown4x2';
-import { getChunk, decodeChunk } from '../game/storage.js?v=muown4x2';
+import { CHUNK, HEIGHT, PAD, PS, B, OPAQUE, SOLID, EMIT, ATTEN, VARIANT_MASK, SHAPE_OF, SHAPE, DIM } from '../data/blocks.js?v=muowuzbj';
+import { VOLUME_SIZE } from '../mesh/mesher.js?v=muowuzbj';
+import { selectionBoxes, collisionBoxes } from '../data/shapes.js?v=muowuzbj';
+import { sinceOf } from '../gen/versions.js?v=muowuzbj';
+import { getChunk, decodeChunk } from '../game/storage.js?v=muowuzbj';
 
 export const UNLOADED = 255;
 export const chunkKey = (cx, cz) => `${cx},${cz}`;
@@ -41,7 +41,7 @@ export class World {
     const count = Math.max(1, Math.min(4, (navigator.hardwareConcurrency || 4) - 1));
     this.workers = [];
     for (let i = 0; i < count; i++) {
-      const w = new Worker(new URL('../worker.js?v=muown4x2', import.meta.url), { type: 'module' });
+      const w = new Worker(new URL('../worker.js?v=muowuzbj', import.meta.url), { type: 'module' });
       w.busy = 0;
       w.onmessage = e => this.onWorkerMessage(w, e.data);
       w.onerror = e => console.error('worker error', e.message);
@@ -155,12 +155,19 @@ export class World {
         this.chunkGen++;
       }
     }
-    const wanted = [];
-    for (let dz = -radius - 1; dz <= radius + 1; dz++) for (let dx = -radius - 1; dx <= radius + 1; dx++) {
-      if (dx * dx + dz * dz > (radius + 1.5) ** 2) continue;
-      wanted.push([pcx + dx, pcz + dz, dx * dx + dz * dz]);
+    // The chunks around the player, nearest first (rebuilt only when the player changes chunk:
+    // at 32 chunks that is ~3,500 entries to sort).
+    const wk = `${pcx},${pcz},${radius}`;
+    if (this.wantedKey !== wk) {
+      const w = [];
+      for (let dz = -radius - 1; dz <= radius + 1; dz++) for (let dx = -radius - 1; dx <= radius + 1; dx++) {
+        if (dx * dx + dz * dz > (radius + 1.5) ** 2) continue;
+        w.push([pcx + dx, pcz + dz, dx * dx + dz * dz]);
+      }
+      w.sort((a, b) => a[2] - b[2]);
+      this.wantedKey = wk; this.wantedList = w;
     }
-    wanted.sort((a, b) => a[2] - b[2]);
+    const wanted = this.wantedList;
     for (const [cx, cz] of wanted) if (!this.generate(cx, cz)) break;
     const toMesh = [];
     for (const [cx, cz, d2] of wanted) {
