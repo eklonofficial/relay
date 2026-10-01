@@ -1,7 +1,7 @@
 // Another player in the world: a puppet driven by their network updates. It lives in the entity
 // list so everything that can hit a mob (swords, arrows, explosions) can hit it too; the hit is
 // forwarded to that player's own game, which applies armour, knockback and death itself.
-import { Entity } from '../entity/entity.js?v=mupqsf2h';
+import { Entity } from '../entity/entity.js?v=muprr3ie';
 
 const DELAY = 0.1; // seconds of buffering for smooth motion
 const lerpAngle = (a, b, t) => { let d = b - a; while (d > Math.PI) d -= Math.PI * 2; while (d < -Math.PI) d += Math.PI * 2; return a + d * t; };

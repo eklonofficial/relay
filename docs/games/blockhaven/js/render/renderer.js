@@ -1,8 +1,8 @@
-import { CHUNK, TEX, DIM } from '../data/blocks.js?v=mupqsf2h';
-import { meshSingleBlock, STRIDE } from '../mesh/mesher.js?v=mupqsf2h';
-import * as S from './shaders.js?v=mupqsf2h';
-import { uploadArray, updateLayer } from './atlas.js?v=mupqsf2h';
-import { mat4, perspective, multiply, invert, viewMatrix, frustumPlanes, boxVisible } from '../core/math.js?v=mupqsf2h';
+import { CHUNK, TEX, DIM } from '../data/blocks.js?v=muprr3ie';
+import { meshSingleBlock, STRIDE } from '../mesh/mesher.js?v=muprr3ie';
+import * as S from './shaders.js?v=muprr3ie';
+import { uploadArray, updateLayer } from './atlas.js?v=muprr3ie';
+import { mat4, perspective, multiply, invert, viewMatrix, frustumPlanes, boxVisible } from '../core/math.js?v=muprr3ie';
 
 // Graphics presets: 0 Disabled, 1 Regular, 2 High, 3 PC.
 export const QUALITY = [
@@ -64,6 +64,8 @@ export class Renderer {
     this.shadowProg = this.program(S.TERRAIN_VS, S.SHADOW_FS);
     this.bloomProg = this.program(S.POST_VS, S.BLOOM_FS);
     this.godProg = this.program(S.POST_VS, S.GOD_FS);
+    this.lod = this.program(S.LOD_VS, S.LOD_FS);
+    this.lodCut = this.program(S.LOD_VS, S.LOD_CUT_FS);
     this.quality = 1;
     // 1x1 compare-mode depth texture so the shadow sampler is always valid.
     this.dummyShadow = this.depthTexture(1, 1, true);
@@ -291,6 +293,49 @@ export class Renderer {
     m.quads = Math.min(quads, MAX_QUADS);
     return m;
   }
+  // A far-view tile (js/mesh/lod.js); null when it has nothing to draw.
+  makeLod(buffer, quads) {
+    const gl = this.gl;
+    if (!quads) return null;
+    const m = { vao: gl.createVertexArray(), vbo: gl.createBuffer(), quads };
+    gl.bindVertexArray(m.vao);
+    gl.bindBuffer(gl.ARRAY_BUFFER, m.vbo);
+    gl.bufferData(gl.ARRAY_BUFFER, buffer, gl.STATIC_DRAW);
+    gl.enableVertexAttribArray(0); gl.vertexAttribIPointer(0, 2, gl.UNSIGNED_BYTE, 8, 0);
+    gl.enableVertexAttribArray(1); gl.vertexAttribIPointer(1, 1, gl.SHORT, 8, 2);
+    gl.enableVertexAttribArray(2); gl.vertexAttribPointer(2, 4, gl.UNSIGNED_BYTE, true, 8, 4);
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.quadIndex);
+    gl.bindVertexArray(null);
+    return m;
+  }
+  freeLod(m) { this.freeMesh(m); }
+  // Far-view tiles past the loaded chunks; those reaching into them cut out what the chunks cover.
+  drawFar(far, s, viewProj, planes, fogNear, fogFar) {
+    const gl = this.gl, [ncx, ncz, r2] = far.near, R = Math.sqrt(Math.max(0, r2)) * CHUNK + CHUNK * 1.5;
+    const px = ncx * CHUNK + 8, pz = ncz * CHUNK + 8;
+    let quads = 0;
+    for (const cut of [false, true]) {
+      const p = cut ? this.lodCut : this.lod;
+      let bound = false;
+      for (const t of far.tiles) {
+        const inside = Math.hypot(Math.max(t.x0 - px, 0, px - t.x0 - t.size), Math.max(t.z0 - pz, 0, pz - t.z0 - t.size)) < R;
+        if (inside !== cut) continue;
+        if (!boxVisible(planes, t.x0, t.minY - 1, t.z0, t.x0 + t.size, t.maxY + 1, t.z0 + t.size)) continue;
+        if (!bound) {
+          bound = true;
+          gl.useProgram(p.p);
+          this.setEnv(p.u, s, fogNear, fogFar);
+          gl.uniformMatrix4fv(p.u.uViewProj, false, viewProj);
+          if (p.u.uNear) gl.uniform3f(p.u.uNear, ncx, ncz, r2);
+        }
+        gl.uniform3f(p.u.uOrigin, t.x0, t.step, t.z0);
+        gl.bindVertexArray(t.gpu.vao);
+        gl.drawElements(gl.TRIANGLES, t.gpu.quads * 6, gl.UNSIGNED_INT, 0);
+        quads += t.gpu.quads;
+      }
+    }
+    return quads;
+  }
   freeMesh(m) { if (m) { this.gl.deleteVertexArray(m.vao); this.gl.deleteBuffer(m.vbo); } }
   uploadChunk(c, r) {
     if (!c.gpu) c.gpu = { opaque: null, trans: null };
@@ -366,12 +411,15 @@ export class Renderer {
   render(s) {
     const gl = this.gl;
     const w = this.width, h = this.height;
-    const proj = perspective(mat4(), s.fov * Math.PI / 180, w / h, 0.05, 1200);
+    // The far view needs the far plane out past its edge; 24-bit depth still has ~1 block of
+    // precision at 1000 blocks with the near plane at 0.05, and its cells are 16+ blocks there.
+    const zFar = s.far ? Math.max(1200, s.far.radius + 320) : 1200;
+    const proj = perspective(mat4(), s.fov * Math.PI / 180, w / h, 0.05, zFar);
     const view = s.view || viewMatrix(s.camPos, s.yaw, s.pitch, s.roll);
     const viewProj = multiply(mat4(), proj, view);
     const invViewProj = invert(mat4(), viewProj);
     const planes = frustumPlanes(viewProj);
-    const fogFar = s.dim === DIM.NETHER ? Math.min(s.renderDistance * CHUNK - 4, 90) : s.renderDistance * CHUNK - 4;
+    const fogFar = s.dim === DIM.NETHER ? Math.min(s.renderDistance * CHUNK - 4, 90) : (s.far ? s.far.radius : s.renderDistance * CHUNK) - 4;
     const fogNear = s.dim === DIM.NETHER ? 10 : fogFar * (s.rain ? 0.3 : 0.55);
     const env = s.env;
     const Q = QUALITY[this.quality];
@@ -399,6 +447,8 @@ export class Renderer {
       if (!c.gpu) continue;
       const x0 = c.cx * CHUNK, z0 = c.cz * CHUNK;
       if (!boxVisible(planes, x0, -1, z0, x0 + CHUNK, c.maxY + 2, z0 + CHUNK)) continue;
+      // With the far view, chunks outside the disc it leaves to them would overlap its tiles.
+      if (s.far && (c.cx - s.far.near[0]) ** 2 + (c.cz - s.far.near[1]) ** 2 > s.far.near[2]) continue;
       const dx = x0 + 8 - s.camPos[0], dz = z0 + 8 - s.camPos[2];
       visible.push([c, dx * dx + dz * dz]);
     }
@@ -438,6 +488,10 @@ export class Renderer {
       gl.uniform3fv(t.u.uSkyLight, env.skyLight);
       gl.enable(gl.CULL_FACE);
     }
+
+    // The far view, behind everything near so the near terrain hides most of it before it shades.
+    let farQuads = 0;
+    if (s.far && s.far.tiles.length) farQuads = this.drawFar(s.far, s, viewProj, planes, fogNear, fogFar);
 
     // Entities (entity texture array) and block particles (block texture array).
     const e = this.entity;
@@ -493,7 +547,7 @@ export class Renderer {
     gl.uniform1f(l.u.uWaves, this.quality === 0 ? 0 : 1);
     gl.uniform1f(l.u.uClouds, s.clouds ? 1 : 0);
     gl.uniform1f(l.u.uRain, s.rain || 0);
-    gl.uniform2f(l.u.uNearFar, 0.05, 1200);
+    gl.uniform2f(l.u.uNearFar, 0.05, zFar);
     gl.uniform2f(l.u.uScreen, w, h);
     gl.activeTexture(gl.TEXTURE4); gl.bindTexture(gl.TEXTURE_2D, this.copyTex);
     gl.activeTexture(gl.TEXTURE5); gl.bindTexture(gl.TEXTURE_2D, this.copyDepth);
@@ -630,6 +684,7 @@ export class Renderer {
 
     this.stats.chunks = visible.length;
     this.stats.quads = quads;
+    this.stats.farQuads = farQuads;
   }
 
   drawOutline(tg, viewProj) {

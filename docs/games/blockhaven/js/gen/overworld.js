@@ -1,11 +1,11 @@
 // Overworld generator: climate-driven biomes, 3D density terrain, noise + worm caves, underground
 // biomes, ores, surface rules, trees and vegetation. World types: 'default', 'wild' (amplified,
 // floating islands, stone pillars and arches) and 'flat'.
-import { Simplex, hash2, hash3, mulberry32 } from '../core/noise.js?v=mupqsf2h';
-import { B, st, CHUNK, HEIGHT, SEA, COLORS } from '../data/blocks.js?v=mupqsf2h';
-import { BI, OCEANS, COLD } from './biomes.js?v=mupqsf2h';
-import { ChunkBuilder, CI } from './chunk.js?v=mupqsf2h';
-import * as T from './trees.js?v=mupqsf2h';
+import { Simplex, hash2, hash3, mulberry32 } from '../core/noise.js?v=muprr3ie';
+import { B, st, CHUNK, HEIGHT, SEA, COLORS } from '../data/blocks.js?v=muprr3ie';
+import { BI, OCEANS, COLD } from './biomes.js?v=muprr3ie';
+import { ChunkBuilder, CI } from './chunk.js?v=muprr3ie';
+import * as T from './trees.js?v=muprr3ie';
 
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
@@ -926,5 +926,42 @@ export function createOverworld(seed, type = 'default') {
   }
 
   const biomeAt = (x, z) => flat ? BI.PLAINS : column(Math.floor(x), Math.floor(z)).biome;
-  return { pondIn, type, seed, column, climate, surfaceY, densityAt, noiseCave, generateChunk, findSpawn, biomeAt, wild, flat };
+
+  // ---------------- far view ----------------
+  // What a column looks like from far away (js/mesh/lod.js), given its surface height and slope:
+  // the top block and the one under it, the water over it, snow, and the trees standing on it.
+  // Each tree biome's usual leaves and how far its canopy rises above the ground.
+  const LOD_TREES = {
+    [BI.FOREST]: [T.LEAF.oak, 6], [BI.FLOWER_FOREST]: [T.LEAF.oak, 6], [BI.BIRCH_FOREST]: [T.LEAF.birch, 7], [BI.DARK_FOREST]: [T.LEAF.dark_oak, 7],
+    [BI.TAIGA]: [T.LEAF.spruce, 9], [BI.SNOWY_TAIGA]: [T.LEAF.spruce, 9], [BI.OLD_GROWTH_TAIGA]: [T.LEAF.spruce, 14], [BI.GROVE]: [T.LEAF.spruce, 9],
+    [BI.SNOWY_SLOPES]: [T.LEAF.spruce, 9], [BI.SNOWY_PLAINS]: [T.LEAF.spruce, 8], [BI.WINDSWEPT_HILLS]: [T.LEAF.spruce, 9],
+    [BI.PLAINS]: [T.LEAF.oak, 6], [BI.SUNFLOWER_PLAINS]: [T.LEAF.oak, 6], [BI.MEADOW]: [T.LEAF.oak, 6], [BI.SAVANNA]: [T.LEAF.acacia, 7],
+    [BI.JUNGLE]: [T.LEAF.jungle, 11], [BI.BAMBOO_JUNGLE]: [T.LEAF.jungle, 8], [BI.SWAMP]: [T.LEAF.oak, 6], [BI.MANGROVE_SWAMP]: [T.LEAF.mangrove, 9],
+    [BI.CHERRY_GROVE]: [T.LEAF.cherry, 8],
+  };
+  function lodColumn(x, z, y, slope = 0, step = 4) {
+    if (flat) return { biome: BI.PLAINS, top: [B.GRASS_BLOCK, 0], fill: [B.DIRT, 0], water: 0, snow: false, tree: null };
+    const c = column(x, z), biome = c.biome, pond = c.t.pond && y === c.t.pond.level ? c.t.pond.level : 0;
+    const water = pond || (y < SEA ? SEA : 0), under = water > 0;
+    let spec = under && pond ? pondFloor(biome, x, z) : topBlocks(biome, y, under, slope, x, z, SEA - y);
+    if (spec[0] < 0 || ((biome === BI.BADLANDS || biome === BI.ERODED_BADLANDS) && !under && y > SEA - 4 && spec[0] !== B.SAND)) {
+      const band = bands[(((y + Math.floor(nBand.noise2(x / 60, z / 60) * 3)) % 64) + 64) % 64];
+      spec = [band[0], band[1], band[0], band[1]];
+    }
+    const top = [spec[0], spec[1]], fill = spec[2] < 0 ? [B.TERRACOTTA, 0] : [spec[2], spec[3]];
+    if (under && top[0] === B.GRASS_BLOCK) { top[0] = B.DIRT; top[1] = 0; }
+    // snowAndIce: cold biomes and high peaks are snowed over, and cold water freezes.
+    const high = y > (wild ? 200 : 165) + nPatch.noise2(x / 40, z / 40) * 10;
+    const snow = (COLD.has(biome) || high) && biome !== BI.FROZEN_PEAKS;
+    // Trees: the canopy covers about as much of the ground as trees() plants there; up close each
+    // cell has it or not, further out (where a cell spans hundreds of columns) only dense woods do.
+    let tree = null;
+    const lt = LOD_TREES[biome];
+    if (lt && !under && (y > SEA + 1 || biome === BI.SWAMP || biome === BI.MANGROVE_SWAMP) && y < HEIGHT - 32 && c.t.h >= SEA - 1) {
+      const cover = Math.min(0.92, (TREE_DENSITY[biome] || 0) * grove(x, z) * 11);
+      if (step <= 8 ? hash2(x, z, seed ^ 0x10d7) < cover : cover >= 0.3) tree = lt;
+    }
+    return { biome, top, fill, water, snow, tree };
+  }
+  return { pondIn, type, seed, column, climate, surfaceY, densityAt, noiseCave, generateChunk, findSpawn, lodColumn, biomeAt, wild, flat };
 }

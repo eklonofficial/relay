@@ -1,39 +1,41 @@
 // Blockhaven bootstrap: assets, menus, input, camera, frame loop.
-import { Demo, DEMO_SEED } from './demo.js?v=mupqsf2h';
-import { armorModel, armorSkinKey, ARMOR_MATERIALS, ARMOR_PIECES, elytraModel } from './data/armor.js?v=mupqsf2h';
-import { TEXTURES, TEX, B, BLOCKS, DIM, DIM_NAMES, SHAPE_OF, SHAPE, props, HEIGHT } from './data/blocks.js?v=mupqsf2h';
-import { I, ITEMS } from './data/items.js?v=mupqsf2h';
-import { MOBS, PROFESSIONS, playerModel, saddleModel, PLAYER_SKINS } from './data/mobs.js?v=mupqsf2h';
-import { Net, cleanCode, cleanName, cleanKey, cleanChat, chatLine, MAX_PLAYERS, wakeRelays, diagnoseNetwork } from './net/net.js?v=mupqsf2h';
-import { NameTags } from './net/nametags.js?v=mupqsf2h';
-import { BIOMES } from './gen/biomes.js?v=mupqsf2h';
-import { generateBlockTextures, drawBlockTexture } from './render/blocktex.js?v=mupqsf2h';
-import { generateItemTextures, ITEM_LAYER, FX_LAYER, ITEM_LAYER_COUNT, flatTexFor } from './render/itemtex.js?v=mupqsf2h';
-import { Zip, storedPack, savePack, removePack, applyBlockTextures, applyItemTextures, indexSounds } from './render/pack.js?v=mupqsf2h';
-import { packModel, paintModel, SKIN, faceRects } from './render/mobtex.js?v=mupqsf2h';
-import { buildMipChain } from './render/atlas.js?v=mupqsf2h';
-import { Renderer, Batch } from './render/renderer.js?v=mupqsf2h';
-import { World, UNLOADED } from './world/world.js?v=mupqsf2h';
-import { createGenerator } from './gen/index.js?v=mupqsf2h';
-import { Game } from './game/game.js?v=mupqsf2h';
-import { Interact, crossbowCharge } from './game/interact.js?v=mupqsf2h';
-import { SpawnPrep, STATUS_COLOR } from './game/spawnprep.js?v=mupqsf2h';
-import { splash } from './splash.js?v=mupqsf2h';
-import { Commands } from './game/commands.js?v=mupqsf2h';
-import { GUI, HUD } from './game/ui.js?v=mupqsf2h';
-import { buildIcons, hudSprites } from './game/icons.js?v=mupqsf2h';
-import { Sound } from './game/audio.js?v=mupqsf2h';
-import { buildLogo, buttonTexture, dirtTexture, iconDataURL } from './render/logo.js?v=mupqsf2h';
-import { computeEnv } from './game/env.js?v=mupqsf2h';
-import { guideSections } from './game/guide.js?v=mupqsf2h';
-import { listWorlds, loadWorld, saveWorld, deleteWorld } from './game/storage.js?v=mupqsf2h';
-import { importJavaWorld, exportJavaWorld } from './game/javaworld.js?v=mupqsf2h';
-import { drawModel, rootMatrix, M } from './entity/entity.js?v=mupqsf2h';
-import { itemMesh, emitItemMesh, clearItemMeshes } from './entity/itemmesh.js?v=mupqsf2h';
-import { Lightning, billboard } from './entity/objects.js?v=mupqsf2h';
-import { compose, translation, rotationX, rotationY, rotationZ, scaling, forward, mat4 } from './core/math.js?v=mupqsf2h';
-import { hasGlint } from './data/enchantments.js?v=mupqsf2h';
-import { BarrelRoll } from './game/barrelroll.js?v=mupqsf2h';
+import { Demo, DEMO_SEED } from './demo.js?v=muprr3ie';
+import { armorModel, armorSkinKey, ARMOR_MATERIALS, ARMOR_PIECES, elytraModel } from './data/armor.js?v=muprr3ie';
+import { TEXTURES, TEX, B, BLOCKS, DIM, DIM_NAMES, SHAPE_OF, SHAPE, props, HEIGHT } from './data/blocks.js?v=muprr3ie';
+import { I, ITEMS } from './data/items.js?v=muprr3ie';
+import { MOBS, PROFESSIONS, playerModel, saddleModel, PLAYER_SKINS } from './data/mobs.js?v=muprr3ie';
+import { Net, cleanCode, cleanName, cleanKey, cleanChat, chatLine, MAX_PLAYERS, wakeRelays, diagnoseNetwork } from './net/net.js?v=muprr3ie';
+import { NameTags } from './net/nametags.js?v=muprr3ie';
+import { BIOMES } from './gen/biomes.js?v=muprr3ie';
+import { generateBlockTextures, drawBlockTexture } from './render/blocktex.js?v=muprr3ie';
+import { generateItemTextures, ITEM_LAYER, FX_LAYER, ITEM_LAYER_COUNT, flatTexFor } from './render/itemtex.js?v=muprr3ie';
+import { Zip, storedPack, savePack, removePack, applyBlockTextures, applyItemTextures, indexSounds } from './render/pack.js?v=muprr3ie';
+import { packModel, paintModel, SKIN, faceRects } from './render/mobtex.js?v=muprr3ie';
+import { buildMipChain } from './render/atlas.js?v=muprr3ie';
+import { Renderer, Batch } from './render/renderer.js?v=muprr3ie';
+import { World, UNLOADED } from './world/world.js?v=muprr3ie';
+import { FarView } from './world/farview.js?v=muprr3ie';
+import { layerColors } from './mesh/lod.js?v=muprr3ie';
+import { createGenerator } from './gen/index.js?v=muprr3ie';
+import { Game } from './game/game.js?v=muprr3ie';
+import { Interact, crossbowCharge } from './game/interact.js?v=muprr3ie';
+import { SpawnPrep, STATUS_COLOR } from './game/spawnprep.js?v=muprr3ie';
+import { splash } from './splash.js?v=muprr3ie';
+import { Commands } from './game/commands.js?v=muprr3ie';
+import { GUI, HUD } from './game/ui.js?v=muprr3ie';
+import { buildIcons, hudSprites } from './game/icons.js?v=muprr3ie';
+import { Sound } from './game/audio.js?v=muprr3ie';
+import { buildLogo, buttonTexture, dirtTexture, iconDataURL } from './render/logo.js?v=muprr3ie';
+import { computeEnv } from './game/env.js?v=muprr3ie';
+import { guideSections } from './game/guide.js?v=muprr3ie';
+import { listWorlds, loadWorld, saveWorld, deleteWorld } from './game/storage.js?v=muprr3ie';
+import { importJavaWorld, exportJavaWorld } from './game/javaworld.js?v=muprr3ie';
+import { drawModel, rootMatrix, M } from './entity/entity.js?v=muprr3ie';
+import { itemMesh, emitItemMesh, clearItemMeshes } from './entity/itemmesh.js?v=muprr3ie';
+import { Lightning, billboard } from './entity/objects.js?v=muprr3ie';
+import { compose, translation, rotationX, rotationY, rotationZ, scaling, forward, mat4 } from './core/math.js?v=muprr3ie';
+import { hasGlint } from './data/enchantments.js?v=muprr3ie';
+import { BarrelRoll } from './game/barrelroll.js?v=muprr3ie';
 
 const $ = id => document.getElementById(id);
 // Resolves after the page has painted what was just put on screen.
@@ -44,7 +46,8 @@ const store = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } ca
 // Low-end machines (Chromebooks, 4-core / 4 GB devices) get lighter defaults; visuals stay the same.
 const LOW_END = /CrOS/.test(navigator.userAgent) || (navigator.deviceMemory && navigator.deviceMemory <= 4) || (navigator.hardwareConcurrency || 8) <= 4;
 const settings = Object.assign({
-  renderDistance: LOW_END ? 6 : 8, fov: 70, sensitivity: 100, brightness: 50, volume: 60, music: 40,
+  // Far view (chunks; 0 is off): the distant land past the render distance, like the Voxy mod.
+  renderDistance: LOW_END ? 6 : 8, farView: LOW_END ? 64 : 128, fov: 70, sensitivity: 100, brightness: 50, volume: 60, music: 40,
   bobbing: true, clouds: true, autoJump: true, particles: true, dynamicRes: true, barrelRoll: true, barrelRollYaw: false, graphics: LOW_END ? 1 : 2, rawInput: true, lowLatency: !LOW_END,
 }, load(SETTINGS_KEY) || {});
 // Minecraft's default FOV is 70; move anyone still on our old default (75) over once.
@@ -146,6 +149,7 @@ class App {
     // Textures.
     this.blockTex = generateBlockTextures();
     this.renderer.setBlockTextures(buildMipChain(this.blockTex), TEXTURES.length);
+    this.lodColors = layerColors(this.blockTex);
     splash.progress(0.4);
     this.itemTex = generateItemTextures();
     this.renderer.setItemTextures(buildMipChain(this.itemTex), this.itemTex.length);
@@ -427,6 +431,7 @@ class App {
     if (document.pointerLockElement) document.exitPointerLock();
     await this.saveGame();
     this.leaveNet();
+    if (this.far) { this.far.dispose(); this.far = null; }
     if (this.game) { this.game.world.dispose(); this.game = null; }
     this.sound.setWind(0); this.dabr.stop(); this.wings = null;
     this.spawnPrep = null;
@@ -703,7 +708,11 @@ class App {
   async applyPack(zip, soundOverlay = false) {
     if (!this.blockAnims) this.blockAnims = new Map();
     const nb = await applyBlockTextures(zip, TEXTURES, this.blockTex, this.blockAnims);
-    if (nb) { this.renderer.setBlockTextures(buildMipChain(this.blockTex), TEXTURES.length); this.renderer.setAnimations(this.blockAnims); }
+    if (nb) {
+      this.renderer.setBlockTextures(buildMipChain(this.blockTex), TEXTURES.length); this.renderer.setAnimations(this.blockAnims);
+      this.lodColors = layerColors(this.blockTex);
+      if (this.far) this.far.setColors(this.lodColors);
+    }
     const entries = [];
     for (const it of ITEMS) if (ITEM_LAYER[it.key] !== undefined) entries.push([it.key, ITEM_LAYER[it.key], it.block ? flatTexFor(it) : null]);
     for (const f of ['bow_pulling_0', 'bow_pulling_1', 'bow_pulling_2', 'crossbow_pulling_0', 'crossbow_pulling_1', 'crossbow_pulling_2', 'crossbow_arrow', 'crossbow_firework', 'fishing_rod_cast']) if (FX_LAYER[f] !== undefined) entries.push([f, FX_LAYER[f], null]);
@@ -754,6 +763,7 @@ class App {
     };
     const pct = v => `${v}%`, vol = v => (v ? `${v}%` : 'OFF'), unmute = () => { settings.muted = false; this.applyMute(); };
     bind('set-rd', 'renderDistance', 'Render Distance', v => `${v} chunks`);
+    bind('set-far', 'farView', 'Far View', v => (v ? `${v} chunks` : 'OFF'));
     bind('set-fov', 'fov', 'FOV', v => (v === 70 ? 'Normal' : v === 110 ? 'Quake Pro' : v));
     bind('set-sens', 'sensitivity', 'Sensitivity', pct);
     bind('set-bright', 'brightness', 'Brightness', v => (v === 0 ? 'Moody' : v === 100 ? 'Bright' : pct(v)));
@@ -1111,6 +1121,7 @@ class App {
     const rd = settings.renderDistance;
     // While spawn is prepared, generation follows the spawn ticket rather than the view.
     if (!this.spawnPrep) g.world.update(p.pos[0], p.pos[2], rd);
+    this.updateFarView(rd);
     if (this.mode === 'loading') {
       this.loadingFor += dt;
       let ready = false;
@@ -1225,6 +1236,7 @@ class App {
     this.renderer.render({
       camPos: cam.pos, yaw: cam.yaw, pitch: cam.pitch, roll: cam.roll, fov: this.fovCur, time: this.time, env, medium, wind: rain,
       renderDistance: settings.renderDistance, clouds: settings.clouds && g.dim === 0, chunks: g.world.chunks.values(), dim: g.dim, rain,
+      far: this.far ? { tiles: this.far.drawList(), near: this.far.nearDisc(settings.renderDistance), radius: this.far.radius } : null,
       target: target && this.mode === 'play' ? target : null, crack: stage >= 0 && target ? { ...target, stage } : null,
       blockModels: ctx.blockModels,
       solidBatches: [{ batch: B_.mobs, tex: 'mob' }, { batch: B_.items, tex: 'item' }, { batch: B_.blockParticles, tex: 'block' }],
@@ -1235,6 +1247,17 @@ class App {
     if (this.wantThumb) { this.wantThumb = false; }
   }
 
+  // The far view runs in the Overworld of generated worlds (an imported Java world's land is not the
+  // generator's), out past the render distance, with coarser tiles on low-end machines.
+  updateFarView(rd) {
+    const g = this.game, w = g.world, far = Number(settings.farView) || 0;
+    const want = far > rd && g.dim === DIM.OVERWORLD && !w.imported && !this.spawnPrep;
+    if (this.far && (!want || this.far.world !== w)) { this.far.dispose(); this.far = null; }
+    if (!want) return;
+    if (!this.far) { this.far = new FarView(w, this.renderer, { radius: far, split: LOW_END ? 2 : 3 }); this.far.setColors(this.lodColors); }
+    this.far.setRadius(far);
+    this.far.update(g.player.pos[0], g.player.pos[2], rd);
+  }
   drawPlayerModel(ctx) {
     const g = this.game, p = g.player;
     this.drawHumanoid(ctx, {
@@ -1567,7 +1590,7 @@ class App {
           `XYZ: ${pos[0].toFixed(2)} / ${pos[1].toFixed(2)} / ${pos[2].toFixed(2)}   Facing: ${facing}\n` +
           `Chunk: ${Math.floor(pos[0] / 16)} ${Math.floor(pos[2] / 16)}   Biome: ${b ? b.name : '?'}   Dimension: ${DIM_NAMES[g.dim]}\n` +
           `Light: sky ${l.sky} block ${l.blk}   Day ${g.day + 1} ${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}   ${g.weather.rain > 0.5 ? (g.weather.thunder > 0.5 ? 'Thunder' : 'Rain') : 'Clear'}\n` +
-          `Chunks: ${g.world.chunks.size} loaded, ${this.renderer.stats.chunks} drawn   Quads: ${this.renderer.stats.quads.toLocaleString()}   Entities: ${g.entities.list.length}\n` +
+          `Chunks: ${g.world.chunks.size} loaded, ${this.renderer.stats.chunks} drawn   Quads: ${this.renderer.stats.quads.toLocaleString()}${this.far ? `   Far: ${this.far.list.length} tiles, ${(this.renderer.stats.farQuads || 0).toLocaleString()} quads` : ''}   Entities: ${g.entities.list.length}\n` +
           `Mode: ${g.mode}${g.hardcore ? ' (hardcore)' : ''}   Difficulty: ${g.difficulty}   Seed: ${g.seed}\n` +
           `Mouse: ${this.mouseRate()} samples/s via ${this.mouseStats.src || '-'}   Raw input: ${this.rawInput === true ? 'on' : this.rawInput === false ? 'off' : '?'}   Low latency: ${settings.lowLatency ? 'on' : 'off'}` +
           (t ? `\nTarget: ${props(t.id, t.meta).name} @ ${t.x} ${t.y} ${t.z}` : this.interact.entityTarget ? `\nTarget: ${this.interact.entityTarget.displayName || this.interact.entityTarget.type} (${Math.ceil(this.interact.entityTarget.health || 0)} HP)` : '');

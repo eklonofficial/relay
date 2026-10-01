@@ -1,9 +1,9 @@
 // Chunk storage, streaming, edits and queries for one dimension.
-import { CHUNK, HEIGHT, PAD, PS, B, OPAQUE, SOLID, EMIT, ATTEN, VARIANT_MASK, SHAPE_OF, SHAPE, DIM } from '../data/blocks.js?v=mupqsf2h';
-import { VOLUME_SIZE } from '../mesh/mesher.js?v=mupqsf2h';
-import { selectionBoxes, collisionBoxes } from '../data/shapes.js?v=mupqsf2h';
-import { sinceOf } from '../gen/versions.js?v=mupqsf2h';
-import { getChunk, decodeChunk } from '../game/storage.js?v=mupqsf2h';
+import { CHUNK, HEIGHT, PAD, PS, B, OPAQUE, SOLID, EMIT, ATTEN, VARIANT_MASK, SHAPE_OF, SHAPE, DIM } from '../data/blocks.js?v=muprr3ie';
+import { VOLUME_SIZE } from '../mesh/mesher.js?v=muprr3ie';
+import { selectionBoxes, collisionBoxes } from '../data/shapes.js?v=muprr3ie';
+import { sinceOf } from '../gen/versions.js?v=muprr3ie';
+import { getChunk, decodeChunk } from '../game/storage.js?v=muprr3ie';
 
 export const UNLOADED = 255;
 export const chunkKey = (cx, cz) => `${cx},${cz}`;
@@ -41,7 +41,7 @@ export class World {
     const count = Math.max(1, Math.min(4, (navigator.hardwareConcurrency || 4) - 1));
     this.workers = [];
     for (let i = 0; i < count; i++) {
-      const w = new Worker(new URL('../worker.js?v=mupqsf2h', import.meta.url), { type: 'module' });
+      const w = new Worker(new URL('../worker.js?v=muprr3ie', import.meta.url), { type: 'module' });
       w.busy = 0;
       w.onmessage = e => this.onWorkerMessage(w, e.data);
       w.onerror = e => console.error('worker error', e.message);
@@ -123,6 +123,8 @@ export class World {
 
   onWorkerMessage(w, m) {
     if (m.type !== 'locate') w.busy--;
+    // Far-view tiles go to the far view (js/world/farview.js).
+    if (m.type === 'lod' || (m.type === 'error' && m.kind === 'lod')) { if (this.onLod) this.onLod(m); if (m.type === 'lod') return; }
     if (m.type === 'error') { console.error(`worker ${m.kind} failed`, m.cx, m.cz, m.message); const c = this.chunk(m.cx, m.cz); if (c) { c.genPending = false; c.meshPending = false; c.failed = (c.failed || 0) + 1; } return; }
     if (m.type === 'locate') { const cb = this.pendingLocates.get(m.job); this.pendingLocates.delete(m.job); if (cb) cb(m.result); return; }
     if (m.dim !== this.dim) return;
@@ -142,6 +144,7 @@ export class World {
 
   update(px, pz, radius) {
     const pcx = Math.floor(px / CHUNK), pcz = Math.floor(pz / CHUNK);
+    this.centre = [pcx, pcz];
     if (this.uploads.size) {
       const t0 = performance.now();
       // Nearest first.

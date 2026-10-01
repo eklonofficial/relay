@@ -1,4 +1,4 @@
-import { VF } from '../data/blocks.js?v=mupqsf2h';
+import { VF } from '../data/blocks.js?v=muprr3ie';
 
 const HEADER = `#version 300 es
 precision highp float;
@@ -136,6 +136,39 @@ void main() {
   vNormal = n;
 }
 `;
+
+// Far view tiles (js/mesh/lod.js): flat-coloured boxes in full sky light, fogged like the terrain.
+export const LOD_VS = HEADER + `
+layout(location = 0) in uvec2 aXZ;
+layout(location = 1) in int aY;
+layout(location = 2) in vec4 aColor;
+uniform mat4 uViewProj;
+uniform vec3 uOrigin; // tile corner; .y is blocks per cell
+out vec3 vWorld;
+out vec3 vColor;
+void main() {
+  vec3 p = vec3(uOrigin.x + float(aXZ.x) * uOrigin.y, float(aY) / 8.0, uOrigin.z + float(aXZ.y) * uOrigin.y);
+  vWorld = p;
+  vColor = aColor.rgb;
+  gl_Position = uViewProj * vec4(p, 1.0);
+}
+`;
+const LOD_MAIN = `
+uniform vec3 uNear; // the player's chunk and the squared radius (in chunks) the loaded terrain covers
+in vec3 vWorld;
+in vec3 vColor;
+out vec4 outColor;
+void main() {
+#ifdef NEAR_CUT
+  vec2 d = floor(vWorld.xz / 16.0) - uNear.xy;
+  if (dot(d, d) <= uNear.z) discard;
+#endif
+  outColor = vec4(applyFog(applyLight(vColor, vec2(1.0, 0.0), 3.0, 1.0), vWorld), 1.0);
+}
+`;
+export const LOD_FS = HEADER + LIGHTING + LOD_MAIN;
+// Only tiles reaching into the loaded chunks pay for the discard (it stops early depth testing).
+export const LOD_CUT_FS = HEADER + '#define NEAR_CUT\n' + LIGHTING + LOD_MAIN;
 
 const SHADOW = `
 uniform vec3 uSunDir;
