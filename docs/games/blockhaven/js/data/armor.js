@@ -1,7 +1,7 @@
 // Worn-armor models: inflated boxes that share part names and pivots with the humanoid body,
 // so they follow every pose (walking, swinging, sneaking) automatically. One painted skin per
 // material and piece; `thin` matches skeleton-style limbs.
-import { D, pal } from '../render/mobtex.js?v=mupq37b9';
+import { D, pal } from '../render/mobtex.js?v=mupqsf2h';
 
 export const ARMOR_MATERIALS = {
   leather: { c: '#8e5a34', pattern: 'noise', trim: '#6a4024' },
@@ -50,10 +50,13 @@ export function armorModel(material, piece, thin = false) {
 
 // Elytra wings hang from the shoulders; pose them with wingL / wingR.
 export function elytraModel() {
-  const mem = { pal: pal('#6a6a90', 0.14), pattern: 'noise', decor: { all: D.all(D.stripes('#4a4a6a', 3, true), D.frame('#3a3a52')) } };
+  // The vanilla elytra: a pale grey-violet membrane with darker ribs and a dark rim.
+  const mem = { pal: pal('#8e8ea6', 0.12), pattern: 'noise', decor: { all: D.all(D.stripes('#6c6c86', 3, true), D.frame('#4e4e64')) } };
   return { anim: 'biped', eye: 0, parts: {
-    wingL: { pivot: [-5, 24, 2], boxes: [{ o: [-5, -20, 0], s: [10, 20, 2], style: mem }] },
-    wingR: { pivot: [5, 24, 2], boxes: [{ o: [-5, -20, 0], s: [10, 20, 2], style: mem, mirror: true }] },
+    // ElytraModel: each wing a 10x20x2 box (inflated by 1) hanging from the neck, hinged at the
+    // outer edge of the back so spreading swings it out to its own side.
+    wingL: { pivot: [-5, 24, 2], boxes: [{ o: [0, -20, 0], s: [10, 20, 2], inflate: 1, style: mem }] },
+    wingR: { pivot: [5, 24, 2], boxes: [{ o: [-10, -20, 0], s: [10, 20, 2], inflate: 1, style: mem, mirror: true }] },
   } };
 }
 

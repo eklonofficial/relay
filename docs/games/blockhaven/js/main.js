@@ -1,39 +1,39 @@
 // Blockhaven bootstrap: assets, menus, input, camera, frame loop.
-import { Demo, DEMO_SEED } from './demo.js?v=mupq37b9';
-import { armorModel, armorSkinKey, ARMOR_MATERIALS, ARMOR_PIECES, elytraModel } from './data/armor.js?v=mupq37b9';
-import { TEXTURES, TEX, B, BLOCKS, DIM, DIM_NAMES, SHAPE_OF, SHAPE, props, HEIGHT } from './data/blocks.js?v=mupq37b9';
-import { I, ITEMS } from './data/items.js?v=mupq37b9';
-import { MOBS, PROFESSIONS, playerModel, saddleModel, PLAYER_SKINS } from './data/mobs.js?v=mupq37b9';
-import { Net, cleanCode, cleanName, cleanKey, cleanChat, chatLine, MAX_PLAYERS, wakeRelays, diagnoseNetwork } from './net/net.js?v=mupq37b9';
-import { NameTags } from './net/nametags.js?v=mupq37b9';
-import { BIOMES } from './gen/biomes.js?v=mupq37b9';
-import { generateBlockTextures, drawBlockTexture } from './render/blocktex.js?v=mupq37b9';
-import { generateItemTextures, ITEM_LAYER, FX_LAYER, ITEM_LAYER_COUNT, flatTexFor } from './render/itemtex.js?v=mupq37b9';
-import { Zip, storedPack, savePack, removePack, applyBlockTextures, applyItemTextures, indexSounds } from './render/pack.js?v=mupq37b9';
-import { packModel, paintModel, SKIN, faceRects } from './render/mobtex.js?v=mupq37b9';
-import { buildMipChain } from './render/atlas.js?v=mupq37b9';
-import { Renderer, Batch } from './render/renderer.js?v=mupq37b9';
-import { World, UNLOADED } from './world/world.js?v=mupq37b9';
-import { createGenerator } from './gen/index.js?v=mupq37b9';
-import { Game } from './game/game.js?v=mupq37b9';
-import { Interact, crossbowCharge } from './game/interact.js?v=mupq37b9';
-import { SpawnPrep, STATUS_COLOR } from './game/spawnprep.js?v=mupq37b9';
-import { splash } from './splash.js?v=mupq37b9';
-import { Commands } from './game/commands.js?v=mupq37b9';
-import { GUI, HUD } from './game/ui.js?v=mupq37b9';
-import { buildIcons, hudSprites } from './game/icons.js?v=mupq37b9';
-import { Sound } from './game/audio.js?v=mupq37b9';
-import { buildLogo, buttonTexture, dirtTexture, iconDataURL } from './render/logo.js?v=mupq37b9';
-import { computeEnv } from './game/env.js?v=mupq37b9';
-import { guideSections } from './game/guide.js?v=mupq37b9';
-import { listWorlds, loadWorld, saveWorld, deleteWorld } from './game/storage.js?v=mupq37b9';
-import { importJavaWorld, exportJavaWorld } from './game/javaworld.js?v=mupq37b9';
-import { drawModel, rootMatrix, M } from './entity/entity.js?v=mupq37b9';
-import { itemMesh, emitItemMesh, clearItemMeshes } from './entity/itemmesh.js?v=mupq37b9';
-import { Lightning } from './entity/objects.js?v=mupq37b9';
-import { compose, translation, rotationX, rotationY, rotationZ, scaling, forward, mat4 } from './core/math.js?v=mupq37b9';
-import { hasGlint } from './data/enchantments.js?v=mupq37b9';
-import { BarrelRoll } from './game/barrelroll.js?v=mupq37b9';
+import { Demo, DEMO_SEED } from './demo.js?v=mupqsf2h';
+import { armorModel, armorSkinKey, ARMOR_MATERIALS, ARMOR_PIECES, elytraModel } from './data/armor.js?v=mupqsf2h';
+import { TEXTURES, TEX, B, BLOCKS, DIM, DIM_NAMES, SHAPE_OF, SHAPE, props, HEIGHT } from './data/blocks.js?v=mupqsf2h';
+import { I, ITEMS } from './data/items.js?v=mupqsf2h';
+import { MOBS, PROFESSIONS, playerModel, saddleModel, PLAYER_SKINS } from './data/mobs.js?v=mupqsf2h';
+import { Net, cleanCode, cleanName, cleanKey, cleanChat, chatLine, MAX_PLAYERS, wakeRelays, diagnoseNetwork } from './net/net.js?v=mupqsf2h';
+import { NameTags } from './net/nametags.js?v=mupqsf2h';
+import { BIOMES } from './gen/biomes.js?v=mupqsf2h';
+import { generateBlockTextures, drawBlockTexture } from './render/blocktex.js?v=mupqsf2h';
+import { generateItemTextures, ITEM_LAYER, FX_LAYER, ITEM_LAYER_COUNT, flatTexFor } from './render/itemtex.js?v=mupqsf2h';
+import { Zip, storedPack, savePack, removePack, applyBlockTextures, applyItemTextures, indexSounds } from './render/pack.js?v=mupqsf2h';
+import { packModel, paintModel, SKIN, faceRects } from './render/mobtex.js?v=mupqsf2h';
+import { buildMipChain } from './render/atlas.js?v=mupqsf2h';
+import { Renderer, Batch } from './render/renderer.js?v=mupqsf2h';
+import { World, UNLOADED } from './world/world.js?v=mupqsf2h';
+import { createGenerator } from './gen/index.js?v=mupqsf2h';
+import { Game } from './game/game.js?v=mupqsf2h';
+import { Interact, crossbowCharge } from './game/interact.js?v=mupqsf2h';
+import { SpawnPrep, STATUS_COLOR } from './game/spawnprep.js?v=mupqsf2h';
+import { splash } from './splash.js?v=mupqsf2h';
+import { Commands } from './game/commands.js?v=mupqsf2h';
+import { GUI, HUD } from './game/ui.js?v=mupqsf2h';
+import { buildIcons, hudSprites } from './game/icons.js?v=mupqsf2h';
+import { Sound } from './game/audio.js?v=mupqsf2h';
+import { buildLogo, buttonTexture, dirtTexture, iconDataURL } from './render/logo.js?v=mupqsf2h';
+import { computeEnv } from './game/env.js?v=mupqsf2h';
+import { guideSections } from './game/guide.js?v=mupqsf2h';
+import { listWorlds, loadWorld, saveWorld, deleteWorld } from './game/storage.js?v=mupqsf2h';
+import { importJavaWorld, exportJavaWorld } from './game/javaworld.js?v=mupqsf2h';
+import { drawModel, rootMatrix, M } from './entity/entity.js?v=mupqsf2h';
+import { itemMesh, emitItemMesh, clearItemMeshes } from './entity/itemmesh.js?v=mupqsf2h';
+import { Lightning, billboard } from './entity/objects.js?v=mupqsf2h';
+import { compose, translation, rotationX, rotationY, rotationZ, scaling, forward, mat4 } from './core/math.js?v=mupqsf2h';
+import { hasGlint } from './data/enchantments.js?v=mupqsf2h';
+import { BarrelRoll } from './game/barrelroll.js?v=mupqsf2h';
 
 const $ = id => document.getElementById(id);
 // Resolves after the page has painted what was just put on screen.
@@ -428,6 +428,7 @@ class App {
     await this.saveGame();
     this.leaveNet();
     if (this.game) { this.game.world.dispose(); this.game = null; }
+    this.sound.setWind(0); this.dabr.stop(); this.wings = null;
     this.spawnPrep = null;
     this.setMode('title');
     this.startPanorama();
@@ -990,7 +991,8 @@ class App {
       const hit = g.mode === 'spectator' ? null : g.world.raycast(eye, d, 4);
       const dist = hit ? Math.max(0.3, hit.t - 0.3) : 4;
       pos = [eye[0] + d[0] * dist, eye[1] + d[1] * dist, eye[2] + d[2] * dist];
-      if (this.view === 2) { yaw += Math.PI; pitch = -pitch; }
+      // Looking back at the player: R * Ry(pi) = Ry(yaw + pi) Rx(-pitch) Rz(-roll).
+      if (this.view === 2) { yaw += Math.PI; pitch = -pitch; roll = -roll; }
     }
     return { pos, yaw, pitch, roll };
   }
@@ -1000,6 +1002,7 @@ class App {
     requestAnimationFrame(t => this.frame(t));
     const realDt = (now - (this.lastFrame || now)) / 1000;
     const dt = Math.min(0.05, realDt);
+    this.frameDt = dt;
     this.lastFrame = now;
     this.time += dt;
     this.fpsT += realDt;
@@ -1180,7 +1183,7 @@ class App {
     const camBlock = g.world.getBlock(cam.pos[0], cam.pos[1], cam.pos[2]);
     const medium = g.mode === 'spectator' && SHAPE_OF[camBlock] === SHAPE.CUBE ? 0 : camBlock === B.WATER ? 1 : camBlock === B.LAVA ? 2 : 0;
     // FOV: sprint and flight widen it.
-    const fovTarget = settings.fov + (p.gliding ? Math.min(18, Math.hypot(p.vel[0], p.vel[1], p.vel[2]) * 0.5) : 0) + (p.sprinting ? (p.flying ? 14 : 9) : 0) - (medium === 1 ? 6 : 0) ;
+    const fovTarget = settings.fov + (p.sprinting ? (p.flying ? 14 : 9) : 0) - (medium === 1 ? 6 : 0);
     // Drawing a bow zooms in like the original: the view narrows by up to 15%.
     const bowZoom = this.interact.using === 'bow' ? 1 - 0.15 * Math.min(1, this.interact.useT) ** 2 : 1;
     this.fovCur += (fovTarget * bowZoom - this.fovCur) * (1 - Math.exp(-dt * 8));
@@ -1210,6 +1213,7 @@ class App {
     // Blocks being moved by pistons.
     g.rs.render(ctx, (x, y, z) => { const l = g.world.lightAt(x, y, z); return Math.max(Math.pow(0.8, 15 - l.sky) * g.env.skyLight[0], Math.pow(0.82, 15 - l.blk) * 1.1, g.env.ambient[0]); });
     if (this.view > 0 && g.alive && g.mode !== 'spectator') this.drawPlayerModel(ctx);
+    else if (p.rockets.length && g.alive) this.rocketSparks(this.rocketAt(p.renderPos || p.pos, p.yaw, g.inv.held && g.inv.held.key, g.inv.offhand.get(0) && g.inv.offhand.get(0).key), this.wings || (this.wings = { x: 0.2617994, y: 0, z: -0.2617994 }));
     if (rain > 0.05) this.drawWeather(ctx, cam, rain);
     // Hand.
     let hand = null;
@@ -1236,6 +1240,8 @@ class App {
     this.drawHumanoid(ctx, {
       pos: p.renderPos || p.pos, yaw: p.yaw, pitch: p.pitch, walk: p.bobPhase * 1.6, walkAmt: p.bobAmount, swing: this.interact.swing,
       sneaking: p.sneaking, riding: !!g.riding, gliding: p.gliding, vel: p.vel, layer: this.mobLayer('player'), flash: this.post.hurt > 0.5 ? 0.6 : 0,
+      glideTicks: p.gliding ? (p.glideTicks || 0) + (p.tickAcc || 0) * 20 : 0, roll: this.dabr.active ? this.dabr.roll : null, crawling: p.crawling,
+      rockets: p.rockets.length, wings: this.wings || (this.wings = { x: 0.2617994, y: 0, z: -0.2617994 }), dt: this.frameDt || 0,
       armor: g.inv.armor.slots.map(s => s && s.key), held: g.inv.held && g.inv.held.key, off: g.inv.offhand.get(0) && g.inv.offhand.get(0).key,
       bow: this.interact.using === 'bow', trident: this.interact.using === 'trident', blocking: g.blocking,
       xbowCharge: this.interact.using === 'crossbow' ? Math.min(1, this.interact.useT / crossbowCharge(this.game.inv.held)) : -1,
@@ -1246,6 +1252,8 @@ class App {
     this.drawHumanoid(ctx, {
       pos: rp.pos, yaw: rp.yaw, pitch: rp.headPitch, walk: rp.walk, walkAmt: rp.walkAmt, swing: rp.swing, sneaking: rp.sneaking, riding: rp.riding,
       gliding: rp.gliding, vel: rp.vel, layer: this.mobLayer(`player_${rp.skin}`), flash: rp.hurtT > 0 ? 0.6 : 0,
+      glideTicks: rp.glideTicks || 0, roll: rp.gliding && rp.roll ? rp.roll : null, crawling: rp.crawling, rockets: rp.rocket ? 1 : 0,
+      wings: rp.wings || (rp.wings = { x: 0.2617994, y: 0, z: -0.2617994 }), dt: this.frameDt || 0,
       armor: rp.armor, held: rp.held, off: rp.off, bow: rp.drawingBow && rp.held !== 'crossbow', trident: rp.throwingTrident, blocking: rp.blocking,
       xbowCharge: rp.drawingBow && rp.held === 'crossbow' ? 1 : -1, xbowHold: rp.crossbowHold,
     });
@@ -1268,19 +1276,49 @@ class App {
     const light = g.world.lightAt(lp[0], lp[1] + 1, lp[2]);
     const b = Math.max(Math.pow(0.8, 15 - light.sky) * g.env.skyLight[0], Math.pow(0.82, 15 - light.blk), g.env.ambient[0]);
     const sneak = s.sneaking ? M.chain(M.t(0, -2, 0), M.rx(0)) : null;
-    // Gliding: the body lies along the flight path (feet at the tail), arms swept back.
+    // Gliding (LivingEntityRenderer.setupRotations): over the first 10 ticks the body tips about the
+    // feet until it lies along the view, then banks by the angle between its motion and its facing;
+    // Do-a-Barrel-Roll flight rolls it with the camera instead. Crawling lies flat (the swim pose).
     let glide = null;
-    if (s.gliding) {
-      const v = s.vel || [0, 0, 0], sp = Math.hypot(v[0], v[1], v[2]) || 1, fp = Math.asin(Math.max(-1, Math.min(1, v[1] / sp)));
-      glide = M.chain(M.t(0, 12, 0), M.rx(-Math.PI / 2 - fp), M.t(0, -12, 0));
-      poses.rightArm = [0.2, 0, 0.25]; poses.leftArm = [0.2, 0, -0.25]; poses.rightLeg = [0.05, 0, 0]; poses.leftLeg = [-0.05, 0, 0]; poses.head = [0.9, 0, 0];
+    if (s.gliding || s.crawling) {
+      const gt = s.glideTicks || 0, f1 = s.crawling ? 1 : Math.min(1, gt * gt / 100);
+      glide = M.rx(f1 * ((s.crawling ? 0 : s.pitch) - Math.PI / 2));
+      if (s.crawling) glide = M.mul(glide, M.t(0, -16, 4.8));
+      else if (s.roll !== null && s.roll !== undefined) glide = M.mul(glide, M.ry(-s.roll));
+      else {
+        const v = s.vel || [0, 0, 0], fx = -Math.sin(s.yaw) * Math.cos(s.pitch), fz = -Math.cos(s.yaw) * Math.cos(s.pitch);
+        const d0 = v[0] * v[0] + v[2] * v[2], d1 = fx * fx + fz * fz;
+        if (d0 > 0 && d1 > 0) glide = M.mul(glide, M.ry(Math.sign(v[0] * fz - v[2] * fx) * Math.acos(Math.max(-1, Math.min(1, (v[0] * fx + v[2] * fz) / Math.sqrt(d0 * d1))))));
+      }
+      // HumanoidModel: the head looks ahead of the lying body; at speed the limbs hang still.
+      if (s.gliding && gt > 4) poses.head = [Math.PI / 4, 0, 0];
+      if (s.gliding) poses.rightArm = poses.leftArm = poses.rightLeg = poses.leftLeg = [0, 0, 0];
     }
     const root = rootMatrix(lp, s.yaw, 1, glide || sneak), flash = s.flash || 0;
     const mats = drawModel(ctx.mobs, model, s.layer, root, poses, [b, b, b], flash);
     const armor = s.armor || [];
     if (armor[1] === 'elytra') {
-      const open = s.gliding ? 1 : 0, flap = s.gliding ? Math.sin(this.time * 3) * 0.05 : Math.sin(this.time * 1.2) * 0.03;
-      drawModel(ctx.mobs, this.mobModel('elytra'), this.mobLayer('elytra'), root, { wingL: [0.26 + open * 0.2 + flap, 0, -0.26 - open * 1.1], wingR: [0.26 + open * 0.2 + flap, 0, 0.26 + open * 1.1] }, [b, b, b], flash);
+      // ElytraModel.setupAnim: folded on the back (tilted 15 degrees), spread flat while gliding (less
+      // the steeper the dive), half open when crouching; each wing eases 10% of the way per tick.
+      let tx = 0.2617994, tz = -0.2617994, ty = 0, drop = 0;
+      if (s.gliding) {
+        const v = s.vel || [0, 0, 0], n = Math.hypot(v[0], v[1], v[2]);
+        const f4 = v[1] < 0 && n > 0 ? 1 - Math.pow(-v[1] / n, 1.5) : 1;
+        tx = f4 * 0.34906584 + (1 - f4) * tx; tz = f4 * -Math.PI / 2 + (1 - f4) * tz;
+      } else if (s.sneaking) { tx = 0.6981317; tz = -Math.PI / 4; ty = 0.08726646; drop = 3; }
+      const w = s.wings, k = 1 - Math.pow(0.9, Math.min(1, s.dt) * 20);
+      w.x += (tx - w.x) * k; w.y += (ty - w.y) * k; w.z += (tz - w.z) * k;
+      // Java's model space has x and y flipped: x and y rotations change sign here, z keeps it.
+      drawModel(ctx.mobs, this.mobModel('elytra'), this.mobLayer('elytra'), root, {
+        wingL: [-w.x, -w.y, w.z], wingR: [-w.x, w.y, -w.z], pivots: { wingL: [-5, 24 - drop, 2], wingR: [5, 24 - drop, 2] },
+      }, [b, b, b], flash);
+    }
+    // An attached firework rocket rides at the hand (getHandHoldingItemAngle: 80 degrees off the
+    // facing, half a block out, at the feet) and sheds sparks every tick.
+    if (s.rockets > 0) {
+      const rp = this.rocketAt(lp, s.yaw, s.held, s.off);
+      billboard(ctx.items, ctx, rp[0], rp[1] + 0.12, rp[2], 0.5, this.itemLayer('firework_rocket'), [b, b, b, 1]);
+      this.rocketSparks(rp, s.wings);
     }
     for (const key of armor) {
       const sk = key && armorSkinKey(key);
@@ -1290,6 +1328,20 @@ class App {
     if (s.off && I[s.off] && mats.leftArm) this.renderItemAt(ctx, s.off, M.chain(mats.leftArm, M.t(3, -10, -1), M.rx(-Math.PI / 2), M.s(10)), [b, b, b]);
   }
 
+  // LivingEntity.getHandHoldingItemAngle: a rocket rides 80 degrees off the facing on the side of
+  // the hand that held it, half a block out, at the feet.
+  rocketAt(pos, yaw, held, off) {
+    const side = off === 'firework_rocket' && held !== 'firework_rocket' ? -1 : 1, a = 80 * Math.PI / 180;
+    const fx = -Math.sin(yaw), fz = -Math.cos(yaw), rx = Math.cos(yaw), rz = -Math.sin(yaw);
+    return [pos[0] + (fx * Math.cos(a) + rx * Math.sin(a) * side) * 0.5, pos[1], pos[2] + (fz * Math.cos(a) + rz * Math.sin(a) * side) * 0.5];
+  }
+  // FireworkRocketEntity.tick: one spark a tick from a burning rocket.
+  rocketSparks(at, state) {
+    const tick = Math.floor(this.time * 20), g = this.game;
+    if (tick === state.sparkTick) return;
+    state.sparkTick = tick;
+    if (g.particles.enabled()) g.particles.fx('spark', at, 1, 0.05, 0.3);
+  }
   drawWeather(ctx, cam, rain) {
     const g = this.game, w = g.world;
     const snowy = b => { const bm = BIOMES[b]; return bm && bm.temp < 0.15; };
@@ -1324,6 +1376,14 @@ class App {
       }
     }
     this.sound.setRain(rain * (g.world.lightAt(cam.pos[0], cam.pos[1], cam.pos[2]).sky / 15));
+    // Elytra wind: speed squared (blocks/tick) over 4, silent for the first second of a glide, then
+    // fading in over the next; above 0.8 it also rises in pitch.
+    let wind = 0;
+    if (p.gliding && g.alive) {
+      const v2 = (p.vel[0] ** 2 + p.vel[1] ** 2 + p.vel[2] ** 2) / 400, gt = p.glideTicks || 0;
+      wind = gt < 20 ? 0 : Math.min(1, v2 / 4) * Math.min(1, (gt - 20) / 20);
+    }
+    this.sound.setWind(wind, wind > 0.8 ? 1 + (wind - 0.8) : 1);
   }
 
   // First-person hand, following Minecraft's held-item renderer: the arm offset, the swing arc
@@ -1480,6 +1540,9 @@ class App {
     if (g.invDirty) { this.hud.renderHotbar(); g.invDirty = false; }
     this.hud.update(dt);
     for (const c of this.chatLines) { c.t -= dt; c.el.style.opacity = Math.min(1, Math.max(0, c.t)); }
+    // Java draws the crosshair only in first person.
+    const ch = this.view === 0 ? '' : 'none';
+    if ($('crosshair').style.display !== ch) $('crosshair').style.display = ch;
     if (this.nameT > 0) { this.nameT -= dt; if (this.nameT <= 0) $('item-name').style.opacity = 0; }
     if (this.hintUntil && performance.now() > this.hintUntil) { this.hintUntil = 0; $('hint').style.opacity = 0; }
     const boss = $('boss');

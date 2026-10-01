@@ -7,8 +7,8 @@ const MATERIAL = {
 };
 // Mob voices: [base freq, type, duration, sweep, noise]
 
-import { SOUND_FILES, NOTE_FILES, MOB_DIR, matSound } from '../render/pack.js?v=mupq37b9';
-import { MusicPlayer } from './music.js?v=mupq37b9';
+import { SOUND_FILES, NOTE_FILES, MOB_DIR, matSound } from '../render/pack.js?v=mupqsf2h';
+import { MusicPlayer } from './music.js?v=mupqsf2h';
 
 const VOWEL = { a: [[730, 6, 1.2], [1090, 7, 0.9], [2440, 9, 0.3]], o: [[450, 6, 1.2], [800, 7, 0.9], [2800, 9, 0.2]], u: [[320, 6, 1.3], [870, 7, 0.7], [2250, 9, 0.2]] };
 const MOB_VOICE_ALIAS = { polar_bear: 'bear', zombified_piglin: 'zpiglin', wandering_trader: 'villager', pillager: 'illager', vindicator: 'illager', evoker: 'illager', iron_golem: 'golem', snow_golem: 'snowgolem', husk: 'zombie', drowned: 'zombie', zombie_villager: 'zombie', stray: 'skeleton', wither_skeleton: 'skeleton', cave_spider: 'spider', magma_cube: 'slime', mooshroom: 'cow', donkey: 'horse', camel: 'horse', mule: 'horse', endermite: 'silverfish', ender_dragon: 'dragon', glow_squid: 'squid', cod: 'fish', salmon: 'fish', tropical_fish: 'fish', pufferfish: 'fish' };
@@ -326,6 +326,23 @@ export class Sound {
     this.musicPlayer.update(dt, mood);
   }
   get nowPlaying() { return this.musicPlayer && this.musicPlayer.piece ? this.musicPlayer.nowPlaying : null; }
+  // ElytraOnPlayerSoundInstance: wind rushing past while gliding (volume 0-1, pitch from 1 up).
+  // The bundled pack has no elytra loop, so it is filtered noise rising in pitch with speed.
+  setWind(volume, pitch = 1) {
+    if (!this.ctx) return;
+    if (!this.windSrc && volume > 0) {
+      const c = this.ctx;
+      this.windSrc = c.createBufferSource(); this.windSrc.buffer = this.noise; this.windSrc.loop = true;
+      this.windFilter = c.createBiquadFilter(); this.windFilter.type = 'bandpass'; this.windFilter.Q.value = 0.6;
+      this.windGain = c.createGain(); this.windGain.gain.value = 0;
+      this.windSrc.connect(this.windFilter).connect(this.windGain).connect(this.master); this.windSrc.start();
+    }
+    if (!this.windGain) return;
+    const t = this.ctx.currentTime;
+    this.windGain.gain.setTargetAtTime(volume * 0.4, t, 0.08);
+    this.windFilter.frequency.setTargetAtTime(380 * pitch + volume * 520, t, 0.1);
+    if (volume <= 0 && this.windSrc) { const src = this.windSrc; this.windSrc = null; this.windGain = null; setTimeout(() => { try { src.stop(); } catch { /* already stopped */ } }, 400); }
+  }
   // Continuous rain hiss while it rains.
   setRain(level) {
     if (!this.ctx) return;

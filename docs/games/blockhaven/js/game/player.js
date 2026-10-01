@@ -1,8 +1,8 @@
 // First-person player movement: walking, sprinting, sneaking, swimming, climbing, flying and spectating.
-import { B, BLOCKS, SHAPE_OF, SHAPE, props } from '../data/blocks.js?v=mupq37b9';
-import { moveEntity } from '../entity/physics.js?v=mupq37b9';
-import { UNLOADED } from '../world/world.js?v=mupq37b9';
-import { fluidPush, heightAt } from './fluid.js?v=mupq37b9';
+import { B, BLOCKS, SHAPE_OF, SHAPE, props } from '../data/blocks.js?v=mupqsf2h';
+import { moveEntity } from '../entity/physics.js?v=mupqsf2h';
+import { UNLOADED } from '../world/world.js?v=mupqsf2h';
+import { fluidPush, heightAt } from './fluid.js?v=mupqsf2h';
 
 export class Player {
   constructor(world) {
@@ -20,6 +20,7 @@ export class Player {
     this.mode = 'survival';
     this.onStep = null; this.onSplash = null; this.onLand = null;
     this.speedMul = 1; this.jumpBoost = 0;
+    this.rockets = []; // firework rockets attached while gliding: ticks of life left each
   }
 
   get canFly() { return this.mode === 'creative' || this.mode === 'spectator'; }
@@ -48,10 +49,22 @@ export class Player {
     if (f < 0 && d6 > 0) { const d10 = d8 * -Math.sin(f) * 0.04; m[1] += d10 * 3.2; m[0] -= lx * d10 / d6; m[2] -= lz * d10 / d6; }
     if (d6 > 0) { m[0] += (lx / d6 * d8 - m[0]) * 0.1; m[2] += (lz / d6 * d8 - m[2]) * 0.1; }
     m[0] *= 0.99; m[1] *= 0.98; m[2] *= 0.99;
-    if (this.boostT > 0) { this.boostT -= 0.05; m[0] += lx * 0.1 + (lx * 1.5 - m[0]) * 0.5; m[1] += ly * 0.1 + (ly * 1.5 - m[1]) * 0.5; m[2] += lz * 0.1 + (lz * 1.5 - m[2]) * 0.5; }
     this.glideTicks = (this.glideTicks || 0) + 1;
     if (this.glideTicks % 20 === 0 && this.onGlideSecond) this.onGlideSecond();
   }
+  // FireworkRocketEntity used while gliding: it lives 10 x (flight + 1) + 0-5 + 0-6 ticks, and every
+  // tick it lives it pulls the glider towards 1.5 blocks/tick along the view. Rockets stack.
+  addRocket(flight = 1) { this.rockets.push(10 * (flight + 1) + Math.floor(Math.random() * 6) + Math.floor(Math.random() * 7)); }
+  rocketTick(m) {
+    if (!this.rockets.length) return;
+    if (this.gliding) {
+      const f = -this.pitch, lx = -Math.sin(this.yaw) * Math.cos(f), ly = -Math.sin(f), lz = -Math.cos(this.yaw) * Math.cos(f);
+      for (let k = 0; k < this.rockets.length; k++) { m[0] += lx * 0.1 + (lx * 1.5 - m[0]) * 0.5; m[1] += ly * 0.1 + (ly * 1.5 - m[1]) * 0.5; m[2] += lz * 0.1 + (lz * 1.5 - m[2]) * 0.5; }
+    }
+    this.rockets = this.rockets.map(t => t - 1).filter(t => t > 0);
+  }
+  // Room for a box of height h at the current position.
+  fits(h) { const p = this.pos, w = this.hw; return this.noClip || !this.world.collide(p[0] - w, p[1] + 0.001, p[2] - w, p[0] + w, p[1] + h, p[2] + w).length; }
   sampleMedium() {
     const w = this.world;
     const feet = this.blockAt(0.1), mid = this.blockAt(0.9);
@@ -103,7 +116,8 @@ export class Player {
       this.stepDist += moved;
       if (this.stepDist > (this.sprinting ? 2.0 : 1.6)) { this.stepDist = 0; if (this.onStep && !this.sneaking) this.onStep(this.world.getBlock(this.pos[0], this.pos[1] - 0.2, this.pos[2])); }
     }
-    const targetEye = this.sneaking ? 1.27 : 1.62;
+    // Pose eye heights: standing 1.62, crouching 1.27, gliding or crawling 0.4.
+    const targetEye = this.gliding || this.crawling ? 0.4 : this.sneaking ? 1.27 : 1.62;
     this.eye += (targetEye - this.eye) * (1 - Math.exp(-14 * dt));
   }
   eyePos() { const p = this.renderPos || this.pos; return [p[0], p[1] + this.eye, p[2]]; }
@@ -116,10 +130,17 @@ export class Player {
 
     // ---- input (Player.aiStep) ----
     this.sneaking = input.sneak && !this.flying && !this.gliding;
-    this.h = this.sneaking ? 1.5 : 1.8;
+    // Player.updatePlayerPose: gliding is 0.6 tall; out of the air, stand if there's room, else
+    // crouch, else crawl (0.6 tall) under whatever is above.
+    const want = this.gliding ? 0.6 : this.sneaking ? 1.5 : 1.8;
+    this.crawling = false;
+    if (want <= this.h + 1e-6 || this.fits(want)) this.h = want;
+    else if (this.fits(1.5)) { this.h = 1.5; this.sneaking = true; }
+    else { this.h = 0.6; this.crawling = true; }
     let fwd = (input.forward ? 1 : 0) - (input.back ? 1 : 0), str = (input.left ? 1 : 0) - (input.right ? 1 : 0);
     // Swift Sneak adds 15% of walking speed per level while sneaking.
     if (this.sneaking) { const k = Math.min(1, 0.3 + 0.15 * (this.armorEnch ? this.armorEnch('swift_sneak') : 0)); fwd *= k; str *= k; }
+    if (this.crawling) { fwd *= 0.3; str *= 0.3; }
     if (this.usingItem) { fwd *= 0.2; str *= 0.2; }
     fwd *= 0.98; str *= 0.98;
     if (input.sprint && input.forward && !this.sneaking && !this.noSprint && !this.usingItem && !this.collidedH) this.sprinting = true;
@@ -161,6 +182,7 @@ export class Player {
       if (this.inWeb) { m[0] = 0; m[1] = 0; m[2] = 0; }
     };
 
+    this.rocketTick(m); // attached rockets keep burning (and pull only while gliding)
     if (this.gliding) {
       this.preSpeed = Math.hypot(m[0], m[2]); this.preVel = [m[0] * 20, m[1] * 20, m[2] * 20];
       this.glideTick(m);

@@ -1,7 +1,7 @@
 // Another player in the world: a puppet driven by their network updates. It lives in the entity
 // list so everything that can hit a mob (swords, arrows, explosions) can hit it too; the hit is
 // forwarded to that player's own game, which applies armour, knockback and death itself.
-import { Entity } from '../entity/entity.js?v=mupq37b9';
+import { Entity } from '../entity/entity.js?v=mupqsf2h';
 
 const DELAY = 0.1; // seconds of buffering for smooth motion
 const lerpAngle = (a, b, t) => { let d = b - a; while (d > Math.PI) d -= Math.PI * 2; while (d < -Math.PI) d += Math.PI * 2; return a + d * t; };
@@ -23,6 +23,8 @@ export class RemotePlayer extends Entity {
   set id(v) { /* entity ids are not used for remote players */ }
   get sneaking() { return !!(this.flags & 1); }
   get gliding() { return !!(this.flags & 4); }
+  get rocket() { return !!(this.flags & 4096); }
+  get crawling() { return !!(this.flags & 8192); }
   get riding() { return !!(this.flags & 8); }
   get deadFlag() { return !!(this.flags & 16); }
   get spectator() { return !!(this.flags & 32); }
@@ -44,6 +46,7 @@ export class RemotePlayer extends Entity {
     if (this.hc !== null && m.hc !== this.hc) { this.hurtT = 0.4; if (this.dim === this.game.dim) this.game.sound.play('hurt', this.pos, 0.8); }
     this.sc = m.sc; this.hc = m.hc;
     this.vel = m.v || [0, 0, 0];
+    this.rollTo = Number.isFinite(m.r) ? Math.max(-Math.PI, Math.min(Math.PI, m.r)) : 0;
     this.snaps.push({ t: now, p: m.p, y: m.y, pi: m.pi });
     if (this.snaps.length > 20) this.snaps.shift();
     if (this.snaps.length === 1) { this.pos = m.p.slice(); this.yaw = m.y; this.headPitch = m.pi; }
@@ -64,6 +67,9 @@ export class RemotePlayer extends Entity {
     }
     this.renderPos = this.pos;
     this.swing = Math.max(0, this.swing - dt / 0.3);
+    // Barrel-roll flight's roll, eased; and how long this player has been gliding (for the pose).
+    this.roll = lerpAngle(this.roll || 0, this.rollTo || 0, Math.min(1, dt * 10));
+    this.glideTicks = this.gliding ? (this.glideTicks || 0) + dt * 20 : 0;
     this.hurtT = Math.max(0, this.hurtT - dt);
     if (this.onFire && Math.random() < dt * 8) this.game.particles.fx('flame', [this.pos[0] + (Math.random() - 0.5) * 0.6, this.pos[1] + Math.random() * 1.8, this.pos[2] + (Math.random() - 0.5) * 0.6], 1, 0.05, 0.3);
   }

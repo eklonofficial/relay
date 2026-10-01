@@ -1,12 +1,12 @@
 // Player actions: mining, placing, using items and blocks, attacking.
-import { meleeDamage, isCrit, knockStrength, isSword, SHIELD_DELAY, SHIELD_DISABLE, enchantDamage, enchLv, sweepDamage } from './combat.js?v=mupq37b9';
-import { B, BLOCKS, SOLID, OPAQUE, SHAPE_OF, SHAPE, props, st, DIM, FACING_SHIFT, AXIS_SHIFT, VARIANT_MASK } from '../data/blocks.js?v=mupq37b9';
-import { I, breakTime } from '../data/items.js?v=mupq37b9';
-import { enchantWithLevels } from '../data/enchantments.js?v=mupq37b9';
-import { collisionBoxes, selectionBoxes } from '../data/shapes.js?v=mupq37b9';
-import { UNLOADED, posKey } from '../world/world.js?v=mupq37b9';
-import { forward } from '../core/math.js?v=mupq37b9';
-import { KIND } from './redstone.js?v=mupq37b9';
+import { meleeDamage, isCrit, knockStrength, isSword, SHIELD_DELAY, SHIELD_DISABLE, enchantDamage, enchLv, sweepDamage } from './combat.js?v=mupqsf2h';
+import { B, BLOCKS, SOLID, OPAQUE, SHAPE_OF, SHAPE, props, st, DIM, FACING_SHIFT, AXIS_SHIFT, VARIANT_MASK } from '../data/blocks.js?v=mupqsf2h';
+import { I, breakTime } from '../data/items.js?v=mupqsf2h';
+import { enchantWithLevels } from '../data/enchantments.js?v=mupqsf2h';
+import { collisionBoxes, selectionBoxes } from '../data/shapes.js?v=mupqsf2h';
+import { UNLOADED, posKey } from '../world/world.js?v=mupqsf2h';
+import { forward } from '../core/math.js?v=mupqsf2h';
+import { KIND } from './redstone.js?v=mupqsf2h';
 
 const DIRS = [[0, 1], [-1, 0], [0, -1], [1, 0]];
 export const CROSSBOW_CHARGE = 1.25; // seconds (25 ticks)
@@ -530,7 +530,8 @@ export class Interact {
     switch (it.use) {
       case 'firework': {
         // Mid-glide: a boost. On the ground: a rocket launched at the targeted spot.
-        if (p.gliding) { p.boostT = 1.1; g.sound.play('firework', p.pos, 0.8); g.particles.fx('crit', p.pos, 10, 0.3, 2); }
+        // FireworkRocketItem.use: gliding attaches a rocket that boosts for its flight time.
+        if (p.gliding) { p.addRocket((held && held.tag && held.tag.flight) || 1); g.sound.play('firework', p.pos, 1); this.swing = 1; }
         else if (t) g.launchFirework([t.x + 0.5 + t.nx * 0.6, t.y + 0.5 + t.ny * 0.6, t.z + 0.5 + t.nz * 0.6]);
         else return;
         if (!creative) g.inv.consumeHeld();

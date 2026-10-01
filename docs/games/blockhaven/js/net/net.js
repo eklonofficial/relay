@@ -9,10 +9,10 @@
 // own hands, or their own water/fire/sand simulation) broadcasts it once; everyone else mirrors it
 // silently, so nothing is applied twice. The host keeps the authoritative save, including each
 // guest's inventory and position, and owns the clock and the weather.
-import { RemotePlayer } from './remote.js?v=mupq37b9';
-import { getChunk } from '../game/storage.js?v=mupq37b9';
-import { EntitySync } from './share.js?v=mupq37b9';
-import { hostRoom, joinRoom, diagnose } from './transport.js?v=mupq37b9';
+import { RemotePlayer } from './remote.js?v=mupqsf2h';
+import { getChunk } from '../game/storage.js?v=mupqsf2h';
+import { EntitySync } from './share.js?v=mupqsf2h';
+import { hostRoom, joinRoom, diagnose } from './transport.js?v=mupqsf2h';
 
 export const MAX_PLAYERS = 5;
 const PREFIX = 'blockhaven-v1-';
@@ -68,7 +68,7 @@ function loadLib() {
   if (!libPromise) {
     libPromise = new Promise((resolve, reject) => {
       const s = document.createElement('script');
-      s.src = new URL('../../vendor/peerjs.min.js?v=mupq37b9', import.meta.url).href;
+      s.src = new URL('../../vendor/peerjs.min.js?v=mupqsf2h', import.meta.url).href;
       s.onload = () => resolve();
       s.onerror = () => { libPromise = null; reject(new Error('Could not load the multiplayer library. Check your connection.')); };
       document.head.appendChild(s);
@@ -458,7 +458,8 @@ export class Net {
     this.send({
       t: 'st', id: this.myId, p: [r3(p.pos[0]), r3(p.pos[1]), r3(p.pos[2])], y: r3(p.yaw), pi: r3(p.pitch), d: g.dim,
       v: [r3(p.vel[0]), r3(p.vel[1]), r3(p.vel[2])],
-      f: (p.sneaking ? 1 : 0) | (p.sprinting ? 2 : 0) | (p.gliding ? 4 : 0) | (g.riding ? 8 : 0) | (g.alive ? 0 : 16) | (g.mode === 'spectator' ? 32 : 0) | (g.blocking ? 64 : 0) | (p.flying ? 128 : 0) | (g.stats.fire > 0 ? 256 : 0) | (it && (it.using === 'bow' || it.using === 'crossbow') ? 512 : 0) | (it && it.using === 'trident' ? 1024 : 0) | (!it?.using && inv.held && inv.held.key === 'crossbow' && inv.held.tag && inv.held.tag.loaded ? 2048 : 0),
+      f: (p.sneaking ? 1 : 0) | (p.sprinting ? 2 : 0) | (p.gliding ? 4 : 0) | (g.riding ? 8 : 0) | (g.alive ? 0 : 16) | (g.mode === 'spectator' ? 32 : 0) | (g.blocking ? 64 : 0) | (p.flying ? 128 : 0) | (g.stats.fire > 0 ? 256 : 0) | (it && (it.using === 'bow' || it.using === 'crossbow') ? 512 : 0) | (it && it.using === 'trident' ? 1024 : 0) | (!it?.using && inv.held && inv.held.key === 'crossbow' && inv.held.tag && inv.held.tag.loaded ? 2048 : 0) | (p.rockets && p.rockets.length ? 4096 : 0) | (p.crawling ? 8192 : 0),
+      r: this.app.dabr && this.app.dabr.active ? r3(this.app.dabr.roll) : 0,
       h: inv.held ? inv.held.key : 0, o: inv.offhand.get(0) ? inv.offhand.get(0).key : 0,
       a: inv.armor.slots.map(s => (s ? s.key : 0)),
       sc: this.swingCount, hc: this.hurtCount, hp: Math.ceil(g.stats.health), m: g.mode,
