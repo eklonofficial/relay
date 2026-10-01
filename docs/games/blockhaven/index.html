@@ -330,7 +330,7 @@
 <body>
 <div id="boot"><canvas id="boot-canvas"></canvas></div>
 <!-- data-modules: how many modules the page loads, kept up to date by tools/stamp.mjs (the splash's download progress) -->
-<script type="module" id="boot-script" src="js/splash.js?v=muoqcjyl" data-modules="64"></script>
+<script type="module" id="boot-script" src="js/splash.js?v=muosndef" data-modules="65"></script>
 <canvas id="game"></canvas>
 
 <div id="demo" class="hidden">
@@ -460,6 +460,8 @@
       <button class="half" id="set-autojump">Auto-Jump</button>
       <button class="half" id="set-particles">Particles</button>
       <button class="half" id="set-dynres">Dynamic Resolution</button>
+      <button class="half" id="set-pack">Resource Packs...</button>
+      <input type="file" id="pack-file" accept=".zip,application/zip" hidden>
     </div>
   </div>
   <div class="foot"><button id="btn-settings-done">Done</button></div>
@@ -502,7 +504,7 @@
 </div>
 
 <div id="error" class="screen dirt hidden"></div>
-<script defer src="net-config.js?v=muoqcjyl"></script>
-<script type="module" src="js/main.js?v=muoqcjyl"></script>
+<script defer src="net-config.js?v=muosndef"></script>
+<script type="module" src="js/main.js?v=muosndef"></script>
 </body>
 </html>

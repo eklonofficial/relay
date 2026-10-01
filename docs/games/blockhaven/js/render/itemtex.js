@@ -1,9 +1,9 @@
 // Procedural 16x16 pixel art for every non-block item, plus particle/effect sprites.
 // Icons are hand-drawn as pixel rows (px``) or auto-shaded silhouettes (sil), then given MC-style dark outlines.
-import { Painter, shade, mixHex, ramp } from './paint.js?v=muoqcjyl';
-import { ITEMS, I } from '../data/items.js?v=muoqcjyl';
-import { TEXTURES, TEX, BLOCKS, FACE_TEX, VARIANT_MASK, COLORS } from '../data/blocks.js?v=muoqcjyl';
-import { drawBlockTexture } from './blocktex.js?v=muoqcjyl';
+import { Painter, shade, mixHex, ramp } from './paint.js?v=muosndef';
+import { ITEMS, I } from '../data/items.js?v=muosndef';
+import { TEXTURES, TEX, BLOCKS, FACE_TEX, VARIANT_MASK, COLORS } from '../data/blocks.js?v=muosndef';
+import { drawBlockTexture } from './blocktex.js?v=muosndef';
 
 const N = 16;
 export const MAT = {
@@ -1709,7 +1709,7 @@ function drawFx(name, p) {
 // Item key -> layer; FX name -> layer. Flat block items copy their block texture.
 export const ITEM_LAYER = {};
 export const FX_LAYER = {};
-const flatTexFor = it => {
+export const flatTexFor = it => {
   const [id, meta] = it.block;
   const k = (id << 4) | (meta & VARIANT_MASK[id]);
   return TEXTURES[FACE_TEX[k * 7]];
