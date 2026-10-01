@@ -1,4 +1,4 @@
-import { VF } from '../data/blocks.js?v=muowej42';
+import { VF } from '../data/blocks.js?v=muown4x2';
 
 const HEADER = `#version 300 es
 precision highp float;
@@ -577,32 +577,48 @@ void main() {
 }
 `;
 
-// God rays at quarter resolution: march from each pixel towards the sun, counting how much open
-// sky lies along the way (trees, hills and clouds of terrain cut it into shafts). A per-pixel
-// jittered start hides the banding of the few samples; a blur pass then smooths the result.
+// God rays at quarter resolution (light scattering, after GPU Gems 3 ch. 13): bright open sky
+// near the sun is smeared outward from the sun's screen position, so clouds, trees and terrain in
+// front of it cut visible shafts. A per-pixel jittered start and two blur passes keep it smooth.
 export const GOD_FS = HEADER + `
 uniform sampler2D uDepth;
+uniform sampler2D uScene;
 uniform vec3 uSun;
 uniform vec2 uAspect;
 uniform float uSamples;
+uniform float uTime;
 in vec2 vUV;
 out vec4 outColor;
+float lightAt(vec2 p) {
+  if (texture(uDepth, p).r < 0.99999) return 0.0;
+  vec3 c = texture(uScene, p).rgb;
+  float l = dot(c, vec3(0.3, 0.55, 0.15));
+  // Only the brightest sky (the sun, its glow, sunlit cloud edges) emits; dimmer cloud cores block.
+  float d = length((p - uSun.xy) * uAspect);
+  return smoothstep(0.55, 1.0, l) * (exp(-d * 6.0) + 0.25 * exp(-d * 1.8));
+}
 void main() {
-  vec2 toSun = vUV - uSun.xy;
-  float fall = pow(max(0.0, 1.0 - length(toSun * uAspect) * 0.62), 1.8);
+  vec2 toSun = uSun.xy - vUV;
+  float dist = length(toSun * uAspect);
+  float fall = pow(max(0.0, 1.0 - dist * 0.75), 1.6);
   if (fall <= 0.0) { outColor = vec4(0.0); return; }
   float jit = fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))));
-  vec2 d = toSun / uSamples * 0.92;
-  vec2 p = vUV - d * jit;
+  // March towards the sun, at most 85% of the way across the screen.
+  vec2 d = toSun * min(1.0, 0.85 / max(dist, 1e-4)) / uSamples;
+  vec2 p = vUV + d * jit;
   float illum = 0.0, decay = 1.0, wsum = 0.0;
   for (int i = 0; i < 64; i++) {
     if (float(i) >= uSamples) break;
-    float sky = texture(uDepth, clamp(p, 0.001, 0.999)).r >= 0.99999 ? 1.0 : 0.0;
-    illum += sky * decay; wsum += decay;
-    decay *= 0.955;
-    p -= d;
+    illum += lightAt(clamp(p, 0.001, 0.999)) * decay; wsum += decay;
+    decay *= 0.985;
+    p += d;
   }
-  outColor = vec4(illum / wsum * fall, 0.0, 0.0, 1.0);
+  // Crepuscular streaks: slowly drifting radial bands around the sun (integer frequencies, so
+  // they wrap seamlessly), on top of the real shafts cut by whatever blocks the light.
+  float a = atan(toSun.y, toSun.x * uAspect.x);
+  float band = sin(a * 7.0 + 1.3 + uTime * 0.03) * 0.45 + sin(a * 13.0 - uTime * 0.05) * 0.35 + sin(a * 29.0 + 2.1 + uTime * 0.02) * 0.2;
+  float streak = mix(1.0, 0.25 + 1.1 * smoothstep(-0.35, 0.75, band), smoothstep(0.02, 0.2, dist));
+  outColor = vec4(illum / wsum * fall * streak, 0.0, 0.0, 1.0);
 }
 `;
 
@@ -658,7 +674,7 @@ void main() {
   // God rays (traced at quarter resolution in GOD_FS), warm with the sun's colour.
   if (uSun.z > 0.001) {
     float g = texture(uGod, uv).r;
-    c += uSunColor * g * uSun.z * 0.6 * (1.0 - 0.3 * luma(c));
+    c += uSunColor * g * uSun.z * 2.6 * (1.0 - 0.35 * luma(c));
   }
   if (uQuality >= 2) c += texture(uBloom, uv).rgb * uBloomStrength;
   if (uMedium > 0.5 && uMedium < 1.5) c = mix(c, c * vec3(0.4, 0.62, 1.0), 0.55);

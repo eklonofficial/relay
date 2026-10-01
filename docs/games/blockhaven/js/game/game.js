@@ -1,27 +1,27 @@
 // The running game: world + dimensions, player survival state, entities, simulation, weather and saving.
-import { B, BLOCKS, SOLID, OPAQUE, DIM, DIM_NAMES, HEIGHT, SEA, props, st, SHAPE_OF, SHAPE } from '../data/blocks.js?v=muowej42';
-import { I, maxStack } from '../data/items.js?v=muowej42';
-import { SMELTING } from '../data/recipes.js?v=muowej42';
-import { MOBS } from '../data/mobs.js?v=muowej42';
-import { BIOMES, COLD } from '../gen/biomes.js?v=muowej42';
-import { World, UNLOADED, posKey } from '../world/world.js?v=muowej42';
-import { Player } from './player.js?v=muowej42';
-import { PlayerInventory, Container } from './inventory.js?v=muowej42';
-import { EntityManager } from '../entity/entity.js?v=muowej42';
-import { ItemEntity, XpOrb, FallingBlock, PrimedTnt, Lightning, Projectile } from '../entity/objects.js?v=muowej42';
-import { Mob, RIDEABLE } from '../entity/mob.js?v=muowej42';
-import { Particles } from './particles.js?v=muowej42';
-import { Sim } from './sim.js?v=muowej42';
-import { Redstone } from './redstone.js?v=muowej42';
-import { blockDrops } from './drops.js?v=muowej42';
-import { computeEnv } from './env.js?v=muowej42';
-import { fuelOf } from './ui.js?v=muowej42';
-import { unlockLevel } from './trades.js?v=muowej42';
-import { forward } from '../core/math.js?v=muowej42';
-import { EndCrystal } from '../entity/crystal.js?v=muowej42';
-import { migrateWorld } from './migrate.js?v=muowej42';
-import { ARMOR_BYPASS, armorReduce, applyInvul, isAxe, shieldFaces, applyKnockback, knockbackResist } from './combat.js?v=muowej42';
-import { deathText } from '../net/net.js?v=muowej42';
+import { B, BLOCKS, SOLID, OPAQUE, DIM, DIM_NAMES, HEIGHT, SEA, props, st, SHAPE_OF, SHAPE } from '../data/blocks.js?v=muown4x2';
+import { I, maxStack } from '../data/items.js?v=muown4x2';
+import { SMELTING } from '../data/recipes.js?v=muown4x2';
+import { MOBS } from '../data/mobs.js?v=muown4x2';
+import { BIOMES, COLD } from '../gen/biomes.js?v=muown4x2';
+import { World, UNLOADED, posKey } from '../world/world.js?v=muown4x2';
+import { Player } from './player.js?v=muown4x2';
+import { PlayerInventory, Container } from './inventory.js?v=muown4x2';
+import { EntityManager } from '../entity/entity.js?v=muown4x2';
+import { ItemEntity, XpOrb, FallingBlock, PrimedTnt, Lightning, Projectile } from '../entity/objects.js?v=muown4x2';
+import { Mob, RIDEABLE } from '../entity/mob.js?v=muown4x2';
+import { Particles } from './particles.js?v=muown4x2';
+import { Sim } from './sim.js?v=muown4x2';
+import { Redstone } from './redstone.js?v=muown4x2';
+import { blockDrops } from './drops.js?v=muown4x2';
+import { computeEnv } from './env.js?v=muown4x2';
+import { fuelOf } from './ui.js?v=muown4x2';
+import { unlockLevel } from './trades.js?v=muown4x2';
+import { forward } from '../core/math.js?v=muown4x2';
+import { EndCrystal } from '../entity/crystal.js?v=muown4x2';
+import { migrateWorld } from './migrate.js?v=muown4x2';
+import { ARMOR_BYPASS, armorReduce, applyInvul, isAxe, shieldFaces, applyKnockback, knockbackResist } from './combat.js?v=muown4x2';
+import { deathText } from '../net/net.js?v=muown4x2';
 
 export const DAY = 1200; // seconds per day
 const rnd = (a, b) => a + Math.random() * (b - a);
@@ -141,6 +141,9 @@ export class Game {
     const d = this.dims[dim] || {};
     this.world = new World({
       seed: this.seed, dim, worldType: this.worldType, edits: d.edits, populated: d.populated, popOld: d.popOld, blockEntities: d.blockEntities,
+      // Chunks of an imported Java world: from storage, or for a guest from the host.
+      imported: this.meta && this.meta.java && this.meta.java.dims && this.meta.java.dims[dim]
+        ? { id: this.meta.id, keys: new Set(this.meta.java.dims[dim]), fetch: this.meta.guest ? (d, k) => (this.net ? this.net.requestChunk(d, k) : null) : null } : null,
       callbacks: {
         onMesh: (c, m) => this.renderer.uploadChunk(c, m), onUnload: c => this.renderer.freeChunk(c),
         onEntities: list => this.onGenEntities(list),

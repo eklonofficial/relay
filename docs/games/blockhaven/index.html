@@ -381,7 +381,7 @@
 <body>
 <div id="boot"><canvas id="boot-canvas"></canvas></div>
 <!-- data-modules: how many modules the page loads, kept up to date by tools/stamp.mjs (the splash's download progress) -->
-<script type="module" id="boot-script" src="js/splash.js?v=muowej42" data-modules="65"></script>
+<script type="module" id="boot-script" src="js/splash.js?v=muown4x2" data-modules="68"></script>
 <canvas id="game"></canvas>
 
 <div id="demo" class="hidden">
@@ -409,8 +409,10 @@
   <div class="foot">
     <div class="row"><button class="half" id="btn-world-play" disabled>Play Selected World</button><button class="half" id="btn-world-new">Create New World</button></div>
     <div class="row"><button class="q" id="btn-world-download" disabled>Download</button><button class="q" id="btn-world-upload">Upload…</button><button class="q" id="btn-world-delete" disabled>Delete</button><button class="q" id="btn-world-back">Cancel</button></div>
+    <div class="row"><button class="half" id="btn-world-java-import">Import Java World…</button><button class="half" id="btn-world-java-export" disabled>Export to Java</button></div>
   </div>
   <input type="file" id="world-file" accept=".bhworld,.json,application/json,application/gzip" class="hidden">
+  <input type="file" id="java-file" accept=".zip,application/zip" class="hidden">
 </div>
 
 <div id="create" class="screen dirt hidden">
@@ -555,7 +557,7 @@
 </div>
 
 <div id="error" class="screen dirt hidden"></div>
-<script defer src="net-config.js?v=muowej42"></script>
-<script type="module" src="js/main.js?v=muowej42"></script>
+<script defer src="net-config.js?v=muown4x2"></script>
+<script type="module" src="js/main.js?v=muown4x2"></script>
 </body>
 </html>

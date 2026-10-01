@@ -1,15 +1,15 @@
-import { CHUNK, TEX, DIM } from '../data/blocks.js?v=muowej42';
-import { meshSingleBlock, STRIDE } from '../mesh/mesher.js?v=muowej42';
-import * as S from './shaders.js?v=muowej42';
-import { uploadArray } from './atlas.js?v=muowej42';
-import { mat4, perspective, multiply, invert, viewMatrix, frustumPlanes, boxVisible } from '../core/math.js?v=muowej42';
+import { CHUNK, TEX, DIM } from '../data/blocks.js?v=muown4x2';
+import { meshSingleBlock, STRIDE } from '../mesh/mesher.js?v=muown4x2';
+import * as S from './shaders.js?v=muown4x2';
+import { uploadArray } from './atlas.js?v=muown4x2';
+import { mat4, perspective, multiply, invert, viewMatrix, frustumPlanes, boxVisible } from '../core/math.js?v=muown4x2';
 
 // Graphics presets: 0 Disabled, 1 Regular, 2 High, 3 PC.
 export const QUALITY = [
   { name: 'Disabled', shadow: 0, god: 0, bloom: 0, ssr: 0 },
-  { name: 'Regular', shadow: 0, god: 14, bloom: 0, ssr: 20 },
-  { name: 'High', shadow: 2048, shadowR: 72, pcf: 1, god: 24, bloom: 0.2, ssr: 32 },
-  { name: 'PC', shadow: 4096, shadowR: 112, pcf: 2, god: 36, bloom: 0.24, ssr: 56 },
+  { name: 'Regular', shadow: 0, god: 24, bloom: 0, ssr: 20 },
+  { name: 'High', shadow: 2048, shadowR: 72, pcf: 1, god: 40, bloom: 0.2, ssr: 32 },
+  { name: 'PC', shadow: 4096, shadowR: 112, pcf: 2, god: 56, bloom: 0.24, ssr: 56 },
 ];
 
 const MAX_QUADS = 1 << 18;
@@ -551,7 +551,9 @@ export class Renderer {
       if (cw > 0) {
         const u = cx / cw * 0.5 + 0.5, v = cy / cw * 0.5 + 0.5;
         const onScreen = 1 - Math.min(1, Math.max(0, Math.max(Math.abs(u - 0.5), Math.abs(v - 0.5)) * 2 - 1) * 1.5);
-        const strength = 0.45 * onScreen * Math.max(0, Math.min(1, d[1] * 4 + 0.2)) * (1 - (s.rain || 0));
+        // Strongest with the sun low (sunrise, sunset), fading out as it sets below the horizon.
+        const up = Math.max(0, Math.min(1, (d[1] + 0.04) / 0.1)), low = 1 - Math.max(0, Math.min(1, d[1] * 2.5));
+        const strength = 0.5 * onScreen * up * (0.6 + 0.9 * low) * (1 - (s.rain || 0));
         sun = [u, v, strength];
       }
     }
@@ -563,9 +565,11 @@ export class Renderer {
       gl.useProgram(gp.p);
       gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, this.sceneDepth);
       gl.uniform1i(gp.u.uDepth, 1);
+      gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, this.sceneTex); gl.uniform1i(gp.u.uScene, 3); gl.activeTexture(gl.TEXTURE1);
       gl.uniform3f(gp.u.uSun, sun[0], sun[1], sun[2]);
       gl.uniform2f(gp.u.uAspect, w / h, 1);
       gl.uniform1f(gp.u.uSamples, Q.god);
+      gl.uniform1f(gp.u.uTime, s.time || 0);
       gl.drawArrays(gl.TRIANGLES, 0, 3);
       gl.useProgram(bp.p);
       const pass = (src, dst, mode) => { gl.bindFramebuffer(gl.FRAMEBUFFER, dst); gl.bindTexture(gl.TEXTURE_2D, src); gl.uniform1i(bp.u.uSrc, 1); gl.uniform1i(bp.u.uMode, mode); gl.uniform2f(bp.u.uTexel, 1 / bw, 1 / bh); gl.drawArrays(gl.TRIANGLES, 0, 3); };
