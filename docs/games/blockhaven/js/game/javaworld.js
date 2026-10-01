@@ -9,14 +9,14 @@
 // Heights: Blockhaven worlds are 256 tall with the sea surface at y=64; Java's overworld runs
 // -64..319 with its sea surface at y=62, so overworld blocks shift by 2 (Java y -2..253 is kept).
 // The Nether and the End keep their y.
-import { BLOCKS, B, CHUNK, HEIGHT, DIM, SHAPE } from '../data/blocks.js?v=muox46vc';
-import { BIOMES } from '../gen/biomes.js?v=muox46vc';
-import { I } from '../data/items.js?v=muox46vc';
-import { createGenerator } from '../gen/index.js?v=muox46vc';
-import { readNbt, writeNbt, readRegion, writeRegion, maybeGunzip, gzip, TAG, byte, short, int, long, float, double, string, compound, list, longArray } from './nbt.js?v=muox46vc';
-import { toJava, fromJava, biomeToJava } from './javablocks.js?v=muox46vc';
-import { encodeChunk, decodeChunk, putChunks, getChunk } from './storage.js?v=muox46vc';
-import { SAVE_VERSION } from './migrate.js?v=muox46vc';
+import { BLOCKS, B, CHUNK, HEIGHT, DIM, SHAPE } from '../data/blocks.js?v=muoxc0st';
+import { BIOMES } from '../gen/biomes.js?v=muoxc0st';
+import { I } from '../data/items.js?v=muoxc0st';
+import { createGenerator } from '../gen/index.js?v=muoxc0st';
+import { readNbt, writeNbt, readRegion, writeRegion, maybeGunzip, gzip, TAG, byte, short, int, long, float, double, string, compound, list, longArray } from './nbt.js?v=muoxc0st';
+import { toJava, fromJava, biomeToJava } from './javablocks.js?v=muoxc0st';
+import { encodeChunk, decodeChunk, putChunks, getChunk } from './storage.js?v=muoxc0st';
+import { SAVE_VERSION } from './migrate.js?v=muoxc0st';
 
 const DATA_VERSION = 3465; // 1.20.1
 const Y_SHIFT = [2, 0, 0];
@@ -165,6 +165,41 @@ function javaChunkToOurs(nbt, dim) {
 }
 
 // ---------------- import ----------------
+// What lies beyond a Java world's saved chunks, from its own generator settings: 'void' (void
+// and empty flat worlds, typical for downloaded maps), 'flat', or 'terrain' (normal generation).
+export function javaGenerator(D) {
+  const gs = D.WorldGenSettings;
+  if (gs && gs.dimensions) {
+    const g = gs.dimensions['minecraft:overworld'] && gs.dimensions['minecraft:overworld'].generator;
+    const t = String((g && g.type) || '').replace(/^minecraft:/, '');
+    if (t === 'flat') return ((g.settings && g.settings.layers) || []).some(l => !/(^|:)air$/.test(String(l.block))) ? 'flat' : 'void';
+    if (t === 'debug') return 'void';
+    return 'terrain';
+  }
+  const n = String(D.generatorName || '').toLowerCase();
+  if (n === 'flat') {
+    const o = D.generatorOptions, layers = o && typeof o === 'object' ? o.layers || [] : null;
+    if (layers) return layers.some(l => !/(^|:)air$/.test(String(l.block))) ? 'flat' : 'void';
+    return /(stone|dirt|grass|bedrock|sand|\d+\*?[1-9])/.test(String(o || '2;7,2x3,2')) ? 'flat' : 'void';
+  }
+  if (n === 'debug_all_block_states') return 'void';
+  return 'terrain';
+}
+// A world border smaller than the whole world: chunks outside it stay empty.
+function javaBorder(D) {
+  const size = Number(D.BorderSize ?? 6e7);
+  return size > 0 && size < 1e6 ? { x: Number(D.BorderCenterX || 0), z: Number(D.BorderCenterZ || 0), size } : null;
+}
+// True when chunk (cx, cz) of an imported world is empty space rather than generated terrain.
+export function importedVoidAt(java, cx, cz) {
+  if (!java) return false;
+  if (java.beyond === 'void') return true;
+  const b = java.border;
+  if (b) { const h = b.size / 2; if (cx * 16 + 16 <= b.x - h || cx * 16 >= b.x + h || cz * 16 + 16 <= b.z - h || cz * 16 >= b.z + h) return true; }
+  return false;
+}
+export const emptyChunk = () => ({ ids: new Uint8Array(CC * HEIGHT), meta: new Uint8Array(CC * HEIGHT), biomes: new Uint8Array(CC).fill(BIOME_ID.get('plains') ?? 0), heights: new Uint8Array(CC) });
+
 // A helpful message for a zip that is not a Java world.
 function whatIsThis(names) {
   const has = re => names.some(n => re.test(n));
@@ -178,7 +213,7 @@ function whatIsThis(names) {
 }
 
 // zip: a Zip (render/pack.js). Returns the new world's save record.
-export async function importJavaWorld(zip, onProgress = () => {}) {
+export async function importJavaWorld(zip, onProgress = () => {}, opts = {}) {
   const names = [...zip.entries.keys()];
   const shortest = re => names.filter(n => re.test(n)).sort((a, b) => a.length - b.length)[0];
   const levelPath = shortest(/(^|\/)level\.dat$/) || shortest(/(^|\/)level\.dat_old$/);
@@ -189,6 +224,9 @@ export async function importJavaWorld(zip, onProgress = () => {}) {
   const D = level.Data || level;
   if ((D.version | 0) !== 19133 && !D.DataVersion) throw new Error('This world is from before Minecraft 1.13, which is not supported.');
   const seed = D.WorldGenSettings ? D.WorldGenSettings.seed : D.RandomSeed;
+  // Normal worlds may still be maps that are meant to end at their edges: the player decides.
+  let beyond = javaGenerator(D);
+  if (beyond === 'terrain' && opts.askBeyond && !(await opts.askBeyond())) beyond = 'void';
   const seedNum = Number(BigInt.asIntN(32, BigInt(seed ?? 0)));
   const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
   const regions = [];
@@ -197,7 +235,7 @@ export async function importJavaWorld(zip, onProgress = () => {}) {
     if (m && !n.slice((root + DIM_DIRS[dim]).length).includes('/')) regions.push({ dim, path: n });
   }
   if (!regions.length) throw new Error('This world has no region files.');
-  const dims = {}, java = { dims: {} };
+  const dims = {}, java = { dims: {}, beyond, border: javaBorder(D) };
   let done = 0, chunks = 0;
   for (const r of regions) {
     onProgress(done / regions.length, `Converting region ${done + 1} of ${regions.length}...`);
@@ -222,7 +260,7 @@ export async function importJavaWorld(zip, onProgress = () => {}) {
   const gameType = D.GameType | 0, hardcore = !!D.hardcore;
   const P = D.Player;
   const meta = {
-    id, name: String(D.LevelName || 'Java World').slice(0, 32), seed: seedNum, seedText: String(seed ?? seedNum), type: 'default',
+    id, name: String(D.LevelName || 'Java World').slice(0, 32), seed: seedNum, seedText: String(seed ?? seedNum), type: beyond === 'flat' ? 'flat' : 'default',
     mode: hardcore ? 'hardcore' : ['survival', 'creative', 'adventure', 'spectator'][gameType] || 'survival', hardcore,
     difficulty: ['peaceful', 'easy', 'normal', 'hard'][D.Difficulty | 0] || 'normal', cheats: !!D.allowCommands, created: Date.now(),
     time: (((Number(D.DayTime ?? 0) % 24000) + 24000) % 24000) / 24000, day: Math.floor(Number(D.DayTime ?? 0) / 24000),
@@ -329,7 +367,10 @@ function levelDat(w, player) {
       WorldGenSettings: compound({
         seed: long(seed), generate_features: byte(1), bonus_chest: byte(0),
         dimensions: compound({
-          'minecraft:overworld': dimGen('minecraft:overworld', 'minecraft:overworld', { type: string('minecraft:multi_noise'), preset: string('minecraft:overworld') }),
+          // A map that ends at its edges stays that way in Java: an empty (void) world around it.
+          'minecraft:overworld': w.java && w.java.beyond === 'void'
+            ? compound({ type: string('minecraft:overworld'), generator: compound({ type: string('minecraft:flat'), settings: compound({ layers: list(TAG.COMPOUND, []), biome: string('minecraft:the_void'), lakes: byte(0), features: byte(0), structure_overrides: list(TAG.STRING, []) }) }) })
+            : dimGen('minecraft:overworld', 'minecraft:overworld', { type: string('minecraft:multi_noise'), preset: string('minecraft:overworld') }),
           'minecraft:the_nether': dimGen('minecraft:the_nether', 'minecraft:nether', { type: string('minecraft:multi_noise'), preset: string('minecraft:nether') }),
           'minecraft:the_end': dimGen('minecraft:the_end', 'minecraft:end', { type: string('minecraft:the_end') }),
         }),
@@ -363,6 +404,7 @@ export async function exportJavaWorld(w, onProgress = () => {}) {
     const [cx, cz] = key.split(',').map(Number);
     let c = null;
     if (impSets[dim].has(key)) { const raw = await getChunk(`${w.id}/${dim}/${key}`); if (raw) c = await decodeChunk(raw); }
+    if (!c && importedVoidAt(w.java, cx, cz)) c = emptyChunk();
     if (!c) { const g = gens[dim] || (gens[dim] = createGenerator(w.seed, dim, w.type || 'default')); c = g.generateChunk(cx, cz); }
     const d = (w.dims || {})[dim] || {};
     const edits = d.edits?.[key];

@@ -1,11 +1,11 @@
 // Player actions: mining, placing, using items and blocks, attacking.
-import { meleeDamage, isCrit, knockStrength, isSword, SWEEP_DAMAGE, SHIELD_DELAY, SHIELD_DISABLE } from './combat.js?v=muox46vc';
-import { B, BLOCKS, SOLID, OPAQUE, SHAPE_OF, SHAPE, props, st, DIM, FACING_SHIFT, AXIS_SHIFT, VARIANT_MASK } from '../data/blocks.js?v=muox46vc';
-import { I, breakTime } from '../data/items.js?v=muox46vc';
-import { collisionBoxes, selectionBoxes } from '../data/shapes.js?v=muox46vc';
-import { UNLOADED, posKey } from '../world/world.js?v=muox46vc';
-import { forward } from '../core/math.js?v=muox46vc';
-import { KIND } from './redstone.js?v=muox46vc';
+import { meleeDamage, isCrit, knockStrength, isSword, SWEEP_DAMAGE, SHIELD_DELAY, SHIELD_DISABLE } from './combat.js?v=muoxc0st';
+import { B, BLOCKS, SOLID, OPAQUE, SHAPE_OF, SHAPE, props, st, DIM, FACING_SHIFT, AXIS_SHIFT, VARIANT_MASK } from '../data/blocks.js?v=muoxc0st';
+import { I, breakTime } from '../data/items.js?v=muoxc0st';
+import { collisionBoxes, selectionBoxes } from '../data/shapes.js?v=muoxc0st';
+import { UNLOADED, posKey } from '../world/world.js?v=muoxc0st';
+import { forward } from '../core/math.js?v=muoxc0st';
+import { KIND } from './redstone.js?v=muoxc0st';
 
 const DIRS = [[0, 1], [-1, 0], [0, -1], [1, 0]];
 export const CROSSBOW_CHARGE = 1.25; // seconds (25 ticks)

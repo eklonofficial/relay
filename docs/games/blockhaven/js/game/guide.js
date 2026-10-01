@@ -1,11 +1,11 @@
 // The in-game guide: features, commands, crafting, farming, combat, villagers, dimensions and graphics.
-import { MusicPlayer } from './music.js?v=muox46vc';
-import { BLOCKS, BLOCK_ITEMS, TEXTURES } from '../data/blocks.js?v=muox46vc';
-import { ITEMS, I } from '../data/items.js?v=muox46vc';
-import { SHAPED, SHAPELESS, SMELTING } from '../data/recipes.js?v=muox46vc';
-import { MOBS } from '../data/mobs.js?v=muox46vc';
-import { BIOMES } from '../gen/biomes.js?v=muox46vc';
-import { COMMANDS } from './commands.js?v=muox46vc';
+import { MusicPlayer } from './music.js?v=muoxc0st';
+import { BLOCKS, BLOCK_ITEMS, TEXTURES } from '../data/blocks.js?v=muoxc0st';
+import { ITEMS, I } from '../data/items.js?v=muoxc0st';
+import { SHAPED, SHAPELESS, SMELTING } from '../data/recipes.js?v=muoxc0st';
+import { MOBS } from '../data/mobs.js?v=muoxc0st';
+import { BIOMES } from '../gen/biomes.js?v=muoxc0st';
+import { COMMANDS } from './commands.js?v=muoxc0st';
 
 const esc = s => String(s).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
 
@@ -91,7 +91,7 @@ export function guideSections(icons) {
         <tr><td>What comes across</td><td>Every generated chunk in the Overworld, Nether and End; biomes; chest, barrel, hopper, dispenser and dropper contents; the world name, seed, time, game mode, difficulty and spawn; your position and inventory.</td></tr>
         <tr><td>Blocks</td><td>Blocks Blockhaven has keep their state (stairs facing, slab halves, log axes, doors, redstone settings...). Blocks it lacks become the closest one it has: polished granite stairs → stone stairs, glazed terracotta → plain terracotta; signs, banners and candles are left out.</td></tr>
         <tr><td>Height</td><td>Blockhaven worlds are 256 blocks tall, so the Overworld keeps Java heights −2 to 253 (sea levels line up); anything deeper or higher is cut off.</td></tr>
-        <tr><td>Beyond the edge</td><td>Past the chunks you imported, Blockhaven generates its own terrain, so you'll see a seam where the two meet.</td></tr>
+        <tr><td>Beyond the edge</td><td>Void and empty-flat worlds (as most downloadable maps are) stay empty around the imported area, and a map's world border is respected. For worlds made with normal generation, importing asks whether to leave empty space around them (best for maps) or generate new Blockhaven terrain so the world goes on forever (it won't match the map's edges). Exports keep empty surroundings empty in Java too.</td></tr>
         <tr><td>Not imported</td><td>Mobs and other entities, signs' text, enchantments and item names.</td></tr>
       </table>
       <h4>Export a world to Java Edition</h4>

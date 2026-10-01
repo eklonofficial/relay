@@ -1,27 +1,28 @@
 // The running game: world + dimensions, player survival state, entities, simulation, weather and saving.
-import { B, BLOCKS, SOLID, OPAQUE, DIM, DIM_NAMES, HEIGHT, SEA, props, st, SHAPE_OF, SHAPE } from '../data/blocks.js?v=muox46vc';
-import { I, maxStack } from '../data/items.js?v=muox46vc';
-import { SMELTING } from '../data/recipes.js?v=muox46vc';
-import { MOBS } from '../data/mobs.js?v=muox46vc';
-import { BIOMES, COLD } from '../gen/biomes.js?v=muox46vc';
-import { World, UNLOADED, posKey } from '../world/world.js?v=muox46vc';
-import { Player } from './player.js?v=muox46vc';
-import { PlayerInventory, Container } from './inventory.js?v=muox46vc';
-import { EntityManager } from '../entity/entity.js?v=muox46vc';
-import { ItemEntity, XpOrb, FallingBlock, PrimedTnt, Lightning, Projectile } from '../entity/objects.js?v=muox46vc';
-import { Mob, RIDEABLE } from '../entity/mob.js?v=muox46vc';
-import { Particles } from './particles.js?v=muox46vc';
-import { Sim } from './sim.js?v=muox46vc';
-import { Redstone } from './redstone.js?v=muox46vc';
-import { blockDrops } from './drops.js?v=muox46vc';
-import { computeEnv } from './env.js?v=muox46vc';
-import { fuelOf } from './ui.js?v=muox46vc';
-import { unlockLevel } from './trades.js?v=muox46vc';
-import { forward } from '../core/math.js?v=muox46vc';
-import { EndCrystal } from '../entity/crystal.js?v=muox46vc';
-import { migrateWorld } from './migrate.js?v=muox46vc';
-import { ARMOR_BYPASS, armorReduce, applyInvul, isAxe, shieldFaces, applyKnockback, knockbackResist } from './combat.js?v=muox46vc';
-import { deathText } from '../net/net.js?v=muox46vc';
+import { B, BLOCKS, SOLID, OPAQUE, DIM, DIM_NAMES, HEIGHT, SEA, props, st, SHAPE_OF, SHAPE } from '../data/blocks.js?v=muoxc0st';
+import { importedVoidAt, emptyChunk } from './javaworld.js?v=muoxc0st';
+import { I, maxStack } from '../data/items.js?v=muoxc0st';
+import { SMELTING } from '../data/recipes.js?v=muoxc0st';
+import { MOBS } from '../data/mobs.js?v=muoxc0st';
+import { BIOMES, COLD } from '../gen/biomes.js?v=muoxc0st';
+import { World, UNLOADED, posKey } from '../world/world.js?v=muoxc0st';
+import { Player } from './player.js?v=muoxc0st';
+import { PlayerInventory, Container } from './inventory.js?v=muoxc0st';
+import { EntityManager } from '../entity/entity.js?v=muoxc0st';
+import { ItemEntity, XpOrb, FallingBlock, PrimedTnt, Lightning, Projectile } from '../entity/objects.js?v=muoxc0st';
+import { Mob, RIDEABLE } from '../entity/mob.js?v=muoxc0st';
+import { Particles } from './particles.js?v=muoxc0st';
+import { Sim } from './sim.js?v=muoxc0st';
+import { Redstone } from './redstone.js?v=muoxc0st';
+import { blockDrops } from './drops.js?v=muoxc0st';
+import { computeEnv } from './env.js?v=muoxc0st';
+import { fuelOf } from './ui.js?v=muoxc0st';
+import { unlockLevel } from './trades.js?v=muoxc0st';
+import { forward } from '../core/math.js?v=muoxc0st';
+import { EndCrystal } from '../entity/crystal.js?v=muoxc0st';
+import { migrateWorld } from './migrate.js?v=muoxc0st';
+import { ARMOR_BYPASS, armorReduce, applyInvul, isAxe, shieldFaces, applyKnockback, knockbackResist } from './combat.js?v=muoxc0st';
+import { deathText } from '../net/net.js?v=muoxc0st';
 
 export const DAY = 1200; // seconds per day
 const rnd = (a, b) => a + Math.random() * (b - a);
@@ -143,7 +144,8 @@ export class Game {
       seed: this.seed, dim, worldType: this.worldType, edits: d.edits, populated: d.populated, popOld: d.popOld, blockEntities: d.blockEntities,
       // Chunks of an imported Java world: from storage, or for a guest from the host.
       imported: this.meta && this.meta.java && this.meta.java.dims && this.meta.java.dims[dim]
-        ? { id: this.meta.id, keys: new Set(this.meta.java.dims[dim]), fetch: this.meta.guest ? (d, k) => (this.net ? this.net.requestChunk(d, k) : null) : null } : null,
+        ? { id: this.meta.id, keys: new Set(this.meta.java.dims[dim]), fetch: this.meta.guest ? (d, k) => (this.net ? this.net.requestChunk(d, k) : null) : null,
+          voidAt: (cx, cz) => importedVoidAt(this.meta.java, cx, cz), empty: emptyChunk } : null,
       callbacks: {
         onMesh: (c, m) => this.renderer.uploadChunk(c, m), onUnload: c => this.renderer.freeChunk(c),
         onEntities: list => this.onGenEntities(list),

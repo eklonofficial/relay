@@ -4,7 +4,7 @@ import { load } from './load.mjs';
 
 const { toJava, fromJava } = await load('game/javablocks.js');
 const { readNbt, writeNbt, compound, int, string, list, long, longArray, TAG, readRegion, writeRegion } = await load('game/nbt.js');
-const { exportJavaWorld, importJavaWorld, readBits, pack, unpack } = await load('game/javaworld.js');
+const { exportJavaWorld, importJavaWorld, readBits, pack, unpack, javaGenerator, importedVoidAt } = await load('game/javaworld.js');
 const { Zip } = await load('render/pack.js');
 const { getChunk, decodeChunk } = await load('game/storage.js');
 const { createGenerator } = await load('gen/index.js');
@@ -71,4 +71,19 @@ test('a world exported to Java imports back block for block, with player and che
     for (let i = 256 * 5; i < 65536; i++) if (a.ids[i] !== b.ids[i] || a.meta[i] !== b.meta[i]) diff++;
     assert.equal(diff, 0, `chunk ${k}`);
   }
+});
+
+test('what lies beyond imported chunks follows the Java world', () => {
+  const flat = layers => ({ WorldGenSettings: { dimensions: { 'minecraft:overworld': { generator: { type: 'minecraft:flat', settings: { layers } } } } } });
+  assert.equal(javaGenerator(flat([])), 'void');
+  assert.equal(javaGenerator(flat([{ block: 'minecraft:air', height: 1 }])), 'void');
+  assert.equal(javaGenerator(flat([{ block: 'minecraft:bedrock', height: 1 }, { block: 'minecraft:grass_block', height: 1 }])), 'flat');
+  assert.equal(javaGenerator({ WorldGenSettings: { dimensions: { 'minecraft:overworld': { generator: { type: 'minecraft:noise' } } } } }), 'terrain');
+  assert.equal(javaGenerator({ generatorName: 'default' }), 'terrain');
+  assert.equal(importedVoidAt({ beyond: 'void' }, 50, 50), true);
+  const bordered = { beyond: 'terrain', border: { x: 0, z: 0, size: 64 } };
+  assert.equal(importedVoidAt(bordered, 0, 0), false);
+  assert.equal(importedVoidAt(bordered, -2, 1), false);
+  assert.equal(importedVoidAt(bordered, 2, 0), true);
+  assert.equal(importedVoidAt(bordered, -3, 0), true);
 });
