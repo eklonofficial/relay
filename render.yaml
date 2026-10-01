@@ -14,3 +14,14 @@ services:
         value: https://eklonofficial.github.io
       - key: MAX_PLAYERS
         value: "16"
+
+  # Blockhaven multiplayer relay (blockhaven-relay/): an MQTT-over-WebSocket broker on port 443 that
+  # lets friends play together on networks that block direct connections and the public brokers.
+  - type: web
+    name: blockhaven-relay
+    runtime: node
+    plan: free
+    rootDir: blockhaven-relay
+    buildCommand: npm ci
+    startCommand: node server.js
+    healthCheckPath: /health

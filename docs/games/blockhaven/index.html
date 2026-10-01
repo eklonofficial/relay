@@ -360,6 +360,7 @@
   #mp-code { width: calc(var(--u) * 98); text-align: center; text-transform: uppercase; letter-spacing: 0.2em; }
   .mp-status { color: #a0a0a0; text-align: center; max-width: calc(var(--u) * 310); padding: 0 calc(var(--u) * 4); }
   .mp-status:empty { display: none; }
+  #mp-diag { white-space: pre-line; text-align: left; }
   .mp-status.err { color: #ff5555; text-shadow: var(--u) var(--u) 0 #3f1515; } .mp-status.ok { color: #55ff55; text-shadow: var(--u) var(--u) 0 #153f15; }
   #mp .hint-text { text-align: center; }
   #nametags { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
@@ -381,7 +382,7 @@
 <body>
 <div id="boot"><canvas id="boot-canvas"></canvas></div>
 <!-- data-modules: how many modules the page loads, kept up to date by tools/stamp.mjs (the splash's download progress) -->
-<script type="module" id="boot-script" src="js/splash.js?v=muph3n9b" data-modules="68"></script>
+<script type="module" id="boot-script" src="js/splash.js?v=muphwqr9" data-modules="68"></script>
 <canvas id="game"></canvas>
 
 <div id="demo" class="hidden">
@@ -481,6 +482,8 @@
       <div class="mp-head">Join a friend's world</div>
       <div class="row"><input type="text" id="mp-code" maxlength="5" placeholder="CODE" spellcheck="false" autocomplete="off"><button class="pair" id="btn-mp-join">Join World</button></div>
       <div id="mp-status" class="mp-status"></div>
+      <div class="row"><button class="pair" id="btn-mp-test">Test Connection</button></div>
+      <div id="mp-diag" class="mp-status"></div>
     </div>
     <div class="hint-text">To host: open a world, press Esc, choose Open to Friends and share the code. Up to 5 players.</div>
   </div>
@@ -559,7 +562,7 @@
 </div>
 
 <div id="error" class="screen dirt hidden"></div>
-<script defer src="net-config.js?v=muph3n9b"></script>
-<script type="module" src="js/main.js?v=muph3n9b"></script>
+<script defer src="net-config.js?v=muphwqr9"></script>
+<script type="module" src="js/main.js?v=muphwqr9"></script>
 </body>
 </html>

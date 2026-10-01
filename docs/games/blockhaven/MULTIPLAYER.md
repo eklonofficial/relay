@@ -21,20 +21,38 @@ link is a random key kept in the browser's settings, so clearing site data means
 Chat and death messages carry only the words; each player's game adds the name of whoever the host
 knows actually sent them, so nobody can post as someone else.
 
-## How it works (no server of our own needed)
+## How it works
 
-GitHub Pages can only serve files, so the browsers talk to each other directly over WebRTC. To
-find each other they use two independent kinds of free public servers at the same time, and a
-join uses whichever works first:
+GitHub Pages can only serve files, so the browsers talk to each other directly over WebRTC
+whenever they can. To find each other they use several independent servers at the same time,
+and a join uses whichever works first:
 
 1. **PeerJS** (`0.peerjs.com`): the host registers its room code there; a friend asks for the code
    and the two browsers open a direct, encrypted connection.
-2. **MQTT brokers** (EMQX, HiveMQ and Mosquitto public brokers, all at once): the room is a topic.
-   The friend "knocks", the host answers, and the browsers swap WebRTC connection details through
-   the topic to open a direct connection.
+2. **Relay servers** (MQTT over secure WebSockets, all at once): the room is a topic. The friend
+   "knocks", the host answers, and the browsers swap WebRTC connection details through the topic
+   to open a direct connection. The list (in `net-config.js`) is:
+   - this project's own relay, `blockhaven-relay` (see below), on the standard HTTPS port 443;
+   - two free public brokers on port 443 (shiftr.io and Eclipse), which strict school and office
+     networks still allow;
+   - three free public brokers on their own ports (EMQX, HiveMQ, Mosquitto).
 3. If no direct connection is possible between the two networks (common on strict school,
-   office or mobile networks), the game traffic itself is passed through the MQTT brokers
-   instead. It is a little slower, but the join still works without any setup.
+   office or mobile networks), the game traffic itself is passed through the relay servers. It is
+   a little slower, but the join still works without any setup.
+
+Reliability:
+
+- Relayed traffic is **reliable and in order**: every message is numbered and acknowledged
+  (including which later ones arrived), and anything lost is sent again, soon and then with
+  growing pauses. Nothing is ever skipped, so players never drift out of sync. Tested with 30% of
+  messages lost, duplicated and reordered.
+- Every relay server is used at once, and a dropped one reconnects on its own in the background,
+  so one server going down mid-game changes nothing.
+- A keep-alive runs from a background worker, so it keeps going even in a minimised tab; a
+  connection that is silent for 20 seconds is treated as lost.
+- **Guests reconnect automatically.** If the connection drops (Wi-Fi blip, sleeping laptop,
+  switching networks), the guest's game retries for about two minutes and drops straight back
+  into the world, with their inventory and position kept by the host.
 
 Then:
 
@@ -43,13 +61,41 @@ Then:
   That player streams it to the others, who draw a copy. Hits, pickups and right-clicks on a copy
   are sent to the owner. When the owner moves far away or leaves, the entity is handed to a
   player who is still nearby.
-- A keep-alive runs even while a tab is in the background, so switching tabs doesn't drop anyone.
 
-The networking code is in `js/net/` (`transport.js` is the MQTT path). Connection settings are in
-`net-config.js`.
+The networking code is in `js/net/` (`transport.js` is the relay path). Connection settings are
+in `net-config.js`.
+
+## Test Connection
+
+The **Multiplayer** screen has a **Test Connection** button. It checks every server from the
+network you're on and whether direct connections are possible, then says plainly whether
+multiplayer will work there (and whether directly or through a relay). If it says everything is
+blocked, that network blocks all of it: try another network or a phone hotspot.
+
+## The project's own relay (recommended, free)
+
+The public servers are run by other people and some networks block them. Deploying the small
+relay in `blockhaven-relay/` gives the game a server you control, on port 443, which gets through
+almost any network. It's free on Render:
+
+1. Sign in at <https://render.com> with GitHub (the free plan is enough).
+2. **New → Blueprint**, choose this repository. Render reads `render.yaml` and offers the
+   `blockhaven-relay` service (alongside the FPS server, if you use it). Click **Apply**.
+3. When it's live, its address is shown at the top of the service page, normally
+   `https://blockhaven-relay.onrender.com`. If Render gave it a different name, put that address
+   into `net-config.js` (both the `brokers` entry, as `wss://<name>.onrender.com/mqtt`, and the
+   `wake` entry, as `https://<name>.onrender.com/health`).
+
+Render's free plan puts the service to sleep after 15 minutes without visitors; opening the
+Multiplayer screen wakes it, which takes about half a minute. The other servers keep working
+meanwhile.
+
+The relay only passes messages between players in the same room (topics starting with
+`blockhaven/`), limits message size and rate, and keeps nothing.
 
 ## If joining still fails
 
+- Press **Test Connection** on both computers and compare.
 - Make sure the host has pressed **Open to Friends** and that the code matches (letters and
   digits only, no O/0 or I/1 mix-ups: codes never use O, 0, I or 1).
 - Both players should refresh the page (Ctrl+Shift+R) so they run the same version.

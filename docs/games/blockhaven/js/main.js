@@ -1,37 +1,37 @@
 // Blockhaven bootstrap: assets, menus, input, camera, frame loop.
-import { Demo, DEMO_SEED } from './demo.js?v=muph3n9b';
-import { armorModel, armorSkinKey, ARMOR_MATERIALS, ARMOR_PIECES, elytraModel } from './data/armor.js?v=muph3n9b';
-import { TEXTURES, TEX, B, BLOCKS, DIM, DIM_NAMES, SHAPE_OF, SHAPE, props, HEIGHT } from './data/blocks.js?v=muph3n9b';
-import { I, ITEMS } from './data/items.js?v=muph3n9b';
-import { MOBS, PROFESSIONS, playerModel, saddleModel, PLAYER_SKINS } from './data/mobs.js?v=muph3n9b';
-import { Net, cleanCode, cleanName, cleanKey, cleanChat, chatLine, MAX_PLAYERS } from './net/net.js?v=muph3n9b';
-import { NameTags } from './net/nametags.js?v=muph3n9b';
-import { BIOMES } from './gen/biomes.js?v=muph3n9b';
-import { generateBlockTextures, drawBlockTexture } from './render/blocktex.js?v=muph3n9b';
-import { generateItemTextures, ITEM_LAYER, FX_LAYER, ITEM_LAYER_COUNT, flatTexFor } from './render/itemtex.js?v=muph3n9b';
-import { Zip, storedPack, savePack, removePack, applyBlockTextures, applyItemTextures, indexSounds } from './render/pack.js?v=muph3n9b';
-import { packModel, paintModel, SKIN, faceRects } from './render/mobtex.js?v=muph3n9b';
-import { buildMipChain } from './render/atlas.js?v=muph3n9b';
-import { Renderer, Batch } from './render/renderer.js?v=muph3n9b';
-import { World, UNLOADED } from './world/world.js?v=muph3n9b';
-import { createGenerator } from './gen/index.js?v=muph3n9b';
-import { Game } from './game/game.js?v=muph3n9b';
-import { Interact, CROSSBOW_CHARGE } from './game/interact.js?v=muph3n9b';
-import { SpawnPrep, STATUS_COLOR } from './game/spawnprep.js?v=muph3n9b';
-import { splash } from './splash.js?v=muph3n9b';
-import { Commands } from './game/commands.js?v=muph3n9b';
-import { GUI, HUD } from './game/ui.js?v=muph3n9b';
-import { buildIcons, hudSprites } from './game/icons.js?v=muph3n9b';
-import { Sound } from './game/audio.js?v=muph3n9b';
-import { buildLogo, buttonTexture, dirtTexture, iconDataURL } from './render/logo.js?v=muph3n9b';
-import { computeEnv } from './game/env.js?v=muph3n9b';
-import { guideSections } from './game/guide.js?v=muph3n9b';
-import { listWorlds, loadWorld, saveWorld, deleteWorld } from './game/storage.js?v=muph3n9b';
-import { importJavaWorld, exportJavaWorld } from './game/javaworld.js?v=muph3n9b';
-import { drawModel, rootMatrix, M } from './entity/entity.js?v=muph3n9b';
-import { itemMesh, emitItemMesh, clearItemMeshes } from './entity/itemmesh.js?v=muph3n9b';
-import { Lightning } from './entity/objects.js?v=muph3n9b';
-import { compose, translation, rotationX, rotationY, rotationZ, scaling, forward, mat4 } from './core/math.js?v=muph3n9b';
+import { Demo, DEMO_SEED } from './demo.js?v=muphwqr9';
+import { armorModel, armorSkinKey, ARMOR_MATERIALS, ARMOR_PIECES, elytraModel } from './data/armor.js?v=muphwqr9';
+import { TEXTURES, TEX, B, BLOCKS, DIM, DIM_NAMES, SHAPE_OF, SHAPE, props, HEIGHT } from './data/blocks.js?v=muphwqr9';
+import { I, ITEMS } from './data/items.js?v=muphwqr9';
+import { MOBS, PROFESSIONS, playerModel, saddleModel, PLAYER_SKINS } from './data/mobs.js?v=muphwqr9';
+import { Net, cleanCode, cleanName, cleanKey, cleanChat, chatLine, MAX_PLAYERS, wakeRelays, diagnoseNetwork } from './net/net.js?v=muphwqr9';
+import { NameTags } from './net/nametags.js?v=muphwqr9';
+import { BIOMES } from './gen/biomes.js?v=muphwqr9';
+import { generateBlockTextures, drawBlockTexture } from './render/blocktex.js?v=muphwqr9';
+import { generateItemTextures, ITEM_LAYER, FX_LAYER, ITEM_LAYER_COUNT, flatTexFor } from './render/itemtex.js?v=muphwqr9';
+import { Zip, storedPack, savePack, removePack, applyBlockTextures, applyItemTextures, indexSounds } from './render/pack.js?v=muphwqr9';
+import { packModel, paintModel, SKIN, faceRects } from './render/mobtex.js?v=muphwqr9';
+import { buildMipChain } from './render/atlas.js?v=muphwqr9';
+import { Renderer, Batch } from './render/renderer.js?v=muphwqr9';
+import { World, UNLOADED } from './world/world.js?v=muphwqr9';
+import { createGenerator } from './gen/index.js?v=muphwqr9';
+import { Game } from './game/game.js?v=muphwqr9';
+import { Interact, CROSSBOW_CHARGE } from './game/interact.js?v=muphwqr9';
+import { SpawnPrep, STATUS_COLOR } from './game/spawnprep.js?v=muphwqr9';
+import { splash } from './splash.js?v=muphwqr9';
+import { Commands } from './game/commands.js?v=muphwqr9';
+import { GUI, HUD } from './game/ui.js?v=muphwqr9';
+import { buildIcons, hudSprites } from './game/icons.js?v=muphwqr9';
+import { Sound } from './game/audio.js?v=muphwqr9';
+import { buildLogo, buttonTexture, dirtTexture, iconDataURL } from './render/logo.js?v=muphwqr9';
+import { computeEnv } from './game/env.js?v=muphwqr9';
+import { guideSections } from './game/guide.js?v=muphwqr9';
+import { listWorlds, loadWorld, saveWorld, deleteWorld } from './game/storage.js?v=muphwqr9';
+import { importJavaWorld, exportJavaWorld } from './game/javaworld.js?v=muphwqr9';
+import { drawModel, rootMatrix, M } from './entity/entity.js?v=muphwqr9';
+import { itemMesh, emitItemMesh, clearItemMeshes } from './entity/itemmesh.js?v=muphwqr9';
+import { Lightning } from './entity/objects.js?v=muphwqr9';
+import { compose, translation, rotationX, rotationY, rotationZ, scaling, forward, mat4 } from './core/math.js?v=muphwqr9';
 
 const $ = id => document.getElementById(id);
 // Resolves after the page has painted what was just put on screen.
@@ -475,9 +475,27 @@ class App {
   }
   showMultiplayer(status = '', kind = '') {
     this.setMode('mp');
+    wakeRelays();
     $('mp-name').value = this.mpName();
     this.renderSkinPicker();
     this.mpStatus(status, kind);
+  }
+  // Checks each way of connecting from this network and says whether multiplayer will work.
+  async testConnection() {
+    const out = $('mp-diag'), btn = $('btn-mp-test');
+    btn.disabled = true; out.className = 'mp-status'; out.textContent = 'Testing this network…';
+    const lines = [];
+    const show = () => { out.textContent = lines.join('\n'); };
+    try {
+      const results = await diagnoseNetwork(r => { lines.push(`${r.ok ? 'OK  ' : 'NO  '} ${r.name}: ${r.detail}`); show(); });
+      const relay = results.some(r => r.ok && /^Relay/.test(r.name)), room = results.some(r => r.ok && /^Room/.test(r.name)), direct = results.some(r => r.ok && /Direct/.test(r.name));
+      lines.push('', relay || room
+        ? `Multiplayer will work on this network${direct ? ', with direct connections (fastest)' : ', through a relay server'}.`
+        : 'This network blocks every multiplayer server. Try another network (or a phone hotspot), or see MULTIPLAYER.md.');
+      out.className = `mp-status ${relay || room ? 'ok' : 'err'}`;
+      show();
+    } catch (e) { out.textContent = `The test failed: ${e.message}`; out.className = 'mp-status err'; }
+    btn.disabled = false;
   }
   mpStatus(text, kind = '') { const el = $('mp-status'); el.textContent = text; el.className = `mp-status ${kind}`; }
   // Front view of each default skin, cut out of the painted skin textures.
@@ -511,7 +529,9 @@ class App {
     const code = cleanCode($('mp-code').value), name = this.mpName();
     if (code.length !== 5) { this.mpStatus('Enter the 5-character code your friend sees in their pause menu.', 'err'); return; }
     this.joining = true; $('btn-mp-join').disabled = true;
+    this.rejoinToken = null;
     this.sound.unlock();
+    this.lastJoin = { code, name, skin: settings.skin | 0, key: this.mpKey() };
     try {
       const { net, welcome } = await Net.join(this, code, name, settings.skin | 0, this.mpKey(), t => this.mpStatus(t));
       if (this.mode !== 'mp') { net.close(); return; }
@@ -591,7 +611,7 @@ class App {
     if (this.game) this.game.net = null;
     this.nametags.clear(); this.showPlayerList(false);
   }
-  onDisconnected(msg) {
+  onDisconnected(msg, opts = {}) {
     const wasGuest = this.net && !this.net.isHost;
     this.leaveNet();
     if (!wasGuest) return;
@@ -599,6 +619,33 @@ class App {
     if (this.game) { this.game.world.dispose(); this.game = null; }
     this.startPanorama();
     this.showMultiplayer(msg, 'err');
+    if (opts.retry && this.lastJoin) this.autoRejoin();
+  }
+  // A dropped connection (Wi-Fi blip, sleeping laptop, network switch) rejoins on its own, with
+  // growing pauses, for about two minutes. Leaving the screen or joining by hand stops it.
+  async autoRejoin() {
+    const token = this.rejoinToken = {}, j = this.lastJoin;
+    const delays = [1000, 2000, 4000, 6000, 10000, 15000, 20000, 30000, 30000];
+    for (let i = 0; i < delays.length; i++) {
+      for (let left = Math.ceil(delays[i] / 1000); left > 0; left--) {
+        if (this.rejoinToken !== token || this.mode !== 'mp') return;
+        this.mpStatus(`Connection lost. Reconnecting in ${left} s… (attempt ${i + 1} of ${delays.length})`, 'err');
+        await new Promise(r => setTimeout(r, 1000));
+      }
+      if (this.rejoinToken !== token || this.mode !== 'mp' || this.joining) return;
+      this.joining = true;
+      try {
+        const { net, welcome } = await Net.join(this, j.code, j.name, j.skin, j.key, t => this.mpStatus(`Reconnecting: ${t}`));
+        if (this.rejoinToken !== token || this.mode !== 'mp') { net.close(); return; }
+        this.rejoinToken = null;
+        this.startGuestGame(net, welcome);
+        this.chat('Reconnected.', '#55ff55');
+        return;
+      } catch (e) {
+        if (/No open world/.test(e.message || '')) { this.mpStatus('The world is no longer open. Ask your friend to open it again, then join.', 'err'); return; }
+      } finally { this.joining = false; }
+    }
+    if (this.rejoinToken === token) this.mpStatus('Could not reconnect. Check your connection, then press Join World to try again.', 'err');
   }
 
   chat(text, color = '#ffffff') {
@@ -736,6 +783,7 @@ class App {
     click('btn-world-upload', () => $('world-file').click());
     $('world-file').addEventListener('change', e => { const f = e.target.files && e.target.files[0]; e.target.value = ''; if (f) this.uploadWorld(f); });
     click('btn-world-java-import', () => $('java-file').click());
+    click('btn-mp-test', () => this.testConnection());
     $('java-file').addEventListener('change', e => { const f = e.target.files && e.target.files[0]; e.target.value = ''; if (f) this.importJava(f); });
     click('btn-world-java-export', () => this.exportJava(this.selectedWorld));
     click('btn-world-back', () => { if (this.hostAfterLoad) this.showMultiplayer(); else this.setMode('title'); });
