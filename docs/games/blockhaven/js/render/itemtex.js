@@ -1,9 +1,10 @@
 // Procedural 16x16 pixel art for every non-block item, plus particle/effect sprites.
 // Icons are hand-drawn as pixel rows (px``) or auto-shaded silhouettes (sil), then given MC-style dark outlines.
-import { Painter, shade, mixHex, ramp } from './paint.js?v=mupn7rzu';
-import { ITEMS, I } from '../data/items.js?v=mupn7rzu';
-import { TEXTURES, TEX, BLOCKS, FACE_TEX, VARIANT_MASK, COLORS } from '../data/blocks.js?v=mupn7rzu';
-import { drawBlockTexture } from './blocktex.js?v=mupn7rzu';
+import { Painter, shade, mixHex, ramp } from './paint.js?v=mupp1ffq';
+import { ITEMS, I } from '../data/items.js?v=mupp1ffq';
+import { TEXTURES, TEX, BLOCKS, FACE_TEX, VARIANT_MASK, COLORS } from '../data/blocks.js?v=mupp1ffq';
+import { drawBlockTexture } from './blocktex.js?v=mupp1ffq';
+import { EXTRA_ITEM_TEX } from './enchtex.js?v=mupp1ffq';
 
 const N = 16;
 export const MAT = {
@@ -1545,6 +1546,7 @@ const MAT_KEYS = Object.keys(MAT);
 
 function drawItem(it, p) {
   if (G[it.key]) { G[it.key](p); return true; }
+  if (EXTRA_ITEM_TEX[it.key]) { EXTRA_ITEM_TEX[it.key](p, sil, px); return true; }
   if (it.tool && ['sword', 'pickaxe', 'axe', 'shovel', 'hoe'].includes(it.tool.type)) {
     const pal = MAT[it.material];
     ({ sword, pickaxe, axe, shovel, hoe })[it.tool.type](p, pal);

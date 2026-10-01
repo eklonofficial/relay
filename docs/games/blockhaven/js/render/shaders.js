@@ -1,4 +1,4 @@
-import { VF } from '../data/blocks.js?v=mupn7rzu';
+import { VF } from '../data/blocks.js?v=mupp1ffq';
 
 const HEADER = `#version 300 es
 precision highp float;
@@ -506,6 +506,7 @@ void main() {
 export const ENTITY_FS = HEADER + LIGHTING + `
 uniform sampler2DArray uTex;
 uniform float uAlphaTest;
+uniform float uTime;
 in vec3 vUV;
 in vec3 vWorld;
 in vec4 vColor;
@@ -514,9 +515,16 @@ void main() {
   vec4 t = texture(uTex, vUV);
   if (t.a < uAlphaTest) discard;
   vec3 col = t.rgb * vColor.rgb;
-  float hurt = clamp(vColor.a - 1.0, 0.0, 1.0);
+  // Vertex alpha above 2 marks an enchanted item: a violet sheen drifting across it.
+  float glint = vColor.a >= 2.0 ? 1.0 : 0.0;
+  float va = vColor.a - glint * 2.0;
+  float hurt = clamp(va - 1.0, 0.0, 1.0);
   col = mix(col, vec3(0.9, 0.1, 0.05), hurt * 0.55);
-  float alpha = min(vColor.a, 1.0) * (t.a < 0.998 && t.a > 0.99 ? 1.0 : t.a);
+  float band = fract((vUV.x * 0.7 + vUV.y * 0.35) * 1.3 - uTime * 0.35);
+  float band2 = fract((vUV.x * -0.4 + vUV.y * 0.8) * 1.1 - uTime * 0.22);
+  float sheen = smoothstep(0.0, 0.15, band) * smoothstep(0.35, 0.15, band) + 0.6 * smoothstep(0.0, 0.1, band2) * smoothstep(0.25, 0.1, band2);
+  col += vec3(0.42, 0.18, 0.75) * glint * (0.1 + sheen * 0.5);
+  float alpha = min(va, 1.0) * (t.a < 0.998 && t.a > 0.99 ? 1.0 : t.a);
   outColor = vec4(applyFog(col, vWorld), alpha);
 }
 `;

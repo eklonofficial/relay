@@ -1,11 +1,11 @@
 // The in-game guide: features, commands, crafting, farming, combat, villagers, dimensions and graphics.
-import { MusicPlayer } from './music.js?v=mupn7rzu';
-import { BLOCKS, BLOCK_ITEMS, TEXTURES } from '../data/blocks.js?v=mupn7rzu';
-import { ITEMS, I } from '../data/items.js?v=mupn7rzu';
-import { SHAPED, SHAPELESS, SMELTING } from '../data/recipes.js?v=mupn7rzu';
-import { MOBS } from '../data/mobs.js?v=mupn7rzu';
-import { BIOMES } from '../gen/biomes.js?v=mupn7rzu';
-import { COMMANDS } from './commands.js?v=mupn7rzu';
+import { MusicPlayer } from './music.js?v=mupp1ffq';
+import { BLOCKS, BLOCK_ITEMS, TEXTURES } from '../data/blocks.js?v=mupp1ffq';
+import { ITEMS, I } from '../data/items.js?v=mupp1ffq';
+import { SHAPED, SHAPELESS, SMELTING } from '../data/recipes.js?v=mupp1ffq';
+import { MOBS } from '../data/mobs.js?v=mupp1ffq';
+import { BIOMES } from '../gen/biomes.js?v=mupp1ffq';
+import { COMMANDS } from './commands.js?v=mupp1ffq';
 
 const esc = s => String(s).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
 
@@ -95,7 +95,7 @@ export function guideSections(icons) {
         <tr><td>Blocks</td><td>Blocks Blockhaven has keep their state (stairs facing, slab halves, log axes, doors, redstone settings...). Blocks it lacks become the closest one it has: polished granite stairs → stone stairs, glazed terracotta → plain terracotta; signs, banners and candles are left out.</td></tr>
         <tr><td>Height</td><td>Blockhaven worlds are 256 blocks tall, so the Overworld keeps Java heights −2 to 253 (sea levels line up); anything deeper or higher is cut off.</td></tr>
         <tr><td>Beyond the edge</td><td>Void and empty-flat worlds (as most downloadable maps are) stay empty around the imported area, and a map's world border is respected. For worlds made with normal generation, importing asks whether to leave empty space around them (best for maps) or generate new Blockhaven terrain so the world goes on forever (it won't match the map's edges). Exports keep empty surroundings empty in Java too.</td></tr>
-        <tr><td>Not imported</td><td>Mobs and other entities, signs' text, enchantments and item names.</td></tr>
+        <tr><td>Not imported</td><td>Mobs and other entities and signs' text. (Enchantments, item names and anvil costs do carry over.)</td></tr>
       </table>
       <h4>Export a world to Java Edition</h4>
       <ol>
@@ -182,6 +182,22 @@ export function guideSections(icons) {
     'Villages & trading': `
       <p>Villages have houses, farms, paths and a well. Right-click a villager to trade. Each villager has a profession (farmer, librarian, armorer, weaponsmith, toolsmith, butcher, cleric, fletcher, leatherworker, shepherd, fisherman, mason, cartographer). Trading gives them experience: at each new level they unlock better trades — up to diamond gear and enchanted golden apples.</p>
       <p>Emeralds are the currency: mine them in mountains or earn them by selling crops, coal, paper and more. Iron golems protect villages; pillagers from outposts attack them. Zombies can turn villagers into zombie villagers — cure them with a golden apple.</p>`,
+    Enchanting: `
+      <h4>The enchanting table</h4>
+      <p>Craft one from a book, two diamonds and four obsidian. Put an item (or a book) and lapis lazuli in it and it offers three enchantments, costing 1, 2 and 3 lapis. You pay that many levels, but you need the level shown on the right to choose it. Hover an offer to see one of the enchantments it holds.</p>
+      <p>Bookshelves make the offers stronger: place up to 15 two blocks away from the table, level with it or one block up, with nothing solid in between. With 15, the bottom offer reaches level 30.</p>
+      <h4>The anvil</h4>
+      <p>Craft one from three iron blocks and four iron ingots. Combine two of the same item to merge their enchantments and durability, put an enchanted book on an item, repair with the item's material (iron ingots, diamonds, planks…), or type a new name. Equal levels merge one level higher (two Sharpness IV make Sharpness V). Every use makes the item cost more to work on next time; at 40 levels it's "Too Expensive!". Anvils chip and eventually break with use.</p>
+      <h4>Where else enchantments come from</h4>
+      <p>Librarian villagers sell enchanted books, loot chests (dungeons, mineshafts, temples, strongholds, end cities) hold enchanted books and gear, and fishing can reel in enchanted treasure. In creative, every enchanted book is in the Ingredients tab, and <code>/enchant &lt;name&gt; [level]</code> enchants your held item.</p>
+      <h4>What they do</h4>
+      <table>
+        <tr><td>Weapons</td><td>Sharpness, Smite (undead), Bane of Arthropods, Knockback, Fire Aspect, Looting, Sweeping Edge</td></tr>
+        <tr><td>Tools</td><td>Efficiency, Silk Touch, Fortune, Unbreaking, Mending</td></tr>
+        <tr><td>Armor</td><td>Protection, Fire/Blast/Projectile Protection, Feather Falling, Thorns, Respiration, Aqua Affinity, Depth Strider, Frost Walker, Soul Speed, Swift Sneak</td></tr>
+        <tr><td>Bows &amp; crossbows</td><td>Power, Punch, Flame, Infinity, Multishot, Quick Charge, Piercing</td></tr>
+        <tr><td>Others</td><td>Luck of the Sea, Lure (fishing), Impaling (tridents), Curse of Binding (can't take it off), Curse of Vanishing (gone when you die)</td></tr>
+      </table>`,
     Dimensions: `
       <h4>The Nether</h4>
       <p>Build a rectangular frame of obsidian (at least 4 wide and 5 tall), then light the inside with flint and steel. Stand in the purple portal to travel. One block in the Nether is eight in the Overworld, making it a fast-travel network. The Nether has five biomes (Nether Wastes, Crimson and Warped Forests, Soul Sand Valley, Basalt Deltas), lava oceans, glowstone, quartz and gold ore, ancient debris for netherite, and fortresses guarded by blazes and wither skeletons. Water evaporates there and beds explode!</p>

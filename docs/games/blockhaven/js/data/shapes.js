@@ -1,6 +1,6 @@
 // Collision and selection boxes per block state, in block units (0..1, fences reach 1.5).
-import { SHAPE, SHAPE_OF, SOLID, B } from './blocks.js?v=mupn7rzu';
-import { boxUp6, boxAttach } from './orient.js?v=mupn7rzu';
+import { SHAPE, SHAPE_OF, SOLID, B } from './blocks.js?v=mupp1ffq';
+import { boxUp6, boxAttach } from './orient.js?v=mupp1ffq';
 
 const P = 1 / 16;
 // Rotate a canonical (+Z-facing) box by `facing` quarter turns about the block centre.
@@ -10,6 +10,8 @@ function rot(b, facing) {
   return [x0, y0, z0, x1, y1, z1];
 }
 const FULL = [0, 0, 0, 1, 1, 1];
+// The anvil in pixels, long axis along Z: base, foot, waist, top.
+export const ANVIL_BOXES = [[2, 0, 2, 14, 4, 14], [4, 4, 3, 12, 5, 13], [6, 5, 4, 10, 10, 12], [3, 10, 0, 13, 16, 16]];
 
 export function collisionBoxes(id, m, out = []) {
   out.length = 0;
@@ -53,6 +55,8 @@ export function collisionBoxes(id, m, out = []) {
     case SHAPE.PISTON: out.push(m & 16 ? boxUp6((m >> 1) & 7, [0, 0, 0, 16, 12, 16]) : FULL); break;
     case SHAPE.PISTON_HEAD: { const d = (m >> 1) & 7; out.push(boxUp6(d, [0, 12, 0, 16, 16, 16]), boxUp6(d, [6, 0, 6, 10, 12, 10])); break; }
     case SHAPE.HOPPER: out.push([0, 10 * P, 0, 1, 1, 1], [4 * P, 4 * P, 4 * P, 12 * P, 10 * P, 12 * P]); break;
+    case SHAPE.ENCHANTER: out.push([0, 0, 0, 1, 12 * P, 1]); break;
+    case SHAPE.ANVIL: { const f = (m >> 2) & 3; for (const b of ANVIL_BOXES) out.push(rot(b.map(v => v * P), f)); break; }
     default: out.push(FULL);
   }
   return out;

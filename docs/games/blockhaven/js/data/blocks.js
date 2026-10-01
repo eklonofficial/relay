@@ -15,6 +15,7 @@ export const SHAPE = {
   LADDER: 11, CROP: 12, SNOW: 13, CARPET: 14, FARMLAND: 15, CACTUS: 16, CHEST: 17, BED: 18, LANTERN: 19, FLAT: 20,
   PORTAL: 21, END_PORTAL: 22, ENDFRAME: 23, FIRE: 24, VINE: 25, ROD: 26, RAIL: 27, CAMPFIRE: 28, SKULL: 29,
   DUST: 30, DIODE: 31, LEVER: 32, BUTTON: 33, PLATE: 34, DIRCUBE: 35, PISTON: 36, PISTON_HEAD: 37, DAYLIGHT: 38, HOPPER: 39,
+  ENCHANTER: 40, ANVIL: 41,
 };
 
 // Vertex flags read by the shaders.
@@ -315,6 +316,13 @@ def('honey_block', { translucent: true, hardness: 0, sound: 'slime', cullSame: t
 def('hopper', { shape: SHAPE.HOPPER, opaque: false, solid: true, hardness: 3, tool: 'pickaxe', tier: 1, sound: 'metal', tex: { side: 'hopper_outside', top: 'hopper_top', bottom: 'hopper_outside' }, tab: 'redstone' });
 def('dispenser', { shape: SHAPE.DIRCUBE, opaque: true, hardness: 3.5, tool: 'pickaxe', tier: 1, tex: { side: 'furnace_side', top: 'furnace_top', front: 'dispenser_front' }, tab: 'redstone' });
 def('dropper', { shape: SHAPE.DIRCUBE, opaque: true, hardness: 3.5, tool: 'pickaxe', tier: 1, tex: { side: 'furnace_side', top: 'furnace_top', front: 'dropper_front' }, tab: 'redstone' });
+// Enchanting: the table (12 px tall) and the anvil, which wears from intact to chipped to damaged.
+def('enchanting_table', { shape: SHAPE.ENCHANTER, opaque: false, solid: true, hardness: 5, resistance: 1200, tool: 'pickaxe', tier: 1, light: 7, tex: { side: 'enchanting_table_side', top: 'enchanting_table_top', bottom: 'enchanting_table_bottom' }, tab: 'functional' });
+def('anvil', { shape: SHAPE.ANVIL, opaque: false, solid: true, hardness: 5, resistance: 1200, tool: 'pickaxe', tier: 1, sound: 'metal', gravity: true, facingShift: 2, tab: 'functional' }, [
+  { key: 'anvil', tex: { side: 'anvil', top: 'anvil_top', bottom: 'anvil' } },
+  { key: 'chipped_anvil', tex: { side: 'anvil', top: 'chipped_anvil_top', bottom: 'anvil' } },
+  { key: 'damaged_anvil', tex: { side: 'anvil', top: 'damaged_anvil_top', bottom: 'anvil' } },
+]);
 
 // Textures reached through state rather than a variant's default faces.
 for (let i = 0; i < 8; i++) tex(`wheat_stage${i}`);

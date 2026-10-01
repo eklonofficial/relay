@@ -7,8 +7,8 @@ const MATERIAL = {
 };
 // Mob voices: [base freq, type, duration, sweep, noise]
 
-import { SOUND_FILES, NOTE_FILES, MOB_DIR, matSound } from '../render/pack.js?v=mupn7rzu';
-import { MusicPlayer } from './music.js?v=mupn7rzu';
+import { SOUND_FILES, NOTE_FILES, MOB_DIR, matSound } from '../render/pack.js?v=mupp1ffq';
+import { MusicPlayer } from './music.js?v=mupp1ffq';
 
 const VOWEL = { a: [[730, 6, 1.2], [1090, 7, 0.9], [2440, 9, 0.3]], o: [[450, 6, 1.2], [800, 7, 0.9], [2800, 9, 0.2]], u: [[320, 6, 1.3], [870, 7, 0.7], [2250, 9, 0.2]] };
 const MOB_VOICE_ALIAS = { polar_bear: 'bear', zombified_piglin: 'zpiglin', wandering_trader: 'villager', pillager: 'illager', vindicator: 'illager', evoker: 'illager', iron_golem: 'golem', snow_golem: 'snowgolem', husk: 'zombie', drowned: 'zombie', zombie_villager: 'zombie', stray: 'skeleton', wither_skeleton: 'skeleton', cave_spider: 'spider', magma_cube: 'slime', mooshroom: 'cow', donkey: 'horse', camel: 'horse', mule: 'horse', endermite: 'silverfish', ender_dragon: 'dragon', glow_squid: 'squid', cod: 'fish', salmon: 'fish', tropical_fish: 'fish', pufferfish: 'fish' };
@@ -163,6 +163,10 @@ export class Sound {
       case 'milk': this.noiseSweep(800, 300, 0.4, 0.3, out); break;
       case 'throw': this.noiseSweep(2000, 800, 0.2, 0.25, out, 'bandpass'); break;
       case 'anvil': T(900, 880, 0.6, 0.2, 'triangle'); T(1450, 1420, 0.5, 0.12, 'sine'); break;
+      case 'anvil_use': T(1180, 1150, 0.35, 0.22, 'triangle'); T(2350, 2300, 0.25, 0.1, 'sine'); this.burst('stone', 0.05, 0.4, 1.4, pos); break;
+      case 'anvil_break': T(700, 400, 0.5, 0.2, 'sawtooth'); for (let i = 0; i < 3; i++) this.burst('stone', 0.08, 0.6, 0.8, pos); break;
+      // Enchanting: a rising shimmer of soft bell tones.
+      case 'enchant': [784, 988, 1175, 1568, 1976].forEach((f, i) => this.tone(f, f * 1.01, 0.7, 0.1, 'sine', out, i * 0.07)); break;
       case 'cure': this.ring(out, [660, 990, 1320, 1760], { decay: 1.4, gain: 0.12 }); this.noiseSweep(2000, 8000, 1.2, 0.08, out, 'highpass'); break;
       case 'fangs': this.pulses(out, { count: 2, gap: 0.05, freq: 1200, q: 2, gain: 0.45, len: 0.05 }); this.burst('stone', 0.12, 0.8, 0.7, pos); break;
       case 'ghast_warn': this.voice(out, { dur: 0.7, f0: [1300, 1500, 800], formants: [[1200, 3, 1], [2800, 5, 0.5]], vib: 60, vibRate: 7, breath: 0.2, gain: 0.28, wave: 'triangle' }); break;

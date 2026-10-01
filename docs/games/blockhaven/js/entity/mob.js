@@ -1,15 +1,15 @@
 // Living mobs: physics, AI archetypes, combat, breeding/taming, trading and animation.
-import { Entity, drawModel, rootMatrix, M } from './entity.js?v=mupn7rzu';
-import { Projectile, renderStack } from './objects.js?v=mupn7rzu';
-import { MOBS, PROFESSIONS } from '../data/mobs.js?v=mupn7rzu';
-import { B, BLOCKS, SOLID } from '../data/blocks.js?v=mupn7rzu';
-import { UNLOADED } from '../world/world.js?v=mupn7rzu';
-import { villagerTrades } from '../game/trades.js?v=mupn7rzu';
-import { findPath, clearWalk } from './pathfind.js?v=mupn7rzu';
-import { ARMOR_BYPASS, armorStats, armorReduce, applyInvul } from '../game/combat.js?v=mupn7rzu';
-import { armorSkinKey } from '../data/armor.js?v=mupn7rzu';
-import { I } from '../data/items.js?v=mupn7rzu';
-import { dragonInit, dragonAI, dragonDamage, dragonDying, dragonHead } from './dragon.js?v=mupn7rzu';
+import { Entity, drawModel, rootMatrix, M } from './entity.js?v=mupp1ffq';
+import { Projectile, renderStack } from './objects.js?v=mupp1ffq';
+import { MOBS, PROFESSIONS } from '../data/mobs.js?v=mupp1ffq';
+import { B, BLOCKS, SOLID } from '../data/blocks.js?v=mupp1ffq';
+import { UNLOADED } from '../world/world.js?v=mupp1ffq';
+import { villagerTrades } from '../game/trades.js?v=mupp1ffq';
+import { findPath, clearWalk } from './pathfind.js?v=mupp1ffq';
+import { ARMOR_BYPASS, armorStats, armorReduce, applyInvul } from '../game/combat.js?v=mupp1ffq';
+import { armorSkinKey } from '../data/armor.js?v=mupp1ffq';
+import { I } from '../data/items.js?v=mupp1ffq';
+import { dragonInit, dragonAI, dragonDamage, dragonDying, dragonHead } from './dragon.js?v=mupp1ffq';
 
 const rnd = (a, b) => a + Math.random() * (b - a);
 const rint = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
@@ -146,7 +146,8 @@ export class Mob extends Entity {
     if (!this.baby && g.rules.doMobLoot) {
       for (const [key, a, b, chance] of d.drops || []) {
         if (chance !== undefined && Math.random() >= chance) continue;
-        const n = rint(a, b);
+        // Looting adds 0..level to each drop when the player made the kill.
+        const n = rint(a, b) + (byPlayer && src.looting ? rint(0, src.looting) : 0);
         const k = onFire && d.cooked && d.cooked[key] ? d.cooked[key] : key;
         if (n > 0) g.dropItem(this.pos[0], this.pos[1] + 0.5, this.pos[2], { key: k, count: n });
       }
@@ -1061,7 +1062,7 @@ export class Mob extends Entity {
 }
 
 // Moves an entity without gravity handling (fliers/swimmers).
-import { moveEntity } from './physics.js?v=mupn7rzu';
+import { moveEntity } from './physics.js?v=mupp1ffq';
 function import_move(e, dt) { moveEntity(e.world, e, e.vel[0] * dt, e.vel[1] * dt, e.vel[2] * dt); }
 
 // Renders a held item using a part matrix (model units).

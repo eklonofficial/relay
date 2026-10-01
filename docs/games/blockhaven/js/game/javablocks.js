@@ -4,7 +4,7 @@
 //                                           and panes, whose connections Java stores in the state)
 // fromJava(name, props) -> state (id | meta << 8); unknown blocks fall back to the closest family
 //                          we have (stairs to stairs, logs to logs, ...), then to stone or air.
-import { BLOCKS, B, STATE, SHAPE, SHAPE_OF, OPAQUE, CROP_STAGES, CROP_AGE_SHIFT, COLORS } from '../data/blocks.js?v=mupn7rzu';
+import { BLOCKS, B, STATE, SHAPE, SHAPE_OF, OPAQUE, CROP_STAGES, CROP_AGE_SHIFT, COLORS } from '../data/blocks.js?v=mupp1ffq';
 
 const H = ['south', 'west', 'north', 'east'];                       // our 2D facing order
 const D6 = ['down', 'up', 'north', 'south', 'west', 'east'];         // Java's six-way order
@@ -34,8 +34,8 @@ const IN_ALIAS = {
   respawn_anchor: 'crying_obsidian', lodestone: 'stone_bricks', smithing_table: 'crafting_table', fletching_table: 'crafting_table',
   cartography_table: 'crafting_table', loom: 'crafting_table', stonecutter: 'smooth_stone', grindstone: 'smooth_stone',
   blast_furnace: 'furnace', smoker: 'furnace', composter: 'barrel', beehive: 'barrel', bee_nest: 'barrel', lectern: 'bookshelf',
-  chiseled_bookshelf: 'bookshelf', trapped_chest: 'chest', ender_chest: 'chest', enchanting_table: 'obsidian', anvil: 'iron_block',
-  chipped_anvil: 'iron_block', damaged_anvil: 'iron_block', cauldron: 'iron_block', water_cauldron: 'iron_block', lava_cauldron: 'iron_block',
+  chiseled_bookshelf: 'bookshelf', trapped_chest: 'chest', ender_chest: 'chest',
+  cauldron: 'iron_block', water_cauldron: 'iron_block', lava_cauldron: 'iron_block',
   powder_snow_cauldron: 'iron_block', beacon: 'glass', conduit: 'glass', tinted_glass: 'black_stained_glass', powder_snow: 'snow_block',
   frosted_ice: 'ice', soul_campfire: 'campfire', mud_bricks: 'mud_bricks', sculk: 'black_concrete', sculk_catalyst: 'black_concrete',
   sculk_shrieker: 'black_concrete', sculk_sensor: 'black_concrete', calibrated_sculk_sensor: 'black_concrete', sculk_vein: 'air',
@@ -136,7 +136,7 @@ export function toJava(id, m, nb = () => -1) {
   }
   // Families described by our facing / axis bits.
   if (b.axisShift >= 0 && ['log', 'hay_block', 'basalt', 'purpur'].includes(b.key) && (b.key !== 'basalt' || /basalt|bone/.test(key)) && (b.key !== 'purpur' || key === 'purpur_pillar')) p.axis = ['y', 'x', 'z'][(m >> b.axisShift) & 3] || 'y';
-  if (b.facingShift >= 0 && ['furnace', 'pumpkin'].includes(b.key) && key !== 'pumpkin') p.facing = H[(m >> b.facingShift) & 3];
+  if (b.facingShift >= 0 && ['furnace', 'pumpkin', 'anvil'].includes(b.key) && key !== 'pumpkin') p.facing = H[(m >> b.facingShift) & 3];
   if (key === 'grass_block_snowy') p.snowy = 'true';
   if (key === 'farmland_moist') p.moisture = '7'; else if (key === 'farmland') p.moisture = '0';
   if (key === 'lit_furnace') p.lit = 'true'; else if (key === 'furnace') p.lit = 'false';
@@ -281,7 +281,7 @@ function resolve(name, p) {
     default: break;
   }
   if (b.axisShift >= 0 && p.axis) m |= Math.max(0, ['y', 'x', 'z'].indexOf(p.axis)) << b.axisShift;
-  if (b.facingShift >= 0 && p.facing && (b.key === 'furnace' || b.key === 'pumpkin')) m |= h2(p.facing) << b.facingShift;
+  if (b.facingShift >= 0 && p.facing && (b.key === 'furnace' || b.key === 'pumpkin' || b.key === 'anvil')) m |= h2(p.facing) << b.facingShift;
   if (id === B.NOTE_BLOCK) m = (Number(p.note) & 31) | (bool(p.powered) ? 32 : 0);
   if (id === B.NETHER_PORTAL && p.axis === 'z') m |= 1;
   return S(id, m & 255);

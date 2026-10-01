@@ -9,14 +9,15 @@
 // Heights: Blockhaven worlds are 256 tall with the sea surface at y=64; Java's overworld runs
 // -64..319 with its sea surface at y=62, so overworld blocks shift by 2 (Java y -2..253 is kept).
 // The Nether and the End keep their y.
-import { BLOCKS, B, CHUNK, HEIGHT, DIM, SHAPE } from '../data/blocks.js?v=mupn7rzu';
-import { BIOMES } from '../gen/biomes.js?v=mupn7rzu';
-import { I } from '../data/items.js?v=mupn7rzu';
-import { createGenerator } from '../gen/index.js?v=mupn7rzu';
-import { readNbt, writeNbt, readRegion, writeRegion, maybeGunzip, gzip, TAG, byte, short, int, long, float, double, string, compound, list, longArray } from './nbt.js?v=mupn7rzu';
-import { toJava, fromJava, biomeToJava } from './javablocks.js?v=mupn7rzu';
-import { encodeChunk, decodeChunk, putChunks, getChunk } from './storage.js?v=mupn7rzu';
-import { SAVE_VERSION } from './migrate.js?v=mupn7rzu';
+import { BLOCKS, B, CHUNK, HEIGHT, DIM, SHAPE } from '../data/blocks.js?v=mupp1ffq';
+import { BIOMES } from '../gen/biomes.js?v=mupp1ffq';
+import { I } from '../data/items.js?v=mupp1ffq';
+import { ENCHANTS } from '../data/enchantments.js?v=mupp1ffq';
+import { createGenerator } from '../gen/index.js?v=mupp1ffq';
+import { readNbt, writeNbt, readRegion, writeRegion, maybeGunzip, gzip, TAG, byte, short, int, long, float, double, string, compound, list, longArray } from './nbt.js?v=mupp1ffq';
+import { toJava, fromJava, biomeToJava } from './javablocks.js?v=mupp1ffq';
+import { encodeChunk, decodeChunk, putChunks, getChunk } from './storage.js?v=mupp1ffq';
+import { SAVE_VERSION } from './migrate.js?v=mupp1ffq';
 
 const DATA_VERSION = 3465; // 1.20.1
 const Y_SHIFT = [2, 0, 0];
@@ -91,17 +92,36 @@ const biomeIndex = name => {
 };
 const CONTAINERS = /chest|barrel|shulker_box|dispenser|dropper|hopper/;
 
+// Items keep their wear, enchantments (stored ones on books), anvil cost and custom name.
 function itemFromJava(t) {
   const key = String(t.id || '').replace(/^minecraft:/, '');
   if (!I[key]) return null;
   const count = Math.max(1, Math.min(I[key].stack || 64, Number(t.Count ?? t.count ?? 1)));
-  return { key, count };
+  const out = { key, count }, tg = t.tag || {};
+  if (tg.Damage && I[key].durability) out.dmg = Math.min(I[key].durability - 1, tg.Damage | 0);
+  const tag = {};
+  const ench = list => Object.fromEntries((list || []).map(e => [String(e.id || '').replace(/^minecraft:/, ''), Math.max(1, Number(e.lvl) | 0)]).filter(([id]) => ENCHANTS[id]));
+  if (tg.Enchantments && tg.Enchantments.length) tag.ench = ench(tg.Enchantments);
+  if (tg.StoredEnchantments && tg.StoredEnchantments.length) tag.stored = ench(tg.StoredEnchantments);
+  if (tg.RepairCost) tag.rc = tg.RepairCost | 0;
+  if (tg.display && tg.display.Name) { try { const n = JSON.parse(tg.display.Name); tag.name = typeof n === 'string' ? n : n.text || ''; } catch { /* plain text */ } }
+  for (const k of ['ench', 'stored']) if (tag[k] && !Object.keys(tag[k]).length) delete tag[k];
+  if (!tag.name) delete tag.name;
+  if (Object.keys(tag).length) out.tag = tag;
+  return out;
 }
 function itemToJava(s, slot) {
   if (!s || !s.key) return null;
   const o = { id: string(`minecraft:${s.key}`), Count: byte(Math.min(127, s.count || 1)) };
   if (slot !== undefined) o.Slot = byte(slot);
-  if (s.damage) o.tag = compound({ Damage: int(s.damage | 0) });
+  const tag = {}, t = s.tag || {};
+  if (s.dmg) tag.Damage = int(s.dmg | 0);
+  const ench = e => list(TAG.COMPOUND, Object.entries(e).map(([id, lv]) => compound({ id: string(`minecraft:${id}`), lvl: short(lv) })));
+  if (t.ench && Object.keys(t.ench).length) tag.Enchantments = ench(t.ench);
+  if (t.stored && Object.keys(t.stored).length) tag.StoredEnchantments = ench(t.stored);
+  if (t.rc) tag.RepairCost = int(t.rc);
+  if (t.name) tag.display = compound({ Name: string(JSON.stringify({ text: t.name })) });
+  if (Object.keys(tag).length) o.tag = compound(tag);
   return o;
 }
 

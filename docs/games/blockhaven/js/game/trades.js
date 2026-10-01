@@ -1,9 +1,19 @@
 // Villager trade tables: [level, buy, buy2?, sell, maxUses, xp]. Emerald economy like the original.
+import { randomBookEnchant, ENCHANTS } from '../data/enchantments.js?v=mupp1ffq';
 const E = n => ({ key: 'emerald', count: n });
 const K = (key, count = 1) => ({ key, count });
+// Librarians sell a random enchanted book (rolled when the trade unlocks): 2 + rand(5 + 10*level)
+// + 3*level emeralds plus a book, doubled for treasure enchantments, at most 64.
+const BOOK = { key: 'enchanted_book', count: 1, random: true };
+function concrete([l, buy, buy2, sell]) {
+  if (!sell.random) return [l, buy, buy2, sell];
+  const b = randomBookEnchant(Math.random, { trade: true });
+  const cost = Math.min(64, (2 + Math.floor(Math.random() * (5 + b.level * 10)) + 3 * b.level) * (ENCHANTS[b.id].treasure ? 2 : 1));
+  return [l, E(cost), K('book'), { key: 'enchanted_book', count: 1, tag: { stored: { [b.id]: b.level } } }];
+}
 const T = {
   farmer: [[1, K('wheat', 20), null, E(1)], [1, K('potato', 26), null, E(1)], [1, E(1), null, K('bread', 6)], [2, K('pumpkin', 6), null, E(1)], [2, E(1), null, K('pumpkin_pie', 4)], [3, K('melon', 4), null, E(1)], [3, E(3), null, K('cookie', 18)], [4, E(1), null, K('golden_carrot', 3)], [5, E(4), null, K('enchanted_golden_apple', 1)]],
-  librarian: [[1, K('paper', 24), null, E(1)], [1, E(9), null, K('bookshelf', 1)], [2, K('book', 4), null, E(1)], [2, E(1), null, K('lantern', 1)], [3, K('ink_sac', 5), null, E(1)], [3, E(1), null, K('glass', 4)], [4, E(5), null, K('clock', 1)], [4, E(4), null, K('compass', 1)], [5, E(20), null, K('name_tag', 1)]],
+  librarian: [[1, K('paper', 24), null, E(1)], [1, E(9), null, K('bookshelf', 1)], [1, null, null, BOOK], [2, null, null, BOOK], [3, null, null, BOOK], [4, null, null, BOOK], [2, K('book', 4), null, E(1)], [2, E(1), null, K('lantern', 1)], [3, K('ink_sac', 5), null, E(1)], [3, E(1), null, K('glass', 4)], [4, E(5), null, K('clock', 1)], [4, E(4), null, K('compass', 1)], [5, E(20), null, K('name_tag', 1)]],
   armorer: [[1, K('coal', 15), null, E(1)], [1, E(7), null, K('iron_helmet', 1)], [1, E(9), null, K('iron_chestplate', 1)], [2, K('iron_ingot', 4), null, E(1)], [2, E(4), null, K('chainmail_boots', 1)], [2, E(7), null, K('chainmail_leggings', 1)], [3, K('lava_bucket', 1), null, E(1)], [3, E(5), null, K('shield', 1)], [4, E(15), null, K('diamond_helmet', 1)], [5, E(24), null, K('diamond_chestplate', 1)]],
   weaponsmith: [[1, K('coal', 15), null, E(1)], [1, E(3), null, K('iron_axe', 1)], [2, K('iron_ingot', 4), null, E(1)], [2, E(5), null, K('iron_sword', 1)], [3, K('flint', 24), null, E(1)], [4, E(12), null, K('diamond_axe', 1)], [5, E(18), null, K('diamond_sword', 1)]],
   toolsmith: [[1, K('coal', 15), null, E(1)], [1, E(1), null, K('stone_axe', 1)], [1, E(1), null, K('stone_pickaxe', 1)], [2, K('iron_ingot', 4), null, E(1)], [3, E(4), null, K('iron_pickaxe', 1)], [3, K('flint', 30), null, E(1)], [4, E(12), null, K('diamond_shovel', 1)], [5, E(18), null, K('diamond_pickaxe', 1)]],
@@ -28,11 +38,11 @@ export function villagerTrades(prof, level, fresh) {
   }
   for (let lv = 1; lv <= (fresh ? 1 : level); lv++) {
     const tier = list.filter(t => t[0] === lv).sort(() => Math.random() - 0.5).slice(0, 2);
-    for (const [l, buy, buy2, sell] of tier) out.push({ buy, buy2, sell, uses: 0, maxUses: 12, xp: [0, 2, 10, 20, 30, 30][l], level: l });
+    for (const [l, buy, buy2, sell] of tier.map(concrete)) out.push({ buy, buy2, sell, uses: 0, maxUses: 12, xp: [0, 2, 10, 20, 30, 30][l], level: l });
   }
   return out;
 }
 export function unlockLevel(prof, level) {
   const list = (T[prof] || []).filter(t => t[0] === level).sort(() => Math.random() - 0.5).slice(0, 2);
-  return list.map(([l, buy, buy2, sell]) => ({ buy, buy2, sell, uses: 0, maxUses: 12, xp: [0, 2, 10, 20, 30, 30][l], level: l }));
+  return list.map(concrete).map(([l, buy, buy2, sell]) => ({ buy, buy2, sell, uses: 0, maxUses: 12, xp: [0, 2, 10, 20, 30, 30][l], level: l }));
 }

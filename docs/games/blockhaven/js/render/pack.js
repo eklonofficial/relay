@@ -183,6 +183,7 @@ export const SOUND_FILES = {
   teleport: 'mob/endermen/portal', throw: 'random/bow', firework: 'fireworks/launch', firework_blast: 'fireworks/blast', totem: 'item/totem/use_totem',
   shield_block: 'item/shield/block', xbow_shoot: 'item/crossbow/shoot', xbow_load: 'item/crossbow/loading_end', xbow_start: 'item/crossbow/loading_start', xbow_mid: 'item/crossbow/loading_middle',
   equip: 'item/armor/equip_generic', sweep: 'entity/player/attack/sweep', crit: 'entity/player/attack/crit', attack: 'entity/player/attack/strong',
+  anvil_use: 'random/anvil_use', anvil_break: 'random/anvil_break', enchant: 'block/enchantment_table/enchant1',
 };
 export const NOTE_FILES = { harp: 'note/harp', bass: 'note/bass', basedrum: 'note/bd', snare: 'note/snare', hat: 'note/hat', bell: 'note/bell', flute: 'note/flute', chime: 'note/icechime', guitar: 'note/guitar', xylophone: 'note/xylobone', iron_xylophone: 'note/iron_xylophone', cow_bell: 'note/cow_bell', didgeridoo: 'note/didgeridoo', bit: 'note/bit', banjo: 'note/banjo', pling: 'note/pling' };
 export const matSound = (kind, mat) => `${kind === 'step' ? 'step' : 'dig'}/${MAT_DIR[mat] || 'stone'}`;

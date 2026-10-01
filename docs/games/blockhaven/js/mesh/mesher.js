@@ -4,9 +4,9 @@ import {
   CHUNK, HEIGHT, PAD, PS, B, SHAPE, VF, TINT, TEX,
   OPAQUE, SHAPE_OF, TRANSLUCENT, EMIT, ATTEN, VFLAGS, CULL_SAME, TINT_OF, WATERLOGGED, VARIANT_MASK,
   FACING_SHIFT, AXIS_SHIFT, FACE_TEX, CROP_STAGES, CROP_TEX,
-} from '../data/blocks.js?v=mupn7rzu';
-import { BIOME_COLORS } from '../gen/biomes.js?v=mupn7rzu';
-import { up6, rotY, attach, FACE_OF_DIR6, OPP6, DIR2D_OF_6 } from '../data/orient.js?v=mupn7rzu';
+} from '../data/blocks.js?v=mupp1ffq';
+import { BIOME_COLORS } from '../gen/biomes.js?v=mupp1ffq';
+import { up6, rotY, attach, FACE_OF_DIR6, OPP6, DIR2D_OF_6 } from '../data/orient.js?v=mupp1ffq';
 
 export const H2 = HEIGHT + 2;
 export const VOLUME_SIZE = PS * PS * H2;
@@ -754,6 +754,16 @@ function special(bufO, bufT, i, id, m, shape, ox, oy, oz, x, y, z) {
     case SHAPE.DAYLIGHT: {
       const side = TEX.daylight_detector_side, top = TEX[m & 16 ? 'daylight_detector_inverted_top' : 'daylight_detector_top'];
       box(buf, i, ox, oy, oz, 0, 0, 0, 16, 6, 16, layersOf(side, side, top, side, side, side), flags);
+      break;
+    }
+    case SHAPE.ENCHANTER: box(buf, i, ox, oy, oz, 0, 0, 0, 16, 12, 16, six(id, m), flags); break;
+    case SHAPE.ANVIL: {
+      // Base, foot and waist in the body texture; the working top gets the (wear-dependent) top face.
+      const f = (m >> 2) & 3, side = texOf(id, m, 0), top = texOf(id, m, 2);
+      rbox(buf, i, ox, oy, oz, f, 2, 0, 2, 14, 4, 14, sixOf(side), flags);
+      rbox(buf, i, ox, oy, oz, f, 4, 4, 3, 12, 5, 13, sixOf(side), flags);
+      rbox(buf, i, ox, oy, oz, f, 6, 5, 4, 10, 10, 12, sixOf(side), flags);
+      rbox(buf, i, ox, oy, oz, f, 3, 10, 0, 13, 16, 16, layersOf(side, side, top, side, side, side), flags);
       break;
     }
     case SHAPE.HOPPER: {

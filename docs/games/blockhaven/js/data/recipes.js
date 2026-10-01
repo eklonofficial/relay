@@ -1,6 +1,6 @@
 // Crafting (shaped / shapeless) and smelting recipes, with ingredient tags.
-import { WOODS, COLORS, SHAPED_MATERIALS } from './blocks.js?v=mupn7rzu';
-import { I } from './items.js?v=mupn7rzu';
+import { WOODS, COLORS, SHAPED_MATERIALS } from './blocks.js?v=mupp1ffq';
+import { I } from './items.js?v=mupp1ffq';
 
 const has = k => !!I[k];
 export const TAGS = {
@@ -54,6 +54,8 @@ shaped(['X X', ' X '], { X: '#planks' }, 'bowl', 4);
 shaped(['X X', 'XXX', 'X X'], { X: 'stick' }, 'ladder', 3);
 shaped(['WWW', 'PPP'], { W: '#wool', P: '#planks' }, 'bed');
 shaped(['PPP', 'BBB', 'PPP'], { P: '#planks', B: 'book' }, 'bookshelf');
+shaped([' B ', 'DOD', 'OOO'], { B: 'book', D: 'diamond', O: 'obsidian' }, 'enchanting_table');
+shaped(['III', ' i ', 'iii'], { I: 'iron_block', i: 'iron_ingot' }, 'anvil');
 shaped(['PPP', 'PDP', 'PPP'], { P: '#planks', D: 'diamond' }, 'jukebox');
 shaped(['PPP', 'PRP', 'PPP'], { P: '#planks', R: 'redstone' }, 'note_block');
 shaped(['PSP', 'P P', 'PSP'], { P: '#planks', S: '#slabs_wood' }, 'barrel');
