@@ -3,7 +3,6 @@
   "framework": null,
   "installCommand": "",
   "buildCommand": "",
-  "outputDirectory": "docs",
-  "cleanUrls": false,
-  "trailingSlash": true
+  "outputDirectory": "docs/games/blockhaven",
+  "cleanUrls": false
 }
