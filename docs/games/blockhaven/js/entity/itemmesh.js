@@ -1,6 +1,8 @@
 // Extruded 3D meshes for flat item sprites: front and back faces plus a 1-pixel rim.
 // Local space: x, y in 0..1 (sprite), z in -1/32..1/32. Each quad: { pts: [[x,y,z]x4], uv: [[u,v]x4], shade }.
 const cache = new Map();
+// Meshes follow the sprite's alpha, so they are rebuilt when a resource pack swaps sprites.
+export const clearItemMeshes = () => cache.clear();
 
 export function itemMesh(key, pixels) {
   let m = cache.get(key);

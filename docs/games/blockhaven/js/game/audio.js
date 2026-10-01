@@ -7,7 +7,8 @@ const MATERIAL = {
 };
 // Mob voices: [base freq, type, duration, sweep, noise]
 
-import { MusicPlayer } from './music.js?v=muoqcjyl';
+import { SOUND_FILES, NOTE_FILES, MOB_DIR, matSound } from '../render/pack.js?v=muosndef';
+import { MusicPlayer } from './music.js?v=muosndef';
 
 const VOWEL = { a: [[730, 6, 1.2], [1090, 7, 0.9], [2440, 9, 0.3]], o: [[450, 6, 1.2], [800, 7, 0.9], [2800, 9, 0.2]], u: [[320, 6, 1.3], [870, 7, 0.7], [2250, 9, 0.2]] };
 const MOB_VOICE_ALIAS = { polar_bear: 'bear', zombified_piglin: 'zpiglin', wandering_trader: 'villager', pillager: 'illager', vindicator: 'illager', evoker: 'illager', iron_golem: 'golem', snow_golem: 'snowgolem', husk: 'zombie', drowned: 'zombie', zombie_villager: 'zombie', stray: 'skeleton', wither_skeleton: 'skeleton', cave_spider: 'spider', magma_cube: 'slime', mooshroom: 'cow', donkey: 'horse', camel: 'horse', mule: 'horse', endermite: 'silverfish', ender_dragon: 'dragon', glow_squid: 'squid', cod: 'fish', salmon: 'fish', tropical_fish: 'fish', pufferfish: 'fish' };
@@ -79,14 +80,42 @@ export class Sound {
     const g = c.createGain(); g.gain.setValueAtTime(level, now); g.gain.exponentialRampToValueAtTime(0.001, now + dur);
     src.connect(f).connect(g).connect(out); src.start(now, Math.random(), dur + 0.1);
   }
-  dig(mat, pos) { this.burst(mat, 0.16, 0.9, 1, pos); }
-  hit(mat, pos) { this.burst(mat, 0.07, 0.35, 1.2, pos); }
-  place(mat, pos) { this.burst(mat, 0.1, 0.8, 0.8, pos); }
-  step(mat, pos) { this.burst(mat, 0.08, 0.25, 1, pos); }
+  // ---------------- resource pack samples ----------------
+  // With a resource pack loaded, sounds it provides replace the synthesized ones (a random
+  // numbered variant, decoded on first use).
+  setPack(zip, index) { this.pack = { zip, index, buffers: new Map(), pending: new Map() }; }
+  hasSample(base) { return !!(this.pack && this.pack.index.has(base)); }
+  sample(base, pos, vol = 1, pitch = 1) {
+    const P = this.pack;
+    if (!P || !this.ctx) return false;
+    const files = P.index.get(base);
+    if (!files || !files.length) return false;
+    const file = files[Math.floor(Math.random() * files.length)];
+    const play = buf => {
+      const out = this.spatial(pos, vol); if (!out) return;
+      const src = this.ctx.createBufferSource(); src.buffer = buf; src.playbackRate.value = pitch;
+      src.connect(out); src.start();
+    };
+    const buf = P.buffers.get(file);
+    if (buf) { play(buf); return true; }
+    let job = P.pending.get(file);
+    if (!job) {
+      job = P.zip.bytes(file).then(b => this.ctx.decodeAudioData(b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength))).then(d => { P.buffers.set(file, d); return d; });
+      job.catch(() => { P.index.delete(base); });
+      P.pending.set(file, job);
+    }
+    job.then(play, () => {});
+    return true;
+  }
+  dig(mat, pos) { if (this.sample(matSound('dig', mat), pos, 1, 0.8)) return; this.burst(mat, 0.16, 0.9, 1, pos); }
+  hit(mat, pos) { if (this.sample(matSound('step', mat), pos, 0.25, 0.5)) return; this.burst(mat, 0.07, 0.35, 1.2, pos); }
+  place(mat, pos) { if (this.sample(matSound('dig', mat), pos, 1, 0.8)) return; this.burst(mat, 0.1, 0.8, 0.8, pos); }
+  step(mat, pos) { if (this.sample(matSound('step', mat), pos, 0.15, 1)) return; this.burst(mat, 0.08, 0.25, 1, pos); }
   click(v = 1) { if (!this.ctx) return; const out = this.spatial(null, 0.5 * v); if (!out) return; this.pulses(out, { count: 1, freq: 2600, q: 3, gain: 0.35, len: 0.03 }); this.tone(1400, 1100, 0.03, 0.05, 'sine', out); }
 
   play(name, pos = null, vol = 1, pitch = 1) {
     if (!this.ctx) return;
+    if (this.pack && SOUND_FILES[name] && this.sample(SOUND_FILES[name], pos, vol, pitch)) return;
     const out = this.spatial(pos, vol); if (!out) return;
     const T = (a, b, d, l, t) => this.tone(a * pitch, b * pitch, d, l, t, out);
     switch (name) {
@@ -155,6 +184,7 @@ export class Sound {
   // Note blocks: the instrument comes from the block underneath; pitch 1 is F#4 like the original's samples.
   note(inst, pitch, pos) {
     if (!this.ctx) return;
+    if (this.pack && NOTE_FILES[inst] && this.sample(NOTE_FILES[inst], pos, 1, pitch)) return;
     const out = this.spatial(pos, 1); if (!out) return;
     const f = 370 * pitch, T = (a, d, l, type, k = 1) => this.tone(f * a, f * a * k, d, l, type, out);
     switch (inst) {
@@ -231,6 +261,12 @@ export class Sound {
   }
   mob(type, event, pos, e) {
     if (!this.ctx) return;
+    if (this.pack) {
+      const key = MOB_VOICE_ALIAS[type] || type, dir = MOB_DIR[key] || `mob/${key}`;
+      const names = event === 'hurt' ? ['hurt', 'hit', 'hitt'] : event === 'death' ? ['death', 'hurt', 'hit'] : ['say', 'idle', 'ambient', 'breathe', 'moan', 'bark', 'meow', 'small', 'neutral'];
+      const p = (e && e.baby ? 1.5 : 1) * (0.9 + Math.random() * 0.2);
+      for (const n of names) if (this.hasSample(`${dir}/${n}`)) { this.sample(`${dir}/${n}`, pos, event === 'ambient' ? 0.8 : 1, p); return; }
+    }
     const out = this.spatial(pos, event === 'death' ? 1 : event === 'ambient' ? 0.65 : 0.85); if (!out) return;
     const baby = e && e.baby ? 1.45 : 1, r = 0.92 + Math.random() * 0.16;
     const p = baby * r * (event === 'hurt' ? 1.15 : event === 'death' ? 0.85 : 1);
