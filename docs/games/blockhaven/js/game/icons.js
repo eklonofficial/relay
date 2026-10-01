@@ -1,7 +1,27 @@
 // Inventory icons as data URLs: isometric cubes for blocks, crisp sprites for items.
-import { ITEMS } from '../data/items.js?v=mupn7rzu';
-import { FACE_TEX, VARIANT_MASK, TINT_OF, TINT, SHAPE_OF, SHAPE, TRANSLUCENT } from '../data/blocks.js?v=mupn7rzu';
-import { ITEM_LAYER, FX_LAYER } from '../render/itemtex.js?v=mupn7rzu';
+import { ITEMS } from '../data/items.js?v=mupp1ffq';
+import { FACE_TEX, VARIANT_MASK, TINT_OF, TINT, SHAPE_OF, SHAPE, TRANSLUCENT } from '../data/blocks.js?v=mupp1ffq';
+import { ITEM_LAYER, FX_LAYER } from '../render/itemtex.js?v=mupp1ffq';
+import { ANVIL_BOXES } from '../data/shapes.js?v=mupp1ffq';
+
+// Several boxes (in block pixels) drawn in the same isometric view as the cube icons, bottom first.
+// The top face of the highest box uses the block's top texture; every other face uses the sides.
+function isoBoxes(ctx, S, boxes, top, left, right, sideTop) {
+  const w = S * 0.43, r = S * 0.25, hp = S * 0.5 / 16, cx = S / 2, base = S * 0.06;
+  const P = (x, y, z) => [cx + (x - z) * w / 16, base + (x + z) * r / 16 + (16 - y) * hp];
+  boxes.forEach((b, n) => {
+    const [x0, y0, z0, x1, y1, z1] = b, dx = x1 - x0, dy = y1 - y0, dz = z1 - z0;
+    let o = P(x0, y1, z0);
+    ctx.setTransform(w / 16, r / 16, -w / 16, r / 16, o[0], o[1]);
+    ctx.drawImage(n === boxes.length - 1 ? top : sideTop, x0, z0, dx, dz, 0, 0, dx, dz);
+    o = P(x0, y1, z1);
+    ctx.setTransform(w / 16, r / 16, 0, hp, o[0], o[1]);
+    ctx.drawImage(left, x0, 16 - y1, dx, dy, 0, 0, dx, dy);
+    o = P(x1, y1, z1);
+    ctx.setTransform(w / 16, -r / 16, 0, hp, o[0], o[1]);
+    ctx.drawImage(right, 16 - z1, 16 - y1, dz, dy, 0, 0, dz, dy);
+  });
+}
 
 const TINTS = { [TINT.GRASS]: [124, 189, 107], [TINT.FOLIAGE]: [72, 181, 24], [TINT.WATER]: [63, 118, 228] };
 
@@ -37,7 +57,8 @@ export function buildIcons(blockTex, itemTex) {
       const left = faceCanvas(blockTex[FACE_TEX[k + 6] ?? FACE_TEX[k + 4]], tint, 0.78);
       const right = faceCanvas(blockTex[FACE_TEX[k]], tint, 0.6);
       const shape = SHAPE_OF[id];
-      const hFrac = shape === SHAPE.SLAB ? 0.5 : shape === SHAPE.CARPET ? 0.08 : shape === SHAPE.SNOW ? 0.14 : shape === SHAPE.FARMLAND ? 0.94 : shape === SHAPE.TRAPDOOR ? 0.2 : shape === SHAPE.PLATE ? 0.07 : shape === SHAPE.BUTTON ? 0.2 : shape === SHAPE.DAYLIGHT ? 0.375 : 1;
+      const hFrac = shape === SHAPE.SLAB ? 0.5 : shape === SHAPE.CARPET ? 0.08 : shape === SHAPE.SNOW ? 0.14 : shape === SHAPE.FARMLAND ? 0.94 : shape === SHAPE.TRAPDOOR ? 0.2 : shape === SHAPE.PLATE ? 0.07 : shape === SHAPE.BUTTON ? 0.2 : shape === SHAPE.DAYLIGHT ? 0.375 : shape === SHAPE.ENCHANTER ? 0.75 : 1;
+      if (shape === SHAPE.ANVIL) { isoBoxes(ctx, S, ANVIL_BOXES, top, left, right, faceCanvas(blockTex[FACE_TEX[k]], tint, 1)); icons[it.key] = canvas.toDataURL(); continue; }
       if (TRANSLUCENT[id]) ctx.globalAlpha = 0.85;
       // Unit cube corners in screen space: half-width w, rise r, height h.
       const w = S * 0.43, r = S * 0.25, h = S * 0.5 * hFrac, cx = S / 2, top0 = S * 0.06 + (S * 0.5 - h);

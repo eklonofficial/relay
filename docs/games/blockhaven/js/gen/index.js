@@ -1,10 +1,10 @@
 // Picks the generator for a dimension and runs structure placement after terrain.
-import { DIM, CHUNK, HEIGHT, B } from '../data/blocks.js?v=mupn7rzu';
-import { CI } from './chunk.js?v=mupn7rzu';
-import { createOverworld } from './overworld.js?v=mupn7rzu';
-import { createNether } from './nether.js?v=mupn7rzu';
-import { createEnd } from './end.js?v=mupn7rzu';
-import { createStructures } from './structures.js?v=mupn7rzu';
+import { DIM, CHUNK, HEIGHT, B } from '../data/blocks.js?v=mupp1ffq';
+import { CI } from './chunk.js?v=mupp1ffq';
+import { createOverworld } from './overworld.js?v=mupp1ffq';
+import { createNether } from './nether.js?v=mupp1ffq';
+import { createEnd } from './end.js?v=mupp1ffq';
+import { createStructures } from './structures.js?v=mupp1ffq';
 
 export function createGenerator(seed, dim = DIM.OVERWORLD, type = 'default') {
   const terrain = dim === DIM.NETHER ? createNether(seed) : dim === DIM.END ? createEnd(seed) : createOverworld(seed, type);

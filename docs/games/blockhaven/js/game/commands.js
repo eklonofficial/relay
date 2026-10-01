@@ -1,8 +1,9 @@
 // Chat commands (cheats) with Minecraft-style syntax, ~relative coordinates and suggestions.
-import { B, STATE, DIM, BLOCKS } from '../data/blocks.js?v=mupn7rzu';
-import { I, ITEMS } from '../data/items.js?v=mupn7rzu';
-import { MOBS } from '../data/mobs.js?v=mupn7rzu';
-import { BIOMES } from '../gen/biomes.js?v=mupn7rzu';
+import { B, STATE, DIM, BLOCKS } from '../data/blocks.js?v=mupp1ffq';
+import { I, ITEMS } from '../data/items.js?v=mupp1ffq';
+import { MOBS } from '../data/mobs.js?v=mupp1ffq';
+import { BIOMES } from '../gen/biomes.js?v=mupp1ffq';
+import { ENCHANTS, canEnchant, compatible, enchantsOf, setEnchants, enchantName } from '../data/enchantments.js?v=mupp1ffq';
 
 const MODES = { survival: 'survival', s: 'survival', 0: 'survival', creative: 'creative', c: 'creative', 1: 'creative', adventure: 'adventure', a: 'adventure', 2: 'adventure', spectator: 'spectator', sp: 'spectator', 3: 'spectator' };
 const DIMS = { overworld: DIM.OVERWORLD, 'minecraft:overworld': DIM.OVERWORLD, nether: DIM.NETHER, the_nether: DIM.NETHER, 'minecraft:the_nether': DIM.NETHER, end: DIM.END, the_end: DIM.END, 'minecraft:the_end': DIM.END };
@@ -18,6 +19,7 @@ export const COMMANDS = {
   time: { args: 'set <day|noon|night|midnight|value> | add <value> | query', desc: 'Change the time' },
   weather: { args: '<clear|rain|thunder> [seconds]', desc: 'Change the weather' },
   give: { args: '<item> [count]', desc: 'Give yourself items' },
+  enchant: { args: '<enchantment> [level]', desc: 'Enchant the held item' },
   summon: { args: '<mob> [x y z]', desc: 'Summon a mob' },
   kill: { args: '[@s|@e|@e[type=mob]]', desc: 'Kill entities' },
   clear: { args: '[item]', desc: 'Clear your inventory' },
@@ -221,7 +223,22 @@ export class Commands {
       case 'say': return out(`[Player] ${parts.join(' ')}`);
       case 'me': return out(`* Player ${parts.join(' ')}`);
       case 'list': return out('There is 1 of a max of 1 players online: Player');
-      case 'enchant': return err('Enchanting is not available in Blockhaven');
+      case 'enchant': {
+        // /enchant [@s] <enchantment> [level], on the held item, with the original's checks.
+        let [a, b, c] = parts;
+        if (a && a.startsWith('@')) { a = b; b = c; }
+        const id = (a || '').replace(/^minecraft:/, ''), e = ENCHANTS[id], lvl = b === undefined ? 1 : parseInt(b, 10);
+        if (!e) return err(`Unknown enchantment '${id}'`);
+        const held = g.inv.held;
+        if (!held) return err('Player is not holding an item');
+        if (!canEnchant(id, held.key, { anvil: true })) return err(`${I[held.key].name} cannot support that enchantment`);
+        if (!(lvl >= 1) || lvl > e.max) return err(`${lvl} is higher than the maximum level of ${e.max} supported by that enchantment`);
+        const cur = enchantsOf(held);
+        for (const o of Object.keys(cur)) if (o !== id && !compatible(id, o)) return err(`${enchantName(o, cur[o])} can't be combined with ${e.name}`);
+        setEnchants(held, { ...cur, [id]: lvl });
+        g.inv.main.changed(); g.inv.offhand.changed();
+        return out(`Applied enchantment ${enchantName(id, lvl)} to Player's item`);
+      }
       default: return err(`Unknown command '/${cmd}'. Type /help for a list.`);
     }
   }
@@ -242,7 +259,7 @@ export class Commands {
     const pool = {
       gamemode: ['survival', 'creative', 'adventure', 'spectator'], dimension: ['overworld', 'nether', 'end'], weather: ['clear', 'rain', 'thunder'],
       difficulty: ['peaceful', 'easy', 'normal', 'hard'], time: parts.length === 2 ? ['set', 'add', 'query'] : Object.keys(TIMES),
-      give: ITEMS.map(i => i.key), summon: [...Object.keys(MOBS), 'lightning_bolt', 'tnt'], setblock: parts.length === 5 ? Object.keys(STATE) : [], fill: parts.length === 8 ? Object.keys(STATE) : [],
+      enchant: parts.length === 2 ? Object.keys(ENCHANTS) : [], give: ITEMS.map(i => i.key), summon: [...Object.keys(MOBS), 'lightning_bolt', 'tnt'], setblock: parts.length === 5 ? Object.keys(STATE) : [], fill: parts.length === 8 ? Object.keys(STATE) : [],
       locate: [...STRUCTURES, ...BIOMES.map(b => b.key)], gamerule: Object.keys(this.g.rules), effect: parts.length === 2 ? ['give', 'clear'] : EFFECTS, kill: ['@s', '@e', ...Object.keys(MOBS).map(m => `@e[type=${m}]`)],
     }[cmd] || [];
     return pool.filter(s => s.startsWith(last)).slice(0, 12);

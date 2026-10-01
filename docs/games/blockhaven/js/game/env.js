@@ -1,5 +1,5 @@
 // Sky, sun, fog and ambient light per dimension, time of day and weather.
-import { DIM } from '../data/blocks.js?v=mupn7rzu';
+import { DIM } from '../data/blocks.js?v=mupp1ffq';
 
 const smoothstep = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 const mix = (a, b, t) => a.map((v, i) => v + (b[i] - v) * t);

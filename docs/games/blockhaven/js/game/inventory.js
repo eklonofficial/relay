@@ -1,5 +1,6 @@
 // Item stacks and containers. A stack is { key, count, dmg?, tag? } or null.
-import { I, maxStack } from '../data/items.js?v=mupn7rzu';
+import { I, maxStack } from '../data/items.js?v=mupp1ffq';
+import { unbreakingSaves } from './combat.js?v=mupp1ffq';
 
 export const stack = (key, count = 1, extra = {}) => (I[key] ? { key, count, ...extra } : null);
 export const clone = s => (s ? { ...s, tag: s.tag ? { ...s.tag } : undefined } : null);
@@ -80,6 +81,8 @@ export class PlayerInventory {
     const s = this.held;
     const it = s && I[s.key];
     if (!it || !it.durability) return false;
+    for (let k = amount; k > 0; k--) if (unbreakingSaves(s)) amount--;
+    if (amount <= 0) return false;
     s.dmg = (s.dmg || 0) + amount;
     const c = this.hand === 'off' ? this.offhand : this.main, i = this.hand === 'off' ? 0 : this.selected;
     if (s.dmg >= it.durability) { c.set(i, null); return true; }
@@ -99,7 +102,10 @@ export class PlayerInventory {
       if (!s) return;
       const it = I[s.key];
       if (!it.durability) return;
-      s.dmg = (s.dmg || 0) + w;
+      let n = w;
+      for (let k = w; k > 0; k--) if (unbreakingSaves(s, true)) n--;
+      if (n <= 0) return;
+      s.dmg = (s.dmg || 0) + n;
       if (s.dmg >= it.durability) { this.armor.slots[i] = null; broke = true; }
     });
     this.armor.changed();

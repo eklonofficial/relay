@@ -1,28 +1,28 @@
 // The running game: world + dimensions, player survival state, entities, simulation, weather and saving.
-import { B, BLOCKS, SOLID, OPAQUE, DIM, DIM_NAMES, HEIGHT, SEA, props, st, SHAPE_OF, SHAPE } from '../data/blocks.js?v=mupn7rzu';
-import { importedVoidAt, emptyChunk } from './javaworld.js?v=mupn7rzu';
-import { I, maxStack } from '../data/items.js?v=mupn7rzu';
-import { SMELTING } from '../data/recipes.js?v=mupn7rzu';
-import { MOBS } from '../data/mobs.js?v=mupn7rzu';
-import { BIOMES, COLD } from '../gen/biomes.js?v=mupn7rzu';
-import { World, UNLOADED, posKey } from '../world/world.js?v=mupn7rzu';
-import { Player } from './player.js?v=mupn7rzu';
-import { PlayerInventory, Container } from './inventory.js?v=mupn7rzu';
-import { EntityManager } from '../entity/entity.js?v=mupn7rzu';
-import { ItemEntity, XpOrb, FallingBlock, PrimedTnt, Lightning, Projectile } from '../entity/objects.js?v=mupn7rzu';
-import { Mob, RIDEABLE } from '../entity/mob.js?v=mupn7rzu';
-import { Particles } from './particles.js?v=mupn7rzu';
-import { Sim } from './sim.js?v=mupn7rzu';
-import { Redstone } from './redstone.js?v=mupn7rzu';
-import { blockDrops } from './drops.js?v=mupn7rzu';
-import { computeEnv } from './env.js?v=mupn7rzu';
-import { fuelOf } from './ui.js?v=mupn7rzu';
-import { unlockLevel } from './trades.js?v=mupn7rzu';
-import { forward } from '../core/math.js?v=mupn7rzu';
-import { EndCrystal } from '../entity/crystal.js?v=mupn7rzu';
-import { migrateWorld } from './migrate.js?v=mupn7rzu';
-import { ARMOR_BYPASS, armorReduce, applyInvul, isAxe, shieldFaces, applyKnockback, knockbackResist } from './combat.js?v=mupn7rzu';
-import { deathText } from '../net/net.js?v=mupn7rzu';
+import { B, BLOCKS, SOLID, OPAQUE, DIM, DIM_NAMES, HEIGHT, SEA, props, st, SHAPE_OF, SHAPE } from '../data/blocks.js?v=mupp1ffq';
+import { importedVoidAt, emptyChunk } from './javaworld.js?v=mupp1ffq';
+import { I, maxStack } from '../data/items.js?v=mupp1ffq';
+import { SMELTING } from '../data/recipes.js?v=mupp1ffq';
+import { MOBS } from '../data/mobs.js?v=mupp1ffq';
+import { BIOMES, COLD } from '../gen/biomes.js?v=mupp1ffq';
+import { World, UNLOADED, posKey } from '../world/world.js?v=mupp1ffq';
+import { Player } from './player.js?v=mupp1ffq';
+import { PlayerInventory, Container } from './inventory.js?v=mupp1ffq';
+import { EntityManager } from '../entity/entity.js?v=mupp1ffq';
+import { ItemEntity, XpOrb, FallingBlock, PrimedTnt, Lightning, Projectile } from '../entity/objects.js?v=mupp1ffq';
+import { Mob, RIDEABLE } from '../entity/mob.js?v=mupp1ffq';
+import { Particles } from './particles.js?v=mupp1ffq';
+import { Sim } from './sim.js?v=mupp1ffq';
+import { Redstone } from './redstone.js?v=mupp1ffq';
+import { blockDrops } from './drops.js?v=mupp1ffq';
+import { computeEnv } from './env.js?v=mupp1ffq';
+import { fuelOf } from './ui.js?v=mupp1ffq';
+import { unlockLevel } from './trades.js?v=mupp1ffq';
+import { forward } from '../core/math.js?v=mupp1ffq';
+import { EndCrystal } from '../entity/crystal.js?v=mupp1ffq';
+import { migrateWorld } from './migrate.js?v=mupp1ffq';
+import { ARMOR_BYPASS, armorReduce, applyInvul, isAxe, shieldFaces, applyKnockback, knockbackResist, protectionFactor, enchLv } from './combat.js?v=mupp1ffq';
+import { deathText } from '../net/net.js?v=mupp1ffq';
 
 export const DAY = 1200; // seconds per day
 const rnd = (a, b) => a + Math.random() * (b - a);
@@ -40,6 +40,8 @@ export class Game {
     this.inv = new PlayerInventory();
     this.tableGrid = new Container(9);
     this.tradeSlots = new Container(2);
+    this.enchSlots = new Container(2);
+    this.anvilSlots = new Container(2);
     this.time = 0;
     this.timers = [];
     this.itemCooldowns = {};
@@ -113,6 +115,8 @@ export class Game {
     p.autoJump = this.settings.autoJump;
     const chest = () => this.inv.armor.get(1);
     p.hasElytra = () => { const c = chest(); return !!(c && c.key === 'elytra' && (c.dmg || 0) < I.elytra.durability - 1); };
+    // Highest level of an enchantment across the worn armor (Depth Strider, Swift Sneak, Soul Speed...).
+    p.armorEnch = id => { let l = 0; for (const s of this.inv.armor.slots) l = Math.max(l, enchLv(s, id)); return l; };
     p.onKinetic = dmg => {
       // Only real walls hurt, not the edge of terrain that hasn't streamed in yet.
       const d = Math.hypot(p.preVel ? p.preVel[0] : 0, p.preVel ? p.preVel[2] : 0) || 1;
@@ -302,7 +306,8 @@ export class Game {
     if (!silent) { this.sound.dig(props(id, m).sound, [x + 0.5, y + 0.5, z + 0.5]); this.particles.block(x, y, z, id, m, 20); if (this.net) this.net.fx('break', [x + 0.5, y + 0.5, z + 0.5], { d: this.dim, s: props(id, m).sound, b: id, bm: m }); }
     const be = w.blockEntities.get(posKey(x, y, z));
     let replace = B.AIR, replaceMeta = 0;
-    if (id === B.ICE && player && this.mode !== 'creative' && SOLID[w.getBlock(x, y - 1, z)] && this.dim !== DIM.NETHER) replace = B.WATER;
+    const silk = !!(tool && tool.tag && tool.tag.ench && tool.tag.ench.silk_touch);
+    if (id === B.ICE && player && !silk && this.mode !== 'creative' && SOLID[w.getBlock(x, y - 1, z)] && this.dim !== DIM.NETHER) replace = B.WATER;
     if (w.getBlock(x, y + 1, z) === B.WATER || (y <= SEA && this.dim === 0 && [[1, 0], [-1, 0], [0, 1], [0, -1]].filter(([a, b]) => w.getBlock(x + a, y, z + b) === B.WATER && (w.getMeta(x + a, y, z + b) & 15) === 0).length >= 2)) { replace = B.WATER; }
     if (BLOCKS[id].waterlogged) replace = B.WATER;
     w.setBlock(x, y, z, replace, replaceMeta);
@@ -557,7 +562,13 @@ export class Game {
       if (pts) this.inv.damageArmor(hit.amount);
     }
     if (s.effects.resistance) dmg *= 0.8;
-    if (src.kind === 'fall' && this.inv.armor.get(3)) dmg *= 1;
+    // Protection enchantments on top of the armor itself.
+    dmg *= protectionFactor(this.inv.armor.slots, src.kind);
+    // Thorns: a 15% chance per level to hurt a melee attacker for 1-4.
+    const a = src.attacker;
+    if (a && a.hurt && (src.kind === 'mob' || src.kind === 'player') && a !== this.playerEntity) {
+      for (const st of this.inv.armor.slots) { const l = enchLv(st, 'thorns'); if (l && Math.random() < 0.15 * l) { a.hurt(1 + Math.floor(Math.random() * 4), { kind: 'thorns', attacker: this.playerEntity }); this.sound.play('hurt', a.pos, 0.4); break; } }
+    }
     if (s.absorption > 0) { const a = Math.min(s.absorption, dmg); s.absorption -= a; dmg -= a; }
     s.health -= dmg;
     this.exhaust(0.1);
@@ -591,7 +602,8 @@ export class Game {
     if (this.net) this.net.send({ t: 'death', id: this.net.myId, k: src.kind || '', by: this.deathBy(src) });
     if (!this.rules.keepInventory) {
       const p = this.player.pos;
-      for (const st of this.inv.allStacks()) this.dropItem(p[0], p[1] + 1, p[2], st, [rnd(-3, 3), rnd(2, 5), rnd(-3, 3)]);
+      // Curse of Vanishing: those items are simply gone.
+      for (const st of this.inv.allStacks()) if (!enchLv(st, 'vanishing_curse')) this.dropItem(p[0], p[1] + 1, p[2], st, [rnd(-3, 3), rnd(2, 5), rnd(-3, 3)]);
       this.inv.clearAll();
       this.spawnXp([p[0], p[1] + 1, p[2]], Math.min(100, s.level * 7));
       s.xp = 0; s.level = 0; s.xpProgress = 0;
@@ -614,6 +626,21 @@ export class Game {
     if (id === B.HAY_BLOCK) dmg = Math.floor(dmg * 0.2);
     if (id === B.SLIME_BLOCK || id === B.WATER) dmg = 0;
     if (dmg > 0) { this.damagePlayer(dmg, { kind: 'fall' }); this.sound.play('hurt', null, 0.4); this.particles.block(Math.floor(this.player.pos[0]), Math.floor(this.player.pos[1] - 1), Math.floor(this.player.pos[2]), id, 0, Math.min(40, dmg * 6)); }
+  }
+  // Mending: an experience orb first repairs a random damaged Mending item you hold or wear
+  // (2 durability per point); whatever is left over counts as experience.
+  mendWithXp(n) {
+    if (this.mode === 'creative') return n;
+    const inv = this.inv, cands = [];
+    const consider = (c, i) => { const s = c.get(i); if (s && s.dmg && enchLv(s, 'mending')) cands.push([c, i, s]); };
+    consider(inv.main, inv.selected); consider(inv.offhand, 0);
+    for (let i = 0; i < 4; i++) consider(inv.armor, i);
+    if (!cands.length) return n;
+    const [c, i, s] = cands[Math.floor(Math.random() * cands.length)];
+    const fix = Math.min(n * 2, s.dmg);
+    s.dmg -= fix; if (!s.dmg) delete s.dmg;
+    c.set(i, s);
+    return n - Math.ceil(fix / 2);
   }
   addXp(n) {
     const s = this.stats;
@@ -661,9 +688,11 @@ export class Game {
     if (e.hunger) this.exhaust(0.1 * dt * 20 * 0.25);
     // Air.
     if (p.headInWater && !e.water_breathing) {
-      s.air -= dt * 20;
+      // Respiration: each level makes the air last that much longer.
+      s.air -= dt * 20 / (1 + p.armorEnch('respiration'));
       if (s.air <= -20) { s.air = 0; this.damagePlayer(2, { kind: 'drown' }); }
     } else s.air = Math.min(300, s.air + dt * 100);
+    this.frostWalk(dt);
     // Fire and lava.
     if (p.inLava && !e.fire_resistance) { s.fire = 15; this.lavaT = (this.lavaT || 0) + dt; if (this.lavaT > 0.5) { this.lavaT = 0; this.damagePlayer(4, { kind: 'lava' }); } }
     const feet = this.world.getBlock(p.pos[0], p.pos[1] + 0.1, p.pos[2]);
@@ -1060,6 +1089,58 @@ export class Game {
     return s;
   }
   openTrade(v) { this.gui.openTrade(v); }
+  // Enchanting power: bookshelves two blocks out from the table (on its level or one up) with
+  // air or a plant between them and the table, up to 15.
+  bookshelvesAround(x, y, z) {
+    const w = this.world;
+    let n = 0;
+    for (let dz = -2; dz <= 2; dz++) for (let dx = -2; dx <= 2; dx++) {
+      if (Math.abs(dx) !== 2 && Math.abs(dz) !== 2) continue;
+      for (let dy = 0; dy <= 1; dy++) {
+        if (w.getBlock(x + dx, y + dy, z + dz) !== B.BOOKSHELF) continue;
+        const gap = w.getBlock(x + Math.trunc(dx / 2), y + dy, z + Math.trunc(dz / 2));
+        if (gap === B.AIR || (BLOCKS[gap] && BLOCKS[gap].replaceable)) n++;
+      }
+    }
+    return Math.min(15, n);
+  }
+  // Frost Walker: still water around your feet freezes into ice that melts again after a while.
+  frostWalk(dt) {
+    const p = this.player, w = this.world, l = p.armorEnch('frost_walker');
+    if (this.frosted) for (const [k, t] of this.frosted) {
+      const nt = t - dt;
+      if (nt > 0) { this.frosted.set(k, nt); continue; }
+      this.frosted.delete(k);
+      const [x, y, z] = k.split(',').map(Number);
+      if (w.getBlock(x, y, z) === B.ICE) w.setBlock(x, y, z, B.WATER, 0);
+    }
+    if (!l || !p.onGround || p.inWater) return;
+    const r = 2 + l, bx = Math.floor(p.pos[0]), by = Math.floor(p.pos[1] - 0.05) , bz = Math.floor(p.pos[2]);
+    for (let dz = -r; dz <= r; dz++) for (let dx = -r; dx <= r; dx++) {
+      if (dx * dx + dz * dz > r * r) continue;
+      const x = bx + dx, z = bz + dz;
+      if (w.getBlock(x, by, z) !== B.WATER || (w.getMeta(x, by, z) & 15) !== 0 || w.getBlock(x, by + 1, z) !== B.AIR) continue;
+      w.setBlock(x, by, z, B.ICE, 0);
+      (this.frosted || (this.frosted = new Map())).set(`${x},${by},${z}`, 5 + Math.random() * 10);
+    }
+  }
+  spendLevels(n) {
+    const s = this.stats;
+    s.level -= n;
+    if (s.level < 0) { s.level = 0; s.xpProgress = 0; }
+  }
+  // Puts back whatever is left in a block GUI's own slots when it closes.
+  returnSlots(c) {
+    for (let i = 0; i < c.size; i++) { const s = c.get(i); if (!s) continue; const rest = this.inv.add(s); if (rest) this.dropStack({ ...s, count: rest }); c.set(i, null); }
+  }
+  // Using an anvil: a clang, and a 12% chance it wears a step (intact, chipped, damaged, gone).
+  useAnvil(x, y, z) {
+    const w = this.world, id = w.getBlock(x, y, z), m = w.getMeta(x, y, z), pos = [x + 0.5, y + 0.5, z + 0.5];
+    if (id !== B.ANVIL || this.mode === 'creative' || Math.random() >= 0.12) { this.sound.play('anvil_use', pos, 0.7); return; }
+    if ((m & 3) >= 2) { w.setBlock(x, y, z, B.AIR, 0); this.sound.play('anvil_break', pos, 0.8); this.gui.close(); return; }
+    w.setBlock(x, y, z, id, (m & ~3) | ((m & 3) + 1));
+    this.sound.play('anvil_use', pos, 0.7);
+  }
   onGuiOpen() { this.app.onGuiOpen(); }
   onGuiClose() { this.app.onGuiClose(); }
   get creativeMenu() { return this.mode === 'creative'; }

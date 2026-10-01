@@ -1,37 +1,38 @@
 // Blockhaven bootstrap: assets, menus, input, camera, frame loop.
-import { Demo, DEMO_SEED } from './demo.js?v=mupn7rzu';
-import { armorModel, armorSkinKey, ARMOR_MATERIALS, ARMOR_PIECES, elytraModel } from './data/armor.js?v=mupn7rzu';
-import { TEXTURES, TEX, B, BLOCKS, DIM, DIM_NAMES, SHAPE_OF, SHAPE, props, HEIGHT } from './data/blocks.js?v=mupn7rzu';
-import { I, ITEMS } from './data/items.js?v=mupn7rzu';
-import { MOBS, PROFESSIONS, playerModel, saddleModel, PLAYER_SKINS } from './data/mobs.js?v=mupn7rzu';
-import { Net, cleanCode, cleanName, cleanKey, cleanChat, chatLine, MAX_PLAYERS, wakeRelays, diagnoseNetwork } from './net/net.js?v=mupn7rzu';
-import { NameTags } from './net/nametags.js?v=mupn7rzu';
-import { BIOMES } from './gen/biomes.js?v=mupn7rzu';
-import { generateBlockTextures, drawBlockTexture } from './render/blocktex.js?v=mupn7rzu';
-import { generateItemTextures, ITEM_LAYER, FX_LAYER, ITEM_LAYER_COUNT, flatTexFor } from './render/itemtex.js?v=mupn7rzu';
-import { Zip, storedPack, savePack, removePack, applyBlockTextures, applyItemTextures, indexSounds } from './render/pack.js?v=mupn7rzu';
-import { packModel, paintModel, SKIN, faceRects } from './render/mobtex.js?v=mupn7rzu';
-import { buildMipChain } from './render/atlas.js?v=mupn7rzu';
-import { Renderer, Batch } from './render/renderer.js?v=mupn7rzu';
-import { World, UNLOADED } from './world/world.js?v=mupn7rzu';
-import { createGenerator } from './gen/index.js?v=mupn7rzu';
-import { Game } from './game/game.js?v=mupn7rzu';
-import { Interact, CROSSBOW_CHARGE } from './game/interact.js?v=mupn7rzu';
-import { SpawnPrep, STATUS_COLOR } from './game/spawnprep.js?v=mupn7rzu';
-import { splash } from './splash.js?v=mupn7rzu';
-import { Commands } from './game/commands.js?v=mupn7rzu';
-import { GUI, HUD } from './game/ui.js?v=mupn7rzu';
-import { buildIcons, hudSprites } from './game/icons.js?v=mupn7rzu';
-import { Sound } from './game/audio.js?v=mupn7rzu';
-import { buildLogo, buttonTexture, dirtTexture, iconDataURL } from './render/logo.js?v=mupn7rzu';
-import { computeEnv } from './game/env.js?v=mupn7rzu';
-import { guideSections } from './game/guide.js?v=mupn7rzu';
-import { listWorlds, loadWorld, saveWorld, deleteWorld } from './game/storage.js?v=mupn7rzu';
-import { importJavaWorld, exportJavaWorld } from './game/javaworld.js?v=mupn7rzu';
-import { drawModel, rootMatrix, M } from './entity/entity.js?v=mupn7rzu';
-import { itemMesh, emitItemMesh, clearItemMeshes } from './entity/itemmesh.js?v=mupn7rzu';
-import { Lightning } from './entity/objects.js?v=mupn7rzu';
-import { compose, translation, rotationX, rotationY, rotationZ, scaling, forward, mat4 } from './core/math.js?v=mupn7rzu';
+import { Demo, DEMO_SEED } from './demo.js?v=mupp1ffq';
+import { armorModel, armorSkinKey, ARMOR_MATERIALS, ARMOR_PIECES, elytraModel } from './data/armor.js?v=mupp1ffq';
+import { TEXTURES, TEX, B, BLOCKS, DIM, DIM_NAMES, SHAPE_OF, SHAPE, props, HEIGHT } from './data/blocks.js?v=mupp1ffq';
+import { I, ITEMS } from './data/items.js?v=mupp1ffq';
+import { MOBS, PROFESSIONS, playerModel, saddleModel, PLAYER_SKINS } from './data/mobs.js?v=mupp1ffq';
+import { Net, cleanCode, cleanName, cleanKey, cleanChat, chatLine, MAX_PLAYERS, wakeRelays, diagnoseNetwork } from './net/net.js?v=mupp1ffq';
+import { NameTags } from './net/nametags.js?v=mupp1ffq';
+import { BIOMES } from './gen/biomes.js?v=mupp1ffq';
+import { generateBlockTextures, drawBlockTexture } from './render/blocktex.js?v=mupp1ffq';
+import { generateItemTextures, ITEM_LAYER, FX_LAYER, ITEM_LAYER_COUNT, flatTexFor } from './render/itemtex.js?v=mupp1ffq';
+import { Zip, storedPack, savePack, removePack, applyBlockTextures, applyItemTextures, indexSounds } from './render/pack.js?v=mupp1ffq';
+import { packModel, paintModel, SKIN, faceRects } from './render/mobtex.js?v=mupp1ffq';
+import { buildMipChain } from './render/atlas.js?v=mupp1ffq';
+import { Renderer, Batch } from './render/renderer.js?v=mupp1ffq';
+import { World, UNLOADED } from './world/world.js?v=mupp1ffq';
+import { createGenerator } from './gen/index.js?v=mupp1ffq';
+import { Game } from './game/game.js?v=mupp1ffq';
+import { Interact, crossbowCharge } from './game/interact.js?v=mupp1ffq';
+import { SpawnPrep, STATUS_COLOR } from './game/spawnprep.js?v=mupp1ffq';
+import { splash } from './splash.js?v=mupp1ffq';
+import { Commands } from './game/commands.js?v=mupp1ffq';
+import { GUI, HUD } from './game/ui.js?v=mupp1ffq';
+import { buildIcons, hudSprites } from './game/icons.js?v=mupp1ffq';
+import { Sound } from './game/audio.js?v=mupp1ffq';
+import { buildLogo, buttonTexture, dirtTexture, iconDataURL } from './render/logo.js?v=mupp1ffq';
+import { computeEnv } from './game/env.js?v=mupp1ffq';
+import { guideSections } from './game/guide.js?v=mupp1ffq';
+import { listWorlds, loadWorld, saveWorld, deleteWorld } from './game/storage.js?v=mupp1ffq';
+import { importJavaWorld, exportJavaWorld } from './game/javaworld.js?v=mupp1ffq';
+import { drawModel, rootMatrix, M } from './entity/entity.js?v=mupp1ffq';
+import { itemMesh, emitItemMesh, clearItemMeshes } from './entity/itemmesh.js?v=mupp1ffq';
+import { Lightning } from './entity/objects.js?v=mupp1ffq';
+import { compose, translation, rotationX, rotationY, rotationZ, scaling, forward, mat4 } from './core/math.js?v=mupp1ffq';
+import { hasGlint } from './data/enchantments.js?v=mupp1ffq';
 
 const $ = id => document.getElementById(id);
 // Resolves after the page has painted what was just put on screen.
@@ -1221,7 +1222,7 @@ class App {
       sneaking: p.sneaking, riding: !!g.riding, gliding: p.gliding, vel: p.vel, layer: this.mobLayer('player'), flash: this.post.hurt > 0.5 ? 0.6 : 0,
       armor: g.inv.armor.slots.map(s => s && s.key), held: g.inv.held && g.inv.held.key, off: g.inv.offhand.get(0) && g.inv.offhand.get(0).key,
       bow: this.interact.using === 'bow', trident: this.interact.using === 'trident', blocking: g.blocking,
-      xbowCharge: this.interact.using === 'crossbow' ? Math.min(1, this.interact.useT / CROSSBOW_CHARGE) : -1,
+      xbowCharge: this.interact.using === 'crossbow' ? Math.min(1, this.interact.useT / crossbowCharge(this.game.inv.held)) : -1,
       xbowHold: !this.interact.using && g.inv.held && g.inv.held.key === 'crossbow' && !!(g.inv.held.tag && g.inv.held.tag.loaded),
     });
   }
@@ -1351,7 +1352,7 @@ class App {
     else m = leftItem(M.chain(sway, arm));
     const batch = this.batches.hand2 || (this.batches.hand2 = new Batch());
     batch.reset();
-    emitItemMesh(batch, itemMesh(off.key, this.itemPixels(off.key)), this.itemLayer(off.key), m, [light, light, light]);
+    emitItemMesh(batch, itemMesh(off.key, this.itemPixels(off.key)), this.itemLayer(off.key), m, [light, light, light], hasGlint(off) ? 3 : 1);
     res.batch2 = batch; res.batchTex2 = 'item'; res.light = res.light ?? light;
   }
   buildMainHand(dt, cam) {
@@ -1408,14 +1409,14 @@ class App {
         if (f > 0.1) base = M.chain(base, M.t(0, Math.sin((ticks - 0.1) * 1.3) * (f - 0.1) * 0.004, 0));
         return M.chain(base, M.t(0, 0, f * 0.04), M.s(1, 1, 1 + f * 0.2), M.ry(-45 * D2R));
       };
-      const fx = key => { emitItemMesh(batch, itemMesh(key, this.itemTex[FX_LAYER[key]]), FX_LAYER[key], m, [light, light, light]); return { batch, batchTex: 'item', light }; };
+      const fx = key => { emitItemMesh(batch, itemMesh(key, this.itemTex[FX_LAYER[key]]), FX_LAYER[key], m, [light, light, light], hasGlint(held) ? 3 : 1); return { batch, batchTex: 'item', light }; };
       if (using === 'bow') {
         const ticks = it.useT * 20, t = ticks / 20, f = Math.min(1, (t * t + t * 2) / 3);
         m = M.chain(drawn(M.chain(armT, M.t(-0.2785682, 0.18344387, 0.15731531), M.rx(-13.935 * D2R), M.ry(35.3 * D2R), M.rz(-9.785 * D2R)), ticks, f), display(0, -90, 25, 1.13, 3.2, 1.13, 0.68));
         return fx(t >= 0.9 ? 'bow_pulling_2' : t >= 0.65 ? 'bow_pulling_1' : 'bow_pulling_0');
       }
       if (using === 'crossbow') {
-        const ticks = it.useT * 20, f = Math.min(1, it.useT / CROSSBOW_CHARGE);
+        const ticks = it.useT * 20, f = Math.min(1, it.useT / crossbowCharge(held));
         m = M.chain(drawn(M.chain(armT, M.t(-0.4785682, -0.094387, 0.05731531), M.rx(-11.935 * D2R), M.ry(65.3 * D2R), M.rz(-9.785 * D2R)), ticks, f), display(-90, 0, -55, 1.13, 3.2, 1.13, 0.68));
         return fx(f >= 1 ? 'crossbow_pulling_2' : f >= 0.58 ? 'crossbow_pulling_1' : 'crossbow_pulling_0');
       }
@@ -1426,7 +1427,7 @@ class App {
           return fx(held.tag.rocket ? 'crossbow_firework' : 'crossbow_arrow');
         }
         m = M.chain(swingArm(), display(-90, 0, -55, 1.13, 3.2, 1.13, 0.68));
-        emitItemMesh(batch, itemMesh(held.key, this.itemPixels(held.key)), this.itemLayer(held.key), m, [light, light, light]);
+        emitItemMesh(batch, itemMesh(held.key, this.itemPixels(held.key)), this.itemLayer(held.key), m, [light, light, light], hasGlint(held) ? 3 : 1);
         return { batch, batchTex: 'item', light };
       }
       if (held.key === 'fishing_rod' && it.fish) {
@@ -1440,7 +1441,7 @@ class App {
       } else if (using === 'eat') m = flatItem(eatArm(held.key === 'dried_kelp' ? 0.8 : 1.6));
       else if (using === 'shield') m = M.chain(sway, M.t(0.25, -0.4, -0.6), M.ry(-0.3), M.s(0.8), M.t(-0.5, -0.5, 0));
       else m = flatItem(swingArm());
-      emitItemMesh(batch, itemMesh(held.key, this.itemPixels(held.key)), this.itemLayer(held.key), m, [light, light, light]);
+      emitItemMesh(batch, itemMesh(held.key, this.itemPixels(held.key)), this.itemLayer(held.key), m, [light, light, light], hasGlint(held) ? 3 : 1);
       return { batch, batchTex: 'item', light };
     }
     // Empty hand: Minecraft's renderArmFirstPerson stack (blocks and degrees), then the arm model

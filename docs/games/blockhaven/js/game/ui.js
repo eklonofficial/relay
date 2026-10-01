@@ -1,8 +1,13 @@
 // Container GUIs (inventory, crafting, chest, furnace, creative, trading) and the HUD, laid out in GUI pixels
 // (1 unit = var(--u)) at the original's coordinates: 176x166 panels, 18x18 slots, 16x16 icons.
-import { I, ITEMS, TABS, maxStack, ARMOR_SLOTS, iconKey } from '../data/items.js?v=mupn7rzu';
-import { findRecipe, allRecipes, matches, SMELTING, TAGS } from '../data/recipes.js?v=mupn7rzu';
-import { same } from './inventory.js?v=mupn7rzu';
+import { I, ITEMS, TABS, maxStack, ARMOR_SLOTS, iconKey } from '../data/items.js?v=mupp1ffq';
+import { findRecipe, allRecipes, matches, SMELTING, TAGS } from '../data/recipes.js?v=mupp1ffq';
+import { same } from './inventory.js?v=mupp1ffq';
+import { tableOffers, enchantName, enchantsOf, anvilResult, isEnchantable, hasGlint, ENCHANTS, ENCHANT_LIST } from '../data/enchantments.js?v=mupp1ffq';
+const ENCH_CURSE = id => !!(ENCHANTS[id] && ENCHANTS[id].curse);
+
+// The enchanting table's glyphs (the Standard Galactic Alphabet as usually typed in Unicode).
+const GLYPHS = ['ᔑ', 'ʖ', 'ᓵ', '↸', 'ᒷ', '⎓', '⊣', '⍑', '╎', '⋮', 'ꖌ', 'ꖎ', 'ᒲ', 'リ', 'ᑑ', '∷', 'ᓭ', 'ℸ', '⚍', '⍊', '∴', '⨅'];
 
 const $ = id => document.getElementById(id);
 const el = (tag, cls, parent) => { const e = document.createElement(tag); if (cls) e.className = cls; if (parent) parent.appendChild(e); return e; };
@@ -52,6 +57,7 @@ function sprites() {
   SPR = {
     panel: panel('#ffffff', '#c6c6c6', '#555555'), tab: panel('#d4d4d4', '#a4a4a4', '#4a4a4a'), toast: panel('#4a4a4a', '#212121', '#303030'),
     arrow16: pix(arrow(16, 13, 1), { a: '#8b8b8b' }), arrow22: pix(arrow(22, 15, 2), { a: '#8b8b8b' }), arrow10: pix(arrow(10, 9, 1), { a: '#8b8b8b' }),
+    plus: pix(grid(13, 13, (x, y) => ((x >= 5 && x <= 7) || (y >= 5 && y <= 7) ? 'a' : '.')), { a: '#8b8b8b' }),
     furnaceArrow: pix(arrow(24, 16, 1.5), { a: '#8b8b8b' }), furnaceArrowFill: pix(arrow(24, 16, 1.5), { a: '#ffffff' }),
     flameOff: pix(FLAME, { '#': '#b4b4b4' }), flame: pix(flameLit, { e: '#d23c00', i: '#ff9a00', c: '#ffe45a' }),
     outOfStock: pix(grid(10, 9, (x, y) => (x >= 1 && x <= 9 && (Math.abs((x - 1) - y) <= 0.5 || Math.abs((x - 1) + y - 8) <= 0.5) ? 'r' : '.')), { r: '#e02020' }),
@@ -76,6 +82,8 @@ function fillItem(div, s, icons, ghost = null) {
   if (!show) return;
   const img = el('img', ghost && !s ? 'ghost' : '', div);
   img.src = icons[iconKey(show)] || sprites().missing;
+  // Enchanted items shimmer: a sliding violet sheen masked to the icon's shape.
+  if (s && hasGlint(s)) { const gl = el('div', 'glint', div); gl.style.maskImage = gl.style.webkitMaskImage = `url(${img.src})`; }
   if (s && s.count > 1) el('span', 'count', div).textContent = s.count;
   const it = s && I[s.key];
   if (it && it.durability && s.dmg) {
@@ -180,7 +188,10 @@ export class GUI {
   tipLines(s) {
     const it = I[s.key];
     if (!it) return [[s.key, '']];
-    const L = [[it.name, '']];
+    const ench = enchantsOf(s), enchanted = Object.keys(ench).length > 0;
+    // Like the original's rarity colours: enchanted gear is aqua, enchanted books yellow.
+    const L = [[(s.tag && s.tag.name) || it.name, s.key === 'enchanted_book' ? 'yellow' : enchanted && s.key !== 'enchanted_book' ? 'aqua' : '']];
+    for (const [id, lv] of Object.entries(ench)) L.push([enchantName(id, lv), ENCH_CURSE(id) ? 'curse' : 'ench']);
     const melee = it.damage && it.kind !== 'bow';
     if (melee || it.attackSpeed) { L.push(['', ''], ['When in Main Hand:', 'gray']); if (melee) L.push([` ${it.damage} Attack Damage`, 'green']); if (it.attackSpeed) L.push([` ${it.attackSpeed} Attack Speed`, 'green']); }
     if (it.armor && (it.armor.points || it.armor.tough)) {
@@ -215,6 +226,8 @@ export class GUI {
     if (r.trash) { if (this.cursor) this.cursor = null; else if (shift) g.inv.main.clear(); this.refresh(); return; }
     if (r.output) { this.takeOutput(r, shift); this.refresh(); return; }
     const s = r.get();
+    // Curse of Binding: armor can't be taken off (except in creative).
+    if (r.binding && s && s.tag && s.tag.ench && s.tag.ench.binding_curse && g.mode !== 'creative') return;
     if (shift) {
       if (s && this.screen.quickMove) { const rest = this.screen.quickMove(r, s); r.set(rest); }
       this.refresh();
@@ -275,7 +288,7 @@ export class GUI {
     const s = r.get();
     if (this.cursor) { this.cursor = null; this.refresh(); return; }
     if (!s) return;
-    const full = { key: s.key, count: e.button === 2 ? 1 : maxStack(s.key) };
+    const full = { ...s, count: e.button === 2 ? 1 : maxStack(s.key) };
     if (e.shiftKey) this.game.inv.add(full); else this.cursor = full;
     this.refresh();
   }
@@ -334,7 +347,7 @@ export class GUI {
     this.gridAt(hot, 9, win, x, y + 58);
     return { hot, main };
   }
-  armorRefs() { const inv = this.game.inv; return ARMOR_SLOTS.map((piece, k) => ref(inv.armor, k, { accept: s => I[s.key].armor && I[s.key].armor.slot === k, limit: 1, placeholder: piece })); }
+  armorRefs() { const inv = this.game.inv; return ARMOR_SLOTS.map((piece, k) => ref(inv.armor, k, { accept: s => I[s.key].armor && I[s.key].armor.slot === k, limit: 1, placeholder: piece, binding: true })); }
 
   // ---------- open / close ----------
   begin(kind) {
@@ -595,10 +608,12 @@ export class GUI {
       this.tip(trash, [['Destroy Item', ''], ['Shift-click: clear the inventory', 'gray']]);
     } else {
       this.label(win, tab === 'search' ? 'Search' : names[tab], 8, 6); // our font runs wider than the original's: keep clear of the field
-      const list = () => (tab === 'search' ? ITEMS.filter(it => { const q = this.search.trim().toLowerCase(); return !q || it.name.toLowerCase().includes(q) || it.key.includes(q); }) : ITEMS.filter(it => it.tab === tab));
+      // Enchanted books appear once per enchantment and level, as in the original's creative tabs.
+      const expand = arr => arr.flatMap(it => (it.key === 'enchanted_book' ? ENCHANT_LIST.flatMap(e => Array.from({ length: e.max }, (_, k) => ({ key: it.key, name: enchantName(e.id, k + 1), tag: { stored: { [e.id]: k + 1 } } }))) : [it]));
+      const list = () => expand(tab === 'search' ? ITEMS.filter(it => { const q = this.search.trim().toLowerCase(); return !q || it.name.toLowerCase().includes(q) || it.key.includes(q) || (it.key === 'enchanted_book' && ENCHANT_LIST.some(e => e.name.toLowerCase().includes(q))); }) : ITEMS.filter(it => it.tab === tab));
       let items = list(), off = 0;
       const extra = () => Math.max(0, Math.ceil(items.length / 9) - 5);
-      const refs = Array.from({ length: 45 }, (_, i) => ({ creative: true, get: () => { const it = items[off * 9 + i]; return it ? { key: it.key, count: 1 } : null; }, set: () => {} }));
+      const refs = Array.from({ length: 45 }, (_, i) => ({ creative: true, get: () => { const it = items[off * 9 + i]; return it ? (it.tag ? { key: it.key, count: 1, tag: JSON.parse(JSON.stringify(it.tag)) } : { key: it.key, count: 1 }) : null; }, set: () => {} }));
       this.gridAt(refs, 9, win, 9, 18);
       const track = el('div', 'scroll-track', win); at(track, 174, 17, 14, 112);
       const handle = el('div', 'scroll-handle', win); at(handle, 175, 18, 12, 15);
@@ -646,7 +661,7 @@ export class GUI {
       if (!sel || sel.uses >= sel.maxUses) return null;
       const ok = (s, want) => !want || (s && s.key === want.key && s.count >= want.count);
       const a = pay.get(0), b = pay.get(1);
-      if ((ok(a, sel.buy) && ok(b, sel.buy2)) || (ok(b, sel.buy) && ok(a, sel.buy2) && sel.buy2)) return { ...sel.sell };
+      if ((ok(a, sel.buy) && ok(b, sel.buy2)) || (ok(b, sel.buy) && ok(a, sel.buy2) && sel.buy2)) return JSON.parse(JSON.stringify(sel.sell));
       return null;
     };
     const outRef = {
@@ -694,6 +709,136 @@ export class GUI {
     this.screen.onWheel = d => { offset += d; drawList(); };
     this.screen.quickMove = (r, s) => (payRefs.includes(r) ? this.moveInto(s, [...hot, ...main]) : this.moveInto(s, payRefs));
     this.screen.onClose = () => { for (let i = 0; i < 2; i++) { const s = pay.get(i); if (s) { const rest = g.inv.add(s); if (rest) g.dropStack({ ...s, count: rest }); pay.set(i, null); } } villager.trading = null; };
+  }
+
+  // Enchanting table: item and lapis slots on the left, three offers (108x19) on the right.
+  openEnchanting(x, y, z) {
+    this.begin('enchanting');
+    const g = this.game, slots = g.enchSlots;
+    const lay = this.layout();
+    const win = this.win(lay, 176, 166);
+    this.label(win, 'Enchant', 12, 6);
+    const book = el('img', 'ebook', win); book.src = this.icon('enchanted_book'); at(book, 16, 14, 24, 24);
+    const itemRef = ref(slots, 0, { limit: 1, accept: s => isEnchantable(s.key) && !Object.keys(enchantsOf(s)).length || s.key === 'book' });
+    const lapisRef = ref(slots, 1, { accept: s => s.key === 'lapis_lazuli', placeholder: null });
+    this.slotEl(itemRef, win, '', 15, 47);
+    this.slotEl(lapisRef, win, '', 35, 47);
+    const shelves = g.bookshelvesAround(x, y, z);
+    const btns = [0, 1, 2].map(i => { const b = el('div', 'gbtn eopt', win); at(b, 60, 14 + 19 * i, 108, 19); return b; });
+    let offers = null;
+    const draw = () => {
+      const it = slots.get(0), lapis = slots.get(1), creative = g.mode === 'creative';
+      if (g.stats.enchSeed === undefined) g.stats.enchSeed = Math.floor(Math.random() * 2 ** 31);
+      offers = it ? tableOffers(g.stats.enchSeed, it.key === 'book' ? 'book' : it.key, shelves) : null;
+      btns.forEach((b, i) => {
+        b.textContent = '';
+        const cost = offers ? offers.costs[i] : 0;
+        b.classList.toggle('off', !cost);
+        if (!cost) { b.onmousedown = null; b.onmouseenter = null; return; }
+        const can = creative || (g.stats.level >= cost && lapis && lapis.count >= i + 1);
+        b.classList.toggle('dim', !can);
+        const orb = el('div', `eorb${can ? '' : ' dim'}`, b); orb.textContent = i + 1; at(orb, 1, 1, 16, 16);
+        const r = (g.stats.enchSeed * 31 + i * 977 + cost * 13) >>> 0;
+        const gl = el('div', 'eglyph', b); at(gl, 20, 2, 70, 15);
+        gl.textContent = Array.from({ length: 2 + (r % 3) }, (_, k) => Array.from({ length: 2 + ((r >> (k * 3)) % 4) }, (_, j) => GLYPHS[(r * (k + 3) * (j + 7) >> 3) % GLYPHS.length]).join('')).join(' ');
+        const n = el('div', `ecost${can ? '' : ' dim'}`, b); n.textContent = cost;
+        const clue = offers.clues[i];
+        const lines = () => {
+          const L = [[`${clue ? enchantName(clue.id, clue.level) : '?'} . . . ?`, '']];
+          if (!creative && g.stats.level < cost) L.push([`Level Requirement: ${cost}`, 'red']);
+          else if (!creative) { L.push([`${i + 1} Lapis Lazuli`, lapis && lapis.count >= i + 1 ? 'gray' : 'red'], [`${i + 1} Enchantment Level${i ? 's' : ''}`, 'gray']); }
+          return L;
+        };
+        b.onmouseenter = () => { if (!this.cursor) this.showTip(lines()); };
+        b.onmouseleave = () => this.hideTooltip();
+        b.onmousedown = e => {
+          e.preventDefault(); e.stopPropagation();
+          if (!can) return;
+          const s = slots.get(0), list = offers.picks[i];
+          if (!s || !list) return;
+          const ench = Object.fromEntries(list.map(x => [x.id, x.level]));
+          const out = s.key === 'book' ? { key: 'enchanted_book', count: 1, tag: { stored: ench } } : { ...s, tag: { ...(s.tag || {}), ench } };
+          slots.set(0, out);
+          if (!creative) { const l = slots.get(1); l.count -= i + 1; slots.set(1, l.count ? l : null); g.spendLevels(i + 1); }
+          g.stats.enchSeed = Math.floor(Math.random() * 2 ** 31);
+          g.sound.play('enchant', [x + 0.5, y + 0.5, z + 0.5], 0.8);
+          g.advance('enchanter', 'Enchanter', 'Enchant an item at an Enchanting Table', 'enchanting_table');
+          this.hideTooltip();
+          this.refresh();
+        };
+      });
+    };
+    const { hot, main } = this.playerSection(win);
+    this.screen.onRefresh = draw;
+    draw();
+    this.screen.quickMove = (r, s) => {
+      if (r === itemRef || r === lapisRef) return this.moveInto(s, [...hot, ...main]);
+      if (s.key === 'lapis_lazuli') return this.moveInto(s, [lapisRef]);
+      if (!slots.get(0) && itemRef.accept(s)) { slots.set(0, { ...s, count: 1 }); return s.count > 1 ? { ...s, count: s.count - 1 } : null; }
+      return hot.includes(r) ? this.moveInto(s, main) : this.moveInto(s, hot);
+    };
+    this.screen.onClose = () => g.returnSlots(slots);
+  }
+
+  // Anvil: "Repair & Name", a name field, two inputs and the result; the cost below in green, or
+  // red when it's too expensive or you lack the levels.
+  openAnvil(x, y, z) {
+    this.begin('anvil');
+    const g = this.game, slots = g.anvilSlots;
+    const lay = this.layout();
+    const win = this.win(lay, 176, 166);
+    this.label(win, 'Repair & Name', 60, 6);
+    const name = el('input', 'field aname', win);
+    name.type = 'text'; name.spellcheck = false; name.maxLength = 50;
+    at(name, 59, 20, 110, 12);
+    name.addEventListener('keydown', e => e.stopPropagation());
+    name.addEventListener('mousedown', e => e.stopPropagation());
+    let named = null;
+    const leftRef = ref(slots, 0, { onChange: () => { const s = slots.get(0); named = null; name.value = s ? (s.tag && s.tag.name) || I[s.key].name : ''; } });
+    const rightRef = ref(slots, 1);
+    const calc = () => {
+      const l = slots.get(0), r = slots.get(1);
+      if (!l) return null;
+      return anvilResult(l, r, named === null ? undefined : named, { creative: g.mode === 'creative' });
+    };
+    const outRef = {
+      output: true,
+      get: () => { const c = calc(); return c && !c.tooExpensive ? c.result : null; },
+      set: () => {},
+      take: () => {
+        const c = calc();
+        if (!c || c.tooExpensive || (g.mode !== 'creative' && g.stats.level < c.cost)) return;
+        if (g.mode !== 'creative') g.spendLevels(c.cost);
+        slots.set(0, null);
+        const r = slots.get(1);
+        if (r) { r.count -= c.used; slots.set(1, r.count > 0 ? r : null); }
+        named = null; name.value = '';
+        g.useAnvil(x, y, z);
+      },
+    };
+    this.slotEl(leftRef, win, '', 27, 47);
+    this.spr(win, 'plus', 52, 47, 13, 13);
+    this.slotEl(rightRef, win, '', 76, 47);
+    this.spr(win, 'arrow22', 99, 45, 22, 15);
+    const outEl = this.slotEl(outRef, win, '', 134, 47);
+    const cost = el('div', 'acost', win); at(cost, 60, 69, 108, 12);
+    name.addEventListener('input', () => { named = name.value; this.refresh(); });
+    this.screen.onRefresh = () => {
+      const c = calc();
+      cost.textContent = '';
+      outEl.classList.toggle('blocked', !!c && (c.tooExpensive || (g.mode !== 'creative' && g.stats.level < c.cost)));
+      if (!c) return;
+      if (c.tooExpensive) { cost.textContent = 'Too Expensive!'; cost.className = 'acost red'; return; }
+      cost.textContent = `Enchantment Cost: ${c.cost}`;
+      cost.className = `acost${g.mode !== 'creative' && g.stats.level < c.cost ? ' red' : ''}`;
+    };
+    const { hot, main } = this.playerSection(win);
+    this.screen.onRefresh();
+    this.screen.quickMove = (r, s) => {
+      if (r === leftRef || r === rightRef) return this.moveInto(s, [...hot, ...main]);
+      return this.moveInto(s, [leftRef, rightRef]);
+    };
+    this.screen.onClose = () => g.returnSlots(slots);
   }
 
   update() { if (this.screen && this.screen.tick) this.screen.tick(); }

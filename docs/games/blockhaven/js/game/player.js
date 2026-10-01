@@ -1,7 +1,7 @@
 // First-person player movement: walking, sprinting, sneaking, swimming, climbing, flying and spectating.
-import { B, BLOCKS, SHAPE_OF, SHAPE, props } from '../data/blocks.js?v=mupn7rzu';
-import { moveEntity } from '../entity/physics.js?v=mupn7rzu';
-import { UNLOADED } from '../world/world.js?v=mupn7rzu';
+import { B, BLOCKS, SHAPE_OF, SHAPE, props } from '../data/blocks.js?v=mupp1ffq';
+import { moveEntity } from '../entity/physics.js?v=mupp1ffq';
+import { UNLOADED } from '../world/world.js?v=mupp1ffq';
 
 export class Player {
   constructor(world) {
@@ -112,7 +112,8 @@ export class Player {
     this.sneaking = input.sneak && !this.flying && !this.gliding;
     this.h = this.sneaking ? 1.5 : 1.8;
     let fwd = (input.forward ? 1 : 0) - (input.back ? 1 : 0), str = (input.left ? 1 : 0) - (input.right ? 1 : 0);
-    if (this.sneaking) { fwd *= 0.3; str *= 0.3; }
+    // Swift Sneak adds 15% of walking speed per level while sneaking.
+    if (this.sneaking) { const k = Math.min(1, 0.3 + 0.15 * (this.armorEnch ? this.armorEnch('swift_sneak') : 0)); fwd *= k; str *= k; }
     if (this.usingItem) { fwd *= 0.2; str *= 0.2; }
     fwd *= 0.98; str *= 0.98;
     if (input.sprint && input.forward && !this.sneaking && !this.noSprint && !this.usingItem && !this.collidedH) this.sprinting = true;
@@ -165,8 +166,10 @@ export class Player {
       move();
       m[0] *= 0.91; m[2] *= 0.91; m[1] *= 0.6;
     } else if (this.inWater) {
-      const slow = this.sprinting ? 0.9 : 0.8;
-      moveRelative(0.02);
+      // Depth Strider closes the gap to walking speed, a third per level (half that off the bottom).
+      const ds = Math.min(3, this.armorEnch ? this.armorEnch('depth_strider') : 0) / 3 * (this.onGround ? 1 : 0.5);
+      const slow = (this.sprinting ? 0.9 : 0.8) + (0.546 - (this.sprinting ? 0.9 : 0.8)) * ds;
+      moveRelative(0.02 + (baseSpeed - 0.02) * ds);
       move();
       if (this.sprinting && this.headInWater) m[1] += (Math.sin(this.pitch) * 0.1 - m[1]) * 0.1 * (fwd > 0 ? 1 : 0); // swimming follows the view
       m[0] *= slow; m[1] *= 0.8; m[2] *= slow;
@@ -230,6 +233,9 @@ export class Player {
     const id = this.world.getBlock(this.pos[0], this.pos[1] - 0.1, this.pos[2]);
     if (id === UNLOADED || !id) return 1;
     const pr = props(id, this.world.getMeta(this.pos[0], this.pos[1] - 0.1, this.pos[2]));
+    // Soul Speed: no slowdown on soul sand or soul soil, and a burst of speed instead.
+    const ss = this.armorEnch ? this.armorEnch('soul_speed') : 0;
+    if (ss && (id === B.SOUL_SAND || pr.key === 'soul_soil')) return 1.3 + 0.105 * ss;
     return pr.slow ? 1 - pr.slow : 1;
   }
   freeAbove(up, ahead = false) {

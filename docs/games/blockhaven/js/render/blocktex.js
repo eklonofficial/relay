@@ -1,6 +1,7 @@
 // Procedural 16x16 block textures. Every name registered in data/blocks.js must be drawable here.
-import { Painter, ramp, shade, mixHex, hex } from './paint.js?v=mupn7rzu';
-import { TEXTURES, COLORS } from '../data/blocks.js?v=mupn7rzu';
+import { Painter, ramp, shade, mixHex, hex } from './paint.js?v=mupp1ffq';
+import { TEXTURES, COLORS } from '../data/blocks.js?v=mupp1ffq';
+import { EXTRA_BLOCK_TEX } from './enchtex.js?v=mupp1ffq';
 
 const N = 16;
 
@@ -969,6 +970,7 @@ function calibrate(d, ref) {
 export function drawBlockTexture(name, seed) {
   const p = new Painter(N, N, seed);
   if (G[name]) G[name](p);
+  else if (EXTRA_BLOCK_TEX[name]) EXTRA_BLOCK_TEX[name](p, n => drawBlockTexture(n, seed));
   else if (!family(name, p)) throw new Error(`No texture generator for "${name}"`);
   if (REF_AVG[name]) calibrate(p.d, REF_AVG[name]);
   return p.d;

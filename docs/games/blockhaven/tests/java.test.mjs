@@ -54,13 +54,15 @@ test('a world exported to Java imports back block for block, with player and che
   const w = {
     id: 'jt', name: 'Java Test', seed: 4242, seedText: '4242', type: 'default', mode: 'survival', spawn: [8, 70, 8],
     dims: { 0: { populated: keys, edits: { '0,0': [3 + 4 * 16 + 120 * 256, B.GLOWSTONE] }, blockEntities: { '2,100,2': { type: 'chest', x: 2, y: 100, z: 2, items: [{ key: 'diamond', count: 3 }, ...new Array(26).fill(null)] } } } },
-    player: { pos: [8, 90, 8], yaw: 0.5, pitch: 0.1, dim: 0 }, inventory: { main: [{ key: 'stone', count: 12 }, ...new Array(35).fill(null)], armor: [null, null, null, null], offhand: [null], selected: 0 },
+    player: { pos: [8, 90, 8], yaw: 0.5, pitch: 0.1, dim: 0 }, inventory: { main: [{ key: 'stone', count: 12 }, { key: 'diamond_sword', count: 1, dmg: 10, tag: { ench: { sharpness: 5, looting: 2 }, rc: 3, name: 'Sting' } }, { key: 'enchanted_book', count: 1, tag: { stored: { mending: 1 } } }, ...new Array(33).fill(null)], armor: [null, null, null, null], offhand: [null], selected: 0 },
   };
   const { blob } = await exportJavaWorld(w);
   const meta = await importJavaWorld(await Zip.open(blob));
   assert.equal(meta.seed, 4242);
   assert.deepEqual(meta.player.pos, [8, 90, 8]);
   assert.deepEqual(meta.inventory.main[0], { key: 'stone', count: 12 });
+  assert.deepEqual(meta.inventory.main[1], { key: 'diamond_sword', count: 1, dmg: 10, tag: { ench: { sharpness: 5, looting: 2 }, rc: 3, name: 'Sting' } });
+  assert.deepEqual(meta.inventory.main[2], { key: 'enchanted_book', count: 1, tag: { stored: { mending: 1 } } });
   assert.deepEqual(meta.dims[0].blockEntities['2,100,2'].items[0], { key: 'diamond', count: 3 });
   const g = createGenerator(4242, 0, 'default');
   for (const k of keys) {

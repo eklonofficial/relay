@@ -308,6 +308,27 @@
   .rb-arrow:hover, .rb-toggle:hover { filter: brightness(1.25); }
   /* trading: offer buttons with the two prices, a small arrow (a red cross when sold out) and the result */
   .offers > *, .offer > * { position: absolute; }
+  /* Enchanting and anvil screens. */
+  .eopt > * { position: absolute; }
+  .eopt.off { visibility: hidden; }
+  .eopt.dim { cursor: default; filter: brightness(0.7); }
+  .eorb { font-size: var(--fs); line-height: calc(var(--u) * 16); text-align: center; color: #c8ff8f; text-shadow: var(--u) var(--u) 0 #2b4a12; background: radial-gradient(circle, #6ae03a 0 35%, #2f8a12 36% 55%, transparent 56%); }
+  .eorb.dim { color: #8a8a8a; text-shadow: none; background: radial-gradient(circle, #6a6a6a 0 35%, #3a3a3a 36% 55%, transparent 56%); }
+  .eglyph { font: 400 var(--fs) / calc(var(--u) * 14) serif; color: #685e4a; white-space: nowrap; overflow: hidden; letter-spacing: calc(var(--u) * 0.5); }
+  .eopt:not(.dim):hover .eglyph { color: #ffff80; }
+  .ecost { right: calc(var(--u) * 3); top: calc(var(--u) * 9); font: 400 var(--fs) / 1 var(--px-font); color: #80ff20; text-shadow: var(--u) var(--u) 0 #203f08; }
+  .ecost.dim { color: #407f10; text-shadow: none; }
+  .ebook { image-rendering: pixelated; }
+  .acost { text-align: right; font: 400 var(--fs) / 1 var(--px-font); color: #80ff20; text-shadow: var(--u) var(--u) 0 #203f08; }
+  .acost.red { color: #ff6060; text-shadow: var(--u) var(--u) 0 #3f1818; }
+  .gs.blocked img { filter: brightness(0.6); }
+  /* The enchantment glint: a violet sheen sweeping across the icon's shape. */
+  .glint { position: absolute; left: calc(var(--u) * var(--o)); top: calc(var(--u) * var(--o)); width: calc(var(--u) * 16); height: calc(var(--u) * 16); pointer-events: none;
+    -webkit-mask-size: 100% 100%; mask-size: 100% 100%; mix-blend-mode: screen; opacity: 0.75;
+    background: linear-gradient(115deg, transparent 20%, rgba(170,90,255,0.75) 32%, rgba(220,160,255,0.85) 38%, transparent 50%, transparent 70%, rgba(150,80,240,0.6) 80%, transparent 90%) 0 0 / 300% 300%;
+    animation: glint 3s linear infinite; }
+  @keyframes glint { from { background-position: 100% 100%; } to { background-position: 0% 0%; } }
+  #tooltip .t-red { color: #ff5555; } #tooltip .t-ench { color: #aaaaaa; } #tooltip .t-curse { color: #ff5555; } #tooltip .t-aqua { color: #55ffff; } #tooltip .t-yellow { color: #ffff55; }
   .ti { --o: 0; position: absolute; top: calc(var(--u) * 2); width: calc(var(--u) * 16); height: calc(var(--u) * 16); }
   .txp { background: var(--spr-xp) 0 0 / 100% 100%; image-rendering: pixelated; }
   .txp div { height: 100%; background: var(--spr-xp-fill) 0 0 / calc(var(--u) * 102) 100%; image-rendering: pixelated; }
@@ -382,7 +403,7 @@
 <body>
 <div id="boot"><canvas id="boot-canvas"></canvas></div>
 <!-- data-modules: how many modules the page loads, kept up to date by tools/stamp.mjs (the splash's download progress) -->
-<script type="module" id="boot-script" src="js/splash.js?v=mupn7rzu" data-modules="70"></script>
+<script type="module" id="boot-script" src="js/splash.js?v=mupp1ffq" data-modules="72"></script>
 <canvas id="game"></canvas>
 
 <div id="demo" class="hidden">
@@ -562,7 +583,7 @@
 </div>
 
 <div id="error" class="screen dirt hidden"></div>
-<script defer src="net-config.js?v=mupn7rzu"></script>
-<script type="module" src="js/main.js?v=mupn7rzu"></script>
+<script defer src="net-config.js?v=mupp1ffq"></script>
+<script type="module" src="js/main.js?v=mupp1ffq"></script>
 </body>
 </html>

@@ -4,11 +4,12 @@
 // written into every chunk it overlaps (ChunkBuilder clips writes), so they span chunk borders
 // seamlessly. Planning must never read the chunk, only the terrain functions, so every chunk
 // sees the same plan.
-import { hash2, hash3, mulberry32 } from '../core/noise.js?v=mupn7rzu';
-import { B, st, DIM, SEA, CHUNK, COLORS, CROP_AGE_SHIFT } from '../data/blocks.js?v=mupn7rzu';
-import { BI, OCEANS } from './biomes.js?v=mupn7rzu';
-import { NETHER_LAVA } from './nether.js?v=mupn7rzu';
-import { END_OUTER_R } from './end.js?v=mupn7rzu';
+import { hash2, hash3, mulberry32 } from '../core/noise.js?v=mupp1ffq';
+import { B, st, DIM, SEA, CHUNK, COLORS, CROP_AGE_SHIFT } from '../data/blocks.js?v=mupp1ffq';
+import { BI, OCEANS } from './biomes.js?v=mupp1ffq';
+import { NETHER_LAVA } from './nether.js?v=mupp1ffq';
+import { END_OUTER_R } from './end.js?v=mupp1ffq';
+import { randomBookEnchant, enchantWithLevels } from '../data/enchantments.js?v=mupp1ffq';
 
 const DIRS = [[0, 1], [-1, 0], [0, -1], [1, 0]]; // +z, -x, -z, +x (same as placement code)
 const S = k => st(k);
@@ -21,15 +22,15 @@ const SOLIDISH = id => id > 0 && id !== B.WATER && id !== B.LAVA && id !== B.FEN
 const LOOT = {
   village: [3, 7, [['bread', 1, 4, 15], ['apple', 1, 5, 12], ['wheat', 3, 9, 10], ['emerald', 1, 3, 5], ['iron_ingot', 1, 3, 4], ['oak_sapling', 1, 3, 5], ['potato', 2, 6, 8], ['carrot', 2, 6, 8], ['book', 1, 2, 3], ['beetroot_seeds', 2, 6, 5], ['wheat_seeds', 2, 8, 6], ['leather', 1, 3, 4], ['feather', 1, 4, 3]]],
   smith: [3, 8, [['iron_ingot', 1, 5, 12], ['gold_ingot', 1, 3, 6], ['bread', 1, 3, 10], ['apple', 1, 3, 10], ['obsidian', 3, 7, 5], ['diamond', 1, 3, 2], ['iron_pickaxe', 1, 1, 4], ['iron_sword', 1, 1, 4], ['iron_helmet', 1, 1, 3], ['iron_chestplate', 1, 1, 3], ['iron_leggings', 1, 1, 3], ['iron_boots', 1, 1, 3], ['saddle', 1, 1, 3], ['oak_sapling', 3, 7, 5]]],
-  library: [2, 5, [['book', 1, 3, 20], ['paper', 1, 5, 12], ['compass', 1, 1, 5], ['clock', 1, 1, 3], ['emerald', 1, 2, 4], ['bread', 1, 2, 6]]],
-  dungeon: [4, 9, [['saddle', 1, 1, 10], ['golden_apple', 1, 1, 8], ['enchanted_golden_apple', 1, 1, 1], ['name_tag', 1, 1, 10], ['iron_ingot', 1, 4, 10], ['gold_ingot', 1, 4, 5], ['bread', 1, 1, 20], ['wheat', 1, 4, 20], ['bucket', 1, 1, 10], ['redstone', 1, 4, 15], ['coal', 1, 4, 15], ['gunpowder', 1, 8, 10], ['string', 1, 8, 10], ['bone', 1, 8, 10], ['rotten_flesh', 1, 8, 10]]],
-  pyramid: [3, 8, [['bone', 4, 6, 25], ['rotten_flesh', 3, 7, 16], ['gunpowder', 1, 8, 10], ['sand', 1, 8, 10], ['string', 1, 8, 10], ['spider_eye', 1, 3, 10], ['gold_ingot', 2, 7, 15], ['iron_ingot', 1, 5, 15], ['emerald', 1, 3, 15], ['diamond', 1, 3, 5], ['saddle', 1, 1, 10], ['golden_apple', 1, 1, 20], ['enchanted_golden_apple', 1, 1, 2]]],
-  mineshaft: [3, 7, [['rail', 4, 8, 20], ['torch', 1, 16, 15], ['bread', 1, 3, 15], ['iron_ingot', 1, 5, 10], ['gold_ingot', 1, 3, 5], ['redstone', 4, 9, 5], ['lapis_lazuli', 4, 9, 5], ['diamond', 1, 2, 3], ['coal', 3, 8, 10], ['melon_seeds', 2, 4, 10], ['pumpkin_seeds', 2, 4, 10], ['beetroot_seeds', 2, 4, 10], ['iron_pickaxe', 1, 1, 5], ['name_tag', 1, 1, 3], ['golden_apple', 1, 1, 2]]],
-  stronghold: [3, 7, [['ender_pearl', 1, 2, 10], ['iron_ingot', 1, 5, 10], ['gold_ingot', 1, 3, 5], ['redstone', 4, 9, 5], ['bread', 1, 3, 15], ['apple', 1, 3, 15], ['iron_pickaxe', 1, 1, 5], ['iron_sword', 1, 1, 5], ['iron_chestplate', 1, 1, 5], ['iron_helmet', 1, 1, 5], ['diamond', 1, 3, 3], ['golden_apple', 1, 1, 1], ['saddle', 1, 1, 1], ['book', 1, 3, 4]]],
+  library: [2, 5, [['book', 1, 3, 20], ['paper', 1, 5, 12], ['compass', 1, 1, 5], ['clock', 1, 1, 3], ['emerald', 1, 2, 4], ['bread', 1, 2, 6, ['enchanted_book', 1, 1, 10]]]],
+  dungeon: [4, 9, [['saddle', 1, 1, 10], ['golden_apple', 1, 1, 8], ['enchanted_golden_apple', 1, 1, 1], ['name_tag', 1, 1, 10], ['iron_ingot', 1, 4, 10], ['gold_ingot', 1, 4, 5], ['bread', 1, 1, 20], ['wheat', 1, 4, 20], ['bucket', 1, 1, 10], ['redstone', 1, 4, 15], ['coal', 1, 4, 15], ['gunpowder', 1, 8, 10], ['string', 1, 8, 10], ['bone', 1, 8, 10], ['rotten_flesh', 1, 8, 10, ['enchanted_book', 1, 1, 10]]]],
+  pyramid: [3, 8, [['bone', 4, 6, 25], ['rotten_flesh', 3, 7, 16], ['gunpowder', 1, 8, 10], ['sand', 1, 8, 10], ['string', 1, 8, 10], ['spider_eye', 1, 3, 10], ['gold_ingot', 2, 7, 15], ['iron_ingot', 1, 5, 15], ['emerald', 1, 3, 15], ['diamond', 1, 3, 5], ['saddle', 1, 1, 10], ['golden_apple', 1, 1, 20], ['enchanted_golden_apple', 1, 1, 2, ['enchanted_book', 1, 1, 20]]]],
+  mineshaft: [3, 7, [['rail', 4, 8, 20], ['torch', 1, 16, 15], ['bread', 1, 3, 15], ['iron_ingot', 1, 5, 10], ['gold_ingot', 1, 3, 5], ['redstone', 4, 9, 5], ['lapis_lazuli', 4, 9, 5], ['diamond', 1, 2, 3], ['coal', 3, 8, 10], ['melon_seeds', 2, 4, 10], ['pumpkin_seeds', 2, 4, 10], ['beetroot_seeds', 2, 4, 10], ['iron_pickaxe', 1, 1, 5], ['name_tag', 1, 1, 3], ['golden_apple', 1, 1, 2, ['enchanted_book', 1, 1, 10]]]],
+  stronghold: [3, 7, [['ender_pearl', 1, 2, 10], ['iron_ingot', 1, 5, 10], ['gold_ingot', 1, 3, 5], ['redstone', 4, 9, 5], ['bread', 1, 3, 15], ['apple', 1, 3, 15], ['iron_pickaxe', 1, 1, 5], ['iron_sword', 1, 1, 5], ['iron_chestplate', 1, 1, 5], ['iron_helmet', 1, 1, 5], ['diamond', 1, 3, 3], ['golden_apple', 1, 1, 1], ['saddle', 1, 1, 1], ['book', 1, 3, 4, ['enchanted_book', 1, 1, 6], ['iron_sword', 1, 1, 3, 30]]]],
   fortress: [2, 5, [['diamond', 1, 3, 5], ['iron_ingot', 1, 5, 5], ['gold_ingot', 1, 3, 15], ['golden_sword', 1, 1, 5], ['golden_chestplate', 1, 1, 5], ['flint_and_steel', 1, 1, 5], ['nether_wart', 3, 7, 5], ['saddle', 1, 1, 10], ['obsidian', 2, 4, 2]]],
-  bastion: [4, 9, [['gold_ingot', 3, 9, 15], ['gold_nugget', 6, 17, 12], ['netherite_scrap', 1, 1, 4], ['ancient_debris', 1, 2, 3], ['diamond', 1, 3, 4], ['golden_apple', 1, 1, 6], ['crossbow', 1, 1, 6], ['arrow', 6, 17, 8], ['obsidian', 2, 6, 6], ['crying_obsidian', 1, 5, 6], ['gilded_blackstone', 1, 4, 5], ['magma_cream', 2, 6, 5], ['iron_ingot', 3, 9, 8]]],
-  end_city: [3, 8, [['diamond', 2, 7, 5], ['iron_ingot', 4, 8, 10], ['gold_ingot', 2, 7, 15], ['emerald', 2, 6, 2], ['beetroot_seeds', 1, 10, 5], ['saddle', 1, 1, 3], ['diamond_sword', 1, 1, 3], ['diamond_pickaxe', 1, 1, 3], ['diamond_chestplate', 1, 1, 3], ['iron_sword', 1, 1, 3], ['iron_chestplate', 1, 1, 3], ['chorus_fruit', 2, 6, 6]]],
-  ruined_portal: [3, 7, [['obsidian', 1, 2, 40], ['flint_and_steel', 1, 1, 40], ['gold_nugget', 4, 24, 15], ['golden_apple', 1, 1, 15], ['golden_sword', 1, 1, 15], ['golden_helmet', 1, 1, 15], ['golden_carrot', 4, 12, 15], ['clock', 1, 1, 5], ['gold_ingot', 2, 8, 5], ['enchanted_golden_apple', 1, 1, 1]]],
+  bastion: [4, 9, [['gold_ingot', 3, 9, 15], ['gold_nugget', 6, 17, 12], ['netherite_scrap', 1, 1, 4], ['ancient_debris', 1, 2, 3], ['diamond', 1, 3, 4], ['golden_apple', 1, 1, 6], ['crossbow', 1, 1, 6], ['arrow', 6, 17, 8], ['obsidian', 2, 6, 6], ['crying_obsidian', 1, 5, 6], ['gilded_blackstone', 1, 4, 5], ['magma_cream', 2, 6, 5], ['iron_ingot', 3, 9, 8, ['golden_sword', 1, 1, 4, 20], ['golden_boots', 1, 1, 4, 20]]]],
+  end_city: [3, 8, [['diamond', 2, 7, 5], ['iron_ingot', 4, 8, 10], ['gold_ingot', 2, 7, 15], ['emerald', 2, 6, 2], ['beetroot_seeds', 1, 10, 5], ['saddle', 1, 1, 3], ['diamond_sword', 1, 1, 3], ['diamond_pickaxe', 1, 1, 3], ['diamond_chestplate', 1, 1, 3], ['iron_sword', 1, 1, 3], ['iron_chestplate', 1, 1, 3], ['chorus_fruit', 2, 6, 6, ['diamond_sword', 1, 1, 3, 30], ['diamond_pickaxe', 1, 1, 3, 30], ['diamond_chestplate', 1, 1, 3, 30], ['diamond_helmet', 1, 1, 3, 30], ['iron_pickaxe', 1, 1, 3, 25]]]],
+  ruined_portal: [3, 7, [['obsidian', 1, 2, 40], ['flint_and_steel', 1, 1, 40], ['gold_nugget', 4, 24, 15], ['golden_apple', 1, 1, 15], ['golden_sword', 1, 1, 15], ['golden_helmet', 1, 1, 15], ['golden_carrot', 4, 12, 15], ['clock', 1, 1, 5], ['gold_ingot', 2, 8, 5], ['enchanted_golden_apple', 1, 1, 1, ['golden_pickaxe', 1, 1, 15, 15], ['golden_boots', 1, 1, 15, 15]]]],
   igloo: [2, 6, [['apple', 1, 3, 15], ['coal', 1, 4, 15], ['gold_nugget', 1, 3, 10], ['stone_axe', 1, 1, 2], ['rotten_flesh', 1, 1, 10], ['emerald', 1, 1, 1], ['wheat', 2, 3, 10], ['golden_apple', 1, 1, 1]]],
   outpost: [2, 6, [['arrow', 2, 7, 10], ['crossbow', 1, 1, 3], ['wheat', 3, 5, 7], ['potato', 2, 5, 5], ['carrot', 3, 5, 5], ['dark_oak_log', 2, 3, 10], ['iron_ingot', 1, 3, 5], ['string', 1, 6, 5], ['experience_bottle', 1, 1, 3]]],
   shipwreck_supply: [3, 10, [['paper', 1, 12, 8], ['potato', 2, 6, 7], ['carrot', 4, 8, 7], ['poisonous_potato', 2, 6, 7], ['wheat', 8, 21, 7], ['coal', 2, 8, 6], ['rotten_flesh', 5, 24, 5], ['gunpowder', 1, 5, 3], ['pumpkin', 1, 3, 2], ['leather_helmet', 1, 1, 3], ['leather_chestplate', 1, 1, 3], ['leather_leggings', 1, 1, 3], ['leather_boots', 1, 1, 3], ['tnt', 1, 2, 1], ['bamboo', 1, 3, 2], ['moss_block', 1, 5, 2]]],
@@ -37,10 +38,10 @@ const LOOT = {
   shipwreck_map: [2, 4, [['paper', 1, 10, 20], ['feather', 1, 5, 10], ['book', 1, 5, 5], ['clock', 1, 1, 1], ['compass', 1, 1, 1], ['emerald', 1, 3, 3]]],
   ocean_ruin: [2, 5, [['coal', 1, 4, 10], ['stone_axe', 1, 1, 2], ['rotten_flesh', 1, 3, 5], ['emerald', 1, 1, 5], ['wheat', 2, 3, 10], ['golden_helmet', 1, 1, 1], ['fishing_rod', 1, 1, 5], ['gold_nugget', 1, 3, 5], ['iron_ingot', 1, 2, 3], ['diamond', 1, 1, 1]]],
   buried_treasure: [5, 9, [['iron_ingot', 1, 4, 20], ['gold_ingot', 1, 4, 10], ['tnt', 1, 2, 5], ['emerald', 4, 8, 5], ['diamond', 1, 2, 5], ['prismarine_crystals', 1, 5, 5], ['cooked_cod', 2, 4, 5], ['cooked_salmon', 2, 4, 5], ['iron_sword', 1, 1, 5], ['leather_chestplate', 1, 1, 5], ['golden_apple', 1, 1, 2]]],
-  jungle_temple: [2, 6, [['bone', 4, 6, 20], ['gold_ingot', 2, 7, 15], ['emerald', 1, 3, 2], ['diamond', 1, 3, 3], ['iron_ingot', 1, 5, 15], ['rotten_flesh', 3, 7, 16], ['saddle', 1, 1, 3], ['bamboo', 1, 3, 15], ['golden_apple', 1, 1, 2]]],
+  jungle_temple: [2, 6, [['bone', 4, 6, 20], ['gold_ingot', 2, 7, 15], ['emerald', 1, 3, 2], ['diamond', 1, 3, 3], ['iron_ingot', 1, 5, 15], ['rotten_flesh', 3, 7, 16], ['saddle', 1, 1, 3], ['bamboo', 1, 3, 15], ['golden_apple', 1, 1, 2, ['enchanted_book', 1, 1, 3]]]],
   trail_ruins: [2, 5, [['emerald', 1, 2, 6], ['wheat', 2, 3, 6], ['wooden_hoe', 1, 1, 4], ['clay_ball', 1, 4, 6], ['brick', 1, 4, 6], ['yellow_dye', 1, 2, 4], ['blue_dye', 1, 2, 4], ['light_blue_dye', 1, 2, 4], ['orange_dye', 1, 2, 4], ['coal', 1, 3, 6], ['gold_nugget', 1, 4, 5], ['torch', 2, 6, 4], ['lead', 1, 1, 3]]],
-  mansion: [2, 6, [['lead', 1, 1, 20], ['golden_apple', 1, 1, 15], ['enchanted_golden_apple', 1, 1, 2], ['name_tag', 1, 1, 20], ['book', 1, 3, 10], ['iron_pickaxe', 1, 1, 5], ['diamond_chestplate', 1, 1, 5], ['diamond_hoe', 1, 1, 5], ['chainmail_chestplate', 1, 1, 10], ['iron_ingot', 1, 4, 10], ['gold_ingot', 1, 4, 5], ['redstone', 1, 4, 10], ['emerald', 1, 3, 5], ['totem_of_undying', 1, 1, 1]]],
-  trial: [3, 7, [['emerald', 2, 4, 8], ['arrow', 4, 12, 10], ['iron_ingot', 1, 3, 10], ['diamond', 1, 2, 4], ['golden_apple', 1, 1, 4], ['bread', 2, 4, 8], ['baked_potato', 2, 4, 8], ['crossbow', 1, 1, 3], ['iron_axe', 1, 1, 4], ['diamond_axe', 1, 1, 1], ['shield', 1, 1, 3], ['trident', 1, 1, 1], ['ender_pearl', 1, 2, 3], ['experience_bottle', 1, 3, 5]]],
+  mansion: [2, 6, [['lead', 1, 1, 20], ['golden_apple', 1, 1, 15], ['enchanted_golden_apple', 1, 1, 2], ['name_tag', 1, 1, 20], ['book', 1, 3, 10], ['iron_pickaxe', 1, 1, 5], ['diamond_chestplate', 1, 1, 5], ['diamond_hoe', 1, 1, 5], ['chainmail_chestplate', 1, 1, 10], ['iron_ingot', 1, 4, 10], ['gold_ingot', 1, 4, 5], ['redstone', 1, 4, 10], ['emerald', 1, 3, 5], ['totem_of_undying', 1, 1, 1, ['enchanted_book', 1, 1, 5]]]],
+  trial: [3, 7, [['emerald', 2, 4, 8], ['arrow', 4, 12, 10], ['iron_ingot', 1, 3, 10], ['diamond', 1, 2, 4], ['golden_apple', 1, 1, 4], ['bread', 2, 4, 8], ['baked_potato', 2, 4, 8], ['crossbow', 1, 1, 3], ['iron_axe', 1, 1, 4], ['diamond_axe', 1, 1, 1], ['shield', 1, 1, 3], ['trident', 1, 1, 1], ['ender_pearl', 1, 2, 3], ['experience_bottle', 1, 3, 5, ['enchanted_book', 1, 1, 4]]]],
   swamp_hut: [1, 3, [['glowstone_dust', 1, 4, 10], ['string', 1, 4, 10], ['spider_eye', 1, 2, 10], ['redstone', 1, 4, 8], ['gunpowder', 1, 2, 8]]],
 };
 function lootItems(r, table) {
@@ -54,7 +55,11 @@ function lootItems(r, table) {
     const count = e[1] + Math.floor(r() * (e[2] - e[1] + 1));
     let slot = Math.floor(r() * 27);
     for (let t = 0; t < 27 && items[slot]; t++) slot = (slot + 1) % 27;
-    items[slot] = { key: e[0], count };
+    const st = { key: e[0], count };
+    // Enchanted loot: a random book, or gear enchanted as if with e[4] levels.
+    if (e[0] === 'enchanted_book') { const b = randomBookEnchant(r); st.tag = { stored: { [b.id]: b.level } }; }
+    else if (e[4]) enchantWithLevels(st, e[4], r, true);
+    items[slot] = st;
   }
   return items;
 }

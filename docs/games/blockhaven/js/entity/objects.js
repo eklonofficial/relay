@@ -1,11 +1,13 @@
 // Non-living entities: dropped items, XP orbs, projectiles, falling blocks, primed TNT, lightning.
-import { Entity, M } from './entity.js?v=mupn7rzu';
-import { itemMesh, emitItemMesh } from './itemmesh.js?v=mupn7rzu';
-import { I } from '../data/items.js?v=mupn7rzu';
-import { B, BLOCKS, SOLID, OPAQUE } from '../data/blocks.js?v=mupn7rzu';
-import { compose, translation, rotationX, rotationY, rotationZ, scaling } from '../core/math.js?v=mupn7rzu';
-import { maxStack } from '../data/items.js?v=mupn7rzu';
-import { AreaCloud } from './cloud.js?v=mupn7rzu';
+import { Entity, M } from './entity.js?v=mupp1ffq';
+import { itemMesh, emitItemMesh } from './itemmesh.js?v=mupp1ffq';
+import { I } from '../data/items.js?v=mupp1ffq';
+import { B, BLOCKS, SOLID, OPAQUE } from '../data/blocks.js?v=mupp1ffq';
+import { compose, translation, rotationX, rotationY, rotationZ, scaling } from '../core/math.js?v=mupp1ffq';
+import { maxStack } from '../data/items.js?v=mupp1ffq';
+import { AreaCloud } from './cloud.js?v=mupp1ffq';
+import { AQUATIC } from '../game/combat.js?v=mupp1ffq';
+import { hasGlint } from '../data/enchantments.js?v=mupp1ffq';
 
 // Billboarded sprite quad facing the camera.
 export function billboard(batch, ctx, x, y, z, size, layer, color, uv = [0, 0, 1, 1]) {
@@ -15,7 +17,7 @@ export function billboard(batch, ctx, x, y, z, size, layer, color, uv = [0, 0, 1
 }
 
 // Renders a stack in the world: blocks as mini cubes, everything else as an extruded sprite.
-export function renderStack(ctx, game, key, pos, spin, scale, light, extraRot = 0) {
+export function renderStack(ctx, game, key, pos, spin, scale, light, extraRot = 0, glint = false) {
   const it = I[key];
   if (!it) return;
   if (it.block && !it.flat) {
@@ -26,7 +28,7 @@ export function renderStack(ctx, game, key, pos, spin, scale, light, extraRot = 
     const mesh = itemMesh(key, game.itemPixels(key));
     const s = 0.5 * scale;
     const m = M.chain(M.t(pos[0], pos[1], pos[2]), M.ry(spin), M.rz(extraRot), M.s(s), M.t(-0.5, 0, 0));
-    emitItemMesh(ctx.items, mesh, layer, m, light);
+    emitItemMesh(ctx.items, mesh, layer, m, light, glint ? 3 : 1);
   }
 }
 
@@ -57,7 +59,7 @@ export class ItemEntity extends Entity {
       this.mergeT = 0.6;
       const max = maxStack(this.stack.key);
       for (const o of this.game.entities.near(this.pos, 1.2, e => e.type === 'item' && e !== this && !e.dead && !e.puppet)) {
-        if (o.stack.key !== this.stack.key || o.stack.dmg || this.stack.dmg || this.stack.count + o.stack.count > max) continue;
+        if (o.stack.key !== this.stack.key || o.stack.dmg || this.stack.dmg || o.stack.tag || this.stack.tag || this.stack.count + o.stack.count > max) continue;
         this.stack.count += o.stack.count;
         o.dead = true;
       }
@@ -82,7 +84,7 @@ export class ItemEntity extends Entity {
     const copies = this.stack.count > 32 ? 3 : this.stack.count > 1 ? 2 : 1;
     for (let k = 0; k < copies; k++) {
       const o = k * 0.06;
-      renderStack(ctx, this.game, this.stack.key, [this.pos[0] + o, y + o * 0.5, this.pos[2] - o], this.age * 1.8 + this.spin, 1, light);
+      renderStack(ctx, this.game, this.stack.key, [this.pos[0] + o, y + o * 0.5, this.pos[2] - o], this.age * 1.8 + this.spin, 1, light, 0, hasGlint(this.stack));
     }
   }
   toJSON() { return { t: 'item', p: this.pos, s: this.stack, a: this.age }; }
@@ -104,7 +106,7 @@ export class XpOrb extends Entity {
     this.physics(dt, { groundFriction: 0.8 });
     if (d < 1.1 && g.alive && g.mode !== 'spectator' && this.age > 0.3) {
       this.dead = true;
-      g.addXp(this.value);
+      g.addXp(g.mendWithXp(this.value));
       g.sound.play('xp', this.pos, 0.3, 0.9 + Math.random() * 0.8);
     }
     if (this.age > 300) this.dead = true;
@@ -201,12 +203,18 @@ export class Projectile extends Entity {
   onEntity(e, speed) {
     const g = this.game;
     if (this.kind === 'arrow' || this.kind === 'trident') {
+      // Piercing arrows pass through up to level+1 targets, never hitting the same one twice.
+      if (this.pierced && this.pierced.has(e)) return;
       let dmg = Math.ceil(speed / 20 * this.damage * this.power);
       if (this.crit) dmg += Math.floor(Math.random() * (dmg / 2 + 2));
-      const hurt = e.hurt ? e.hurt(dmg, { kind: 'projectile', attacker: this.shooter, projectile: this, knock: [this.vel[0] / speed, this.vel[2] / speed] }) : false;
+      // A thrown trident's Impaling hits sea creatures harder.
+      if (this.kind === 'trident' && this.stack && this.stack.tag && this.stack.tag.ench && AQUATIC.has(e.mobType)) dmg += 2.5 * (this.stack.tag.ench.impaling || 0);
+      const kb = (this.punch || 0) * 6;
+      const hurt = e.hurt ? e.hurt(dmg, { kind: 'projectile', attacker: this.shooter, projectile: this, knock: [this.vel[0] / speed, this.vel[2] / speed], knockStrength: 5 + kb }) : false;
       if (hurt) {
         g.sound.play('arrow_hit_entity', this.pos, 0.6);
         if (this.onFire && e.setFire) e.setFire(5);
+        if (this.pierce > 0) { this.pierce--; (this.pierced || (this.pierced = new Set())).add(e); return; }
         this.dead = this.kind !== 'trident';
         if (this.kind === 'trident') { this.vel = this.vel.map(v => -v * 0.1); }
       } else { this.vel = this.vel.map(v => -v * 0.1); }
