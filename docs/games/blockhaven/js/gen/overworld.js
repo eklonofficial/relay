@@ -1,11 +1,11 @@
 // Overworld generator: climate-driven biomes, 3D density terrain, noise + worm caves, underground
 // biomes, ores, surface rules, trees and vegetation. World types: 'default', 'wild' (amplified,
 // floating islands, stone pillars and arches) and 'flat'.
-import { Simplex, hash2, hash3, mulberry32 } from '../core/noise.js?v=muphwqr9';
-import { B, st, CHUNK, HEIGHT, SEA, COLORS } from '../data/blocks.js?v=muphwqr9';
-import { BI, OCEANS, COLD } from './biomes.js?v=muphwqr9';
-import { ChunkBuilder, CI } from './chunk.js?v=muphwqr9';
-import * as T from './trees.js?v=muphwqr9';
+import { Simplex, hash2, hash3, mulberry32 } from '../core/noise.js?v=mupl457j';
+import { B, st, CHUNK, HEIGHT, SEA, COLORS } from '../data/blocks.js?v=mupl457j';
+import { BI, OCEANS, COLD } from './biomes.js?v=mupl457j';
+import { ChunkBuilder, CI } from './chunk.js?v=mupl457j';
+import * as T from './trees.js?v=mupl457j';
 
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
@@ -56,7 +56,7 @@ export function createOverworld(seed, type = 'default') {
     return { C, E, W, T: Tm, H: Hm, R };
   }
 
-  function terrain2(x, z, cl) {
+  function rawTerrain(x, z, cl) {
     const { C, E, W, R } = cl;
     let h;
     if (C < -0.25) h = SEA - 7 - smooth(-0.25, -0.75, C) * 34;
@@ -83,9 +83,63 @@ export function createOverworld(seed, type = 'default') {
     return { h: clamp(h, 6, HEIGHT - 8), amp, mtn, riverK, mush, pv, inland };
   }
 
+  // Inland ponds and small lakes, one candidate per POND_CELL square. Each sits in a hollow below
+  // the lowest ground around it, with a gentle bank, so its water can never spill.
+  const POND_CELL = 112, pondCache = new Map();
+  function pondIn(px, pz) {
+    const key = px * 65536 + pz;
+    if (pondCache.has(key)) return pondCache.get(key);
+    let p = null;
+    const h = hash2(px, pz, seed ^ 0x90d1);
+    if (!wild && h < 0.6) {
+      const R = 7 + Math.pow(hash2(px, pz, seed ^ 0x90d2), 1.5) * 11, m = R * 2.2 + 2;
+      const x = px * POND_CELL + m + hash2(px, pz, seed ^ 0x90d3) * (POND_CELL - 2 * m);
+      const z = pz * POND_CELL + m + hash2(px, pz, seed ^ 0x90d4) * (POND_CELL - 2 * m);
+      const cl = climate(x, z), t = rawTerrain(x, z, cl);
+      // Wetter land has more of them; deserts and badlands have none.
+      const chance = 0.45 + 0.3 * clamp(cl.H + 0.3, 0, 1);
+      if (h < chance && !(cl.T > 0.62 && cl.H < 0.45) && t.inland >= 0.9 && t.mtn < 0.2 && t.riverK < 0.02 && t.h > SEA + 2) {
+        let lo = t.h, hi = t.h, amp = t.amp;
+        for (let a = 0; a < 12; a++) for (const q of [1, 1.6, 2.2]) {
+          const sx = x + Math.cos(a * Math.PI / 6) * R * q, sz = z + Math.sin(a * Math.PI / 6) * R * q;
+          const st = rawTerrain(sx, sz, climate(sx, sz));
+          lo = Math.min(lo, st.h); hi = Math.max(hi, st.h); amp = Math.max(amp, st.amp);
+          if (st.riverK > 0.1 || st.inland < 0.8) lo = -1e9;
+        }
+        // Below the lowest ground nearby, allowing for the 3D noise that roughens the surface.
+        const level = Math.floor(lo - amp) - 1;
+        if (level > SEA && hi - lo < 14) p = { x, z, R, level, depth: 1.5 + R * 0.28 };
+      }
+    }
+    if (pondCache.size > 4000) pondCache.clear();
+    pondCache.set(key, p);
+    return p;
+  }
+  function pondAt(x, z) {
+    const p = pondIn(Math.floor(x / POND_CELL), Math.floor(z / POND_CELL));
+    if (!p) return null;
+    const q = Math.hypot(x - p.x, z - p.z) / p.R;
+    return q < 2.2 ? { p, q } : null;
+  }
+
+  function terrain2(x, z, cl) {
+    const t = rawTerrain(x, z, cl);
+    const pd = pondAt(x, z);
+    if (!pd) return t;
+    const { p, q } = pd;
+    t.h0 = t.h; t.pond = p; t.pq = q;
+    // Wobbly shoreline so ponds aren't perfect circles.
+    const wob = nPatch.noise2(x / 13 + 70, z / 13) * 0.32 + nPatch.noise2(x / 5, z / 5 - 70) * 0.1;
+    const qq = q * (1 + wob * (1 - smooth(1.3, 2.2, q)));
+    if (qq < 1) t.h = Math.min(t.h, p.level - p.depth * (1 - qq * qq) + 0.4);
+    else t.h = lerp(p.level + 1.4, t.h, smooth(1, 2.2, qq));
+    t.amp *= smooth(0.6, 2.2, q);
+    return t;
+  }
+
   function pickBiome(cl, t) {
     const { C, W, T: Tm, H: Hm } = cl;
-    const h = t.h;
+    const h = t.h0 ?? t.h;
     if (t.mush > 0.5) return BI.MUSHROOM_FIELDS;
     if (h < SEA - 1 && C < -0.2) {
       const deep = h < SEA - 22;
@@ -212,7 +266,7 @@ export function createOverworld(seed, type = 'default') {
     if (flat) return 3;
     const col = column(x, z);
     let top = wild ? HEIGHT - 2 : Math.min(HEIGHT - 2, Math.ceil(col.t.h + col.t.amp * 1.5 + 6));
-    for (let y = top; y > 0; y--) if (densityAt(x, y, z) > 0) return y;
+    for (let y = top; y > 0; y--) if (densityAt(x, y, z) > 0) return col.t.pond && y < col.t.pond.level ? col.t.pond.level : y;
     return 0;
   }
 
@@ -367,6 +421,16 @@ export function createOverworld(seed, type = 'default') {
     }
   }
 
+  // Pond beds: mostly dirt, with patches of clay, sand and gravel (mud in swamps).
+  function pondFloor(biome, x, z) {
+    if (biome === BI.SWAMP || biome === BI.MANGROVE_SWAMP) return [B.DIRT, MUD_M, B.DIRT, 0, 3];
+    const p = nPatch.noise2(x / 6 + 31, z / 6 - 17);
+    if (p > 0.35) return [B.DIRT, CLAY_M, B.DIRT, CLAY_M, 2];
+    if (p < -0.45) return [B.GRAVEL, 0, B.GRAVEL, 0, 2];
+    if (p < -0.15) return [B.SAND, 0, B.SAND, 0, 3];
+    return [B.DIRT, 0, B.DIRT, 0, 3];
+  }
+
   // ---------------- chunk generation ----------------
   function generateChunk(cx, cz) {
     const w = new ChunkBuilder(cx, cz);
@@ -391,16 +455,17 @@ export function createOverworld(seed, type = 'default') {
       const gx = x >> 2, gz = z >> 2, fx = (x & 3) / 4, fz = (z & 3) / 4;
       const a = grid[gx + gz * 5], b = grid[gx + 1 + gz * 5], c = grid[gx + (gz + 1) * 5], d = grid[gx + 1 + (gz + 1) * 5];
       const deep = 8 + Math.floor(hash2(ox + x, oz + z, seed ^ 0xdee9) * 5);
+      const ct = cols[x + z * 16].t, water = ct.pond ? ct.pond.level : SEA;
       for (let gy = 0; gy < NY - 1; gy++) {
         const d0 = lerp(lerp(a[gy], b[gy], fx), lerp(c[gy], d[gy], fx), fz);
         const d1 = lerp(lerp(a[gy + 1], b[gy + 1], fx), lerp(c[gy + 1], d[gy + 1], fx), fz);
-        if (d0 <= 0 && d1 <= 0 && gy * GY > SEA) continue;
+        if (d0 <= 0 && d1 <= 0 && gy * GY > water) continue;
         for (let k = 0; k < GY; k++) {
           const y = gy * GY + k;
           const dens = d0 + (d1 - d0) * (k / GY);
           const i = CI(x, y, z);
           if (dens > 0) { ids[i] = B.STONE; meta[i] = y < deep ? DEEPSLATE_M : y < deep + 6 && hash3(ox + x, y, oz + z, seed) < 0.4 ? DEEPSLATE_M : 0; }
-          else if (y <= SEA) ids[i] = B.WATER;
+          else if (y <= water) ids[i] = B.WATER;
         }
       }
       ids[CI(x, 0, z)] = B.BEDROCK;
@@ -440,7 +505,7 @@ export function createOverworld(seed, type = 'default') {
         if (meta[i] !== 0 && meta[i] !== DEEPSLATE_M) continue;
         depth++;
         if (depth === 0) {
-          spec = topBlocks(biome, y, underwater, slope, wx, wz, SEA - y);
+          spec = underwater && c.t.pond && y > SEA ? pondFloor(biome, wx, wz) : topBlocks(biome, y, underwater, slope, wx, wz, SEA - y);
           if (spec[0] < 0 && !(badlands && !underwater && y > SEA - 4)) spec = [B.TERRACOTTA, 0, B.TERRACOTTA, 0, 6];
         }
         if (badlands && !underwater && y > SEA - 4) {
@@ -645,7 +710,7 @@ export function createOverworld(seed, type = 'default') {
         if (h2 < h) { crowded = true; break; }
       }
       if (crowded) continue;
-      if (col.t.h < SEA - 1) continue;
+      if (col.t.h < SEA - 1 || col.t.pq < 1.25) continue;
       const y = surfaceY(x, z) + 1;
       if (y <= SEA + 1 && biome !== BI.MANGROVE_SWAMP && biome !== BI.SWAMP) continue;
       if (y >= HEIGHT - 32) continue;
@@ -654,14 +719,17 @@ export function createOverworld(seed, type = 'default') {
       const k = r();
       switch (biome) {
         case BI.FOREST: case BI.FLOWER_FOREST:
-          if (k < 0.12) T.fancyOak(w, x, y, z, r); else if (k < 0.3) T.birch(w, x, y, z, r); else T.oak(w, x, y, z, r);
+          if (k > 0.95) T.fallenLog(w, x, y, z, r, k > 0.98 ? T.WOOD.birch : T.WOOD.oak);
+          else if (k > 0.91) T.bush(w, x, y, z, r, T.LEAF.oak, T.WOOD.oak);
+          else if (k < 0.12) T.fancyOak(w, x, y, z, r); else if (k < 0.3) T.birch(w, x, y, z, r); else T.oak(w, x, y, z, r);
           break;
-        case BI.BIRCH_FOREST: T.birch(w, x, y, z, r, k < 0.35); break;
+        case BI.BIRCH_FOREST: if (k > 0.95) T.fallenLog(w, x, y, z, r, T.WOOD.birch); else T.birch(w, x, y, z, r, k < 0.35); break;
         case BI.DARK_FOREST:
           if (k < 0.06) T.hugeMushroom(w, x, y, z, r, r() < 0.5); else if (k < 0.75) T.darkOak(w, x, y, z, r); else if (k < 0.85) T.birch(w, x, y, z, r); else T.oak(w, x, y, z, r);
           break;
         case BI.TAIGA: case BI.GROVE: case BI.WINDSWEPT_HILLS: case BI.SNOWY_SLOPES:
-          if (biome === BI.WINDSWEPT_HILLS && k < 0.3) T.oak(w, x, y, z, r);
+          if (biome === BI.TAIGA && k > 0.95) { if (k > 0.975) T.boulder(w, x, y, z, r); else T.fallenLog(w, x, y, z, r, T.WOOD.spruce); }
+          else if (biome === BI.WINDSWEPT_HILLS && k < 0.3) T.oak(w, x, y, z, r);
           else if (k < 0.35) T.pine(w, x, y, z, r); else T.spruce(w, x, y, z, r, biome === BI.GROVE || biome === BI.SNOWY_SLOPES);
           break;
         case BI.SNOWY_TAIGA: case BI.SNOWY_PLAINS: case BI.ICE_SPIKES:
@@ -671,9 +739,10 @@ export function createOverworld(seed, type = 'default') {
           if (k < 0.35) T.megaSpruce(w, x, y, z, r); else if (k < 0.45) T.boulder(w, x, y, z, r); else if (k < 0.5) T.fallenLog(w, x, y, z, r, T.WOOD.spruce); else T.spruce(w, x, y, z, r);
           break;
         case BI.PLAINS: case BI.SUNFLOWER_PLAINS: case BI.MEADOW:
-          if (k < 0.2) T.fancyOak(w, x, y, z, r); else if (biome === BI.MEADOW && k < 0.5) T.birch(w, x, y, z, r); else T.oak(w, x, y, z, r);
+          if (k > 0.8 && biome !== BI.MEADOW) T.bush(w, x, y, z, r, T.LEAF.oak, T.WOOD.oak);
+          else if (k < 0.2) T.fancyOak(w, x, y, z, r); else if (biome === BI.MEADOW && k < 0.5) T.birch(w, x, y, z, r); else T.oak(w, x, y, z, r);
           break;
-        case BI.SAVANNA: if (k < 0.8) T.acacia(w, x, y, z, r); else T.oak(w, x, y, z, r); break;
+        case BI.SAVANNA: if (k < 0.72) T.acacia(w, x, y, z, r); else if (k < 0.88) T.bush(w, x, y, z, r, T.LEAF.acacia, T.WOOD.acacia); else T.oak(w, x, y, z, r); break;
         case BI.JUNGLE: case BI.BAMBOO_JUNGLE:
           if (k < 0.18) T.megaJungle(w, x, y, z, r); else if (k < 0.55) T.jungle(w, x, y, z, r); else if (k < 0.65) T.fancyOak(w, x, y, z, r); else T.bush(w, x, y, z, r);
           break;
@@ -721,7 +790,7 @@ export function createOverworld(seed, type = 'default') {
     for (let z = 0; z < CHUNK; z++) for (let x = 0; x < CHUNK; x++) {
       const biome = cols[x + z * 16].biome, top = w.heights[x + z * 16];
       if (top <= 0 || top >= HEIGHT - 4) continue;
-      const wx = w.ox + x, wz = w.oz + z;
+      const wx = w.ox + x, wz = w.oz + z, pond = cols[x + z * 16].t.pond, waterY = pond ? pond.level : SEA;
       const i = CI(x, top, z), ground = ids[i], gm = meta[i];
       const h = hash2(wx, wz, seed ^ 0x6a55), h2 = hash2(wx, wz, seed ^ 0x7b66);
       const above = i + 256;
@@ -741,13 +810,17 @@ export function createOverworld(seed, type = 'default') {
             } else if (depth > 1) w.set(wx, fy + 1, wz, B.SEAGRASS, 0);
           }
         }
+        if (pond && top === pond.level && !COLD.has(biome)) {
+          if (depth > 1 && h > 0.88) { const len = Math.min(depth - 1, 1 + Math.floor(h2 * 3)); for (let k = 1; k <= len; k++) w.set(wx, fy + k, wz, B.SEAGRASS, len > 1 ? 1 : 0); }
+          if (h < 0.035 && ids[above] === B.AIR) w.set(wx, top + 1, wz, B.LILY_PAD);
+        }
         if ((biome === BI.SWAMP || biome === BI.MANGROVE_SWAMP) && top === SEA && h < 0.05 && ids[above] === B.AIR) w.set(wx, SEA + 1, wz, B.LILY_PAD);
         continue;
       }
       if (ids[above] !== B.AIR) continue;
       const grassy = ground === B.GRASS_BLOCK || (ground === B.DIRT && (gm === PODZOL_M || gm === COARSE_M || gm === MYCELIUM_M || gm === 0));
       // Sugar cane on shores.
-      if ((ground === B.GRASS_BLOCK || ground === B.SAND || ground === B.DIRT) && top === SEA && h < 0.12) {
+      if ((ground === B.GRASS_BLOCK || ground === B.SAND || ground === B.DIRT) && top === waterY && h < (pond ? 0.2 : 0.12)) {
         let wet = false;
         for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const nx = x + dx, nz = z + dz; if (nx >= 0 && nx < 16 && nz >= 0 && nz < 16 && ids[CI(nx, top, nz)] === B.WATER) wet = true; }
         if (wet && !COLD.has(biome)) { const len = 1 + Math.floor(h2 * 3); for (let k = 1; k <= len; k++) ids[CI(x, top + k, z)] = B.SUGAR_CANE; continue; }
@@ -783,10 +856,10 @@ export function createOverworld(seed, type = 'default') {
     const ids = w.ids;
     for (let z = 0; z < CHUNK; z++) for (let x = 0; x < CHUNK; x++) {
       const biome = cols[x + z * 16].biome, top = w.heights[x + z * 16];
-      const high = top > (wild ? 200 : 165);
+      const high = top > (wild ? 200 : 165) + nPatch.noise2((w.ox + x) / 40, (w.oz + z) / 40) * 10;
       if (!COLD.has(biome) && !high) continue;
       const i = CI(x, top, z), id = ids[i];
-      if (id === B.WATER && top <= SEA && top >= SEA - 1) { ids[i] = B.ICE; continue; }
+      if (id === B.WATER && w.meta[i] === 0 && top >= SEA - 1) { ids[i] = B.ICE; continue; }
       if (top + 1 < HEIGHT && ids[i + 256] === B.AIR && (OPAQUE_SNOWABLE.has(id)) && biome !== BI.FROZEN_PEAKS) {
         ids[i + 256] = B.SNOW; w.meta[i + 256] = 0;
         if (id === B.GRASS_BLOCK) w.meta[i] = SNOWY_GRASS_M;
@@ -843,7 +916,7 @@ export function createOverworld(seed, type = 'default') {
           const x = Math.round(Math.cos(a / 16 * Math.PI * 2) * r), z = Math.round(Math.sin(a / 16 * Math.PI * 2) * r);
           const c = column(x, z);
           if (strict ? !nice.has(c.biome) : (OCEANS.has(c.biome) || COLD.has(c.biome) || c.biome === BI.RIVER || c.biome === BI.BEACH || c.biome === BI.SWAMP)) continue;
-          if (c.t.mtn > 0.35) continue;
+          if (c.t.mtn > 0.35 || c.t.pq < 1.4) continue;
           const y = surfaceY(x, z);
           if (y > SEA + 1 && y < SEA + 40 && !noiseCave(x, y, z, y) && hash2(x, z, seed ^ 0x7ee5) > 0.15) return { x: x + 0.5, y: y + 1, z: z + 0.5 };
         }
@@ -853,5 +926,5 @@ export function createOverworld(seed, type = 'default') {
   }
 
   const biomeAt = (x, z) => flat ? BI.PLAINS : column(Math.floor(x), Math.floor(z)).biome;
-  return { type, seed, column, climate, surfaceY, densityAt, noiseCave, generateChunk, findSpawn, biomeAt, wild, flat };
+  return { pondIn, type, seed, column, climate, surfaceY, densityAt, noiseCave, generateChunk, findSpawn, biomeAt, wild, flat };
 }

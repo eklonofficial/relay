@@ -1,9 +1,9 @@
 // Procedural 16x16 pixel art for every non-block item, plus particle/effect sprites.
 // Icons are hand-drawn as pixel rows (px``) or auto-shaded silhouettes (sil), then given MC-style dark outlines.
-import { Painter, shade, mixHex, ramp } from './paint.js?v=muphwqr9';
-import { ITEMS, I } from '../data/items.js?v=muphwqr9';
-import { TEXTURES, TEX, BLOCKS, FACE_TEX, VARIANT_MASK, COLORS } from '../data/blocks.js?v=muphwqr9';
-import { drawBlockTexture } from './blocktex.js?v=muphwqr9';
+import { Painter, shade, mixHex, ramp } from './paint.js?v=mupl457j';
+import { ITEMS, I } from '../data/items.js?v=mupl457j';
+import { TEXTURES, TEX, BLOCKS, FACE_TEX, VARIANT_MASK, COLORS } from '../data/blocks.js?v=mupl457j';
+import { drawBlockTexture } from './blocktex.js?v=mupl457j';
 
 const N = 16;
 export const MAT = {

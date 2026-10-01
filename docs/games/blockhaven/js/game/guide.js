@@ -1,11 +1,11 @@
 // The in-game guide: features, commands, crafting, farming, combat, villagers, dimensions and graphics.
-import { MusicPlayer } from './music.js?v=muphwqr9';
-import { BLOCKS, BLOCK_ITEMS, TEXTURES } from '../data/blocks.js?v=muphwqr9';
-import { ITEMS, I } from '../data/items.js?v=muphwqr9';
-import { SHAPED, SHAPELESS, SMELTING } from '../data/recipes.js?v=muphwqr9';
-import { MOBS } from '../data/mobs.js?v=muphwqr9';
-import { BIOMES } from '../gen/biomes.js?v=muphwqr9';
-import { COMMANDS } from './commands.js?v=muphwqr9';
+import { MusicPlayer } from './music.js?v=mupl457j';
+import { BLOCKS, BLOCK_ITEMS, TEXTURES } from '../data/blocks.js?v=mupl457j';
+import { ITEMS, I } from '../data/items.js?v=mupl457j';
+import { SHAPED, SHAPELESS, SMELTING } from '../data/recipes.js?v=mupl457j';
+import { MOBS } from '../data/mobs.js?v=mupl457j';
+import { BIOMES } from '../gen/biomes.js?v=mupl457j';
+import { COMMANDS } from './commands.js?v=mupl457j';
 
 const esc = s => String(s).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
 
@@ -31,7 +31,7 @@ export function guideSections(icons) {
         <li><b>Tools & combat:</b> six material tiers with real mining speeds and harvest levels, attack cooldown, critical hits, sword sweeps, bows with draw power, crossbows, tridents, shields, armor.</li>
         <li><b>Farming & animals:</b> tilling, seven crops with growth stages, hydration, bone meal, saplings that grow into full trees, breeding, baby animals, taming wolves, shearing sheep, milking cows, egg-laying chickens, fishing.</li>
         <li><b>Villages & trading:</b> villagers with 13 professions, level-ups that unlock trades, iron golems, wandering traders, pillagers, vindicators, evokers and ravagers.</li>
-        <li><b>World:</b> continents, rivers, mountains, badlands with hoodoos, cherry groves, jungles, deep cheese/spaghetti/noodle caves, ravines, lush and dripstone caves, geodes, ores, waterfalls, structures.</li>
+        <li><b>World:</b> continents, rivers, mountains, badlands with hoodoos, cherry groves, jungles, deep cheese/spaghetti/noodle caves, ravines, lush and dripstone caves, geodes, ores, waterfalls, ponds and small lakes with lily pads and reeds (frozen in cold biomes), fallen logs, bushes and mossy boulders, structures.</li>
         <li><b>Redstone:</b> dust, torches, repeaters, comparators, pistons, observers, hoppers, droppers, dispensers and more, simulated like Java Edition.</li>
         <li><b>Simulation:</b> flowing water and lava with levels, obsidian and cobblestone generation, falling sand, fire spread, TNT and explosions, weather with rain, snow, thunder and lightning.</li>
         <li><b>Dimensions:</b> the Nether (portals, fortresses, five biomes) and the End (strongholds, eyes of ender, end crystals and the Ender Dragon).</li>

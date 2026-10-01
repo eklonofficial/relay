@@ -1,37 +1,37 @@
 // Blockhaven bootstrap: assets, menus, input, camera, frame loop.
-import { Demo, DEMO_SEED } from './demo.js?v=muphwqr9';
-import { armorModel, armorSkinKey, ARMOR_MATERIALS, ARMOR_PIECES, elytraModel } from './data/armor.js?v=muphwqr9';
-import { TEXTURES, TEX, B, BLOCKS, DIM, DIM_NAMES, SHAPE_OF, SHAPE, props, HEIGHT } from './data/blocks.js?v=muphwqr9';
-import { I, ITEMS } from './data/items.js?v=muphwqr9';
-import { MOBS, PROFESSIONS, playerModel, saddleModel, PLAYER_SKINS } from './data/mobs.js?v=muphwqr9';
-import { Net, cleanCode, cleanName, cleanKey, cleanChat, chatLine, MAX_PLAYERS, wakeRelays, diagnoseNetwork } from './net/net.js?v=muphwqr9';
-import { NameTags } from './net/nametags.js?v=muphwqr9';
-import { BIOMES } from './gen/biomes.js?v=muphwqr9';
-import { generateBlockTextures, drawBlockTexture } from './render/blocktex.js?v=muphwqr9';
-import { generateItemTextures, ITEM_LAYER, FX_LAYER, ITEM_LAYER_COUNT, flatTexFor } from './render/itemtex.js?v=muphwqr9';
-import { Zip, storedPack, savePack, removePack, applyBlockTextures, applyItemTextures, indexSounds } from './render/pack.js?v=muphwqr9';
-import { packModel, paintModel, SKIN, faceRects } from './render/mobtex.js?v=muphwqr9';
-import { buildMipChain } from './render/atlas.js?v=muphwqr9';
-import { Renderer, Batch } from './render/renderer.js?v=muphwqr9';
-import { World, UNLOADED } from './world/world.js?v=muphwqr9';
-import { createGenerator } from './gen/index.js?v=muphwqr9';
-import { Game } from './game/game.js?v=muphwqr9';
-import { Interact, CROSSBOW_CHARGE } from './game/interact.js?v=muphwqr9';
-import { SpawnPrep, STATUS_COLOR } from './game/spawnprep.js?v=muphwqr9';
-import { splash } from './splash.js?v=muphwqr9';
-import { Commands } from './game/commands.js?v=muphwqr9';
-import { GUI, HUD } from './game/ui.js?v=muphwqr9';
-import { buildIcons, hudSprites } from './game/icons.js?v=muphwqr9';
-import { Sound } from './game/audio.js?v=muphwqr9';
-import { buildLogo, buttonTexture, dirtTexture, iconDataURL } from './render/logo.js?v=muphwqr9';
-import { computeEnv } from './game/env.js?v=muphwqr9';
-import { guideSections } from './game/guide.js?v=muphwqr9';
-import { listWorlds, loadWorld, saveWorld, deleteWorld } from './game/storage.js?v=muphwqr9';
-import { importJavaWorld, exportJavaWorld } from './game/javaworld.js?v=muphwqr9';
-import { drawModel, rootMatrix, M } from './entity/entity.js?v=muphwqr9';
-import { itemMesh, emitItemMesh, clearItemMeshes } from './entity/itemmesh.js?v=muphwqr9';
-import { Lightning } from './entity/objects.js?v=muphwqr9';
-import { compose, translation, rotationX, rotationY, rotationZ, scaling, forward, mat4 } from './core/math.js?v=muphwqr9';
+import { Demo, DEMO_SEED } from './demo.js?v=mupl457j';
+import { armorModel, armorSkinKey, ARMOR_MATERIALS, ARMOR_PIECES, elytraModel } from './data/armor.js?v=mupl457j';
+import { TEXTURES, TEX, B, BLOCKS, DIM, DIM_NAMES, SHAPE_OF, SHAPE, props, HEIGHT } from './data/blocks.js?v=mupl457j';
+import { I, ITEMS } from './data/items.js?v=mupl457j';
+import { MOBS, PROFESSIONS, playerModel, saddleModel, PLAYER_SKINS } from './data/mobs.js?v=mupl457j';
+import { Net, cleanCode, cleanName, cleanKey, cleanChat, chatLine, MAX_PLAYERS, wakeRelays, diagnoseNetwork } from './net/net.js?v=mupl457j';
+import { NameTags } from './net/nametags.js?v=mupl457j';
+import { BIOMES } from './gen/biomes.js?v=mupl457j';
+import { generateBlockTextures, drawBlockTexture } from './render/blocktex.js?v=mupl457j';
+import { generateItemTextures, ITEM_LAYER, FX_LAYER, ITEM_LAYER_COUNT, flatTexFor } from './render/itemtex.js?v=mupl457j';
+import { Zip, storedPack, savePack, removePack, applyBlockTextures, applyItemTextures, indexSounds } from './render/pack.js?v=mupl457j';
+import { packModel, paintModel, SKIN, faceRects } from './render/mobtex.js?v=mupl457j';
+import { buildMipChain } from './render/atlas.js?v=mupl457j';
+import { Renderer, Batch } from './render/renderer.js?v=mupl457j';
+import { World, UNLOADED } from './world/world.js?v=mupl457j';
+import { createGenerator } from './gen/index.js?v=mupl457j';
+import { Game } from './game/game.js?v=mupl457j';
+import { Interact, CROSSBOW_CHARGE } from './game/interact.js?v=mupl457j';
+import { SpawnPrep, STATUS_COLOR } from './game/spawnprep.js?v=mupl457j';
+import { splash } from './splash.js?v=mupl457j';
+import { Commands } from './game/commands.js?v=mupl457j';
+import { GUI, HUD } from './game/ui.js?v=mupl457j';
+import { buildIcons, hudSprites } from './game/icons.js?v=mupl457j';
+import { Sound } from './game/audio.js?v=mupl457j';
+import { buildLogo, buttonTexture, dirtTexture, iconDataURL } from './render/logo.js?v=mupl457j';
+import { computeEnv } from './game/env.js?v=mupl457j';
+import { guideSections } from './game/guide.js?v=mupl457j';
+import { listWorlds, loadWorld, saveWorld, deleteWorld } from './game/storage.js?v=mupl457j';
+import { importJavaWorld, exportJavaWorld } from './game/javaworld.js?v=mupl457j';
+import { drawModel, rootMatrix, M } from './entity/entity.js?v=mupl457j';
+import { itemMesh, emitItemMesh, clearItemMeshes } from './entity/itemmesh.js?v=mupl457j';
+import { Lightning } from './entity/objects.js?v=mupl457j';
+import { compose, translation, rotationX, rotationY, rotationZ, scaling, forward, mat4 } from './core/math.js?v=mupl457j';
 
 const $ = id => document.getElementById(id);
 // Resolves after the page has painted what was just put on screen.
@@ -96,7 +96,6 @@ function orient(d, n) {
   for (let r = 0; r < 3; r++) for (let c = 0; c < 3; c++) m[r * 4 + c] = A[0][r] * Bv[0][c] + A[1][r] * Bv[1][c] + A[2][r] * Bv[2][c];
   return m;
 }
-const GRIP = orient([-0.42, 0.78, -0.46], [-0.5, 0.2, 0.85]);
 
 // ---------------- Minecraft-style widgets ----------------
 // Slider: wraps a range input in a button-like track with the label centred and an 8x20 handle;
@@ -1310,17 +1309,16 @@ class App {
     this.sound.setRain(rain * (g.world.lightAt(cam.pos[0], cam.pos[1], cam.pos[2]).sky / 15));
   }
 
-  // First-person hand/item in view space.
   // First-person hand, following Minecraft's held-item renderer: the arm offset, the swing arc
-  // (sin(f^2*pi) / sin(sqrt(f)*pi) curves over 0.3 s) and per-type display transforms, so swords
-  // sit diagonally in the grip and chop down-and-across when swung.
+  // (sin(f^2*pi) / sin(sqrt(f)*pi) curves over 0.3 s), the eating transform and the display
+  // transforms from each item model (generated/handheld, handheld_rod, block, bow, crossbow).
   buildHand(dt, cam) {
     const res = this.buildMainHand(dt, cam) || {};
     const off = this.game.inv.offhand.get(0);
     if (off && I[off.key]) this.addOffHand(res, off, dt);
     return res;
   }
-  // The off-hand item, mirrored to the left with its own swing; a raised shield while blocking.
+  // The off-hand item on the left, with its own swing; a raised shield while blocking.
   addOffHand(res, off, dt) {
     const g = this.game, p = g.player, it = this.interact, D2R = Math.PI / 180;
     const item = I[off.key];
@@ -1330,19 +1328,27 @@ class App {
     const sway = M.t(-Math.sin(ph) * 0.03 * bob - (this.swayX || 0) * 0.3, -Math.abs(Math.cos(ph)) * 0.035 * bob + (this.swayY || 0) * 0.2, 0);
     const mirror = M.s(-1, 1, 1);
     const g1 = Math.sin(f * f * Math.PI), h1 = Math.sin(sf * Math.PI);
-    const arm = M.chain(mirror, M.t(-0.4 * Math.sin(sf * Math.PI), 0.2 * Math.sin(sf * Math.PI * 2), -0.2 * Math.sin(f * Math.PI)), M.t(0.56, -0.52, -0.72), M.ry((45 - g1 * 20) * D2R), M.rz(-h1 * 20 * D2R), M.rx(-h1 * 80 * D2R), M.ry(-45 * D2R));
+    // The original's left-arm transforms (its arm sign i = -1), not a mirror image, so the item isn't flipped.
+    const arm = M.chain(M.t(0.4 * Math.sin(sf * Math.PI), 0.2 * Math.sin(sf * Math.PI * 2), -0.2 * Math.sin(f * Math.PI)), M.t(-0.56, -0.52, -0.72), M.ry(-(45 - g1 * 20) * D2R), M.rz(h1 * 20 * D2R), M.rx(-h1 * 80 * D2R), M.ry(45 * D2R));
+    const display = (rx, ry, rz, tx, ty, tz, sc) => M.chain(M.t(tx / 16, ty / 16, tz / 16), M.rx(rx * D2R), M.ry(ry * D2R), M.rz(rz * D2R), M.s(sc), M.t(-0.5, -0.5, 0));
+    const ROD = off.key === 'fishing_rod' || off.key === 'carrot_on_a_stick' || off.key === 'warped_fungus_on_a_stick';
+    const leftItem = base => M.chain(base, ROD ? display(0, -90, -25, 0, 1.6, 0.8, 0.68) : display(0, 90, -25, -1.13, 3.2, 1.13, 0.68));
     const l = g.world.lightAt(p.pos[0], p.pos[1] + 1.6, p.pos[2]);
     const light = Math.max(Math.pow(0.8, 15 - l.sky) * g.env.skyLight[0], Math.pow(0.82, 15 - l.blk), g.env.ambient[0] + 0.05);
     if (item.block && !item.flat) {
-      const m = M.chain(sway, arm, M.t(-0.06, 0.17, -0.06), M.ry(45 * D2R), M.rx(-6 * D2R), M.s(0.25), M.t(-0.5, -0.5, -0.5));
+      const m = M.chain(sway, arm, M.ry(225 * D2R), M.s(0.4), M.t(-0.5, -0.5, -0.5));
       res.block2 = { id: item.block[0], meta: item.block[1], matrix: toMat4(m) };
       res.light = res.light ?? light;
       return;
     }
     let m;
     if (using === 'shield' || (item.kind === 'shield' && g.blocking)) m = M.chain(sway, mirror, M.t(0.28, -0.38, -0.55), M.ry(-0.25), M.s(0.8), M.t(-0.5, -0.5, 0));
-    else if (using === 'eat') m = M.chain(sway, mirror, M.t(0.18, -0.36 + Math.sin(it.useT * 18) * 0.04, -0.58), M.ry(-40 * D2R), M.rx(20 * D2R), M.t(0.04, -0.02, 0.05), GRIP, M.s(0.54), M.t(-0.22, -0.22, 0));
-    else m = M.chain(sway, arm, M.t(0.04, -0.02, 0.05), GRIP, M.s(0.54), M.t(-0.22, -0.22, 0));
+    else if (using === 'eat') {
+      const dur = off.key === 'dried_kelp' ? 0.8 : 1.6, left = Math.max(0, dur - it.useT) * 20 + 1, f1 = left / (dur * 20);
+      const f3 = 1 - Math.pow(f1, 27), bobY = f1 < 0.8 ? Math.abs(Math.cos(left / 4 * Math.PI) * 0.1) : 0;
+      m = leftItem(M.chain(sway, M.t(-f3 * 0.6, bobY - f3 * 0.5, 0), M.t(-0.56, -0.52, -0.72), M.ry(-f3 * 90 * D2R), M.rx(f3 * 10 * D2R), M.rz(-f3 * 30 * D2R)));
+    }
+    else m = leftItem(M.chain(sway, arm));
     const batch = this.batches.hand2 || (this.batches.hand2 = new Batch());
     batch.reset();
     emitItemMesh(batch, itemMesh(off.key, this.itemPixels(off.key)), this.itemLayer(off.key), m, [light, light, light]);
@@ -1375,19 +1381,29 @@ class App {
         M.t(0.56, -0.52 - equip * 0.6, -0.72),
         M.ry((45 - g1 * 20) * D2R), M.rz(-h1 * 20 * D2R), M.rx(-h1 * 80 * D2R), M.ry(-45 * D2R));
     };
+    // applyEatTransform: the item rises to the mouth and bobs while eating or drinking.
+    const eatArm = dur => {
+      const left = Math.max(0, dur - it.useT) * 20 + 1, f1 = left / (dur * 20);
+      const f3 = 1 - Math.pow(f1, 27), bobY = f1 < 0.8 ? Math.abs(Math.cos(left / 4 * Math.PI) * 0.1) : 0;
+      return M.chain(sway, M.t(0, bobY, 0), M.t(f3 * 0.6, -f3 * 0.5, 0), M.t(0.56, -0.52 - equip * 0.6, -0.72),
+        M.ry(f3 * 90 * D2R), M.rx(f3 * 10 * D2R), M.rz(f3 * 30 * D2R));
+    };
     if (item && item.block && !item.flat) {
-      let base = swingArm();
-      if (using === 'eat') base = M.chain(sway, M.t(0.3, -0.35 + Math.sin(it.useT * 18) * 0.04, -0.6));
-      const m = M.chain(base, M.t(-0.06, 0.17, -0.06), M.ry(45 * D2R), M.rx(-6 * D2R), M.s(0.25), M.t(-0.5, -0.5, -0.5));
+      // block/block.json firstperson_righthand: rotation [0, 45, 0], scale 0.4.
+      const base = using === 'eat' ? eatArm(1.6) : swingArm();
+      const m = M.chain(base, M.ry(45 * D2R), M.s(0.4), M.t(-0.5, -0.5, -0.5));
       return { block: { id: item.block[0], meta: item.block[1], matrix: toMat4(m) }, light };
     }
     if (item) {
       let m;
-      const flatItem = (base) => M.chain(base, M.t(0.04, -0.02, 0.05), GRIP, M.s(0.54), M.t(-0.22, -0.22, 0));
       // Bows and crossbows use the original's own first-person transforms (ItemInHandRenderer)
       // and the display transforms from their item models.
       const display = (rx, ry, rz, tx, ty, tz, sc) => M.chain(M.t(tx / 16, ty / 16, tz / 16), M.rx(rx * D2R), M.ry(ry * D2R), M.rz(rz * D2R), M.s(sc), M.t(-0.5, -0.5, 0));
       const armT = M.chain(sway, M.t(0.56, -0.52 - equip * 0.6, -0.72));
+      // item/generated and item/handheld share this firstperson_righthand transform; item/handheld_rod
+      // (fishing rods, carrot and fungus on a stick) turns the other way so the rod points ahead.
+      const ROD = held.key === 'fishing_rod' || held.key === 'carrot_on_a_stick' || held.key === 'warped_fungus_on_a_stick';
+      const flatItem = base => M.chain(base, ROD ? display(0, 90, 25, 0, 1.6, 0.8, 0.68) : display(0, -90, 25, 1.13, 3.2, 1.13, 0.68));
       const drawn = (base, ticks, f) => {
         if (f > 0.1) base = M.chain(base, M.t(0, Math.sin((ticks - 0.1) * 1.3) * (f - 0.1) * 0.004, 0));
         return M.chain(base, M.t(0, 0, f * 0.04), M.s(1, 1, 1 + f * 0.2), M.ry(-45 * D2R));
@@ -1421,14 +1437,9 @@ class App {
         // Wound back over the shoulder, prongs forward, trembling once fully charged.
         const pull = Math.min(1, it.useT / 0.5), shake = pull >= 1 ? Math.sin(this.time * 50) * 0.004 : 0;
         m = M.chain(sway, M.t(0.3 + shake, -0.28 + pull * 0.06, -0.5 + pull * 0.2), orient([-0.08, 0.18, -1], [0.3, 1, 0.1]), M.s(1.15), M.t(-0.5, -0.5, 0));
-      } else if (using === 'eat') m = flatItem(M.chain(sway, M.t(0.18, -0.36 + Math.sin(it.useT * 18) * 0.04, -0.58), M.ry(-40 * D2R), M.rx(20 * D2R)));
+      } else if (using === 'eat') m = flatItem(eatArm(held.key === 'dried_kelp' ? 0.8 : 1.6));
       else if (using === 'shield') m = M.chain(sway, M.t(0.25, -0.4, -0.6), M.ry(-0.3), M.s(0.8), M.t(-0.5, -0.5, 0));
-      else {
-        // Chop: the blade sweeps from upper right down across the crosshair, fast out, slower back.
-        const h1 = Math.sin(sf * Math.PI), g1 = Math.sin(f * f * Math.PI);
-        const base = M.chain(sway, M.t(0.56 - 0.2 * h1, -0.52 - equip * 0.6 + 0.2 * h1 - 0.1 * g1, -0.72 - 0.1 * h1), M.rz(h1 * 42 * D2R), M.rx(-h1 * 22 * D2R), M.ry(g1 * 12 * D2R));
-        m = flatItem(base);
-      }
+      else m = flatItem(swingArm());
       emitItemMesh(batch, itemMesh(held.key, this.itemPixels(held.key)), this.itemLayer(held.key), m, [light, light, light]);
       return { batch, batchTex: 'item', light };
     }
