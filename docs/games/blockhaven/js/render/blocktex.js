@@ -1,7 +1,7 @@
 // Procedural 16x16 block textures. Every name registered in data/blocks.js must be drawable here.
-import { Painter, ramp, shade, mixHex, hex } from './paint.js?v=muppik1r';
-import { TEXTURES, COLORS } from '../data/blocks.js?v=muppik1r';
-import { EXTRA_BLOCK_TEX } from './enchtex.js?v=muppik1r';
+import { Painter, ramp, shade, mixHex, hex } from './paint.js?v=mupq37b9';
+import { TEXTURES, COLORS } from '../data/blocks.js?v=mupq37b9';
+import { EXTRA_BLOCK_TEX } from './enchtex.js?v=mupq37b9';
 
 const N = 16;
 
@@ -790,8 +790,11 @@ const G = {
   mushroom_stem: p => { p.noise(['#d8d0bd', '#e2dac8', '#cfc6b2'], { clump: 2, grain: 0.3 }); for (let x = 1; x < N; x += 4) p.vline(x, 0, 16, '#c4bba6'); return p; },
   water: p => { const vn = p.valueNoise(4); for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) p.put(x, y, ['#8a8a8a', '#9a9a9a', '#a8a8a8', '#b6b6b6'][Math.min(3, Math.floor((vn(x, y) * 0.7 + p.r() * 0.3) * 4))], 254); return p; },
   water_flow: p => G.water(p),
+  water_flow_top: p => G.water(p),
+  water_overlay: p => G.water(p),
   lava: p => { const vn = p.valueNoise(4); for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) { const v = vn(x, y); p.put(x, y, v > 0.75 ? '#ffb029' : v > 0.55 ? '#f28a1c' : v > 0.35 ? '#e65c12' : '#c0310a'); } return p; },
   lava_flow: p => G.lava(p),
+  lava_flow_top: p => G.lava(p),
   // Ice: pale blue blotches with a few pale diagonal cracks and lighter facets.
   ice: p => { p.dither(['#8fb4ee', '#9dbff4', '#a8c8f8', '#b5d2fb', '#c4dcfd'], [12, 26, 30, 22, 10], { cells: 3, grain: 0.25 }); for (let k = 0; k < 3; k++) { const x = p.rand(N), y = p.rand(N); for (let i = 0; i < 5; i++) p.wrapPut(x + i, y - i, '#e3f0ff'); } p.streaks(['#7fa3dd'], 3, 2, 4, true); return p; },
   packed_ice: p => { p.dither(['#7ea6e0', '#8cb2e8', '#9abdef', '#a9c8f4'], [16, 34, 34, 16], { cells: 3, grain: 0.3 }); p.streaks(['#b8d4f8', '#c4dcfb'], 5, 3, 5); return p.streaks(['#6f97d3'], 3, 2, 4); },

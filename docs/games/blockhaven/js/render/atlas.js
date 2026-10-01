@@ -55,3 +55,11 @@ export function uploadArray(gl, chain, layerCount) {
   gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MAX_LEVEL, chain.length - 1);
   return tex;
 }
+
+// Replaces one layer of an uploaded array (all its mip levels): animated textures change frames
+// this way, like Java's TextureAtlas uploading each animated sprite's current frame.
+export function updateLayer(gl, tex, layer, pixels, size = TEX_SIZE, levels = MIP_LEVELS) {
+  const chain = buildMipChain([pixels], size, levels);
+  gl.bindTexture(gl.TEXTURE_2D_ARRAY, tex);
+  chain.forEach((lv, i) => gl.texSubImage3D(gl.TEXTURE_2D_ARRAY, i, 0, 0, layer, lv.size, lv.size, 1, gl.RGBA, gl.UNSIGNED_BYTE, lv.data));
+}

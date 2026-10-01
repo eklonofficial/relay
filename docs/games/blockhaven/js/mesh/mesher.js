@@ -2,11 +2,11 @@
 // Runs in workers on a padded volume (chunk + PAD blocks around it, plus a floor and ceiling layer).
 import {
   CHUNK, HEIGHT, PAD, PS, B, SHAPE, VF, TINT, TEX,
-  OPAQUE, SHAPE_OF, TRANSLUCENT, EMIT, ATTEN, VFLAGS, CULL_SAME, TINT_OF, WATERLOGGED, VARIANT_MASK,
+  OPAQUE, SOLID, SHAPE_OF, TRANSLUCENT, EMIT, ATTEN, VFLAGS, CULL_SAME, TINT_OF, WATERLOGGED, VARIANT_MASK,
   FACING_SHIFT, AXIS_SHIFT, FACE_TEX, CROP_STAGES, CROP_TEX,
-} from '../data/blocks.js?v=muppik1r';
-import { BIOME_COLORS } from '../gen/biomes.js?v=muppik1r';
-import { up6, rotY, attach, FACE_OF_DIR6, OPP6, DIR2D_OF_6 } from '../data/orient.js?v=muppik1r';
+} from '../data/blocks.js?v=mupq37b9';
+import { BIOME_COLORS } from '../gen/biomes.js?v=mupq37b9';
+import { up6, rotY, attach, FACE_OF_DIR6, OPP6, DIR2D_OF_6 } from '../data/orient.js?v=mupq37b9';
 
 export const H2 = HEIGHT + 2;
 export const VOLUME_SIZE = PS * PS * H2;
@@ -133,7 +133,7 @@ function emit(buf, layer, normal, flags) {
     const j = (k + rot) & 3, h = o >> 1;
     u16[h] = Math.round(QX[j] * 2) + POS_BIAS; u16[h + 1] = Math.round(QY[j] * 2) + POS_BIAS; u16[h + 2] = Math.round(QZ[j] * 2) + POS_BIAS; u16[h + 3] = flags;
     u16[h + 4] = layer; u16[h + 5] = QU[j] | (QV[j] << 5) | (normal << 10);
-    u8[o + 12] = QA[j]; u8[o + 13] = QL[j]; u8[o + 14] = 0; u8[o + 15] = 0;
+    u8[o + 12] = QA[j]; u8[o + 13] = QL[j]; u8[o + 14] = QF; u8[o + 15] = 0;
     u8[o + 16] = TR; u8[o + 17] = TG; u8[o + 18] = TB; u8[o + 19] = 255;
   }
   buf.quads++;
@@ -385,77 +385,111 @@ function upRot(f, d) {
   return 0;
 }
 
-// ---------------- liquids ----------------
+// ---------------- liquids (Java's LiquidBlockRenderer) ----------------
 const isWaterId = id => id === B.WATER || WATERLOGGED[id] === 1;
 const sameLiquid = (id, lava) => lava ? id === B.LAVA : isWaterId(id);
-function liquidLevel(i) { return vol[i] === B.WATER || vol[i] === B.LAVA ? meta[i] & 15 : 0; }
-function cellHeight(j, lava) {
+// FluidState.getAmount: source and falling 8, flowing level L 8 - L.
+function amountI(j, lava) {
   const id = vol[j];
-  if (!sameLiquid(id, lava)) return OPAQUE[id] || SHAPE_OF[id] === SHAPE.SLAB ? -2 : -1;
-  if (sameLiquid(vol[j + SS], lava)) return 16;
-  const l = liquidLevel(j);
-  return l >= 8 ? 14.2 : (8 - l) / 9 * 16;
+  if (!sameLiquid(id, lava)) return 0;
+  if (id !== B.WATER && id !== B.LAVA) return 8;
+  const m = meta[j] & 15;
+  return m === 0 || m >= 8 ? 8 : 8 - m;
 }
-function cornerHeight(i, dx, dz, lava) {
-  let sum = 0, w = 0;
-  for (let a = 0; a < 2; a++) for (let b = 0; b < 2; b++) {
-    const j = i + (dx - 1 + a) + (dz - 1 + b) * S;
-    const h = cellHeight(j, lava);
-    if (h === 16) return 16;
-    if (h === -2) continue;
-    if (h === -1) { w += 1; continue; }
-    const wt = h >= 14 ? 10 : 1;
-    sum += h * wt; w += wt;
+// LiquidBlockRenderer.getHeight: 1 under the same fluid, else amount / 9; beside it, 0 for an open
+// cell and -1 (left out of the average) for a solid block.
+function heightI(j, lava) {
+  if (sameLiquid(vol[j], lava)) return sameLiquid(vol[j + SS], lava) ? 1 : amountI(j, lava) / 9;
+  return SOLID[vol[j]] ? -1 : 0;
+}
+const ACC = new Float64Array(2);
+function addHeight(h) { if (h >= 0.8) { ACC[0] += h * 10; ACC[1] += 10; } else if (h >= 0) { ACC[0] += h; ACC[1] += 1; } }
+// calculateAverageHeight for one corner from the cell, its two side neighbours and the diagonal.
+function cornerHeight(cur, h1, h2, diag, lava) {
+  if (h1 >= 1 || h2 >= 1) return 1;
+  ACC[0] = ACC[1] = 0;
+  if (h1 > 0 || h2 > 0) { const f = heightI(diag, lava); if (f >= 1) return 1; addHeight(f); }
+  addHeight(cur); addHeight(h2); addHeight(h1);
+  return ACC[0] / ACC[1];
+}
+// FlowingFluid.getFlow (horizontal part, all the renderer needs): towards lower neighbours.
+let FLX = 0, FLZ = 0;
+function flowOf(i, lava) {
+  const own = amountI(i, lava) / 9;
+  FLX = 0; FLZ = 0;
+  for (let k = 0; k < 4; k++) {
+    const dx = k === 2 ? -1 : k === 3 ? 1 : 0, dz = k === 0 ? -1 : k === 1 ? 1 : 0, j = i + dx + dz * S, id = vol[j];
+    if ((id === B.LAVA || isWaterId(id)) && !sameLiquid(id, lava)) continue;
+    const f = amountI(j, lava) / 9;
+    let d = 0;
+    if (f === 0) { if (!SOLID[id]) { const fb = amountI(j - SS, lava) / 9; if (fb > 0) d = own - (fb - 0.8888889); } }
+    else d = own - f;
+    FLX += dx * d; FLZ += dz * d;
   }
-  return w ? sum / w : 14.2;
 }
+let QF = 0; // flow direction for the vertex (0: none), read by the vertex shader to turn the texture
 
 function liquid(bufT, bufO, i, lava, ox, oy, oz) {
   const buf = lava ? bufO : bufT;
-  const above = vol[i + SS];
-  const surface = !sameLiquid(above, lava);
-  const h00 = surface ? cornerHeight(i, 0, 0, lava) : 16, h10 = surface ? cornerHeight(i, 1, 0, lava) : 16;
-  const h11 = surface ? cornerHeight(i, 1, 1, lava) : 16, h01 = surface ? cornerHeight(i, 0, 1, lava) : 16;
-  const H = [[h00, h01], [h10, h11]]; // [x][z]
-  const flowing = liquidLevel(i) !== 0;
-  const topLayer = TEX[lava ? (flowing ? 'lava_flow' : 'lava') : (flowing ? 'water_flow' : 'water')];
-  const sideLayer = TEX[lava ? 'lava_flow' : 'water_flow'];
-  const own = cellLight(i), up = cellLight(i + SS);
-  const L = (Math.max(own >> 4, up >> 4) << 4) | Math.max(own & 15, up & 15);
+  const surface = !sameLiquid(vol[i + SS], lava);
+  let ne = 1, nw = 1, se = 1, sw = 1;
+  const own = heightI(i, lava);
+  if (own < 1) {
+    const n = heightI(i - S, lava), s = heightI(i + S, lava), e = heightI(i + 1, lava), w = heightI(i - 1, lava);
+    ne = cornerHeight(own, n, e, i - S + 1, lava); nw = cornerHeight(own, n, w, i - S - 1, lava);
+    se = cornerHeight(own, s, e, i + S + 1, lava); sw = cornerHeight(own, s, w, i + S - 1, lava);
+  }
+  const H = [[nw * 16, sw * 16], [ne * 16, se * 16]]; // [x][z] in pixels
+  const own8 = cellLight(i), up = cellLight(i + SS);
+  const L = (Math.max(own8 >> 4, up >> 4) << 4) | Math.max(own8 & 15, up & 15);
   if (lava) { TR = TG = TB = 255; } else setWaterTint();
-  if (surface && !OPAQUE[above]) {
+  if (surface) {
+    flowOf(i, lava);
+    const still = FLX === 0 && FLZ === 0;
+    const topLayer = TEX[lava ? (still ? 'lava' : 'lava_flow_top') : (still ? 'water' : 'water_flow_top')];
+    if (!still) { let a = Math.atan2(FLZ, FLX) - Math.PI / 2; a = ((a % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2); QF = 1 + (Math.round(a / (Math.PI * 2) * 254) % 254); }
     const cs = FACE_CORNERS[2];
     for (let k = 0; k < 4; k++) {
       const c = cs[k];
-      QX[k] = ox + c[0] * 16; QZ[k] = oz + c[2] * 16; QY[k] = oy + H[c[0]][c[2]] - (lava ? 0 : 0.6);
+      QX[k] = ox + c[0] * 16; QZ[k] = oz + c[2] * 16; QY[k] = oy + H[c[0]][c[2]];
       QU[k] = c[0] * 16; QV[k] = c[2] * 16; QA[k] = 3; QL[k] = L; QB[k] = 0;
     }
     emit(buf, topLayer, 2, lava ? VF.LAVA : VF.WATER_TOP);
-    // Underside so the surface is visible from below the water too.
+    // The surface seen from below (Java draws the backward up face too).
     if (!lava) {
-      for (let k = 0; k < 4; k++) { const c = FACE_CORNERS[2][3 - k]; QX[k] = ox + c[0] * 16; QZ[k] = oz + c[2] * 16; QY[k] = oy + H[c[0]][c[2]] - 0.6; QU[k] = c[0] * 16; QV[k] = c[2] * 16; QL[k] = L; }
+      for (let k = 0; k < 4; k++) { const c = FACE_CORNERS[2][3 - k]; QX[k] = ox + c[0] * 16; QZ[k] = oz + c[2] * 16; QY[k] = oy + H[c[0]][c[2]]; QU[k] = c[0] * 16; QV[k] = c[2] * 16; QL[k] = L; }
       emit(buf, topLayer, 3, VF.WATER);
     }
+    QF = 0;
   }
+  // Sides: the flowing texture's top-left quarter, up to the corner heights; two-sided unless beside
+  // glass or leaves, where water shows its overlay texture instead.
   for (const f of [0, 1, 4, 5]) {
     const n = i + FO[f], nid = vol[n];
     if (OPAQUE[nid] || sameLiquid(nid, lava)) continue;
-    const cs = FACE_CORNERS[f], nl = cellLight(n);
-    const LL = (Math.max(nl >> 4, own >> 4) << 4) | Math.max(nl & 15, own & 15);
+    const overlay = !lava && (VFLAGS[nid] === VF.GLASS || VFLAGS[nid] === VF.LEAVES || VFLAGS[nid] === VF.ICE);
+    const layer = overlay ? TEX.water_overlay : TEX[lava ? 'lava_flow' : 'water_flow'];
+    const cs = FACE_CORNERS[f];
     for (let k = 0; k < 4; k++) {
       const c = cs[k];
-      const top = c[1] ? H[c[0]][c[2]] - (surface && !lava ? 0.6 : 0) : 0;
+      const top = c[1] ? (surface ? H[c[0]][c[2]] : 16) : 0;
       QX[k] = ox + c[0] * 16; QY[k] = oy + top; QZ[k] = oz + c[2] * 16;
       const uv = UVF[f](c[0] * 16, top, c[2] * 16);
-      QU[k] = uv[0]; QV[k] = Math.round(uv[1]); QA[k] = 3; QL[k] = LL; QB[k] = 0;
+      QU[k] = uv[0]; QV[k] = Math.round(uv[1]); QA[k] = 3; QL[k] = L; QB[k] = 0;
     }
-    emit(buf, sideLayer, f, lava ? VF.LAVA : VF.WATER);
+    emit(buf, layer, f, lava ? VF.LAVA : VF.WATER);
+    if (!overlay) {
+      // The same face turned inwards, seen from inside the liquid.
+      const sx = QX.slice(), sy = QY.slice(), sz = QZ.slice(), su = QU.slice(), sv = QV.slice();
+      for (let k = 0; k < 4; k++) { const j = 3 - k; QX[k] = sx[j]; QY[k] = sy[j]; QZ[k] = sz[j]; QU[k] = su[j]; QV[k] = sv[j]; }
+      emit(buf, layer, f, lava ? VF.LAVA : VF.WATER);
+    }
   }
   const below = vol[i - SS];
   if (!OPAQUE[below] && !sameLiquid(below, lava)) {
     const cs = FACE_CORNERS[3], nl = cellLight(i - SS);
     for (let k = 0; k < 4; k++) { const c = cs[k]; QX[k] = ox + c[0] * 16; QY[k] = oy; QZ[k] = oz + c[2] * 16; QU[k] = c[0] * 16; QV[k] = c[2] * 16; QA[k] = 3; QL[k] = nl; QB[k] = 0; }
-    emit(buf, topLayer, 3, lava ? VF.LAVA : VF.WATER);
+    emit(buf, TEX[lava ? 'lava' : 'water'], 3, lava ? VF.LAVA : VF.WATER);
   }
 }
 

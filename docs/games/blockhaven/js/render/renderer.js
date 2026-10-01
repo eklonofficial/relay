@@ -1,8 +1,8 @@
-import { CHUNK, TEX, DIM } from '../data/blocks.js?v=muppik1r';
-import { meshSingleBlock, STRIDE } from '../mesh/mesher.js?v=muppik1r';
-import * as S from './shaders.js?v=muppik1r';
-import { uploadArray } from './atlas.js?v=muppik1r';
-import { mat4, perspective, multiply, invert, viewMatrix, frustumPlanes, boxVisible } from '../core/math.js?v=muppik1r';
+import { CHUNK, TEX, DIM } from '../data/blocks.js?v=mupq37b9';
+import { meshSingleBlock, STRIDE } from '../mesh/mesher.js?v=mupq37b9';
+import * as S from './shaders.js?v=mupq37b9';
+import { uploadArray, updateLayer } from './atlas.js?v=mupq37b9';
+import { mat4, perspective, multiply, invert, viewMatrix, frustumPlanes, boxVisible } from '../core/math.js?v=mupq37b9';
 
 // Graphics presets: 0 Disabled, 1 Regular, 2 High, 3 PC.
 export const QUALITY = [
@@ -123,7 +123,22 @@ export class Renderer {
     return { p, u };
   }
 
-  setBlockTextures(chain, count) { this.blockTex = uploadArray(this.gl, chain, count); }
+  setBlockTextures(chain, count) { if (this.blockTex) this.gl.deleteTexture(this.blockTex); this.blockTex = uploadArray(this.gl, chain, count); this.animShown = new Map(); }
+  // Animated block textures (layer -> { frames, order: [{ i, t }] }): each shows the frame due at
+  // this client tick, uploaded only when it changes (like Java's TextureAtlas animation ticks).
+  setAnimations(anims) { this.anims = anims; this.animShown = new Map(); }
+  animate(tick) {
+    if (!this.anims || !this.blockTex) return;
+    for (const [layer, a] of this.anims) {
+      const total = a.total || (a.total = a.order.reduce((s, f) => s + f.t, 0));
+      let t = tick % total, k = 0;
+      while (t >= a.order[k].t) { t -= a.order[k].t; k++; }
+      const f = a.order[k].i;
+      if (this.animShown.get(layer) === f) continue;
+      this.animShown.set(layer, f);
+      updateLayer(this.gl, this.blockTex, layer, a.frames[f]);
+    }
+  }
   setEntityTextures(chain, count) { this.entityTex = uploadArray(this.gl, chain, count); }
   setItemTextures(chain, count) { this.itemTex = uploadArray(this.gl, chain, count); }
   texFor(kind) { return kind === 'block' ? this.blockTex : kind === 'item' ? this.itemTex : this.entityTex; }
@@ -474,6 +489,8 @@ export class Renderer {
     gl.uniformMatrix4fv(l.u.uModel, false, IDENTITY);
     gl.uniform1i(l.u.uTex, 0);
     gl.uniform1f(l.u.uSSR, ssr ? Q.ssr : 0);
+    gl.uniform1f(l.u.uPlainWater, this.quality === 0 ? 1 : 0);
+    gl.uniform1f(l.u.uWaves, this.quality === 0 ? 0 : 1);
     gl.uniform1f(l.u.uClouds, s.clouds ? 1 : 0);
     gl.uniform1f(l.u.uRain, s.rain || 0);
     gl.uniform2f(l.u.uNearFar, 0.05, 1200);

@@ -81,6 +81,7 @@ const FIXED = {
   mangrove_roots: 'mangrove_roots_side', sweet_berry_bush: 'sweet_berry_bush_stage3', lantern_hanging: 'lantern', redstone_dust_line: 'redstone_dust_line0',
   lever_base: 'cobblestone', rs_torch_head_on: 'redstone_torch', rs_torch_head_off: 'redstone_torch_off', pumpkin_stem_stage7: 'attached_pumpkin_stem',
   melon_stem_stage7: 'attached_melon_stem', nether_wart_stage3: 'nether_wart_stage2', grass_block_snow: 'grass_block_snow',
+  water_flow_top: 'water_flow', lava_flow_top: 'lava_flow', water_overlay: 'water_still',
 };
 export function packTextureName(n) {
   if (FIXED[n]) return FIXED[n];
@@ -125,12 +126,31 @@ function overlay(dst, src, forceTint = false) {
   for (let i = 0; i < 1024; i += 4) {
     dst[i] = src[i]; dst[i + 1] = src[i + 1]; dst[i + 2] = src[i + 2];
     const a = src[i + 3];
-    dst[i + 3] = a >= 128 ? (tinted ? 254 : 255) : a < 8 ? 0 : a;
+    // Translucent texels (water, stained glass, slime, portal) keep their alpha, as in Java.
+    dst[i + 3] = a >= 250 ? (tinted ? 254 : 255) : a < 8 ? 0 : a;
   }
 }
 
+// Ticks per frame of the vanilla animated textures (their .png.mcmeta); a pack's own .mcmeta wins.
+const FRAMETIME = { water_still: 2, water_flow: 1, lava_still: 2, lava_flow: 3, nether_portal: 2, sea_lantern: 5, magma: 8, prismarine: 300, kelp: 2, kelp_plant: 2, seagrass: 2, tall_seagrass_top: 2, tall_seagrass_bottom: 2, fire_0: 1, fire_1: 1, soul_fire_0: 1, soul_fire_1: 1, campfire_fire: 2, soul_campfire_fire: 2 };
+// Frame order: lava_still runs forwards then back, like its vanilla frame list.
+const PINGPONG = new Set(['lava_still']);
+async function animation(zip, mc, count) {
+  let time = FRAMETIME[mc] ?? 2, order = null;
+  try {
+    const meta = await zip.text(`assets/minecraft/textures/block/${mc}.png.mcmeta`), a = meta && JSON.parse(meta).animation;
+    if (a) { if (a.frametime) time = a.frametime; if (Array.isArray(a.frames)) order = a.frames.map(f => (typeof f === 'number' ? { i: f, t: time } : { i: f.index, t: f.time ?? time })); }
+  } catch { /* use the defaults */ }
+  if (!order) { order = []; for (let k = 0; k < count; k++) order.push({ i: k, t: time }); if (PINGPONG.has(mc)) for (let k = count - 2; k > 0; k--) order.push({ i: k, t: time }); }
+  return order.filter(f => f.i >= 0 && f.i < count);
+}
+// Flowing liquid sides read the top-left quarter of the (32 px) flow frame at full size, as Java's
+// side faces do; flowing tops (*_flow_top) take the whole frame.
+const QUARTER = new Set(['water_flow', 'lava_flow']);
+
 // Replaces generated block textures (names: our TEXTURES list) with the pack's; returns the count.
-export async function applyBlockTextures(zip, names, layers) {
+// Animated strips are recorded in anims (layer -> { frames, order }) for the renderer to play.
+export async function applyBlockTextures(zip, names, layers, anims = null) {
   let n = 0;
   await Promise.all(names.map(async (name, i) => {
     const mc = packTextureName(name);
@@ -139,7 +159,15 @@ export async function applyBlockTextures(zip, names, layers) {
     if (!bytes) return;
     try {
       const bmp = await decodeImage(bytes);
-      const px = to16(bmp);
+      const fw = bmp.width, crop = QUARTER.has(name) ? fw >> 1 : fw;
+      const count = bmp.height > fw && bmp.height % fw === 0 ? bmp.height / fw : 1;
+      if (anims) anims.delete(i);
+      if (count > 1 && anims && name !== 'grass_block_side') {
+        const tint = /^leaves_/.test(name) && !/cherry|azalea/.test(name), frames = [];
+        for (let k = 0; k < count; k++) { const f = new Uint8ClampedArray(layers[i]); overlay(f, to16(bmp, 0, k * fw, crop, crop), tint); frames.push(f); }
+        anims.set(i, { frames, order: await animation(zip, mc, count) });
+      }
+      const px = to16(bmp, 0, 0, crop, crop);
       if (name === 'grass_block_side') {
         // Dirt side plus the tinted grass overlay, as the original layers them.
         overlay(layers[i], px);

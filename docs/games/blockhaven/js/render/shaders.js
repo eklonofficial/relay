@@ -1,4 +1,4 @@
-import { VF } from '../data/blocks.js?v=muppik1r';
+import { VF } from '../data/blocks.js?v=mupq37b9';
 
 const HEADER = `#version 300 es
 precision highp float;
@@ -88,6 +88,7 @@ uniform mat4 uModel;
 uniform vec3 uChunk;
 uniform float uTime;
 uniform float uWind;
+uniform float uWaves;
 out vec3 vUV;
 out vec3 vWorld;
 out float vShade;
@@ -112,13 +113,20 @@ void main() {
   } else if (flags == F_PLANT && v < 8.0) {
     p.x += sin(uTime * 2.1 + p.x * 0.8 + p.z * 0.7) * 0.06 * w;
     p.z += cos(uTime * 1.7 + p.z * 0.9 + p.x * 0.3) * 0.045 * w;
-  } else if (flags == F_WATER_TOP) {
+  } else if (flags == F_WATER_TOP && uWaves > 0.5) {
     p.y += (sin(uTime * 1.6 + p.x * 0.8 + p.z * 0.45) + sin(uTime * 1.1 - p.z * 0.9 + p.x * 0.3)) * 0.025 * w - 0.04;
   }
   vec4 world = uModel * vec4(p, 1.0);
   vWorld = world.xyz;
   gl_Position = uViewProj * world;
   vUV = vec3(u / 16.0, v / 16.0, float(aTex.x));
+  // Flowing liquid tops: the flow texture turned to run along the current (LiquidBlockRenderer).
+  int fl = int(aMisc.z);
+  if (fl > 0) {
+    float a = float(fl - 1) / 254.0 * 6.2831853, c = cos(a), sn = sin(a);
+    vec2 q = vec2(u, v) / 8.0 - 1.0;
+    vUV.xy = 0.5 + 0.25 * vec2(c * q.x + sn * q.y, c * q.y - sn * q.x);
+  }
   vShade = SHADE[n];
   vAO = float(aMisc.x);
   int L = int(aMisc.y);
@@ -226,6 +234,7 @@ export const LIQUID_FS = HEADER + FLAGS + NOISE + SKY + LIGHTING + `
 uniform sampler2DArray uTex;
 uniform float uTime;
 uniform float uSSR;
+uniform float uPlainWater;
 uniform sampler2D uOpaque;
 uniform sampler2D uOpaqueDepth;
 uniform mat4 uViewProj;
@@ -336,6 +345,12 @@ void main() {
     return;
   }
   vec3 N = NORMALS[vNormal];
+  // The lowest preset draws Java's water: the animated texture, tinted, at its own alpha (180/255).
+  if (uPlainWater > 0.5 && (vFlags == F_WATER_TOP || vFlags == F_WATER)) {
+    vec3 col = applyLight(t.rgb * vTint, vLight, vAO, vShade);
+    outColor = vec4(applyFog(col, vWorld), t.a < 0.996 ? t.a : 0.706);
+    return;
+  }
   if (vFlags != F_WATER_TOP && vFlags != F_WATER) {
     // Other translucent liquids keep the plain lit texture.
     vec3 col = applyLight(t.rgb * vTint, vLight, vAO, vShade);
