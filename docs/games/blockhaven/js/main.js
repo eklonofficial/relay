@@ -1,36 +1,36 @@
 // Blockhaven bootstrap: assets, menus, input, camera, frame loop.
-import { Demo, DEMO_SEED } from './demo.js?v=muot26c6';
-import { armorModel, armorSkinKey, ARMOR_MATERIALS, ARMOR_PIECES, elytraModel } from './data/armor.js?v=muot26c6';
-import { TEXTURES, TEX, B, BLOCKS, DIM, DIM_NAMES, SHAPE_OF, SHAPE, props, HEIGHT } from './data/blocks.js?v=muot26c6';
-import { I, ITEMS } from './data/items.js?v=muot26c6';
-import { MOBS, PROFESSIONS, playerModel, saddleModel, PLAYER_SKINS } from './data/mobs.js?v=muot26c6';
-import { Net, cleanCode, cleanName, cleanKey, cleanChat, chatLine, MAX_PLAYERS } from './net/net.js?v=muot26c6';
-import { NameTags } from './net/nametags.js?v=muot26c6';
-import { BIOMES } from './gen/biomes.js?v=muot26c6';
-import { generateBlockTextures, drawBlockTexture } from './render/blocktex.js?v=muot26c6';
-import { generateItemTextures, ITEM_LAYER, FX_LAYER, ITEM_LAYER_COUNT, flatTexFor } from './render/itemtex.js?v=muot26c6';
-import { Zip, storedPack, savePack, removePack, applyBlockTextures, applyItemTextures, indexSounds } from './render/pack.js?v=muot26c6';
-import { packModel, paintModel, SKIN, faceRects } from './render/mobtex.js?v=muot26c6';
-import { buildMipChain } from './render/atlas.js?v=muot26c6';
-import { Renderer, Batch } from './render/renderer.js?v=muot26c6';
-import { World, UNLOADED } from './world/world.js?v=muot26c6';
-import { createGenerator } from './gen/index.js?v=muot26c6';
-import { Game } from './game/game.js?v=muot26c6';
-import { Interact, CROSSBOW_CHARGE } from './game/interact.js?v=muot26c6';
-import { SpawnPrep, STATUS_COLOR } from './game/spawnprep.js?v=muot26c6';
-import { splash } from './splash.js?v=muot26c6';
-import { Commands } from './game/commands.js?v=muot26c6';
-import { GUI, HUD } from './game/ui.js?v=muot26c6';
-import { buildIcons, hudSprites } from './game/icons.js?v=muot26c6';
-import { Sound } from './game/audio.js?v=muot26c6';
-import { buildLogo, buttonTexture, dirtTexture, iconDataURL } from './render/logo.js?v=muot26c6';
-import { computeEnv } from './game/env.js?v=muot26c6';
-import { guideSections } from './game/guide.js?v=muot26c6';
-import { listWorlds, loadWorld, saveWorld, deleteWorld } from './game/storage.js?v=muot26c6';
-import { drawModel, rootMatrix, M } from './entity/entity.js?v=muot26c6';
-import { itemMesh, emitItemMesh, clearItemMeshes } from './entity/itemmesh.js?v=muot26c6';
-import { Lightning } from './entity/objects.js?v=muot26c6';
-import { compose, translation, rotationX, rotationY, rotationZ, scaling, forward, mat4 } from './core/math.js?v=muot26c6';
+import { Demo, DEMO_SEED } from './demo.js?v=muot8lcy';
+import { armorModel, armorSkinKey, ARMOR_MATERIALS, ARMOR_PIECES, elytraModel } from './data/armor.js?v=muot8lcy';
+import { TEXTURES, TEX, B, BLOCKS, DIM, DIM_NAMES, SHAPE_OF, SHAPE, props, HEIGHT } from './data/blocks.js?v=muot8lcy';
+import { I, ITEMS } from './data/items.js?v=muot8lcy';
+import { MOBS, PROFESSIONS, playerModel, saddleModel, PLAYER_SKINS } from './data/mobs.js?v=muot8lcy';
+import { Net, cleanCode, cleanName, cleanKey, cleanChat, chatLine, MAX_PLAYERS } from './net/net.js?v=muot8lcy';
+import { NameTags } from './net/nametags.js?v=muot8lcy';
+import { BIOMES } from './gen/biomes.js?v=muot8lcy';
+import { generateBlockTextures, drawBlockTexture } from './render/blocktex.js?v=muot8lcy';
+import { generateItemTextures, ITEM_LAYER, FX_LAYER, ITEM_LAYER_COUNT, flatTexFor } from './render/itemtex.js?v=muot8lcy';
+import { Zip, storedPack, savePack, removePack, applyBlockTextures, applyItemTextures, indexSounds } from './render/pack.js?v=muot8lcy';
+import { packModel, paintModel, SKIN, faceRects } from './render/mobtex.js?v=muot8lcy';
+import { buildMipChain } from './render/atlas.js?v=muot8lcy';
+import { Renderer, Batch } from './render/renderer.js?v=muot8lcy';
+import { World, UNLOADED } from './world/world.js?v=muot8lcy';
+import { createGenerator } from './gen/index.js?v=muot8lcy';
+import { Game } from './game/game.js?v=muot8lcy';
+import { Interact, CROSSBOW_CHARGE } from './game/interact.js?v=muot8lcy';
+import { SpawnPrep, STATUS_COLOR } from './game/spawnprep.js?v=muot8lcy';
+import { splash } from './splash.js?v=muot8lcy';
+import { Commands } from './game/commands.js?v=muot8lcy';
+import { GUI, HUD } from './game/ui.js?v=muot8lcy';
+import { buildIcons, hudSprites } from './game/icons.js?v=muot8lcy';
+import { Sound } from './game/audio.js?v=muot8lcy';
+import { buildLogo, buttonTexture, dirtTexture, iconDataURL } from './render/logo.js?v=muot8lcy';
+import { computeEnv } from './game/env.js?v=muot8lcy';
+import { guideSections } from './game/guide.js?v=muot8lcy';
+import { listWorlds, loadWorld, saveWorld, deleteWorld } from './game/storage.js?v=muot8lcy';
+import { drawModel, rootMatrix, M } from './entity/entity.js?v=muot8lcy';
+import { itemMesh, emitItemMesh, clearItemMeshes } from './entity/itemmesh.js?v=muot8lcy';
+import { Lightning } from './entity/objects.js?v=muot8lcy';
+import { compose, translation, rotationX, rotationY, rotationZ, scaling, forward, mat4 } from './core/math.js?v=muot8lcy';
 
 const $ = id => document.getElementById(id);
 // Resolves after the page has painted what was just put on screen.
@@ -46,7 +46,7 @@ const settings = Object.assign({
 }, load(SETTINGS_KEY) || {});
 // Minecraft's default FOV is 70; move anyone still on our old default (75) over once.
 if (!settings.fovMigrated) { if (settings.fov === 75) settings.fov = 70; settings.fovMigrated = true; store(SETTINGS_KEY, settings); }
-const SPLASHES = ['Random ahh edition!', 'Also try Minecraft!', 'Now with elytra!', 'Saddle up!', 'Now with the Nether!', 'Also try the End!', 'Creepers included!', '60 mobs!', 'Villagers will trade!', 'Wild worlds are wild!', 'Every pixel procedural!', 'Craft everything!', 'Spectator mode!', 'Runs on Chromebooks!', 'Mind the lava!', 'Floating islands!'];
+const SPLASHES = ['Random ahh edition!', 'Also try Minecraft!', 'Now with elytra!', 'Saddle up!', 'Now with the Nether!', 'Also try the End!', 'Creepers included!', '60 mobs!', 'Villagers will trade!', 'Wild worlds are wild!', 'Custom pixels!', 'Craft everything!', 'Spectator mode!', 'Runs on Chromebooks!', 'Mind the lava!', 'Floating islands!'];
 
 // What an uploaded world may say about itself (the create screen's choices, plus /gamemode's).
 const WORLD_MODES = ['survival', 'creative', 'hardcore', 'adventure', 'spectator'], WORLD_TYPES = ['default', 'wild', 'flat'], DIFFICULTIES = ['peaceful', 'easy', 'normal', 'hard'];
