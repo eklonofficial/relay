@@ -323,14 +323,14 @@
   /* ---------- error ---------- */
   #error { justify-content: center; padding: 0 calc(var(--u) * 16); text-align: center; }
   /* Startup splash (js/splash.js): this colour is on screen from the first paint, before any script runs. */
-  #boot { position: fixed; inset: 0; z-index: 1000; background: #44892c; }
+  #boot { position: fixed; inset: 0; z-index: 1000; background: #dc1f3d; }
   #boot canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 </style>
 </head>
 <body>
 <div id="boot"><canvas id="boot-canvas"></canvas></div>
 <!-- data-modules: how many modules the page loads, kept up to date by tools/stamp.mjs (the splash's download progress) -->
-<script type="module" id="boot-script" src="js/splash.js?v=muot8lcy" data-modules="65"></script>
+<script type="module" id="boot-script" src="js/splash.js?v=muotuwld" data-modules="65"></script>
 <canvas id="game"></canvas>
 
 <div id="demo" class="hidden">
@@ -504,7 +504,7 @@
 </div>
 
 <div id="error" class="screen dirt hidden"></div>
-<script defer src="net-config.js?v=muot8lcy"></script>
-<script type="module" src="js/main.js?v=muot8lcy"></script>
+<script defer src="net-config.js?v=muotuwld"></script>
+<script type="module" src="js/main.js?v=muotuwld"></script>
 </body>
 </html>
