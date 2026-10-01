@@ -8,7 +8,7 @@
 //
 // Pure drawing and timing on a 2D context, so it runs in a worker (render/splashworker.js) and keeps
 // moving while the page is busy starting the game.
-import { GLYPHS } from './logo.js?v=muosndef';
+import { GLYPHS } from './logo.js?v=muot26c6';
 
 export const SPLASH_BG = '#44892c';
 const WORD = 'BLOCKHAVEN', SUBTITLE = 'RANDOM AHH EDITION';

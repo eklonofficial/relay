@@ -1,7 +1,6 @@
-// Resource packs: a Java Edition style pack (.zip with assets/minecraft/textures/... and
-// assets/minecraft/sounds/...) chosen from the player's own computer. It is kept in this
-// browser only (IndexedDB) and swapped in over the generated textures and synthesized sounds
-// by Minecraft file name. Nothing is uploaded anywhere.
+// Resource packs: Java Edition style packs (.zip with assets/minecraft/textures/... and
+// assets/minecraft/sounds/...). The bundled defaults and player-selected packs use the same
+// matching path; a player's pack stays in this browser (IndexedDB) and is never uploaded.
 
 const DB = 'blockhaven-packs', STORE = 'packs', KEY = 'active';
 

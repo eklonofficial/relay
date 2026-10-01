@@ -1,4 +1,4 @@
-// Every sound is synthesized with WebAudio: materials, mobs, combat, weather and generative music.
+// Bundled/resource-pack samples replace matching sounds; WebAudio synthesis remains the fallback.
 const MATERIAL = {
   grass: { freq: 1900, q: 0.6, gain: 0.5 }, gravel: { freq: 1100, q: 0.9, gain: 0.6 }, stone: { freq: 2600, q: 1.6, gain: 0.55, click: 1200 },
   wood: { freq: 750, q: 2.4, gain: 0.6, knock: 220 }, sand: { freq: 3400, q: 0.5, gain: 0.45 }, snow: { freq: 4200, q: 0.4, gain: 0.35 },
@@ -7,8 +7,8 @@ const MATERIAL = {
 };
 // Mob voices: [base freq, type, duration, sweep, noise]
 
-import { SOUND_FILES, NOTE_FILES, MOB_DIR, matSound } from '../render/pack.js?v=muosndef';
-import { MusicPlayer } from './music.js?v=muosndef';
+import { SOUND_FILES, NOTE_FILES, MOB_DIR, matSound } from '../render/pack.js?v=muot26c6';
+import { MusicPlayer } from './music.js?v=muot26c6';
 
 const VOWEL = { a: [[730, 6, 1.2], [1090, 7, 0.9], [2440, 9, 0.3]], o: [[450, 6, 1.2], [800, 7, 0.9], [2800, 9, 0.2]], u: [[320, 6, 1.3], [870, 7, 0.7], [2250, 9, 0.2]] };
 const MOB_VOICE_ALIAS = { polar_bear: 'bear', zombified_piglin: 'zpiglin', wandering_trader: 'villager', pillager: 'illager', vindicator: 'illager', evoker: 'illager', iron_golem: 'golem', snow_golem: 'snowgolem', husk: 'zombie', drowned: 'zombie', zombie_villager: 'zombie', stray: 'skeleton', wither_skeleton: 'skeleton', cave_spider: 'spider', magma_cube: 'slime', mooshroom: 'cow', donkey: 'horse', camel: 'horse', mule: 'horse', endermite: 'silverfish', ender_dragon: 'dragon', glow_squid: 'squid', cod: 'fish', salmon: 'fish', tropical_fish: 'fish', pufferfish: 'fish' };
@@ -83,10 +83,15 @@ export class Sound {
   // ---------------- resource pack samples ----------------
   // With a resource pack loaded, sounds it provides replace the synthesized ones (a random
   // numbered variant, decoded on first use).
-  setPack(zip, index) { this.pack = { zip, index, buffers: new Map(), pending: new Map() }; }
-  hasSample(base) { return !!(this.pack && this.pack.index.has(base)); }
+  setPack(zip, index, overlay = false) {
+    const pack = { zip, index, buffers: new Map(), pending: new Map() };
+    this.packs = overlay ? [pack, ...(this.packs || [])] : [pack];
+    this.pack = this.packs[0];
+  }
+  packFor(base) { return (this.packs || []).find(pack => pack.index.has(base)); }
+  hasSample(base) { return !!this.packFor(base); }
   sample(base, pos, vol = 1, pitch = 1) {
-    const P = this.pack;
+    const P = this.packFor(base);
     if (!P || !this.ctx) return false;
     const files = P.index.get(base);
     if (!files || !files.length) return false;

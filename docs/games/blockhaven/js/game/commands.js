@@ -1,8 +1,8 @@
 // Chat commands (cheats) with Minecraft-style syntax, ~relative coordinates and suggestions.
-import { B, STATE, DIM, BLOCKS } from '../data/blocks.js?v=muosndef';
-import { I, ITEMS } from '../data/items.js?v=muosndef';
-import { MOBS } from '../data/mobs.js?v=muosndef';
-import { BIOMES } from '../gen/biomes.js?v=muosndef';
+import { B, STATE, DIM, BLOCKS } from '../data/blocks.js?v=muot26c6';
+import { I, ITEMS } from '../data/items.js?v=muot26c6';
+import { MOBS } from '../data/mobs.js?v=muot26c6';
+import { BIOMES } from '../gen/biomes.js?v=muot26c6';
 
 const MODES = { survival: 'survival', s: 'survival', 0: 'survival', creative: 'creative', c: 'creative', 1: 'creative', adventure: 'adventure', a: 'adventure', 2: 'adventure', spectator: 'spectator', sp: 'spectator', 3: 'spectator' };
 const DIMS = { overworld: DIM.OVERWORLD, 'minecraft:overworld': DIM.OVERWORLD, nether: DIM.NETHER, the_nether: DIM.NETHER, 'minecraft:the_nether': DIM.NETHER, end: DIM.END, the_end: DIM.END, 'minecraft:the_end': DIM.END };

@@ -1,36 +1,36 @@
 // Blockhaven bootstrap: assets, menus, input, camera, frame loop.
-import { Demo, DEMO_SEED } from './demo.js?v=muosndef';
-import { armorModel, armorSkinKey, ARMOR_MATERIALS, ARMOR_PIECES, elytraModel } from './data/armor.js?v=muosndef';
-import { TEXTURES, TEX, B, BLOCKS, DIM, DIM_NAMES, SHAPE_OF, SHAPE, props, HEIGHT } from './data/blocks.js?v=muosndef';
-import { I, ITEMS } from './data/items.js?v=muosndef';
-import { MOBS, PROFESSIONS, playerModel, saddleModel, PLAYER_SKINS } from './data/mobs.js?v=muosndef';
-import { Net, cleanCode, cleanName, cleanKey, cleanChat, chatLine, MAX_PLAYERS } from './net/net.js?v=muosndef';
-import { NameTags } from './net/nametags.js?v=muosndef';
-import { BIOMES } from './gen/biomes.js?v=muosndef';
-import { generateBlockTextures, drawBlockTexture } from './render/blocktex.js?v=muosndef';
-import { generateItemTextures, ITEM_LAYER, FX_LAYER, ITEM_LAYER_COUNT, flatTexFor } from './render/itemtex.js?v=muosndef';
-import { Zip, storedPack, savePack, removePack, applyBlockTextures, applyItemTextures, indexSounds } from './render/pack.js?v=muosndef';
-import { packModel, paintModel, SKIN, faceRects } from './render/mobtex.js?v=muosndef';
-import { buildMipChain } from './render/atlas.js?v=muosndef';
-import { Renderer, Batch } from './render/renderer.js?v=muosndef';
-import { World, UNLOADED } from './world/world.js?v=muosndef';
-import { createGenerator } from './gen/index.js?v=muosndef';
-import { Game } from './game/game.js?v=muosndef';
-import { Interact, CROSSBOW_CHARGE } from './game/interact.js?v=muosndef';
-import { SpawnPrep, STATUS_COLOR } from './game/spawnprep.js?v=muosndef';
-import { splash } from './splash.js?v=muosndef';
-import { Commands } from './game/commands.js?v=muosndef';
-import { GUI, HUD } from './game/ui.js?v=muosndef';
-import { buildIcons, hudSprites } from './game/icons.js?v=muosndef';
-import { Sound } from './game/audio.js?v=muosndef';
-import { buildLogo, buttonTexture, dirtTexture, iconDataURL } from './render/logo.js?v=muosndef';
-import { computeEnv } from './game/env.js?v=muosndef';
-import { guideSections } from './game/guide.js?v=muosndef';
-import { listWorlds, loadWorld, saveWorld, deleteWorld } from './game/storage.js?v=muosndef';
-import { drawModel, rootMatrix, M } from './entity/entity.js?v=muosndef';
-import { itemMesh, emitItemMesh, clearItemMeshes } from './entity/itemmesh.js?v=muosndef';
-import { Lightning } from './entity/objects.js?v=muosndef';
-import { compose, translation, rotationX, rotationY, rotationZ, scaling, forward, mat4 } from './core/math.js?v=muosndef';
+import { Demo, DEMO_SEED } from './demo.js?v=muot26c6';
+import { armorModel, armorSkinKey, ARMOR_MATERIALS, ARMOR_PIECES, elytraModel } from './data/armor.js?v=muot26c6';
+import { TEXTURES, TEX, B, BLOCKS, DIM, DIM_NAMES, SHAPE_OF, SHAPE, props, HEIGHT } from './data/blocks.js?v=muot26c6';
+import { I, ITEMS } from './data/items.js?v=muot26c6';
+import { MOBS, PROFESSIONS, playerModel, saddleModel, PLAYER_SKINS } from './data/mobs.js?v=muot26c6';
+import { Net, cleanCode, cleanName, cleanKey, cleanChat, chatLine, MAX_PLAYERS } from './net/net.js?v=muot26c6';
+import { NameTags } from './net/nametags.js?v=muot26c6';
+import { BIOMES } from './gen/biomes.js?v=muot26c6';
+import { generateBlockTextures, drawBlockTexture } from './render/blocktex.js?v=muot26c6';
+import { generateItemTextures, ITEM_LAYER, FX_LAYER, ITEM_LAYER_COUNT, flatTexFor } from './render/itemtex.js?v=muot26c6';
+import { Zip, storedPack, savePack, removePack, applyBlockTextures, applyItemTextures, indexSounds } from './render/pack.js?v=muot26c6';
+import { packModel, paintModel, SKIN, faceRects } from './render/mobtex.js?v=muot26c6';
+import { buildMipChain } from './render/atlas.js?v=muot26c6';
+import { Renderer, Batch } from './render/renderer.js?v=muot26c6';
+import { World, UNLOADED } from './world/world.js?v=muot26c6';
+import { createGenerator } from './gen/index.js?v=muot26c6';
+import { Game } from './game/game.js?v=muot26c6';
+import { Interact, CROSSBOW_CHARGE } from './game/interact.js?v=muot26c6';
+import { SpawnPrep, STATUS_COLOR } from './game/spawnprep.js?v=muot26c6';
+import { splash } from './splash.js?v=muot26c6';
+import { Commands } from './game/commands.js?v=muot26c6';
+import { GUI, HUD } from './game/ui.js?v=muot26c6';
+import { buildIcons, hudSprites } from './game/icons.js?v=muot26c6';
+import { Sound } from './game/audio.js?v=muot26c6';
+import { buildLogo, buttonTexture, dirtTexture, iconDataURL } from './render/logo.js?v=muot26c6';
+import { computeEnv } from './game/env.js?v=muot26c6';
+import { guideSections } from './game/guide.js?v=muot26c6';
+import { listWorlds, loadWorld, saveWorld, deleteWorld } from './game/storage.js?v=muot26c6';
+import { drawModel, rootMatrix, M } from './entity/entity.js?v=muot26c6';
+import { itemMesh, emitItemMesh, clearItemMeshes } from './entity/itemmesh.js?v=muot26c6';
+import { Lightning } from './entity/objects.js?v=muot26c6';
+import { compose, translation, rotationX, rotationY, rotationZ, scaling, forward, mat4 } from './core/math.js?v=muot26c6';
 
 const $ = id => document.getElementById(id);
 // Resolves after the page has painted what was just put on screen.
@@ -607,31 +607,45 @@ class App {
     else if (!r && document.pointerLockElement !== c) { try { c.requestPointerLock(); } catch { /* ignore */ } }
   }
 
-  // A resource pack chosen by the player (kept in this browser only) replaces the generated
-  // block and item textures and the synthesized sounds wherever it has a file of the same name.
+  // Apply one Java resource pack over the current textures and sounds. Player-selected packs
+  // layer over the bundled defaults, so an omitted asset keeps the built-in replacement.
+  async applyPack(zip, soundOverlay = false) {
+    const nb = await applyBlockTextures(zip, TEXTURES, this.blockTex);
+    if (nb) this.renderer.setBlockTextures(buildMipChain(this.blockTex), TEXTURES.length);
+    const entries = [];
+    for (const it of ITEMS) if (ITEM_LAYER[it.key] !== undefined) entries.push([it.key, ITEM_LAYER[it.key], it.block ? flatTexFor(it) : null]);
+    for (const f of ['bow_pulling_0', 'bow_pulling_1', 'bow_pulling_2', 'crossbow_pulling_0', 'crossbow_pulling_1', 'crossbow_pulling_2', 'crossbow_arrow', 'crossbow_firework', 'fishing_rod_cast']) if (FX_LAYER[f] !== undefined) entries.push([f, FX_LAYER[f], null]);
+    const ni = await applyItemTextures(zip, entries, this.itemTex);
+    if (ni) { this.renderer.setItemTextures(buildMipChain(this.itemTex), this.itemTex.length); clearItemMeshes(); }
+    this.icons = buildIcons(this.blockTex, this.itemTex);
+    document.documentElement.style.setProperty('--dirt-tex', `url(${dirtTexture(this.blockTex[TEX.dirt])})`);
+    if (this.game) { this.game.icons = this.icons; this.game.invDirty = true; }
+    const sounds = indexSounds(zip);
+    this.sound.setPack(zip, sounds, soundOverlay);
+    return { blocks: nb, items: ni, sounds: sounds.size };
+  }
+
+  // The curated bundled pack is the normal look and sound. A standard Java Edition resource
+  // pack chosen by the player is kept in this browser only and overrides matching bundled files.
   async loadPack() {
     let p;
     try { p = await storedPack(); } catch { p = null; }
     this.packName = p ? p.name : null;
     this.updatePackButton();
+    try {
+      const response = await fetch('assets/default-pack.zip?v=20260930');
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const zip = await Zip.open(await response.blob());
+      const stats = await this.applyPack(zip);
+      console.info(`Bundled defaults: ${stats.blocks} block textures, ${stats.items} item textures, ${stats.sounds} sound groups`);
+    } catch (e) { console.warn('bundled defaults failed; using generated fallbacks', e); }
     if (!p) return;
     try {
       const zip = await Zip.open(p.blob);
-      const nb = await applyBlockTextures(zip, TEXTURES, this.blockTex);
-      if (nb) this.renderer.setBlockTextures(buildMipChain(this.blockTex), TEXTURES.length);
-      const entries = [];
-      for (const it of ITEMS) if (ITEM_LAYER[it.key] !== undefined) entries.push([it.key, ITEM_LAYER[it.key], it.block ? flatTexFor(it) : null]);
-      for (const f of ['bow_pulling_0', 'bow_pulling_1', 'bow_pulling_2', 'crossbow_pulling_0', 'crossbow_pulling_1', 'crossbow_pulling_2', 'crossbow_arrow', 'crossbow_firework', 'fishing_rod_cast']) if (FX_LAYER[f] !== undefined) entries.push([f, FX_LAYER[f], null]);
-      const ni = await applyItemTextures(zip, entries, this.itemTex);
-      if (ni) { this.renderer.setItemTextures(buildMipChain(this.itemTex), this.itemTex.length); clearItemMeshes(); }
-      this.icons = buildIcons(this.blockTex, this.itemTex);
-      if (this.game) { this.game.icons = this.icons; this.game.invDirty = true; }
-      const sounds = indexSounds(zip);
-      this.sound.setPack(zip, sounds);
-      this.packStats = { blocks: nb, items: ni, sounds: sounds.size };
-      console.info(`Resource pack "${p.name}": ${nb} block textures, ${ni} item textures, ${sounds.size} sounds`);
+      this.packStats = await this.applyPack(zip, true);
+      console.info(`Resource pack "${p.name}": ${this.packStats.blocks} block textures, ${this.packStats.items} item textures, ${this.packStats.sounds} sound groups`);
       this.updatePackButton();
-    } catch (e) { console.warn('resource pack failed', e); this.packName = null; this.updatePackButton(`Pack failed: ${e.message}`); }
+    } catch (e) { console.warn('resource pack failed', e); this.packName = null; this.packStats = null; this.updatePackButton(`Pack failed: ${e.message}`); }
   }
   updatePackButton(msg) {
     const b = $('set-pack');
