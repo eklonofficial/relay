@@ -1,5 +1,5 @@
-import { createGenerator } from './gen/index.js?v=muot8lcy';
-import { meshChunk } from './mesh/mesher.js?v=muot8lcy';
+import { createGenerator } from './gen/index.js?v=muotuwld';
+import { meshChunk } from './mesh/mesher.js?v=muotuwld';
 
 let generator = null, genKey = '';
 
