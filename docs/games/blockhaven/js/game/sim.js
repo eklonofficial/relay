@@ -1,8 +1,9 @@
 // Block simulation: liquids, gravity, support, random ticks (crops, saplings, grass, fire, cacti).
-import { B, BLOCKS, SOLID, OPAQUE, SHAPE_OF, SHAPE, CROP_STAGES, CROP_AGE_SHIFT, props, st, DIM } from '../data/blocks.js?v=mupp7m39';
-import { UNLOADED } from '../world/world.js?v=mupp7m39';
-import * as T from '../gen/trees.js?v=mupp7m39';
-import { KIND } from './redstone.js?v=mupp7m39';
+import { B, BLOCKS, SOLID, OPAQUE, SHAPE_OF, SHAPE, CROP_STAGES, CROP_AGE_SHIFT, WATERLOGGED, props, st, DIM } from '../data/blocks.js?v=muppik1r';
+import { amountAt, heightAt, isWater, sameFluid } from './fluid.js?v=muppik1r';
+import { UNLOADED } from '../world/world.js?v=muppik1r';
+import * as T from '../gen/trees.js?v=muppik1r';
+import { KIND } from './redstone.js?v=muppik1r';
 
 const NB4 = [[1, 0], [-1, 0], [0, 1], [0, -1]];
 const k3 = (x, y, z) => `${x},${y},${z}`;
@@ -44,11 +45,12 @@ export class Sim {
     for (const [dx, dy, dz] of [[0, 0, 0], [1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]]) {
       const id = this.world.getBlock(x + dx, y + dy, z + dz);
       if (id === UNLOADED) continue;
-      if (this.isLiquid(id)) this.schedule(x + dx, y + dy, z + dz, this.delayFor(id));
+      if (id === B.LAVA && this.lavaReact(x + dx, y + dy, z + dz)) continue; // neighborChanged reacts at once
+      if (this.isLiquid(id) || WATERLOGGED[id]) this.schedule(x + dx, y + dy, z + dz, this.delayFor(id));
       else if (KIND[id] && id !== B.DOOR && id !== B.TRAPDOOR && id !== B.TNT) { /* redstone parts check their own support */ }
       else if (BLOCKS[id] && (BLOCKS[id].gravity || NEEDS_GROUND.has(SHAPE_OF[id]) || id === B.CACTUS || id === B.SUGAR_CANE || SHAPE_OF[id] === SHAPE.TORCH || SHAPE_OF[id] === SHAPE.LADDER || SHAPE_OF[id] === SHAPE.VINE || SHAPE_OF[id] === SHAPE.LANTERN || id === B.CAVE_VINES || id === B.SEAGRASS || id === B.BAMBOO)) this.schedule(x + dx, y + dy, z + dz, 0.05);
       // Liquids next to the changed cell may flow into it.
-      if (id === B.AIR || !SOLID[id]) for (const [ex, ez] of NB4) { const n = this.world.getBlock(x + dx + ex, y + dy, z + dz + ez); if (this.isLiquid(n)) this.schedule(x + dx + ex, y + dy, z + dz + ez, this.delayFor(n)); }
+      if (id === B.AIR || !SOLID[id]) for (const [ex, ez] of NB4) { const n = this.world.getBlock(x + dx + ex, y + dy, z + dz + ez); if (this.isLiquid(n) || WATERLOGGED[n]) this.schedule(x + dx + ex, y + dy, z + dz + ez, this.delayFor(n)); }
     }
   }
 
@@ -123,6 +125,7 @@ export class Sim {
     const id = w.getBlock(x, y, z);
     if (id === UNLOADED) return;
     if (this.isLiquid(id)) { this.flow(x, y, z, id); return; }
+    if (WATERLOGGED[id]) this.flow(x, y, z, id); // the water in it spreads; the plant still needs support
     const below = w.getBlock(x, y - 1, z);
     const b = BLOCKS[id];
     if (!b) return;
@@ -162,63 +165,124 @@ export class Sim {
     return false;
   }
 
-  flow(x, y, z, id) {
-    const g = this.game, w = this.world, lava = id === B.LAVA;
-    const m = w.getMeta(x, y, z) & 15;
-    const drop = lava && g.dim !== DIM.NETHER ? 2 : 1;
-    const isSame = n => n === id;
-    const levelOf = (nx, ny, nz) => { const n = w.getBlock(nx, ny, nz); if (!isSame(n)) return -1; const l = w.getMeta(nx, ny, nz) & 15; return l >= 8 ? 0 : l; };
-    // Reactions with the other liquid.
-    if (lava) {
-      for (const [dx, dy, dz] of [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, 0, 1], [0, 0, -1]]) {
-        if (w.getBlock(x + dx, y + dy, z + dz) === B.WATER) {
-          g.setBlock(x, y, z, m === 0 ? B.OBSIDIAN : B.COBBLESTONE, 0);
-          g.sound.play('fizz', [x + 0.5, y + 0.5, z + 0.5], 0.5); g.particles.smoke([x + 0.5, y + 1, z + 0.5], 6);
-          return;
-        }
-      }
-    }
-    let level = m;
-    if (m !== 0) {
-      // Recompute from neighbours.
-      let best = 99, sources = 0;
-      if (isSame(w.getBlock(x, y + 1, z))) best = 0;
-      for (const [dx, dz] of NB4) {
-        const l = levelOf(x + dx, y, z + dz);
-        if (l < 0) continue;
-        if (l === 0 && (w.getMeta(x + dx, y, z + dz) & 15) === 0) sources++;
-        best = Math.min(best, l + drop);
-      }
-      const belowId = w.getBlock(x, y - 1, z);
-      if (!lava && sources >= 2 && (SOLID[belowId] || (isSame(belowId) && (w.getMeta(x, y - 1, z) & 15) === 0))) level = 0;
-      else if (isSame(w.getBlock(x, y + 1, z))) level = 8;
-      else level = best;
-      if (level > 7 && level !== 8) { g.setBlock(x, y, z, B.AIR, 0); return; }
-      if (level !== m) { g.setBlock(x, y, z, id, level); return; }
-    }
-    // Spread down, then sideways.
-    const belowId = w.getBlock(x, y - 1, z);
-    const canFill = n => n === B.AIR || (BLOCKS[n] && BLOCKS[n].replaceable && !this.isLiquid(n) && n !== B.WATER) || (lava && n === B.WATER);
-    if (belowId === B.WATER && lava) { g.setBlock(x, y - 1, z, B.STONE, 0); return; }
-    if (canFill(belowId) && y > 0) {
-      if (belowId !== B.AIR && BLOCKS[belowId]) g.breakBlock(x, y - 1, z, { drop: true, silent: true });
-      g.setBlock(x, y - 1, z, id, 8);
-      return;
-    }
-    if (level >= 8 && !(SOLID[belowId] || isSame(belowId))) return;
-    const base = level >= 8 ? 0 : level;
-    const next = base + drop;
-    if (next > 7) return;
-    if (isSame(belowId) && level !== 0 && level < 8) return;
+  // ---------------- liquids: a port of Java's FlowingFluid, WaterFluid and LavaFluid ----------------
+  // Per fluid: drop-off per block, slope-find distance, tick delay (water 5 ticks; lava 30, or 10 in the Nether).
+  fluidParams(lava) { const hot = this.game.dim === DIM.NETHER; return lava ? { drop: hot ? 1 : 2, slope: hot ? 4 : 2, delay: hot ? 0.5 : 1.5 } : { drop: 1, slope: 4, delay: 0.25 }; }
+  // canHoldFluid: air, liquids and anything that doesn't block movement, except doors, ladders,
+  // carpets, sugar cane, portals and waterlogged plants (which already hold water).
+  holds(id) {
+    if (id === B.AIR || id === B.WATER || id === B.LAVA) return true;
+    if (id === UNLOADED || SOLID[id] || WATERLOGGED[id] || id === B.SUGAR_CANE || id === B.MOVING_PISTON) return false;
+    const sh = SHAPE_OF[id];
+    return sh !== SHAPE.DOOR && sh !== SHAPE.LADDER && sh !== SHAPE.CARPET && sh !== SHAPE.PORTAL && sh !== SHAPE.END_PORTAL;
+  }
+  isSrc(x, y, z, lava) { const id = this.world.getBlock(x, y, z); return sameFluid(id, lava) && (WATERLOGGED[id] === 1 || (this.world.getMeta(x, y, z) & 15) === 0); }
+  // getNewLiquid: the state this cell would take from its neighbours, as a liquid meta (-1 = empty).
+  newLiquid(x, y, z, lava, P) {
+    const w = this.world;
+    let max = 0, sources = 0;
     for (const [dx, dz] of NB4) {
-      const n = w.getBlock(x + dx, y, z + dz);
-      if (n === UNLOADED) continue;
-      if (lava && n === B.WATER) { g.setBlock(x + dx, y, z + dz, B.COBBLESTONE, 0); continue; }
-      if (isSame(n)) { const l = w.getMeta(x + dx, y, z + dz) & 15; if (l !== 0 && l < 8 && l > next) g.setBlock(x + dx, y, z + dz, id, next); continue; }
-      if (canFill(n)) {
-        if (n !== B.AIR && BLOCKS[n]) g.breakBlock(x + dx, y, z + dz, { drop: true, silent: true });
-        g.setBlock(x + dx, y, z + dz, id, next);
+      const a = amountAt(w, x + dx, y, z + dz, lava);
+      if (!a) continue;
+      if (this.isSrc(x + dx, y, z + dz, lava)) sources++;
+      if (a > max) max = a;
+    }
+    if (!lava && sources >= 2 && this.game.rules.waterSourceConversion !== false) {
+      const b = w.getBlock(x, y - 1, z);
+      if (SOLID[b] || this.isSrc(x, y - 1, z, lava)) return 0;
+    }
+    if (sameFluid(w.getBlock(x, y + 1, z), lava)) return 8;
+    const k = max - P.drop;
+    return k <= 0 ? -1 : 8 - k;
+  }
+  // canSpreadTo: the target can hold liquid and its own fluid lets this one replace it.
+  canSpreadTo(id, x, y, z, lava, down) {
+    if (!this.holds(id)) return false;
+    if (id === B.WATER) return lava && down; // WaterFluid.canBeReplacedWith: lava, flowing down only
+    if (id === B.LAVA) return !lava && heightAt(this.world, x, y, z, true) >= 0.44444445; // LavaFluid.canBeReplacedWith
+    return true;
+  }
+  spreadTo(x, y, z, id, lava, meta, down) {
+    const g = this.game;
+    if (lava && down && isWater(id)) { g.setBlock(x, y, z, B.STONE, 0); this.fizz(x, y, z); return; }
+    if (id !== B.AIR && id !== B.WATER && id !== B.LAVA) {
+      if (lava) { g.breakBlock(x, y, z, { drop: false, silent: true }); this.fizz(x, y, z); }
+      else g.breakBlock(x, y, z, { drop: true, silent: true });
+    }
+    g.setBlock(x, y, z, lava ? B.LAVA : B.WATER, meta);
+  }
+  fizz(x, y, z) { this.game.sound.play('fizz', [x + 0.5, y + 0.5, z + 0.5], 0.5); this.game.particles.smoke([x + 0.5, y + 1, z + 0.5], 6); }
+  // isWaterHole: below is the same fluid, or something liquid could fall into.
+  isHole(x, y, z, lava) { if (y < 0) return false; const id = this.world.getBlock(x, y, z); return id !== UNLOADED && (sameFluid(id, lava) || this.holds(id)); }
+  passable(id, x, y, z, lava) { return id !== UNLOADED && !(sameFluid(id, lava) && this.isSrc(x, y, z, lava)) && this.holds(id); }
+  // getSlopeDistance: steps (up to the slope-find distance) to the nearest drop, never back the way it came.
+  slopeDist(x, y, z, depth, bx, bz, lava, P) {
+    let best = 1000;
+    for (const [dx, dz] of NB4) {
+      if (dx === bx && dz === bz) continue;
+      const nx = x + dx, nz = z + dz, id = this.world.getBlock(nx, y, nz);
+      if (!this.passable(id, nx, y, nz, lava)) continue;
+      if (this.isHole(nx, y - 1, nz, lava)) return depth;
+      if (depth < P.slope) { const j = this.slopeDist(nx, y, nz, depth + 1, -dx, -dz, lava, P); if (j < best) best = j; }
+    }
+    return best;
+  }
+  // spreadToSides + getSpread: only towards the nearest drop (every way when none is in reach).
+  spreadSides(x, y, z, lava, amount, falling, P) {
+    if ((falling ? 7 : amount - P.drop) <= 0) return;
+    const w = this.world, out = [];
+    let best = 1000;
+    for (const [dx, dz] of NB4) {
+      const nx = x + dx, nz = z + dz, id = w.getBlock(nx, y, nz);
+      if (!this.passable(id, nx, y, nz, lava)) continue;
+      const nm = this.newLiquid(nx, y, nz, lava, P);
+      if (nm < 0) continue;
+      const j = this.isHole(nx, y - 1, nz, lava) ? 0 : this.slopeDist(nx, y, nz, 1, -dx, -dz, lava, P);
+      if (j < best) out.length = 0;
+      if (j <= best) { out.push([nx, nz, nm]); best = j; }
+    }
+    for (const [nx, nz, nm] of out) { const id = w.getBlock(nx, y, nz); if (this.canSpreadTo(id, nx, y, nz, lava, false)) this.spreadTo(nx, y, nz, id, lava, nm, false); }
+  }
+  // LiquidBlock.shouldSpreadLiquid for lava: water above or beside makes obsidian (from a source)
+  // or cobblestone; soul soil below with blue ice beside makes basalt. True when the lava is gone.
+  lavaReact(x, y, z) {
+    const w = this.world, soul = w.getBlock(x, y - 1, z) === B.SOUL_SAND && (w.getMeta(x, y - 1, z) & 1) === 1;
+    for (const [dx, dy, dz] of [[0, 1, 0], [0, 0, -1], [0, 0, 1], [-1, 0, 0], [1, 0, 0]]) {
+      const id = w.getBlock(x + dx, y + dy, z + dz);
+      if (isWater(id)) { this.game.setBlock(x, y, z, (w.getMeta(x, y, z) & 15) === 0 ? B.OBSIDIAN : B.COBBLESTONE, 0); this.fizz(x, y, z); return true; }
+      if (soul && id === B.PACKED_ICE && (w.getMeta(x + dx, y + dy, z + dz) & 1) === 1) { this.game.setBlock(x, y, z, B.BASALT, 0); this.fizz(x, y, z); return true; }
+    }
+    return false;
+  }
+  // FlowingFluid.tick: a flowing cell re-derives its level from its neighbours, then spreads.
+  flow(x, y, z, id) {
+    const g = this.game, w = this.world, lava = id === B.LAVA, P = this.fluidParams(lava);
+    if (lava && this.lavaReact(x, y, z)) return;
+    let m = id === B.WATER || id === B.LAVA ? Math.min(8, w.getMeta(x, y, z) & 15) : 0; // waterlogged: a source
+    if (m !== 0) {
+      const nm = this.newLiquid(x, y, z, lava, P);
+      if (nm < 0) { g.setBlock(x, y, z, B.AIR, 0); return; }
+      if (nm !== m) {
+        g.setBlock(x, y, z, id, nm);
+        // LavaFluid.getSpreadDelay: rising lava usually waits four times as long.
+        const rising = m !== 8 && nm !== 8 && nm < m;
+        this.queue.delete(k3(x, y, z));
+        this.schedule(x, y, z, lava && rising && Math.random() < 0.75 ? P.delay * 4 : P.delay);
+        m = nm;
       }
+    }
+    // FlowingFluid.spread: down first; sideways only from sources, from cells with nothing below
+    // to fall into, or (while falling) from cells with three source neighbours.
+    const amount = m === 0 || m === 8 ? 8 : 8 - m;
+    const bid = y > 0 ? w.getBlock(x, y - 1, z) : UNLOADED;
+    if (bid !== UNLOADED) {
+      const nb = this.newLiquid(x, y - 1, z, lava, P);
+      if (nb >= 0 && this.canSpreadTo(bid, x, y - 1, z, lava, true)) {
+        this.spreadTo(x, y - 1, z, bid, lava, nb, true);
+        let n = 0;
+        for (const [dx, dz] of NB4) if (this.isSrc(x + dx, y, z + dz, lava)) n++;
+        if (n >= 3) this.spreadSides(x, y, z, lava, amount, m === 8, P);
+      } else if (m === 0 || !this.isHole(x, y - 1, z, lava)) this.spreadSides(x, y, z, lava, amount, m === 8, P);
     }
     if (lava && Math.random() < 0.3 && g.rules.doFireTick) this.lavaIgnite(x, y, z);
   }

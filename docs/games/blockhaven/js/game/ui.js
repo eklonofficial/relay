@@ -1,9 +1,9 @@
 // Container GUIs (inventory, crafting, chest, furnace, creative, trading) and the HUD, laid out in GUI pixels
 // (1 unit = var(--u)) at the original's coordinates: 176x166 panels, 18x18 slots, 16x16 icons.
-import { I, ITEMS, TABS, maxStack, ARMOR_SLOTS, iconKey } from '../data/items.js?v=mupp7m39';
-import { findRecipe, allRecipes, matches, SMELTING, TAGS } from '../data/recipes.js?v=mupp7m39';
-import { same } from './inventory.js?v=mupp7m39';
-import { tableOffers, enchantName, enchantsOf, anvilResult, isEnchantable, hasGlint, ENCHANTS, ENCHANT_LIST } from '../data/enchantments.js?v=mupp7m39';
+import { I, ITEMS, TABS, maxStack, ARMOR_SLOTS, iconKey } from '../data/items.js?v=muppik1r';
+import { findRecipe, allRecipes, matches, SMELTING, TAGS } from '../data/recipes.js?v=muppik1r';
+import { same } from './inventory.js?v=muppik1r';
+import { tableOffers, enchantName, enchantsOf, anvilResult, isEnchantable, hasGlint, ENCHANTS, ENCHANT_LIST } from '../data/enchantments.js?v=muppik1r';
 const ENCH_CURSE = id => !!(ENCHANTS[id] && ENCHANTS[id].curse);
 
 // The enchanting table's glyphs (the Standard Galactic Alphabet as usually typed in Unicode).

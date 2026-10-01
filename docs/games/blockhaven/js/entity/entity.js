@@ -1,6 +1,7 @@
 // Entity base class, manager and the box-model renderer shared by every mob.
-import { moveEntity } from './physics.js?v=mupp7m39';
-import { B } from '../data/blocks.js?v=mupp7m39';
+import { moveEntity } from './physics.js?v=muppik1r';
+import { B } from '../data/blocks.js?v=muppik1r';
+import { fluidPush } from '../game/fluid.js?v=muppik1r';
 
 let nextId = 1;
 export class Entity {
@@ -27,6 +28,12 @@ export class Entity {
     this.inWater = feet === B.WATER || mid === B.WATER;
     this.inLava = feet === B.LAVA || mid === B.LAVA;
     if (this.inWater || this.inLava) {
+      // Currents carry mobs too (Entity.updateFluidHeightAndDoFluidPushing, normalised for
+      // non-players); scaled so the drift settles at Java's speed under this damping.
+      const lava = !this.inWater, m = [0, 0, 0];
+      fluidPush(w, [this.pos[0] - this.hw, this.pos[1], this.pos[2] - this.hw, this.pos[0] + this.hw, this.pos[1] + this.h, this.pos[2] + this.hw], m, lava, lava ? (w.dim === 1 ? 0.007 : 0.0023333333333333335) : 0.014, true, true);
+      const kp = 20 * (lava ? 4 : 2.2) / (1 - (lava ? 0.5 : 0.8));
+      this.vel[0] += m[0] * kp * dt; this.vel[1] += m[1] * kp * dt; this.vel[2] += m[2] * kp * dt;
       this.vel[1] -= gravity * 0.25 * dt;
       const k = Math.exp(-(this.inLava ? 4 : 2.2) * dt);
       this.vel[0] *= k; this.vel[1] *= k; this.vel[2] *= k;

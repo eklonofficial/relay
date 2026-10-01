@@ -1,7 +1,7 @@
 // Textures for the enchanting blocks and the enchanted book, kept apart from the main block and
 // item texture files. Each painter gets the Painter and a function returning another texture's
 // pixels by name (so the table can sit on our own obsidian).
-import { ramp, shade } from './paint.js?v=mupp7m39';
+import { ramp, shade } from './paint.js?v=muppik1r';
 
 const copy = (p, d) => { p.d.set(d); return p; };
 
