@@ -1,0 +1,10 @@
+{
+  "name": "blockhaven-relay",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Relay server for Blockhaven multiplayer: a tiny MQTT-over-WebSocket broker for room signalling and relayed game data.",
+  "main": "server.js",
+  "scripts": { "start": "node server.js" },
+  "engines": { "node": ">=18" },
+  "dependencies": { "ws": "^8.18.0" }
+}

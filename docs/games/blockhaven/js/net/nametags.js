@@ -1,7 +1,7 @@
 // Floating name tags over other players, drawn as a DOM overlay so the text stays crisp.
 // Like the original they show at any distance and through walls (dimmed when something is in
 // the way); a sneaking player's tag is hidden behind walls and faint in the open.
-import { forward } from '../core/math.js?v=muoxc0st';
+import { forward } from '../core/math.js?v=mupht1t9';
 
 export class NameTags {
   constructor(root) {

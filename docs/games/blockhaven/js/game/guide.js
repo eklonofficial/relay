@@ -1,11 +1,11 @@
 // The in-game guide: features, commands, crafting, farming, combat, villagers, dimensions and graphics.
-import { MusicPlayer } from './music.js?v=muoxc0st';
-import { BLOCKS, BLOCK_ITEMS, TEXTURES } from '../data/blocks.js?v=muoxc0st';
-import { ITEMS, I } from '../data/items.js?v=muoxc0st';
-import { SHAPED, SHAPELESS, SMELTING } from '../data/recipes.js?v=muoxc0st';
-import { MOBS } from '../data/mobs.js?v=muoxc0st';
-import { BIOMES } from '../gen/biomes.js?v=muoxc0st';
-import { COMMANDS } from './commands.js?v=muoxc0st';
+import { MusicPlayer } from './music.js?v=mupht1t9';
+import { BLOCKS, BLOCK_ITEMS, TEXTURES } from '../data/blocks.js?v=mupht1t9';
+import { ITEMS, I } from '../data/items.js?v=mupht1t9';
+import { SHAPED, SHAPELESS, SMELTING } from '../data/recipes.js?v=mupht1t9';
+import { MOBS } from '../data/mobs.js?v=mupht1t9';
+import { BIOMES } from '../gen/biomes.js?v=mupht1t9';
+import { COMMANDS } from './commands.js?v=mupht1t9';
 
 const esc = s => String(s).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
 
@@ -74,8 +74,11 @@ export function guideSections(icons) {
       <h4>How it works</h4>
       <p>The host's world is the real one: it is saved on the host's computer along with every guest's inventory and position, so guests can leave and come back later. Everyone sees the same mobs, animals, dropped items and XP; monsters chase whichever player is nearest. Block changes, chests and furnaces, chat, day/night and weather are shared too. Name tags show through walls at any distance, except for sneaking players.</p>
       <p>PvP is on: swords, axes, arrows and explosions hurt other players, with armour, shields and knockback working as usual.</p>
-      <p>If joining fails from a different network, the network may block direct connections; see MULTIPLAYER.md in the project for the free fix.</p>
-      <p>Imported Java worlds work in multiplayer too: guests receive the imported terrain from the host as they explore.</p>
+      <p>If joining still fails, press <b>Test Connection</b> on both computers; if a network blocks every server, try another network or a phone hotspot.</p>
+      <p>It works on any network and any device with a modern browser (Chromebooks included). When two networks can't connect directly, as on many school and office networks, the game goes through a relay server automatically. Relayed play is a little slower but never loses anything.</p>
+      <p><b>Dropped connection?</b> Guests reconnect on their own for about two minutes and land back in the world with their items and position.</p>
+      <p><b>Test Connection</b> on the Multiplayer screen checks the network you're on and tells you whether multiplayer will work there, and how.</p>
+            <p>Imported Java worlds work in multiplayer too: guests receive the imported terrain from the host as they explore.</p>
       <h4>Moving worlds</h4>
       <p>In <b>Singleplayer</b>, select a world and press <b>Download</b> to save it as a <b>.bhworld</b> file; <b>Upload</b> adds such a file as a new world, on this or any other computer. Worlds from older versions keep all their builds, items and progress, and pick up new structures, with their loot and mobs, across the world; your own changes always win.</p>`,
     'Java worlds & packs': `

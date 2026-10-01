@@ -9,10 +9,10 @@
 // own hands, or their own water/fire/sand simulation) broadcasts it once; everyone else mirrors it
 // silently, so nothing is applied twice. The host keeps the authoritative save, including each
 // guest's inventory and position, and owns the clock and the weather.
-import { RemotePlayer } from './remote.js?v=muoxc0st';
-import { getChunk } from '../game/storage.js?v=muoxc0st';
-import { EntitySync } from './share.js?v=muoxc0st';
-import { hostRoom, joinRoom } from './transport.js?v=muoxc0st';
+import { RemotePlayer } from './remote.js?v=mupht1t9';
+import { getChunk } from '../game/storage.js?v=mupht1t9';
+import { EntitySync } from './share.js?v=mupht1t9';
+import { hostRoom, joinRoom, diagnose } from './transport.js?v=mupht1t9';
 
 export const MAX_PLAYERS = 5;
 const PREFIX = 'blockhaven-v1-';
@@ -23,6 +23,8 @@ const PART = 12000;
 // half-received at once, and how long a half-received message may sit idle.
 const MAX_PARTS = 512, HOST_PARTS = 8192, MAX_PENDING = 8, PART_TTL = 30000;
 const STATE_HZ = 20;
+// A link that has been silent this long is dead (keep-alives go out every 2 s, even from background tabs).
+const LINK_TIMEOUT = 20000;
 // Guest messages the host passes on to every other guest.
 const RELAY = new Set(['st', 'ed', 'be', 'chat', 'death', 'fx', 'ent', 'pop']);
 // Only the host may send these; a guest's copy is dropped rather than obeyed or passed on.
@@ -66,7 +68,7 @@ function loadLib() {
   if (!libPromise) {
     libPromise = new Promise((resolve, reject) => {
       const s = document.createElement('script');
-      s.src = new URL('../../vendor/peerjs.min.js?v=muoxc0st', import.meta.url).href;
+      s.src = new URL('../../vendor/peerjs.min.js?v=mupht1t9', import.meta.url).href;
       s.onload = () => resolve();
       s.onerror = () => { libPromise = null; reject(new Error('Could not load the multiplayer library. Check your connection.')); };
       document.head.appendChild(s);
@@ -74,6 +76,9 @@ function loadLib() {
   }
   return libPromise;
 }
+// Free hosting puts an idle relay to sleep; a request wakes it while the player is still choosing.
+export function wakeRelays() { for (const u of netConfig().wake || []) fetch(u, { mode: 'no-cors', cache: 'no-store' }).catch(() => {}); }
+export const diagnoseNetwork = onResult => diagnose(netConfig(), onResult);
 function netConfig() {
   let o = null;
   try { o = JSON.parse(localStorage.getItem('blockhaven.net')); } catch { /* none */ }
@@ -160,7 +165,14 @@ export class Net {
     this.share = new EntitySync(this);
     // Keep-alive on a timer, not the frame loop: a browser pauses the game while its tab is in
     // the background, and the others must not mistake that for a lost connection.
-    this.kaTimer = setInterval(() => { if (this.closed) return; if (this.isHost) this.broadcast({ t: 'ka' }); else if (this.hostLink) this.hostLink.send({ t: 'ka' }); }, 2000);
+    // The ticks come from a tiny worker: timers on the page itself are throttled to once a minute
+    // in background tabs, which would make a minimised player look disconnected.
+    const ka = () => { if (this.closed) return; if (this.isHost) this.broadcast({ t: 'ka' }); else if (this.hostLink) this.hostLink.send({ t: 'ka' }); };
+    try {
+      const url = URL.createObjectURL(new Blob(['setInterval(() => postMessage(0), 2000);'], { type: 'text/javascript' }));
+      this.kaWorker = new Worker(url); URL.revokeObjectURL(url);
+      this.kaWorker.onmessage = ka;
+    } catch { this.kaTimer = setInterval(ka, 2000); }
   }
   get game() { return this.app.game; }
   get isHost() { return this.role === 'host'; }
@@ -216,6 +228,9 @@ export class Net {
       if (!this.game) { bail('The host is not in a world right now.'); return; }
       if (this.count >= MAX_PLAYERS) { bail(`This world is full (${MAX_PLAYERS} players max).`); return; }
       if (!name) { bail('Pick a name first.'); return; }
+      // A guest coming back before their old connection timed out replaces it.
+      const stale = [...this.players.values()].find(p => p.name.toLowerCase() === name.toLowerCase());
+      if (stale && stale.key === key) this.removePlayer(stale.id, 'reconnected');
       if (name.toLowerCase() === this.name.toLowerCase() || [...this.players.values()].some(p => p.name.toLowerCase() === name.toLowerCase())) { bail(`Someone called ${name} is already playing. Pick another name.`); return; }
       // Saved progress belongs to the browser that first played under this name here.
       const g = this.game, e = savedEntry((g.meta.players || {})[name]);
@@ -330,7 +345,7 @@ export class Net {
   onHostLost() {
     if (this.closed) return;
     this.closed = true;
-    this.app.onDisconnected('Connection to the host was lost.');
+    this.app.onDisconnected('Connection to the host was lost.', { retry: true });
   }
 
   // ---------------- messaging ----------------
@@ -426,11 +441,11 @@ export class Net {
       if (this.envT >= 1) { this.envT = 0; this.broadcast({ t: 'env', time: g.dayTime, day: g.day, w: g.weather, pvp: g.rules.pvp !== false }); }
       // Drop guests whose connection silently died.
       const now = performance.now();
-      for (const p of [...this.players.values()]) if (p.link && now - p.link.seen > 70000) this.removePlayer(p.id, 'timed out');
+      for (const p of [...this.players.values()]) if (p.link && now - p.link.seen > LINK_TIMEOUT) this.removePlayer(p.id, 'timed out');
     } else {
       this.pdataT += dt;
       if (this.pdataT >= 10) { this.pdataT = 0; this.sendPlayerData(); }
-      if (this.hostLink && performance.now() - this.hostLink.seen > 70000) this.onHostLost();
+      if (this.hostLink && performance.now() - this.hostLink.seen > LINK_TIMEOUT) this.onHostLost();
     }
   }
   sendState() {
@@ -535,6 +550,7 @@ export class Net {
       else { this.share.handoverAll(); this.sendPlayerData(); }
     } catch { /* ignore */ }
     clearInterval(this.kaTimer);
+    if (this.kaWorker) { this.kaWorker.terminate(); this.kaWorker = null; }
     setTimeout(() => {
       for (const p of this.players.values()) if (p.link) p.link.close();
       if (this.hostLink) this.hostLink.close();
