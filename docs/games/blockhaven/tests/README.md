@@ -6,3 +6,7 @@ Run the same checks as CI (`.github/workflows/blockhaven.yml`) from the repo roo
     node --test 'docs/games/blockhaven/tests/*.test.mjs'               # unit tests (node:test, no dependencies)
 
 Before pushing any change to `js/` or `index.html`, run `node docs/games/blockhaven/tools/stamp.mjs` (no flag). It restamps every import so players never mix cached and fresh modules. Commit the result.
+
+The same command synchronizes CSP hashes in `index.html`, `calc.html`, and Vercel response headers.
+Run it after changing either page's inline scripts too. CI's `--check` rejects stale policies.
+See `SECURITY.md` for the protections, compatibility allowances, and compromised-device limits.

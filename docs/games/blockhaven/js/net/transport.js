@@ -344,7 +344,7 @@ export async function diagnose(cfg, onResult = () => {}) {
   }
   if (cfg.peer && cfg.peer.host) {
     const url = `${cfg.peer.secure === false ? 'http' : 'https'}://${cfg.peer.host}${cfg.peer.port && cfg.peer.port !== 443 ? ':' + cfg.peer.port : ''}${cfg.peer.path || '/'}peerjs/id`;
-    jobs.push(fetch(url, { cache: 'no-store' }).then(r => add({ name: `Room server ${cfg.peer.host}`, ok: r.ok, detail: r.ok ? 'reachable' : `error ${r.status}` }), () => add({ name: `Room server ${cfg.peer.host}`, ok: false, detail: 'blocked or down' })));
+    jobs.push(fetch(url, { cache: 'no-store', credentials: 'omit', referrerPolicy: 'no-referrer' }).then(r => add({ name: `Room server ${cfg.peer.host}`, ok: r.ok, detail: r.ok ? 'reachable' : `error ${r.status}` }), () => add({ name: `Room server ${cfg.peer.host}`, ok: false, detail: 'blocked or down' })));
   }
   if (window.RTCPeerConnection) {
     jobs.push((async () => {

@@ -15,7 +15,7 @@ const edit = (rel, fn) => { const p = join(dir, rel); writeFileSync(p, fn(readFi
 
 before(() => {
   dir = mkdtempSync(join(tmpdir(), 'blockhaven-stamp-'));
-  for (const f of ['index.html', 'js', 'tools']) cpSync(join(game, f), join(dir, f), { recursive: true });
+  for (const f of ['index.html', 'calc.html', 'vercel.json', 'js', 'tools']) cpSync(join(game, f), join(dir, f), { recursive: true });
   const r = run();
   assert.equal(r.status, 0, r.stderr);
 });

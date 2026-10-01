@@ -9,6 +9,7 @@
 import { readFileSync, writeFileSync, readdirSync, statSync } from 'node:fs';
 import { join, dirname, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { syncSecurity } from './security.mjs';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const v = Date.now().toString(36);
@@ -31,7 +32,7 @@ function moduleCount() {
   return seen.size;
 }
 
-if (process.argv.includes('--check')) process.exit(check());
+if (process.argv.includes('--check')) process.exit(Math.max(check(), syncSecurity(root, true)));
 
 const stamp = s => s
   .replace(/(from\s+|import\s*\(\s*|import\s+)(['"])(\.\.?\/[^'"?]+\.js)(\?v=[^'"]*)?\2/g, (m, a, q, path) => `${a}${q}${path}?v=${v}${q}`)
@@ -43,6 +44,7 @@ writeFileSync(html, readFileSync(html, 'utf8')
   .replace(/src="net-config\.js(\?v=[^"]*)?"/, `src="net-config.js?v=${v}"`)
   .replace(/data-modules="\d*"/, `data-modules="${moduleCount()}"`));
 console.log(`stamped ${n} modules + index.html with v=${v}`);
+syncSecurity(root);
 
 // Read-only: every reference the write mode would stamp must carry ?v=, and all with one version.
 function check() {

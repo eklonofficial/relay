@@ -1,8 +1,8 @@
-import { CHUNK, TEX, DIM } from '../data/blocks.js?v=mupqsf2h';
-import { meshSingleBlock, STRIDE } from '../mesh/mesher.js?v=mupqsf2h';
-import * as S from './shaders.js?v=mupqsf2h';
-import { uploadArray, updateLayer } from './atlas.js?v=mupqsf2h';
-import { mat4, perspective, multiply, invert, viewMatrix, frustumPlanes, boxVisible } from '../core/math.js?v=mupqsf2h';
+import { CHUNK, TEX, DIM } from '../data/blocks.js?v=muq2vskd';
+import { meshSingleBlock, STRIDE } from '../mesh/mesher.js?v=muq2vskd';
+import * as S from './shaders.js?v=muq2vskd';
+import { uploadArray, updateLayer } from './atlas.js?v=muq2vskd';
+import { mat4, perspective, multiply, invert, viewMatrix, frustumPlanes, boxVisible } from '../core/math.js?v=muq2vskd';
 
 // Graphics presets: 0 Disabled, 1 Regular, 2 High, 3 PC.
 export const QUALITY = [
