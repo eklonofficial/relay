@@ -1,10 +1,11 @@
 // Non-living entities: dropped items, XP orbs, projectiles, falling blocks, primed TNT, lightning.
-import { Entity, M } from './entity.js?v=mupl457j';
-import { itemMesh, emitItemMesh } from './itemmesh.js?v=mupl457j';
-import { I } from '../data/items.js?v=mupl457j';
-import { B, BLOCKS, SOLID, OPAQUE } from '../data/blocks.js?v=mupl457j';
-import { compose, translation, rotationX, rotationY, rotationZ, scaling } from '../core/math.js?v=mupl457j';
-import { maxStack } from '../data/items.js?v=mupl457j';
+import { Entity, M } from './entity.js?v=mupn7rzu';
+import { itemMesh, emitItemMesh } from './itemmesh.js?v=mupn7rzu';
+import { I } from '../data/items.js?v=mupn7rzu';
+import { B, BLOCKS, SOLID, OPAQUE } from '../data/blocks.js?v=mupn7rzu';
+import { compose, translation, rotationX, rotationY, rotationZ, scaling } from '../core/math.js?v=mupn7rzu';
+import { maxStack } from '../data/items.js?v=mupn7rzu';
+import { AreaCloud } from './cloud.js?v=mupn7rzu';
 
 // Billboarded sprite quad facing the camera.
 export function billboard(batch, ctx, x, y, z, size, layer, color, uv = [0, 0, 1, 1]) {
@@ -153,9 +154,11 @@ export class Projectile extends Entity {
     const dir = this.vel.map(v => v / (speed || 1));
     // Entity hits along the path.
     let hitE = null, hitT = Infinity;
-    for (const e of g.entities.near(this.pos, dist + 3, o => o.isLiving && !o.dead && o !== this.shooter && !o.projectileImmune)) {
-      const t = w.rayBox(this.pos, dir, [e.pos[0] - e.hw - 0.15, e.pos[1] - 0.1, e.pos[2] - e.hw - 0.15, e.pos[0] + e.hw + 0.15, e.pos[1] + e.h + 0.1, e.pos[2] + e.hw + 0.15]);
-      if (t && t.t <= dist && t.t < hitT) { hitE = e; hitT = t.t; }
+    for (const e of g.entities.near(this.pos, dist + 9, o => o.isLiving && !o.dead && o !== this.shooter && !o.projectileImmune)) {
+      for (const b of [[e.pos[0] - e.hw, e.pos[1], e.pos[2] - e.hw, e.pos[0] + e.hw, e.pos[1] + e.h, e.pos[2] + e.hw], ...((e.partBoxes && e.partBoxes()) || [])]) {
+        const t = w.rayBox(this.pos, dir, [b[0] - 0.15, b[1] - 0.1, b[2] - 0.15, b[3] + 0.15, b[4] + 0.1, b[5] + 0.15]);
+        if (t && t.t <= dist && t.t < hitT) { hitE = e; hitT = t.t; }
+      }
     }
     if (this.shooter !== g.playerEntity && g.alive && g.mode !== 'spectator' && g.mode !== 'creative') {
       const p = g.player;
@@ -232,10 +235,15 @@ export class Projectile extends Entity {
         if (e && e.hurt) { e.hurt(5, { kind: 'fire', attacker: this.shooter }); if (e.setFire) e.setFire(5); }
         else if (hit) { const fx = hit.x + hit.nx, fy = hit.y + hit.ny, fz = hit.z + hit.nz; if (g.world.getBlock(fx, fy, fz) === B.AIR && g.rules.mobGriefing) g.setBlock(fx, fy, fz, B.FIRE, 0); }
         break;
-      case 'dragon_fireball':
-        g.explode(hp, 1.5, { breakBlocks: false, source: this.shooter });
+      case 'dragon_fireball': {
+        // No blast: it bursts into a lingering cloud of dragon's breath that spreads from 3 to 7
+        // blocks across over 30 seconds.
+        const y = hit && hit.ny > 0 ? hit.y + 1 : Math.floor(hp[1]);
+        g.entities.add(new AreaCloud(g, hp[0], y, hp[2], { radius: 3, duration: 30, grow: 4 / 30, owner: this.shooter }));
         g.particles.fx('portal', hp, 40, 2);
+        g.sound.play('fireball', hp, 0.8);
         break;
+      }
       case 'firework':
         // A rocket without firework stars just bursts: sparks and a bang, no damage.
         g.particles.fx('spark', hp, 30, 0.6, 3); g.sound.play('firework_blast', hp, 0.8);

@@ -1,28 +1,28 @@
 // The running game: world + dimensions, player survival state, entities, simulation, weather and saving.
-import { B, BLOCKS, SOLID, OPAQUE, DIM, DIM_NAMES, HEIGHT, SEA, props, st, SHAPE_OF, SHAPE } from '../data/blocks.js?v=mupl457j';
-import { importedVoidAt, emptyChunk } from './javaworld.js?v=mupl457j';
-import { I, maxStack } from '../data/items.js?v=mupl457j';
-import { SMELTING } from '../data/recipes.js?v=mupl457j';
-import { MOBS } from '../data/mobs.js?v=mupl457j';
-import { BIOMES, COLD } from '../gen/biomes.js?v=mupl457j';
-import { World, UNLOADED, posKey } from '../world/world.js?v=mupl457j';
-import { Player } from './player.js?v=mupl457j';
-import { PlayerInventory, Container } from './inventory.js?v=mupl457j';
-import { EntityManager } from '../entity/entity.js?v=mupl457j';
-import { ItemEntity, XpOrb, FallingBlock, PrimedTnt, Lightning, Projectile } from '../entity/objects.js?v=mupl457j';
-import { Mob, RIDEABLE } from '../entity/mob.js?v=mupl457j';
-import { Particles } from './particles.js?v=mupl457j';
-import { Sim } from './sim.js?v=mupl457j';
-import { Redstone } from './redstone.js?v=mupl457j';
-import { blockDrops } from './drops.js?v=mupl457j';
-import { computeEnv } from './env.js?v=mupl457j';
-import { fuelOf } from './ui.js?v=mupl457j';
-import { unlockLevel } from './trades.js?v=mupl457j';
-import { forward } from '../core/math.js?v=mupl457j';
-import { EndCrystal } from '../entity/crystal.js?v=mupl457j';
-import { migrateWorld } from './migrate.js?v=mupl457j';
-import { ARMOR_BYPASS, armorReduce, applyInvul, isAxe, shieldFaces, applyKnockback, knockbackResist } from './combat.js?v=mupl457j';
-import { deathText } from '../net/net.js?v=mupl457j';
+import { B, BLOCKS, SOLID, OPAQUE, DIM, DIM_NAMES, HEIGHT, SEA, props, st, SHAPE_OF, SHAPE } from '../data/blocks.js?v=mupn7rzu';
+import { importedVoidAt, emptyChunk } from './javaworld.js?v=mupn7rzu';
+import { I, maxStack } from '../data/items.js?v=mupn7rzu';
+import { SMELTING } from '../data/recipes.js?v=mupn7rzu';
+import { MOBS } from '../data/mobs.js?v=mupn7rzu';
+import { BIOMES, COLD } from '../gen/biomes.js?v=mupn7rzu';
+import { World, UNLOADED, posKey } from '../world/world.js?v=mupn7rzu';
+import { Player } from './player.js?v=mupn7rzu';
+import { PlayerInventory, Container } from './inventory.js?v=mupn7rzu';
+import { EntityManager } from '../entity/entity.js?v=mupn7rzu';
+import { ItemEntity, XpOrb, FallingBlock, PrimedTnt, Lightning, Projectile } from '../entity/objects.js?v=mupn7rzu';
+import { Mob, RIDEABLE } from '../entity/mob.js?v=mupn7rzu';
+import { Particles } from './particles.js?v=mupn7rzu';
+import { Sim } from './sim.js?v=mupn7rzu';
+import { Redstone } from './redstone.js?v=mupn7rzu';
+import { blockDrops } from './drops.js?v=mupn7rzu';
+import { computeEnv } from './env.js?v=mupn7rzu';
+import { fuelOf } from './ui.js?v=mupn7rzu';
+import { unlockLevel } from './trades.js?v=mupn7rzu';
+import { forward } from '../core/math.js?v=mupn7rzu';
+import { EndCrystal } from '../entity/crystal.js?v=mupn7rzu';
+import { migrateWorld } from './migrate.js?v=mupn7rzu';
+import { ARMOR_BYPASS, armorReduce, applyInvul, isAxe, shieldFaces, applyKnockback, knockbackResist } from './combat.js?v=mupn7rzu';
+import { deathText } from '../net/net.js?v=mupn7rzu';
 
 export const DAY = 1200; // seconds per day
 const rnd = (a, b) => a + Math.random() * (b - a);
@@ -1008,12 +1008,15 @@ export class Game {
     }
     return false;
   }
+  // Called when the death sequence ends (dragon.js has already shed the experience). The exit
+  // portal opens every time; the egg only comes with the first kill.
   onDragonDeath(d) {
+    const first = !this.dragonKilled;
     this.dragonKilled = true;
     this.sound.play('dragon_death', null, 1.5);
-    this.spawnXp([0, 80, 0], 12000);
     const w = this.world;
-    const top = Math.max(60, w.heightAt(0, 0));
+    // Ground level just outside the podium (the pillar and egg from an earlier kill don't count).
+    const top = Math.max(60, ...[[5, 0], [-5, 0], [0, 5], [0, -5]].map(([x, z]) => w.heightAt(x, z)));
     for (let dx = -3; dx <= 3; dx++) for (let dz = -3; dz <= 3; dz++) {
       const r = Math.hypot(dx, dz);
       if (r > 3.5) continue;
@@ -1021,8 +1024,10 @@ export class Game {
       w.setBlock(dx, top - 1, dz, B.BEDROCK, 0);
     }
     for (let y = top; y < top + 4; y++) w.setBlock(0, y, 0, B.BEDROCK, 0);
-    w.setBlock(0, top + 4, 0, B.DRAGON_EGG, 0);
-    this.advance('free_end', 'Free the End', 'Good luck', 'dragon_egg');
+    if (first) {
+      w.setBlock(0, top + 4, 0, B.DRAGON_EGG, 0);
+      this.advance('free_end', 'Free the End', 'Good luck', 'dragon_egg');
+    }
     this.chat('The Ender Dragon has been slain! An exit portal opened at the centre of the island.', '#e070ff');
   }
   onKill(mob) {

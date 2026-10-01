@@ -1,7 +1,8 @@
 // End crystals: heal the dragon, explode when hit.
-import { Entity } from './entity.js?v=mupl457j';
-import { B } from '../data/blocks.js?v=mupl457j';
-import { compose, translation, rotationX, rotationY, scaling } from '../core/math.js?v=mupl457j';
+import { Entity } from './entity.js?v=mupn7rzu';
+import { B } from '../data/blocks.js?v=mupn7rzu';
+import { dragonCrystalLost } from './dragon.js?v=mupn7rzu';
+import { compose, translation, rotationX, rotationY, scaling } from '../core/math.js?v=mupn7rzu';
 
 export class EndCrystal extends Entity {
   constructor(game, x, y, z) {
@@ -11,8 +12,12 @@ export class EndCrystal extends Entity {
   }
   hurt(amount, src) {
     if (this.dead) return false;
+    if (src.attacker && src.attacker.mobType === 'ender_dragon') return false;
     this.dead = true;
+    // The blast counts as the attacker's, so a player who pops a crystal can hurt the dragon with it.
+    this.shooter = src.attacker || null;
     this.game.explode([this.pos[0], this.pos[1] + 1, this.pos[2]], 6, { source: this });
+    dragonCrystalLost(this.game, this, src.attacker || null);
     return true;
   }
   update() {}
