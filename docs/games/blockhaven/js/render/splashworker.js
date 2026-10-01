@@ -1,6 +1,6 @@
 // Runs the startup splash on its own thread (see js/splash.js), drawing into a canvas handed over
 // with transferControlToOffscreen, so it keeps animating while the page builds the game.
-import { SplashArt } from './splashart.js?v=muovqjts';
+import { SplashArt } from './splashart.js?v=muowej42';
 
 let art = null, ctx = null, canvas = null, last = 0;
 const raf = self.requestAnimationFrame ? f => self.requestAnimationFrame(f) : f => setTimeout(() => f(performance.now()), 16);
