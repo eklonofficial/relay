@@ -4,9 +4,10 @@ import {
   CHUNK, HEIGHT, PAD, PS, B, SHAPE, VF, TINT, TEX,
   OPAQUE, SOLID, SHAPE_OF, TRANSLUCENT, EMIT, ATTEN, VFLAGS, CULL_SAME, TINT_OF, WATERLOGGED, VARIANT_MASK,
   FACING_SHIFT, AXIS_SHIFT, FACE_TEX, CROP_STAGES, CROP_TEX,
-} from '../data/blocks.js?v=murm7eyf';
-import { BIOME_COLORS } from '../gen/biomes.js?v=murm7eyf';
-import { up6, rotY, attach, FACE_OF_DIR6, OPP6, DIR2D_OF_6 } from '../data/orient.js?v=murm7eyf';
+} from '../data/blocks.js?v=mur7zxvm';
+import { BIOME_COLORS } from '../gen/biomes.js?v=mur7zxvm';
+import { up6, rotY, attach, FACE_OF_DIR6, OPP6, DIR2D_OF_6 } from '../data/orient.js?v=mur7zxvm';
+import { MODELS } from '../data/models.js?v=mur7zxvm';
 
 export const H2 = HEIGHT + 2;
 export const VOLUME_SIZE = PS * PS * H2;
@@ -261,7 +262,63 @@ function tbox(buf, ci, ox, oy, oz, xf, b, layers, flags, o = null) {
     emit(buf, layer, face, flags);
   }
 }
+// A model in Java's element format (data/models.js), placed by xf (as for tbox; null leaves it as
+// built). tex maps the model's texture names to layers (a missing name skips those faces); flagOf
+// optionally gives some textures their own vertex flags. Unshaded elements (Java's "shade": false)
+// take the plane normal, as cross plants do.
+const MQ = new Float64Array(12);
+function model(buf, ci, ox, oy, oz, xf, els, tex, flags, flagOf = null) {
+  const own = cellLight(ci);
+  for (const e of els) {
+    const r = e.rot;
+    for (const fc of e.faces) {
+      const layer = tex[fc.tex];
+      if (layer === undefined || layer < 0) continue;
+      const f = fc.f, cs = FACE_CORNERS[f], [u0, v0, u1, v1] = fc.uv;
+      for (let k = 0; k < 4; k++) {
+        const c = cs[k];
+        // Java maps the UV rectangle over the face as if it spanned the whole block side, then
+        // turns it by the face's rotation.
+        const full = UVF[f](c[0] * 16, c[1] * 16, c[2] * 16);
+        let s = full[0] / 16, t = full[1] / 16;
+        for (let q = 0; q < fc.rot; q++) { const w = s; s = t; t = 1 - w; }
+        QU[k] = Math.max(0, Math.min(31, Math.round(u0 + (u1 - u0) * s))); QV[k] = Math.max(0, Math.min(31, Math.round(v0 + (v1 - v0) * t)));
+        let px = c[0] ? e.to[0] : e.from[0], py = c[1] ? e.to[1] : e.from[1], pz = c[2] ? e.to[2] : e.from[2];
+        if (r) {
+          const o = r.o, dx = px - o[0], dy = py - o[1], dz = pz - o[2];
+          let x = dx, y = dy, z = dz;
+          if (r.axis === 0) { y = dy * r.c - dz * r.s; z = dy * r.s + dz * r.c; }
+          else if (r.axis === 1) { x = dx * r.c + dz * r.s; z = -dx * r.s + dz * r.c; }
+          else { x = dx * r.c - dy * r.s; y = dx * r.s + dy * r.c; }
+          px = o[0] + x * r.scale[0]; py = o[1] + y * r.scale[1]; pz = o[2] + z * r.scale[2];
+        }
+        if (xf) { xf(px, py, pz, TP); px = TP[0]; py = TP[1]; pz = TP[2]; }
+        MQ[k * 3] = px; MQ[k * 3 + 1] = py; MQ[k * 3 + 2] = pz;
+      }
+      // Where the face points after turning, from its winding (counter-clockwise from outside).
+      const ax = MQ[3] - MQ[0], ay = MQ[4] - MQ[1], az = MQ[5] - MQ[2], bx = MQ[9] - MQ[0], by = MQ[10] - MQ[1], bz = MQ[11] - MQ[2];
+      const nx = ay * bz - az * by, ny = az * bx - ax * bz, nz = ax * by - ay * bx;
+      const anx = Math.abs(nx), any = Math.abs(ny), anz = Math.abs(nz);
+      const face = anx >= any && anx >= anz ? (nx > 0 ? 0 : 1) : any >= anz ? (ny > 0 ? 2 : 3) : (nz > 0 ? 4 : 5);
+      const axis = face >> 1, edge = face & 1 ? 0 : 16;
+      let L = own;
+      if (MQ[axis] === edge && MQ[3 + axis] === edge && MQ[6 + axis] === edge && MQ[9 + axis] === edge) {
+        const n = ci + FO[face];
+        if (fc.cull && OPAQUE[vol[n]]) continue;
+        const nl = cellLight(n);
+        L = (Math.max(nl >> 4, own >> 4) << 4) | Math.max(nl & 15, own & 15);
+      }
+      for (let k = 0; k < 4; k++) { QX[k] = ox + MQ[k * 3]; QY[k] = oy + MQ[k * 3 + 1]; QZ[k] = oz + MQ[k * 3 + 2]; QA[k] = 3; QL[k] = L; QB[k] = 0; }
+      emit(buf, layer, e.shade ? face : 6, flagOf && flagOf[fc.tex] !== undefined ? flagOf[fc.tex] : flags);
+    }
+  }
+}
 let XA = 0, XB = 0;
+const TXM = {}; // texture names -> layers for the model being placed
+const BAMBOO = [MODELS.bamboo1, MODELS.bamboo2, MODELS.bamboo3, MODELS.bamboo4];
+const FIRE_FLAGS = { fire: VF.EMISSIVE }, EYE_FLAGS = { eye: VF.EMISSIVE };
+// One part of a pane or iron bars multipart, turned by `turns` quarter turns (Java's y rotation).
+function panepart(buf, i, ox, oy, oz, name, turns, flags) { XA = turns; model(buf, i, ox, oy, oz, XF_ROTY, MODELS[name], TXM, flags); }
 const XF_UP6 = (x, y, z, o) => up6(XA, x, y, z, o);
 const XF_ROTY = (x, y, z, o) => rotY(XA, x, y, z, o);
 const XF_ATTACH = (x, y, z, o) => attach(XA, XB, x, y, z, o);
@@ -523,6 +580,14 @@ function special(bufO, bufT, i, id, m, shape, ox, oy, oz, x, y, z) {
     case SHAPE.CROP: {
       const v = m & 7, age = (m >> 3) & 7;
       const layer = CROP_TEX[v] + Math.min(age, CROP_STAGES[v] - 1);
+      if (v === 4 || v === 5) {
+        // Pumpkin and melon stems: Java's stem_growth models, a diagonal cross (age + 1) * 2 px
+        // tall, tinted from green to yellow as they grow (BlockColors' stem colour).
+        TR = age * 32; TG = 255 - age * 8; TB = age * 4;
+        TXM.stem = layer;
+        model(buf, i, ox, oy, oz, null, MODELS[`stem${age}`], TXM, VF.PLANT);
+        break;
+      }
       for (const p of [4, 12]) {
         plane(buf, i, ox, oy - 1, oz, p, 0, p, 16, 0, 16, layer, VF.PLANT, own);
         plane(buf, i, ox, oy - 1, oz, 0, p, 16, p, 0, 16, layer, VF.PLANT, own);
@@ -530,11 +595,12 @@ function special(bufO, bufT, i, id, m, shape, ox, oy, oz, x, y, z) {
       break;
     }
     case SHAPE.TORCH: {
+      // Java's torch: its whole texture on two crossed slabs 2 px thick, so the stick shows from
+      // every side; a wall torch leans 22.5 degrees off its wall (models torch, wall_torch).
       const attach = (m >> 1) & 7;
-      const L = six(id, m);
-      L6[3] = -1; L6[2] = texOf(id, m, 2);
-      if (!attach) box(buf, i, ox, oy, oz, 7, 0, 7, 9, 10, 9, L, flags, { cull: false });
-      else rbox(buf, i, ox, oy, oz, attach - 1, 7, 3, 13, 9, 13, 15, L, flags, { cull: false, shear: [0, -4], dv: 3 });
+      TXM.torch = texOf(id, m, 0);
+      if (!attach) model(buf, i, ox, oy, oz, null, MODELS.torch, TXM, flags);
+      else { XA = (attach + 2) & 3; model(buf, i, ox, oy, oz, XF_ROTY, MODELS.wall_torch, TXM, flags); }
       break;
     }
     case SHAPE.SLAB: {
@@ -562,27 +628,50 @@ function special(bufO, bufT, i, id, m, shape, ox, oy, oz, x, y, z) {
       break;
     }
     case SHAPE.PANE: {
-      const layer = texOf(id, m, 0);
-      const con = [0, 1, 2, 3].map(d => connects(vol[i + FO[FACING_FACE[d]]], SHAPE.PANE));
-      const any = con.some(Boolean);
-      box(buf, i, ox, oy, oz, 7, 0, 7, 9, 16, 9, sixOf(layer), flags);
-      for (let d = 0; d < 4; d++) if (con[d] || !any) rbox(buf, i, ox, oy, oz, d, 7, 0, 9, 9, 16, 16, sixOf(layer), flags);
+      // Java's multipart glass_pane and iron_bars blockstates: an arm towards each connected side
+      // (the _alt models for south and west), and closing planes or caps where there are none.
+      const layer = texOf(id, m, 0), bars = id === B.IRON_BARS;
+      TXM.pane = TXM.bars = layer; TXM.edge = bars ? layer : TEX.glass_pane_top;
+      let mask = 0; // bits by facing: south, west, north, east
+      for (let d = 0; d < 4; d++) if (connects(vol[i + FO[FACING_FACE[d]]], SHAPE.PANE)) mask |= 1 << d;
+      const s_ = mask & 1, w_ = mask & 2, n_ = mask & 4, e_ = mask & 8;
+      if (bars) {
+        panepart(buf, i, ox, oy, oz, 'bars_post_ends', 0, flags);
+        if (!mask) panepart(buf, i, ox, oy, oz, 'bars_post', 0, flags);
+        else if (mask === 4) panepart(buf, i, ox, oy, oz, 'bars_cap', 0, flags);
+        else if (mask === 8) panepart(buf, i, ox, oy, oz, 'bars_cap', 1, flags);
+        else if (mask === 1) panepart(buf, i, ox, oy, oz, 'bars_cap_alt', 0, flags);
+        else if (mask === 2) panepart(buf, i, ox, oy, oz, 'bars_cap_alt', 1, flags);
+        if (n_) panepart(buf, i, ox, oy, oz, 'bars_side', 0, flags);
+        if (e_) panepart(buf, i, ox, oy, oz, 'bars_side', 1, flags);
+        if (s_) panepart(buf, i, ox, oy, oz, 'bars_side_alt', 0, flags);
+        if (w_) panepart(buf, i, ox, oy, oz, 'bars_side_alt', 1, flags);
+      } else {
+        panepart(buf, i, ox, oy, oz, 'pane_post', 0, flags);
+        panepart(buf, i, ox, oy, oz, n_ ? 'pane_side' : 'pane_noside', 0, flags);
+        panepart(buf, i, ox, oy, oz, e_ ? 'pane_side' : 'pane_noside_alt', e_ ? 1 : 0, flags);
+        panepart(buf, i, ox, oy, oz, s_ ? 'pane_side_alt' : 'pane_noside_alt', s_ ? 0 : 1, flags);
+        panepart(buf, i, ox, oy, oz, w_ ? 'pane_side_alt' : 'pane_noside', w_ ? 1 : 3, flags);
+      }
       break;
     }
     case SHAPE.DOOR: {
+      // Java's left-hinged door models, turned like its blockstate (an open door has its own model).
       const facing = (m >> 3) & 3, open = (m >> 5) & 1, upper = (m >> 6) & 1;
-      const layer = texOf(id, m, upper ? 2 : 0);
-      rbox(buf, i, ox, oy, oz, (facing + open) & 3, 0, 0, 0, 16, 16, 3, sixOf(layer), flags, { cull: false });
+      TXM.bottom = TXM.top = texOf(id, m, upper ? 2 : 0);
+      XA = (facing + 1 + open) & 3;
+      model(buf, i, ox, oy, oz, XF_ROTY, MODELS[(upper ? 'door_top' : 'door_bottom') + (open ? '_open' : '')], TXM, flags);
       break;
     }
     case SHAPE.TRAPDOOR: {
       const facing = (m >> 3) & 3, open = (m >> 5) & 1, top = (m >> 6) & 1;
-      const L = sixOf(texOf(id, m, 0));
-      if (open) rbox(buf, i, ox, oy, oz, facing, 0, 0, 13, 16, 16, 16, L, flags, { cull: false, uvFull: true });
-      else box(buf, i, ox, oy, oz, 0, top ? 13 : 0, 0, 16, top ? 16 : 3, 16, L, flags, { cull: false });
+      TXM.texture = texOf(id, m, 0);
+      XA = facing;
+      model(buf, i, ox, oy, oz, XF_ROTY, MODELS[open ? 'trapdoor_open' : top ? 'trapdoor_top' : 'trapdoor_bottom'], TXM, flags);
       break;
     }
     case SHAPE.LADDER: case SHAPE.VINE: {
+      if (id === B.LADDER) { TXM.texture = texOf(id, m, 0); XA = m & 3; model(buf, i, ox, oy, oz, XF_ROTY, MODELS.ladder, TXM, flags); break; }
       const facing = m & 3;
       setTint(id);
       const L = sixOf(texOf(id, m, 0));
@@ -601,7 +690,8 @@ function special(bufO, bufT, i, id, m, shape, ox, oy, oz, x, y, z) {
       box(buf, i, ox, oy, oz, 0, 0, 0, 16, 15, 16, six(id, m), flags, { dv: 0 });
       break;
     case SHAPE.CACTUS:
-      box(buf, i, ox, oy, oz, 1, 0, 1, 15, 16, 15, six(id, m), flags, { cull: false, uvFull: true });
+      TXM.top = texOf(id, m, 2); TXM.bottom = texOf(id, m, 3); TXM.side = texOf(id, m, 0);
+      model(buf, i, ox, oy, oz, null, MODELS.cactus, TXM, flags);
       break;
     case SHAPE.CHEST: {
       const facing = m & 3, L = six(id, m);
@@ -630,14 +720,10 @@ function special(bufO, bufT, i, id, m, shape, ox, oy, oz, x, y, z) {
       rbox(buf, i, ox, oy, oz, facing, 4, 0, 4, 12, 8, 12, L, flags);
       break;
     }
-    case SHAPE.LANTERN: {
-      const hanging = (m >> 1) & 1, dy = hanging ? 7 : 0;
-      const L = sixOf(texOf(id, m, 0));
-      box(buf, i, ox, oy + dy, oz, 5, 0, 5, 11, 7, 11, L, flags, { cull: false });
-      box(buf, i, ox, oy + dy, oz, 6, 7, 6, 10, 9, 10, L, flags, { cull: false });
-      if (hanging) plane(buf, i, ox, oy, oz, 8, 6.5, 8, 9.5, 16, 16, TEX.iron_bars, 0, own, 0, 3);
+    case SHAPE.LANTERN:
+      TXM.lantern = texOf(id, m, 0);
+      model(buf, i, ox, oy, oz, null, (m >> 1) & 1 ? MODELS.hanging_lantern : MODELS.lantern, TXM, flags);
       break;
-    }
     case SHAPE.FLAT: {
       const r = hash(chunkX * 16 + x, y, chunkZ * 16 + z) & 3;
       flat(buf, ox, oy, oz, 0, 0, 16, 16, 0.5, texOf(id, m, 2), flags, own, r, true);
@@ -658,36 +744,36 @@ function special(bufO, bufT, i, id, m, shape, ox, oy, oz, x, y, z) {
     case SHAPE.END_PORTAL:
       flat(bufO, ox, oy, oz, 0, 0, 16, 16, 12, texOf(id, m, 2), VF.END_PORTAL, own, 0, false);
       break;
-    case SHAPE.ENDFRAME: {
-      box(buf, i, ox, oy, oz, 0, 0, 0, 16, 13, 16, six(id, m), flags);
-      if ((m >> 2) & 1) box(buf, i, ox, oy, oz, 4, 13, 4, 12, 16, 12, sixOf(TEX.end_portal_frame_eye), VF.EMISSIVE, { uvFull: true });
+    case SHAPE.ENDFRAME:
+      TXM.top = texOf(id, m, 2); TXM.bottom = texOf(id, m, 3); TXM.side = texOf(id, m, 0); TXM.eye = TEX.end_portal_frame_eye;
+      XA = m & 3;
+      model(buf, i, ox, oy, oz, XF_ROTY, (m >> 2) & 1 ? MODELS.end_portal_frame_filled : MODELS.end_portal_frame, TXM, flags, EYE_FLAGS);
       break;
-    }
     case SHAPE.FIRE: {
-      const layer = texOf(id, m, 0);
-      for (const p of [1, 15]) {
-        plane(buf, i, ox, oy, oz, p, 0, p, 16, 0, 22, layer, VF.FIRE, own);
-        plane(buf, i, ox, oy, oz, 0, p, 16, p, 0, 22, layer, VF.FIRE, own);
-      }
+      // Java's fire on the ground: the four inward-leaning floor planes and a plane on each side
+      // (each side mirrored or not by position, as its blockstate picks at random), showing the
+      // animated fire texture.
+      TXM.fire = texOf(id, m, 0);
+      model(buf, i, ox, oy, oz, null, MODELS.fire_floor, TXM, VF.EMISSIVE);
+      const h = hash(chunkX * 16 + x, y, chunkZ * 16 + z);
+      for (let t = 0; t < 4; t++) { XA = t; model(buf, i, ox, oy, oz, XF_ROTY, (h >> t) & 1 ? MODELS.fire_side_alt : MODELS.fire_side, TXM, VF.EMISSIVE); }
       break;
     }
     case SHAPE.ROD: {
       const layer = texOf(id, m, 0);
-      if (id === B.BAMBOO) box(buf, i, ox, oy, oz, 6.5, 0, 6.5, 9.5, 16, 9.5, sixOf(layer), flags, { cull: false });
-      else {
-        box(buf, i, ox, oy, oz, 7, 1, 7, 9, 16, 9, sixOf(layer), flags, { cull: false });
-        box(buf, i, ox, oy, oz, 6, 0, 6, 10, 1, 10, sixOf(layer), flags, { cull: false });
-      }
+      // Bamboo: one of Java's four stalk models (each shows a different strip of the stalk
+      // texture), picked by position as its blockstate picks one at random.
+      if (id === B.BAMBOO) { TXM.all = layer; model(buf, i, ox, oy, oz, null, BAMBOO[hash(chunkX * 16 + x, y, chunkZ * 16 + z) & 3], TXM, flags); }
+      else { TXM.end_rod = layer; model(buf, i, ox, oy, oz, null, MODELS.end_rod, TXM, flags); }
       break;
     }
-    case SHAPE.CAMPFIRE: {
-      const layer = texOf(id, m, 0);
-      plane(buf, i, ox, oy, oz, 0.8, 0.8, 15.2, 15.2, 0, 16, layer, VF.EMISSIVE, own);
-      plane(buf, i, ox, oy, oz, 0.8, 15.2, 15.2, 0.8, 0, 16, layer, VF.EMISSIVE, own);
-      box(buf, i, ox, oy, oz, 1, 0, 3, 15, 3, 6, sixOf(TEX.log_oak), 0, { cull: false });
-      box(buf, i, ox, oy, oz, 1, 0, 10, 15, 3, 13, sixOf(TEX.log_oak), 0, { cull: false });
+    case SHAPE.CAMPFIRE:
+      // Java's campfire: four logs (the lit log texture on their inner sides) and two fire planes,
+      // facing north as our campfires always do.
+      TXM.log = TEX.campfire_log; TXM.lit_log = TEX.campfire_log_lit; TXM.fire = texOf(id, m, 0);
+      XA = 2;
+      model(buf, i, ox, oy, oz, XF_ROTY, MODELS.campfire, TXM, 0, FIRE_FLAGS);
       break;
-    }
     case SHAPE.DUST: {
       const pw = m & 15, mask = m >> 4, c = DUST_RGB[pw];
       TR = c[0]; TG = c[1]; TB = c[2];
@@ -791,15 +877,12 @@ function special(bufO, bufT, i, id, m, shape, ox, oy, oz, x, y, z) {
       break;
     }
     case SHAPE.ENCHANTER: box(buf, i, ox, oy, oz, 0, 0, 0, 16, 12, 16, six(id, m), flags); break;
-    case SHAPE.ANVIL: {
-      // Base, foot and waist in the body texture; the working top gets the (wear-dependent) top face.
-      const f = (m >> 2) & 3, side = texOf(id, m, 0), top = texOf(id, m, 2);
-      rbox(buf, i, ox, oy, oz, f, 2, 0, 2, 14, 4, 14, sixOf(side), flags);
-      rbox(buf, i, ox, oy, oz, f, 4, 4, 3, 12, 5, 13, sixOf(side), flags);
-      rbox(buf, i, ox, oy, oz, f, 6, 5, 4, 10, 10, 12, sixOf(side), flags);
-      rbox(buf, i, ox, oy, oz, f, 3, 10, 0, 13, 16, 16, layersOf(side, side, top, side, side, side), flags);
+    case SHAPE.ANVIL:
+      // Base, foot, waist and the working top (its face shows the wear), as Java's anvil model.
+      TXM.body = texOf(id, m, 0); TXM.top = texOf(id, m, 2);
+      XA = (m >> 2) & 3;
+      model(buf, i, ox, oy, oz, XF_ROTY, MODELS.anvil, TXM, flags);
       break;
-    }
     case SHAPE.HOPPER: {
       const out = TEX.hopper_outside, rim = TEX.hopper_top, inside = TEX.hopper_inside, d = m & 7;
       const W = layersOf(out, out, rim, out, out, out);

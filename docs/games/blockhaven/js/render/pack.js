@@ -79,8 +79,7 @@ const FIXED = {
   bed_side: '#entity/bed', bed_top_foot: '#entity/bed', bed_top_head: '#entity/bed', magma_block: 'magma', purpur_pillar: 'purpur_pillar',
   end_portal: '#entity/end_portal', fire: 'fire_0', soul_fire: 'soul_fire_0', pointed_dripstone: 'pointed_dripstone_down_tip', campfire: 'campfire_fire',
   mangrove_roots: 'mangrove_roots_side', sweet_berry_bush: 'sweet_berry_bush_stage3', lantern_hanging: 'lantern', redstone_dust_line: 'redstone_dust_line0',
-  lever_base: 'cobblestone', rs_torch_head_on: 'redstone_torch', rs_torch_head_off: 'redstone_torch_off', pumpkin_stem_stage7: 'attached_pumpkin_stem',
-  melon_stem_stage7: 'attached_melon_stem', nether_wart_stage3: 'nether_wart_stage2', grass_block_snow: 'grass_block_snow',
+  lever_base: 'cobblestone', rs_torch_head_on: 'redstone_torch', rs_torch_head_off: 'redstone_torch_off', nether_wart_stage3: 'nether_wart_stage2', grass_block_snow: 'grass_block_snow',
   water_flow_top: 'water_flow', lava_flow_top: 'lava_flow', water_overlay: 'water_still',
 };
 export function packTextureName(n) {
@@ -148,6 +147,9 @@ async function animation(zip, mc, count) {
 // side faces do; flowing tops (*_flow_top) take the whole frame.
 const QUARTER = new Set(['water_flow', 'lava_flow']);
 
+// Pack textures the game tints although our own versions are already coloured: leaves (but not
+// cherry or azalea) and pumpkin and melon stems.
+const TINTED = name => (/^leaves_/.test(name) && !/cherry|azalea/.test(name)) || /_stem_stage\d$/.test(name);
 // Replaces generated block textures (names: our TEXTURES list) with the pack's; returns the count.
 // Animated strips are recorded in anims (layer -> { frames, order }) for the renderer to play.
 export async function applyBlockTextures(zip, names, layers, anims = null) {
@@ -163,7 +165,7 @@ export async function applyBlockTextures(zip, names, layers, anims = null) {
       const count = bmp.height > fw && bmp.height % fw === 0 ? bmp.height / fw : 1;
       if (anims) anims.delete(i);
       if (count > 1 && anims && name !== 'grass_block_side') {
-        const tint = /^leaves_/.test(name) && !/cherry|azalea/.test(name), frames = [];
+        const tint = TINTED(name), frames = [];
         for (let k = 0; k < count; k++) { const f = new Uint8ClampedArray(layers[i]); overlay(f, to16(bmp, 0, k * fw, crop, crop), tint); frames.push(f); }
         anims.set(i, { frames, order: await animation(zip, mc, count) });
       }
@@ -174,7 +176,7 @@ export async function applyBlockTextures(zip, names, layers, anims = null) {
         for (let k = 3; k < 1024; k += 4) layers[i][k] = 255;
         const ob = await zip.bytes('assets/minecraft/textures/block/grass_block_side_overlay.png');
         if (ob) { const o = to16(await decodeImage(ob)); for (let k = 0; k < 1024; k += 4) if (o[k + 3] > 128) { layers[i][k] = o[k]; layers[i][k + 1] = o[k + 1]; layers[i][k + 2] = o[k + 2]; layers[i][k + 3] = 254; } }
-      } else overlay(layers[i], px, /^leaves_/.test(name) && !/cherry|azalea/.test(name));
+      } else overlay(layers[i], px, TINTED(name));
       n++;
     } catch { /* unreadable image: keep ours */ }
   }));

@@ -598,7 +598,14 @@ const G = {
   glow_lichen: p => { crossClear(p); p.speck(['#6fa38a', '#86b89e', '#9fd4b8'], 40, 2); return p.bleed(); },
   vine: p => { crossClear(p); for (let k = 0; k < 5; k++) { let x = p.rand(N); for (let y = 0; y < N; y++) { p.put(x, y, p.pick(['#8e8e8e', '#9e9e9e', '#7c7c7c'])); if (p.chance(0.3)) p.put(x + 1, y, '#a8a8a8'); if (p.chance(0.2)) x = (x + (p.chance(0.5) ? 1 : 15)) % 16; } } return p.tintMark().bleed(); },
   lily_pad: p => { crossClear(p); for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) { const dx = x - 7.5, dy = y - 7.5, d = dx * dx + dy * dy; if (d < 50 && !(dy < 0 && Math.abs(dx) < Math.abs(dy) * 0.35)) p.put(x, y, d > 40 ? '#1f6a1f' : p.pick(['#2a8a2a', '#248024', '#319a31'])); } return p.bleed(); },
-  bamboo_stalk: p => { p.fill('#5d8a2a'); for (let y = 0; y < N; y += 5) p.hline(0, y, 16, '#7fae3c'); p.vline(7, 0, 16, '#4a7a1f'); return p; },
+  // Bamboo stalk sheet like Java's: four 2-px side strips (x 0, 3, 6, 9) with their nodes at
+  // different heights, the top (13,0) and bottom (13,4) ends.
+  bamboo_stalk: p => {
+    p.clear();
+    [0, 3, 6, 9].forEach((x, k) => { p.rect(x, 0, 2, 16, '#5d8a2a'); p.vline(x + 1, 0, 16, '#4a7a1f'); for (let y = (k * 3) % 7; y < 16; y += 7) p.hline(x, y, 2, '#7fae3c'); });
+    p.rect(13, 0, 2, 2, '#a8c860'); p.rect(13, 4, 2, 2, '#a8c860');
+    return p.bleed();
+  },
   cobweb: p => { crossClear(p); for (let i = 0; i < N; i++) { p.put(i, i, '#e8e8e8'); p.put(15 - i, i, '#e8e8e8'); p.put(7, i, '#dcdcdc'); p.put(i, 7, '#dcdcdc'); } for (const r of [3, 6]) p.frame(7 - r, 7 - r, r * 2 + 2, r * 2 + 2, '#d0d0d0'); return p.bleed(); },
   amethyst_cluster: p => { crossClear(p); for (const [x, h] of [[4, 8], [7, 13], [10, 10], [12, 6]]) for (let i = 0; i < h; i++) { p.put(x, 15 - i, i > h - 3 ? '#fcd2ff' : '#b67cf0'); p.put(x + 1, 15 - i, '#8a4fcf'); } return p.bleed(); },
   pointed_dripstone: p => { crossClear(p); for (let i = 0; i < 14; i++) { const w = Math.max(1, Math.round((14 - i) / 4)); p.rect(8 - w, 15 - i, w * 2, 1, i % 3 ? '#866b5c' : '#6f5649'); } return p.bleed(); },
@@ -632,8 +639,17 @@ const G = {
   torch_top: p => { p.clear(); p.rect(7, 7, 2, 2, '#ffd24a'); return p.bleed(); },
   soul_torch: p => torchTex(p, ['#b8fbff', '#5ee9f2', '#3aa6c7']),
   soul_torch_top: p => { p.clear(); p.rect(7, 7, 2, 2, '#5ee9f2'); return p.bleed(); },
-  lantern: p => { p.clear(); p.rect(5, 9, 6, 7, '#3c3c46'); p.rect(6, 10, 4, 5, '#ffcf5a'); p.rect(7, 11, 2, 3, '#fff2b3'); p.hline(5, 12, 6, '#2e2e36'); p.rect(6, 7, 4, 2, '#4a4a55'); p.rect(5, 5, 6, 4, '#4a4a55'); p.rect(6, 6, 4, 2, '#5c5c68'); return p.bleed(); },
-  soul_lantern: p => { G.lantern(p); p.rect(6, 10, 4, 5, '#5ee9f2'); p.rect(7, 11, 2, 3, '#c9fbff'); return p; },
+  // Lantern sheet laid out like Java's: cap sides (1,0 4x2), body sides (0,2 6x7), body top and
+  // bottom (0,9 6x6, the cap top inside it), handle pieces (11,1 3x4 and 11,6 3x6).
+  lantern: p => {
+    p.clear();
+    p.rect(1, 0, 4, 2, '#4a4a55'); p.hline(1, 0, 4, '#5c5c68');
+    p.rect(0, 2, 6, 7, '#3c3c46'); p.rect(1, 3, 4, 5, '#ffcf5a'); p.rect(2, 4, 2, 3, '#fff2b3'); p.hline(0, 2, 6, '#2e2e36'); p.hline(0, 8, 6, '#2e2e36');
+    p.rect(0, 9, 6, 6, '#3c3c46'); p.rect(1, 10, 4, 4, '#4a4a55');
+    p.rect(11, 1, 3, 4, '#2e2e36'); p.rect(12, 2, 1, 2, '#000000', 0); p.rect(11, 6, 3, 6, '#2e2e36'); p.rect(12, 7, 1, 4, '#000000', 0);
+    return p.bleed();
+  },
+  soul_lantern: p => { G.lantern(p); p.rect(1, 3, 4, 5, '#5ee9f2'); p.rect(2, 4, 2, 3, '#c9fbff'); return p; },
   lantern_hanging: p => G.lantern(p),
   // Crafting table: a 3x3 grid worked into the top, a darker planks skirt and tools hung on the sides.
   crafting_table_top: p => { p.dither(['#9a7442', '#b08a52', '#ba955c', '#c4a068'], [14, 40, 30, 16], { cells: 3, grain: 0.3 }); p.frame(0, 0, 16, 16, '#5c4424'); p.frame(1, 1, 14, 14, '#8a6a3a'); for (const k of [5, 10]) { p.hline(2, k, 12, '#6a5030'); p.vline(k, 2, 12, '#6a5030'); p.hline(2, k + 1, 12, '#c9a66c'); p.vline(k + 1, 2, 12, '#c9a66c'); } return p; },
@@ -758,7 +774,8 @@ const G = {
   end_portal_frame_top: p => { p.noise(['#3a6b5a', '#447a68', '#2f5a4a'], { clump: 3 }); p.frame(0, 0, 16, 16, '#2a4a3f'); p.rect(4, 4, 8, 8, '#16302a'); return p; },
   end_portal_frame_eye: p => { p.clear(); p.rect(4, 4, 8, 8, '#2a8a6a'); p.rect(5, 5, 6, 6, '#3aba8a'); p.rect(6, 6, 4, 4, '#0a2a1a'); p.rect(7, 7, 2, 2, '#50e0a0'); return p.bleed(); },
   end_portal: p => { p.fill('#060b12'); p.speck(['#1f4a5a', '#2d6b6b', '#3a8a8a', '#5ab8a8'], 20); return p; },
-  end_rod: p => { p.clear(); p.rect(7, 0, 2, 15, '#f2eee6'); p.rect(6, 14, 4, 2, '#d8c9b8'); return p.bleed(); },
+  // End rod sheet like Java's: rod sides (0,0 2x15), rod top (2,0 2x2), base top (2,2 4x4), base side (2,6 4x1).
+  end_rod: p => { p.clear(); p.rect(0, 0, 2, 15, '#f2eee6'); p.vline(1, 0, 15, '#d8d0c4'); p.rect(2, 0, 2, 2, '#ffffff'); p.rect(2, 2, 4, 4, '#b8a898'); p.rect(3, 3, 2, 2, '#d8c9b8'); p.rect(2, 6, 4, 1, '#8a7a6a'); return p.bleed(); },
   dragon_egg: p => { p.noise(['#0c0812', '#140d1e', '#1c1228'], { clump: 3 }); return p.speck(['#3a2860', '#553a8a'], 12); },
   chorus_plant: p => { p.noise(['#5a3a5a', '#6b456b', '#7d527d'], { clump: 3 }); p.speck(['#3a233a'], 10); return p; },
   chorus_flower: p => { p.noise(['#9a7a9a', '#b08cb0', '#c29ec2'], { clump: 3 }); p.frame(0, 0, 16, 16, '#6b456b'); return p; },
@@ -813,6 +830,17 @@ const G = {
     for (let k = 0; k < 7; k++) { const x = p.rand(14), y = p.rand(14); p.rect(x, y, 2, 2, '#fff2a8'); p.put(x + 1, y + 1, '#ffffff'); }
     return p;
   },
+  // Campfire log sheet like Java's: bark along the top four rows, the cut end at (0,4 4x4), the
+  // base board (0,8 16x6) and its ends on the bottom row; the lit log glows along its bark.
+  campfire_log: p => {
+    p.clear();
+    p.rect(0, 0, 16, 4, '#4a3420'); for (let x = 0; x < 16; x += 3) p.vline(x, 0, 4, '#3a2818');
+    p.rect(0, 4, 4, 4, '#8a6a3a'); p.rect(1, 5, 2, 2, '#a08050');
+    p.rect(0, 8, 16, 6, '#5a4028'); p.rect(0, 15, 16, 1, '#3a2818');
+    return p.bleed();
+  },
+  campfire_log_lit: p => { G.campfire_log(p); for (let x = 1; x < 16; x += 3) { p.put(x, 1, '#ffb030'); p.put(x + 1, 2, '#ff7a1a'); } for (let x = 2; x < 16; x += 4) p.put(x, 10, '#ff9a2a'); return p; },
+  glass_pane_top: p => { p.clear(); p.rect(7, 0, 2, 16, '#dbeef5'); p.vline(7, 0, 16, '#ffffff'); return p.bleed(); },
   campfire: p => {
     p.clear();
     for (const y of [11, 13]) { p.rect(0, y, 16, 2, '#6b4a2b'); p.hline(0, y, 16, '#8a643a'); }
