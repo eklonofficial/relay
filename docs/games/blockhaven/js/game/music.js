@@ -2,7 +2,7 @@
 // composed deterministically from each track's seed (key, mode, tempo, chord progression,
 // recurring melodic motif with variations, accompaniment pattern and instrument palette).
 // Notes are scheduled a couple of seconds ahead so only a handful of audio nodes exist at once.
-import { mulberry32 } from '../core/noise.js?v=muqxeajj';
+import { mulberry32 } from '../core/noise.js?v=murm7eyf';
 
 const MODES = {
   major: [0, 2, 4, 5, 7, 9, 11], lydian: [0, 2, 4, 6, 7, 9, 11], mixolydian: [0, 2, 4, 5, 7, 9, 10],

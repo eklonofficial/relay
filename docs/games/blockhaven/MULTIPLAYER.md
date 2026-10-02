@@ -76,19 +76,23 @@ blocked, that network blocks all of it: try another network or a phone hotspot.
 
 The public servers are run by other people and some networks block them. Deploying the small
 relay in `blockhaven-relay/` gives the game a server you control, on port 443, which gets through
-almost any network. It's free on Render:
+networks that allow that endpoint. Render offers a free instance:
 
 1. Sign in at <https://render.com> with GitHub (the free plan is enough).
-2. **New → Blueprint**, choose this repository. Render reads `render.yaml` and offers the
-   `blockhaven-relay` service (alongside the FPS server, if you use it). Click **Apply**.
+2. **New → Web Service**, choose this repository (or its public Git URL). Use branch `main`,
+   root directory `blockhaven-relay`, runtime **Node**, build command `npm ci`, start command
+   `node server.js`, and instance type **Free**. Set the health check path to `/health`.
+   This creates only the relay; the repository's Blueprint also contains a separate FPS server.
 3. When it's live, its address is shown at the top of the service page, normally
    `https://blockhaven-relay.onrender.com`. If Render gave it a different name, put that address
    into `net-config.js` (both the `brokers` entry, as `wss://<name>.onrender.com/mqtt`, and the
    `wake` entry, as `https://<name>.onrender.com/health`).
 
 Render's free plan puts the service to sleep after 15 minutes without visitors; opening the
-Multiplayer screen wakes it, which takes about half a minute. The other servers keep working
-meanwhile.
+Multiplayer screen wakes it, which can take about a minute. Initial relay connections keep
+retrying for up to 65 seconds; the other servers keep working meanwhile. If it is still waking
+after that, try joining again. Public Git deployments without a connected provider may require
+**Manual Deploy → Deploy latest commit** after relay code changes.
 
 The relay only passes messages between players in the same room (topics starting with
 `blockhaven/`), limits message size and rate, and keeps nothing.

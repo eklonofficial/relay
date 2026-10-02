@@ -84,7 +84,7 @@ class Mqtt {
 
 // Several brokers used as one: publish everywhere, deliver each message once.
 export class Mesh {
-  constructor(urls) { this.urls = urls; this.clients = []; this.seen = new Set(); this.seenOrder = []; this.handlers = new Map(); this.closed = false; this.retry = new Map(); }
+  constructor(urls) { this.urls = urls; this.clients = []; this.seen = new Set(); this.seenOrder = []; this.handlers = new Map(); this.closed = false; this.retry = new Map(); this.retryTimers = new Map(); }
   // Connects to one broker; on failure or a later drop it keeps retrying in the background
   // (2 s, 4 s, ... up to 30 s apart) for as long as the mesh is open.
   connectOne(u) {
@@ -94,26 +94,35 @@ export class Mesh {
     }, () => { this.again(u); return null; });
   }
   again(u) {
-    if (this.closed) return;
+    if (this.closed || this.retryTimers.has(u)) return;
     const wait = Math.min(30000, (this.retry.get(u) || 1000) * 2);
     this.retry.set(u, wait);
-    setTimeout(() => { if (!this.closed && !this.clients.some(c => c.src === u)) this.connectOne(u); }, wait);
+    this.retryTimers.set(u, setTimeout(() => { this.retryTimers.delete(u); if (!this.closed && !this.clients.some(c => c.src === u)) this.connectOne(u); }, wait));
   }
-  async start() {
-    const tries = this.urls.map(u => this.connectOne(u));
-    // Resolve as soon as one broker is up; the rest join as they connect.
-    await new Promise((resolve, reject) => {
-      let left = tries.length;
-      for (const t of tries) t.then(c => { if (c) resolve(); else if (--left === 0) reject(new Error('No relay server could be reached.')); });
-      if (!tries.length) reject(new Error('No relay servers configured.'));
-    });
-    return this;
+  async start(timeoutMs = 65000) {
+    if (!this.urls.length) throw new Error('No relay servers configured.');
+    if (this.closed) throw new Error('Relay connection closed.');
+    if (this.up) return this;
+    // A free Render instance can take about a minute to wake. Keep awaiting the
+    // reconnect attempts instead of rejecting after the first six-second try
+    // and leaving an orphan mesh that never registers the host's room handlers.
+    let timer;
+    try {
+      await new Promise((resolve, reject) => {
+        this.firstConnection = resolve; this.rejectStart = reject;
+        timer = setTimeout(() => reject(new Error('No relay server could be reached. It may still be waking up; please try again.')), timeoutMs);
+        for (const u of this.urls) this.connectOne(u);
+      });
+      return this;
+    } catch (error) { this.close(); throw error; }
+    finally { clearTimeout(timer); this.firstConnection = this.rejectStart = null; }
   }
   add(c, u) {
     c.src = u;
     this.clients.push(c);
     for (const [topic] of this.handlers) c.subscribe(topic, (tp, p) => this.deliver(tp, p));
     c.onDown = () => { this.clients = this.clients.filter(x => x !== c); this.again(u); };
+    this.firstConnection?.();
   }
   get up() { return this.clients.length > 0; }
   deliver(topic, payload) {
@@ -128,7 +137,12 @@ export class Mesh {
   }
   on(topic, fn) { this.handlers.set(topic, fn); for (const c of this.clients) c.subscribe(topic, (tp, p) => this.deliver(tp, p)); }
   send(topic, m) { m.u = rid(); const s = JSON.stringify(m); for (const c of this.clients) c.publish(topic, s); }
-  close() { this.closed = true; for (const c of this.clients) c.close(); this.clients = []; }
+  close() {
+    this.closed = true; this.rejectStart?.(new Error('Relay connection closed.'));
+    for (const timer of this.retryTimers.values()) clearTimeout(timer);
+    this.retryTimers.clear();
+    for (const c of this.clients) c.close(); this.clients = [];
+  }
 }
 
 // A channel with PeerJS's DataConnection shape.

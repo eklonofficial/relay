@@ -29,7 +29,7 @@ const wss = new WebSocketServer({
   handleProtocols: p => (p.has('mqtt') ? 'mqtt' : false),
   verifyClient: (info, cb) => {
     if (wss.clients.size >= MAX_CLIENTS) return cb(false, 503);
-    if (ORIGINS.length && !ORIGINS.some(o => (info.origin || '').startsWith(o))) return cb(false, 403);
+    if (ORIGINS.length && !ORIGINS.includes(info.origin || '')) return cb(false, 403);
     cb(true);
   },
 });
@@ -42,7 +42,8 @@ wss.on('connection', ws => {
   const mine = new Set();
   ws.isAlive = true;
   ws.on('pong', () => { ws.isAlive = true; });
-  ws.on('message', data => {
+  ws.on('message', (data, isBinary) => {
+    if (!isBinary) { ws.terminate(); return; }
     buf = Buffer.concat([buf, data]);
     if (buf.length > MAX_PACKET * 2) { ws.terminate(); return; }
     for (;;) {
@@ -51,30 +52,41 @@ wss.on('connection', ws => {
       for (;;) { if (i >= buf.length) return; const c = buf[i++]; len += (c & 127) * mul; mul *= 128; if (!(c & 128)) break; if (i > 4) { ws.terminate(); return; } }
       if (len > MAX_PACKET) { ws.terminate(); return; }
       if (buf.length < i + len) return;
-      const type = buf[0] >> 4, body = buf.subarray(i, i + len), whole = Buffer.from(buf.subarray(0, i + len));
+      const header = buf[0], type = header >> 4, body = buf.subarray(i, i + len), whole = Buffer.from(buf.subarray(0, i + len));
       buf = buf.subarray(i + len);
       const now = Date.now();
       if (now - windowStart > 1000) { windowStart = now; count = 0; }
       if (++count > MAX_RATE) continue; // over the rate: drop (the game resends what matters)
-      if (type === 1) { connected = true; ws.send(Buffer.from([0x20, 2, 0, 0])); continue; }
+      if (type === 1) {
+        if (connected || header !== 0x10 || body.length < 12 || !body.subarray(0, 7).equals(Buffer.from([0, 4, 77, 81, 84, 84, 4])) || (body[7] & 1) || body.length < 12 + body.readUInt16BE(10)) { ws.terminate(); return; }
+        connected = true; ws.send(Buffer.from([0x20, 2, 0, 0])); continue;
+      }
       if (!connected) { ws.terminate(); return; }
       if (type === 8) { // SUBSCRIBE: id, then (topic, qos)*
+        if (header !== 0x82 || body.length < 6 || !body.readUInt16BE(0)) { ws.terminate(); return; }
         const id = body.subarray(0, 2), granted = [];
         let p = 2;
-        while (p + 2 <= body.length) {
-          const tl = body.readUInt16BE(p), topic = body.subarray(p + 2, p + 2 + tl).toString(); p += 3 + tl;
-          if (!topic.startsWith(PREFIX) || /[#+]/.test(topic) || mine.size > 64) { granted.push(0x80); continue; }
+        while (p < body.length) {
+          if (p + 2 > body.length) { ws.terminate(); return; }
+          const tl = body.readUInt16BE(p), end = p + 2 + tl;
+          if (!tl || end >= body.length || body[end] > 2) { ws.terminate(); return; }
+          const topic = body.subarray(p + 2, end).toString(); p = end + 1;
+          if (!topic.startsWith(PREFIX) || /[#+]/.test(topic) || (!mine.has(topic) && mine.size >= 64)) { granted.push(0x80); continue; }
           if (!topics.has(topic)) topics.set(topic, new Set());
           topics.get(topic).add(ws); mine.add(topic); granted.push(0);
         }
         ws.send(Buffer.from([0x90, ...vi(2 + granted.length), id[0], id[1], ...granted]));
       } else if (type === 3) { // PUBLISH (QoS 0)
-        const tl = body.readUInt16BE(0), topic = body.subarray(2, 2 + tl).toString();
-        if (!topic.startsWith(PREFIX)) continue;
+        if (body.length < 2 || (header & 6)) { ws.terminate(); return; }
+        const tl = body.readUInt16BE(0);
+        if (!tl || 2 + tl > body.length) { ws.terminate(); return; }
+        const topic = body.subarray(2, 2 + tl).toString();
+        if (!topic.startsWith(PREFIX) || /[#+]/.test(topic)) continue;
         const subs = topics.get(topic);
         if (subs) for (const s of subs) if (s !== ws && s.readyState === 1) s.send(whole);
-      } else if (type === 12) ws.send(Buffer.from([0xd0, 0])); // PINGREQ
-      else if (type === 14) { ws.close(); return; } // DISCONNECT
+      } else if (header === 0xc0 && !body.length) ws.send(Buffer.from([0xd0, 0])); // PINGREQ
+      else if (header === 0xe0 && !body.length) { ws.close(); return; } // DISCONNECT
+      else { ws.terminate(); return; }
     }
   });
   ws.on('close', () => { for (const t of mine) { const s = topics.get(t); if (s) { s.delete(ws); if (!s.size) topics.delete(t); } } });
