@@ -6,7 +6,7 @@ import { join } from 'node:path';
 
 export const scriptHashes = html => [...html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script\s*>/gi)]
   .filter(([, attrs, body]) => !/\bsrc\s*=/i.test(attrs) && body.trim())
-  .map(([, , body]) => `'sha256-${createHash('sha256').update(body).digest('base64')}'`);
+  .map(([, , body]) => `'sha256-${createHash('sha256').update(body.replace(/\r\n?/g, '\n')).digest('base64')}'`);
 
 export function policy(hashes) {
   return [
@@ -30,12 +30,12 @@ export function syncSecurity(root, check = false) {
   const pages = ['index.html', 'calc.html'];
   const hashes = [], changes = [];
   for (const name of pages) {
-    const path = join(root, name), source = readFileSync(path, 'utf8');
+    const path = join(root, name), original = readFileSync(path, 'utf8'), source = original.replace(/\r\n?/g, '\n');
     const own = scriptHashes(source); hashes.push(...own);
     const clean = source.replace(/\n<meta http-equiv="Content-Security-Policy"[^>]*>/g, '')
       .replace(/\n<meta name="referrer"[^>]*>/g, '');
     const next = clean.replace('<meta charset="utf-8">', `<meta charset="utf-8">\n<meta http-equiv="Content-Security-Policy" content="${policy(own)}">\n<meta name="referrer" content="no-referrer">`);
-    if (source !== next) { changes.push(name); if (!check) writeFileSync(path, next); }
+    if (original !== next) { changes.push(name); if (!check) writeFileSync(path, next); }
   }
   // Keep the existing root rewrite and any unrelated routes. Legacy Vercel routes cannot
   // coexist with the top-level headers key, so attach response headers in a continuing route.

@@ -1,39 +1,43 @@
 // Blockhaven bootstrap: assets, menus, input, camera, frame loop.
-import { Demo, DEMO_SEED } from './demo.js?v=muq2vskd';
-import { armorModel, armorSkinKey, ARMOR_MATERIALS, ARMOR_PIECES, elytraModel } from './data/armor.js?v=muq2vskd';
-import { TEXTURES, TEX, B, BLOCKS, DIM, DIM_NAMES, SHAPE_OF, SHAPE, props, HEIGHT } from './data/blocks.js?v=muq2vskd';
-import { I, ITEMS } from './data/items.js?v=muq2vskd';
-import { MOBS, PROFESSIONS, playerModel, saddleModel, PLAYER_SKINS } from './data/mobs.js?v=muq2vskd';
-import { Net, cleanCode, cleanName, cleanKey, cleanChat, chatLine, MAX_PLAYERS, wakeRelays, diagnoseNetwork } from './net/net.js?v=muq2vskd';
-import { NameTags } from './net/nametags.js?v=muq2vskd';
-import { BIOMES } from './gen/biomes.js?v=muq2vskd';
-import { generateBlockTextures, drawBlockTexture } from './render/blocktex.js?v=muq2vskd';
-import { generateItemTextures, ITEM_LAYER, FX_LAYER, ITEM_LAYER_COUNT, flatTexFor } from './render/itemtex.js?v=muq2vskd';
-import { Zip, storedPack, savePack, removePack, applyBlockTextures, applyItemTextures, indexSounds } from './render/pack.js?v=muq2vskd';
-import { packModel, paintModel, SKIN, faceRects } from './render/mobtex.js?v=muq2vskd';
-import { buildMipChain } from './render/atlas.js?v=muq2vskd';
-import { Renderer, Batch } from './render/renderer.js?v=muq2vskd';
-import { World, UNLOADED } from './world/world.js?v=muq2vskd';
-import { createGenerator } from './gen/index.js?v=muq2vskd';
-import { Game } from './game/game.js?v=muq2vskd';
-import { Interact, crossbowCharge } from './game/interact.js?v=muq2vskd';
-import { SpawnPrep, STATUS_COLOR } from './game/spawnprep.js?v=muq2vskd';
-import { splash } from './splash.js?v=muq2vskd';
-import { Commands } from './game/commands.js?v=muq2vskd';
-import { GUI, HUD } from './game/ui.js?v=muq2vskd';
-import { buildIcons, hudSprites } from './game/icons.js?v=muq2vskd';
-import { Sound } from './game/audio.js?v=muq2vskd';
-import { buildLogo, buttonTexture, dirtTexture, iconDataURL } from './render/logo.js?v=muq2vskd';
-import { computeEnv } from './game/env.js?v=muq2vskd';
-import { guideSections } from './game/guide.js?v=muq2vskd';
-import { listWorlds, loadWorld, saveWorld, deleteWorld } from './game/storage.js?v=muq2vskd';
-import { importJavaWorld, exportJavaWorld } from './game/javaworld.js?v=muq2vskd';
-import { drawModel, rootMatrix, M } from './entity/entity.js?v=muq2vskd';
-import { itemMesh, emitItemMesh, clearItemMeshes } from './entity/itemmesh.js?v=muq2vskd';
-import { Lightning, billboard } from './entity/objects.js?v=muq2vskd';
-import { compose, translation, rotationX, rotationY, rotationZ, scaling, forward, mat4 } from './core/math.js?v=muq2vskd';
-import { hasGlint } from './data/enchantments.js?v=muq2vskd';
-import { BarrelRoll } from './game/barrelroll.js?v=muq2vskd';
+import './page.js?v=muq8yl59';
+import { surfaceDocument as document } from './surface.js?v=muq8yl59';
+import { registerApp } from './veil.js?v=muq8yl59';
+import { ask, tell } from './dialog.js?v=muq8yl59';
+import { Demo, DEMO_SEED } from './demo.js?v=muq8yl59';
+import { armorModel, armorSkinKey, ARMOR_MATERIALS, ARMOR_PIECES, elytraModel } from './data/armor.js?v=muq8yl59';
+import { TEXTURES, TEX, B, BLOCKS, DIM, DIM_NAMES, SHAPE_OF, SHAPE, props, HEIGHT } from './data/blocks.js?v=muq8yl59';
+import { I, ITEMS } from './data/items.js?v=muq8yl59';
+import { MOBS, PROFESSIONS, playerModel, saddleModel, PLAYER_SKINS } from './data/mobs.js?v=muq8yl59';
+import { Net, cleanCode, cleanName, cleanKey, cleanChat, chatLine, MAX_PLAYERS, wakeRelays, diagnoseNetwork } from './net/net.js?v=muq8yl59';
+import { NameTags } from './net/nametags.js?v=muq8yl59';
+import { BIOMES } from './gen/biomes.js?v=muq8yl59';
+import { generateBlockTextures, drawBlockTexture } from './render/blocktex.js?v=muq8yl59';
+import { generateItemTextures, ITEM_LAYER, FX_LAYER, ITEM_LAYER_COUNT, flatTexFor } from './render/itemtex.js?v=muq8yl59';
+import { Zip, storedPack, savePack, removePack, applyBlockTextures, applyItemTextures, indexSounds } from './render/pack.js?v=muq8yl59';
+import { packModel, paintModel, SKIN, faceRects } from './render/mobtex.js?v=muq8yl59';
+import { buildMipChain } from './render/atlas.js?v=muq8yl59';
+import { Renderer, Batch } from './render/renderer.js?v=muq8yl59';
+import { World, UNLOADED } from './world/world.js?v=muq8yl59';
+import { createGenerator } from './gen/index.js?v=muq8yl59';
+import { Game } from './game/game.js?v=muq8yl59';
+import { Interact, crossbowCharge } from './game/interact.js?v=muq8yl59';
+import { SpawnPrep, STATUS_COLOR } from './game/spawnprep.js?v=muq8yl59';
+import { splash } from './splash.js?v=muq8yl59';
+import { Commands } from './game/commands.js?v=muq8yl59';
+import { GUI, HUD } from './game/ui.js?v=muq8yl59';
+import { buildIcons, hudSprites } from './game/icons.js?v=muq8yl59';
+import { Sound } from './game/audio.js?v=muq8yl59';
+import { buildLogo, buttonTexture, dirtTexture, iconDataURL } from './render/logo.js?v=muq8yl59';
+import { computeEnv } from './game/env.js?v=muq8yl59';
+import { guideSections } from './game/guide.js?v=muq8yl59';
+import { listWorlds, loadWorld, saveWorld, deleteWorld } from './game/storage.js?v=muq8yl59';
+import { importJavaWorld, exportJavaWorld } from './game/javaworld.js?v=muq8yl59';
+import { drawModel, rootMatrix, M } from './entity/entity.js?v=muq8yl59';
+import { itemMesh, emitItemMesh, clearItemMeshes } from './entity/itemmesh.js?v=muq8yl59';
+import { Lightning, billboard } from './entity/objects.js?v=muq8yl59';
+import { compose, translation, rotationX, rotationY, rotationZ, scaling, forward, mat4 } from './core/math.js?v=muq8yl59';
+import { hasGlint } from './data/enchantments.js?v=muq8yl59';
+import { BarrelRoll } from './game/barrelroll.js?v=muq8yl59';
 
 const $ = id => document.getElementById(id);
 // Resolves after the page has painted what was just put on screen.
@@ -302,7 +306,7 @@ class App {
       if (existing.some(e => e.name === w.name)) w.name = `${w.name} (uploaded)`;
       await saveWorld(w);
       this.showWorlds();
-    } catch (e) { alert(`Could not upload the world: ${e.message}`); }
+    } catch (e) { await tell(`Could not upload the world: ${e.message}`); }
   }
   // Java Edition worlds: a zipped world folder in, a zipped 1.20.1 world folder out.
   async importJava(file) {
@@ -310,12 +314,12 @@ class App {
     try {
       const zip = await Zip.open(file);
       const meta = await importJavaWorld(zip, (p, text) => { $('load-msg').textContent = `${text} (${Math.round(p * 100)}%)`; }, {
-        askBeyond: async () => confirm('What should be around the imported area?\n\nOK: generate new terrain, so the world goes on forever (it won\'t match the edges of the map).\nCancel: leave empty space around it, as maps are meant to be played.'),
+        askBeyond: async () => await ask('What should be around the imported area?\n\nOK: generate new terrain, so the world goes on forever (it won\'t match the edges of the map).\nCancel: leave empty space around it, as maps are meant to be played.'),
       });
       const existing = await listWorlds();
       if (existing.some(e => e.name === meta.name)) meta.name = `${meta.name} (Java)`;
       await saveWorld(meta);
-    } catch (e) { console.error(e); alert(`Could not import the world: ${e.message}`); }
+    } catch (e) { console.error(e); await tell(`Could not import the world: ${e.message}`); }
     this.showWorlds();
   }
   async exportJava(id) {
@@ -328,7 +332,7 @@ class App {
       a.href = URL.createObjectURL(blob); a.download = name;
       document.body.appendChild(a); a.click(); a.remove();
       setTimeout(() => URL.revokeObjectURL(a.href), 10000);
-    } catch (e) { console.error(e); alert(`Could not export the world: ${e.message}`); }
+    } catch (e) { console.error(e); await tell(`Could not export the world: ${e.message}`); }
     this.showWorlds();
   }
   async playWorld(id) {
@@ -338,7 +342,7 @@ class App {
     if (!meta) { this.showWorlds(); return; }
     // Java worlds imported before the "beyond the edges" choice existed: ask once.
     if (meta.java && meta.java.beyond === undefined) {
-      meta.java.beyond = confirm('This world was imported from Java Edition.\n\nOK: generate new terrain around the imported area, so the world goes on forever (it won\'t match the edges of the map).\nCancel: leave empty space around it, as maps are meant to be played.') ? 'terrain' : 'void';
+      meta.java.beyond = await ask('This world was imported from Java Edition.\n\nOK: generate new terrain around the imported area, so the world goes on forever (it won\'t match the edges of the map).\nCancel: leave empty space around it, as maps are meant to be played.') ? 'terrain' : 'void';
       await saveWorld(meta);
     }
     await nextPaint();
@@ -359,10 +363,10 @@ class App {
     this.startGame(meta);
   }
   // Cinematic showcase: a real (unsaved) world driven by scripted camera shots.
-  startDemo() {
+  async startDemo() {
     try { this.startDemoInner(); } catch (e) {
       console.error(e); this.demo = null;
-      alert(`The demo couldn't start: ${e.message}\nTry refreshing the page (Ctrl+Shift+R).`);
+      await tell(`The demo couldn't start: ${e.message}\nTry refreshing the page (Ctrl+Shift+R).`);
     }
   }
   startDemoInner() {
@@ -761,14 +765,14 @@ class App {
     bind('set-music', 'music', 'Music', vol, unmute);
     cycle($('set-gfx'), 'Graphics', [[0, 'Fast'], [1, 'Regular'], [2, 'High'], [3, 'PC']], () => Number(settings.graphics), v => { settings.graphics = v; this.applyGraphics(); store(SETTINGS_KEY, settings); });
     for (const [id, k, label] of [['set-bob', 'bobbing', 'View Bobbing'], ['set-clouds', 'clouds', 'Clouds'], ['set-autojump', 'autoJump', 'Auto-Jump'], ['set-particles', 'particles', 'Particles'], ['set-dynres', 'dynamicRes', 'Dynamic Resolution'], ['set-raw', 'rawInput', 'Raw Input'], ['set-lowlat', 'lowLatency', 'Low Latency'], ['set-dabr', 'barrelRoll', 'Barrel Roll Flight'], ['set-dabryaw', 'barrelRollYaw', 'Flight: Mouse Yaws']]) {
-      toggle($(id), label, () => !!settings[k], v => {
+      toggle($(id), label, () => !!settings[k], async v => {
         settings[k] = v; if (this.game) this.game.player.autoJump = settings.autoJump;
-        if (k === 'lowLatency') { store(SETTINGS_KEY, settings); if (confirm('Low Latency changes how the game draws to the screen and applies after a reload. Reload now?')) location.reload(); }
+        if (k === 'lowLatency') { store(SETTINGS_KEY, settings); if (await ask('Low Latency changes how the game draws to the screen and applies after a reload. Reload now?')) location.reload(); }
       });
     }
     // Resource packs: chosen from this computer, stored in this browser, applied on reload.
     $('set-pack').addEventListener('click', async () => {
-      if (this.packName && confirm(`Using the resource pack "${this.packName}".\n\nOK: remove it.  Cancel: choose a different pack.`)) { await removePack(); location.reload(); return; }
+      if (this.packName && await ask(`Using the resource pack "${this.packName}".\n\nOK: remove it.  Cancel: choose a different pack.`)) { await removePack(); location.reload(); return; }
       $('pack-file').click();
     });
     $('pack-file').addEventListener('change', async e => {
@@ -776,7 +780,7 @@ class App {
       if (!f) return;
       this.updatePackButton('Reading pack…');
       try { const z = await Zip.open(f); if (!z.list('assets/minecraft/').length) throw new Error('no assets/minecraft folder inside'); await savePack(f.name, f); location.reload(); }
-      catch (err) { this.updatePackButton(); alert(`That isn't a usable resource pack: ${err.message}`); }
+      catch (err) { this.updatePackButton(); await tell(`That isn't a usable resource pack: ${err.message}`); }
     });
     for (const b of $('settings').querySelectorAll('.opts button')) b.addEventListener('click', () => this.sound.click());
   }
@@ -793,7 +797,7 @@ class App {
     click('btn-world-back', () => { if (this.hostAfterLoad) this.showMultiplayer(); else this.setMode('title'); });
     click('btn-world-new', () => { this.setMode('create'); $('cw-name').focus(); $('cw-name').select(); this.updateCreateHint(); });
     click('btn-world-play', () => this.selectedWorld && this.playWorld(this.selectedWorld));
-    click('btn-world-delete', async () => { if (this.selectedWorld && confirm('Delete this world forever?')) { await deleteWorld(this.selectedWorld); this.showWorlds(); } });
+    click('btn-world-delete', async () => { if (this.selectedWorld && await ask('Delete this world forever?')) { await deleteWorld(this.selectedWorld); this.showWorlds(); } });
     click('btn-create', () => this.createWorld());
     click('btn-create-cancel', () => this.showWorlds());
     // Create-screen choices are cycle buttons; the current value lives in data-v.
@@ -816,7 +820,7 @@ class App {
     click('btn-guide-done', () => this.closePanel('guide'));
     click('btn-controls', () => this.openPanel('controls'));
     click('btn-mute', () => { settings.muted = !settings.muted; this.applyMute(); store(SETTINGS_KEY, settings); });
-    click('btn-full', () => { if (document.fullscreenElement) document.exitFullscreen?.(); else document.documentElement.requestFullscreen?.().catch(() => {}); });
+    click('btn-full', () => { if (document.fullscreenElement) document.exitFullscreen?.(); else globalThis.document.documentElement.requestFullscreen?.().catch(() => {}); });
     click('btn-controls2', () => this.openPanel('controls'));
     click('btn-controls-done', () => this.closePanel('controls'));
     click('btn-resume', () => this.requestLock());
@@ -944,7 +948,7 @@ class App {
       else if (e.code === 'Space') { e.preventDefault(); this.demo.skip(); }
       return;
     }
-    if (e.target.tagName === 'INPUT' && e.target.id !== 'chat-input') return;
+    if (document.activeElement?.tagName === 'INPUT' && document.activeElement.id !== 'chat-input') return;
     if (['Space', 'F1', 'F3', 'F5', 'Tab', 'Slash', 'Quote'].includes(e.code) || (e.ctrlKey && ['KeyW', 'KeyD', 'KeyS', 'KeyQ'].includes(e.code))) e.preventDefault();
     if (this.mode === 'gui') { if (this.gui.key(e)) e.preventDefault(); return; }
     const g = this.game;
@@ -1577,5 +1581,5 @@ class App {
 }
 
 const app = new App();
-window.blockhaven = app;
+registerApp(app);
 if (app.init()) { app.setMode('title'); app.loadPack(); }

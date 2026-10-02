@@ -134,7 +134,7 @@ function hostNet(players = {}) {
 }
 function guest(net, hello) {
   const c = fakeConn();
-  net.onIncoming(c);
+  net.acceptLink(new Link(c));
   c.emit('data', JSON.stringify({ t: 'hello', v: 2, skin: 0, ...hello }));
   const out = () => c.sent.map(s => JSON.parse(s));
   return { c, out, say: m => c.emit('data', JSON.stringify(m)) };

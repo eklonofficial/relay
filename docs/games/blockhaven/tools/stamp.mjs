@@ -51,7 +51,7 @@ function check() {
   const unstamped = [], versions = new Map(); // version -> [locations]
   const lineOf = (s, i) => s.slice(0, i).split('\n').length;
   const see = (file, s, m, path, ver) => {
-    const where = `${relative(root, file)}:${lineOf(s, m.index)}`;
+    const where = `${relative(root, file).replace(/\\/g, '/')}:${lineOf(s, m.index)}`;
     if (ver === undefined) { unstamped.push(`${where}  ${path}`); return; }
     if (!versions.has(ver)) versions.set(ver, []);
     versions.get(ver).push(where);

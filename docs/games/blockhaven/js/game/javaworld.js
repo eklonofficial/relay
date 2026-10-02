@@ -9,15 +9,15 @@
 // Heights: Blockhaven worlds are 256 tall with the sea surface at y=64; Java's overworld runs
 // -64..319 with its sea surface at y=62, so overworld blocks shift by 2 (Java y -2..253 is kept).
 // The Nether and the End keep their y.
-import { BLOCKS, B, CHUNK, HEIGHT, DIM, SHAPE } from '../data/blocks.js?v=muq2vskd';
-import { BIOMES } from '../gen/biomes.js?v=muq2vskd';
-import { I } from '../data/items.js?v=muq2vskd';
-import { ENCHANTS } from '../data/enchantments.js?v=muq2vskd';
-import { createGenerator } from '../gen/index.js?v=muq2vskd';
-import { readNbt, writeNbt, readRegion, writeRegion, maybeGunzip, gzip, TAG, byte, short, int, long, float, double, string, compound, list, longArray } from './nbt.js?v=muq2vskd';
-import { toJava, fromJava, biomeToJava } from './javablocks.js?v=muq2vskd';
-import { encodeChunk, decodeChunk, putChunks, getChunk } from './storage.js?v=muq2vskd';
-import { SAVE_VERSION } from './migrate.js?v=muq2vskd';
+import { BLOCKS, B, CHUNK, HEIGHT, DIM, SHAPE } from '../data/blocks.js?v=muq8yl59';
+import { BIOMES } from '../gen/biomes.js?v=muq8yl59';
+import { I } from '../data/items.js?v=muq8yl59';
+import { ENCHANTS } from '../data/enchantments.js?v=muq8yl59';
+import { createGenerator } from '../gen/index.js?v=muq8yl59';
+import { readNbt, writeNbt, readRegion, writeRegion, maybeGunzip, gzip, TAG, byte, short, int, long, float, double, string, compound, list, longArray } from './nbt.js?v=muq8yl59';
+import { toJava, fromJava, biomeToJava } from './javablocks.js?v=muq8yl59';
+import { encodeChunk, decodeChunk, putChunks, getChunk } from './storage.js?v=muq8yl59';
+import { SAVE_VERSION } from './migrate.js?v=muq8yl59';
 
 const DATA_VERSION = 3465; // 1.20.1
 const Y_SHIFT = [2, 0, 0];

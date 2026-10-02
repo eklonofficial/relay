@@ -10,6 +10,10 @@ const root = fileURLToPath(new URL('..', import.meta.url));
 const read = name => readFileSync(join(root, name), 'utf8');
 const directive = (csp, name) => csp.split('; ').find(s => s.startsWith(`${name} `));
 
+test('CSP script hashes match HTML parser line-ending normalization', () => {
+  assert.deepEqual(scriptHashes('<script>one\r\ntwo\rthree</script>'), scriptHashes('<script>one\ntwo\nthree</script>'));
+});
+
 test('both entry pages have early, exact hashed CSP and no-referrer', () => {
   for (const name of ['index.html', 'calc.html']) {
     const html = read(name), tag = html.match(/<meta http-equiv="Content-Security-Policy" content="([^"]+)">/);
