@@ -5,6 +5,7 @@ import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
 import { readFile, mkdir, writeFile } from 'node:fs/promises';
 import { resolve, extname, sep } from 'node:path';
+import { gunzipSync } from 'node:zlib';
 const dep = process.argv.includes('--dependencies') ? resolve(process.argv[process.argv.indexOf('--dependencies') + 1]) : process.cwd();
 const { chromium } = createRequire(resolve(dep, 'package.json'))('playwright');
 const root = resolve(process.env.SITE_OUTPUT || 'build/site');
@@ -33,7 +34,27 @@ try {
     const original = Element.prototype.attachShadow;
     Element.prototype.attachShadow = function (options) { const root = original.call(this, options); if (options.mode === 'closed') window.testRoot = root; return root; };
     window.observed = [];
-    new MutationObserver(records => { for (const r of records) if (r.type === 'characterData') window.observed.push(r.target.data); }).observe(document, { subtree: true, childList: true, characterData: true });
+    const scan = node => {
+      if (node.nodeType === 3) window.observed.push(node.data);
+      if (node.nodeType === 1) {
+        window.observed.push(...[...node.attributes].map(a => a.value));
+        node.childNodes.forEach(scan);
+      }
+    };
+    new MutationObserver(records => {
+      for (const r of records) {
+        if (r.type === 'characterData') window.observed.push(r.target.data);
+        if (r.type === 'attributes') window.observed.push(r.target.getAttribute(r.attributeName) || '');
+        if (r.type === 'childList') r.addedNodes.forEach(scan);
+      }
+    }).observe(document, { subtree: true, childList: true, characterData: true, attributes: true });
+    // Test-only MAIN-world instrumentation demonstrates the endpoint boundary.
+    window.paintedLabels = new Set();
+    const fill = CanvasRenderingContext2D.prototype.fillText;
+    CanvasRenderingContext2D.prototype.fillText = function (...args) {
+      if (window.paintedLabels.size < 1024) window.paintedLabels.add(String(args[0]));
+      return fill.apply(this, args);
+    };
     // Smaller streamed area keeps CI focused on behavior, with the same assets.
     localStorage.setItem('blockhaven.settings.v2', JSON.stringify({ renderDistance: 3, graphics: 0 }));
   });
@@ -42,6 +63,21 @@ try {
   await page.waitForFunction(() => window.testRoot?.getElementById('boot') == null && !!window.testRoot?.getElementById('btn-play'));
   const publicState = () => page.evaluate(() => ({ text: document.body.innerText, controls: document.querySelectorAll('button,input,select,textarea').length, published: 'blockhaven' in window, observed: window.observed }));
   assert.deepEqual((await publicState()).text, ''); assert.equal((await publicState()).controls, 0); assert.equal((await publicState()).published, false);
+  assert.equal(await page.title(), 'Graphing Calculator');
+  const originalIcon = await page.locator('link[rel="icon"]').getAttribute('href');
+  assert.ok(originalIcon.startsWith('data:image/svg+xml,'));
+  // These assertions intentionally prove what privileged access CAN recover.
+  // chrome.debugger exposes DOM/Runtime; no screenshot analysis is involved.
+  const debuggerSession = await page.context().newCDPSession(page);
+  const debugDOM = await debuggerSession.send('DOM.getDocument', { depth: -1, pierce: true });
+  assert.match(JSON.stringify(debugDOM), /"shadowRootType":"closed"/);
+  assert.match(JSON.stringify(debugDOM), /btn-play/);
+  await debuggerSession.detach();
+  await page.waitForFunction(() => window.paintedLabels.has('Singleplayer'));
+  const mainResource = requests.find(p => /[a-f0-9]{24}\.bin$/.test(p));
+  assert.ok(mainResource);
+  assert.match(gunzipSync(await readFile(resolve(root, '.' + mainResource))).toString('utf8'), /Singleplayer/);
+  const boundaryEvidence = { earlyHookReadsClosedLayout: true, debuggerReadsClosedLayout: true, drawingHookReadsLabels: true, packedResourceIsDecodable: true };
   const click = async id => { const box = await page.evaluate(id => { const r = window.testRoot.getElementById(id).getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; }, id); await page.mouse.click(box.x, box.y); };
   await page.screenshot({ path: resolve(captures, 'title.png') });
   console.log('startup and public-DOM checks passed');
@@ -90,11 +126,12 @@ try {
   const calcBox = await calculator.evaluate(() => { const r = window.testRoot.querySelector('input.ex').getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; });
   await page.mouse.click(calcBox.x, calcBox.y); await page.keyboard.type('y=mx+b'); await page.keyboard.press('Enter');
   await page.waitForFunction(() => document.querySelector('iframe').style.display === 'none');
-  assert.equal(await page.title(), 'Workspace');
+  assert.equal(await page.title(), 'Graphing Calculator');
+  assert.equal(await page.locator('link[rel="icon"]').getAttribute('href'), originalIcon);
   assert.ok(requests.every(p => /\/(?:index\.html|calc\.html|[a-f0-9]{24}\.bin)$/.test(p)), JSON.stringify(requests));
   assert.deepEqual(errors, []);
   await page.setViewportSize({ width: 800, height: 600 }); await page.screenshot({ path: resolve(captures, 'small.png') });
-  await writeFile(resolve(captures, 'results.json'), JSON.stringify({ requests, fontState, errors }, null, 2));
+  await writeFile(resolve(captures, 'results.json'), JSON.stringify({ requests, fontState, errors, boundaryEvidence }, null, 2));
   const tampered = await browser.newPage();
   await tampered.route('**/*.bin', route => route.fulfill({ status: 200, contentType: 'application/octet-stream', body: 'modified' }));
   await tampered.goto(base + '/index.html');

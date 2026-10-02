@@ -4,7 +4,7 @@
 //                                           and panes, whose connections Java stores in the state)
 // fromJava(name, props) -> state (id | meta << 8); unknown blocks fall back to the closest family
 //                          we have (stairs to stairs, logs to logs, ...), then to stone or air.
-import { BLOCKS, B, STATE, SHAPE, SHAPE_OF, OPAQUE, CROP_STAGES, CROP_AGE_SHIFT, COLORS } from '../data/blocks.js?v=muq89fgx';
+import { BLOCKS, B, STATE, SHAPE, SHAPE_OF, OPAQUE, CROP_STAGES, CROP_AGE_SHIFT, COLORS } from '../data/blocks.js?v=muq8yl59';
 
 const H = ['south', 'west', 'north', 'east'];                       // our 2D facing order
 const D6 = ['down', 'up', 'north', 'south', 'west', 'east'];         // Java's six-way order
