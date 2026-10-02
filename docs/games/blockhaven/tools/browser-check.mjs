@@ -171,6 +171,7 @@ try {
   console.log('browser checks passed: canvas UI, native input, menus, inventory, creative search, saves/download, dialogs, calculator, resize and opaque resources');
 } catch (error) {
   console.error('Browser errors:',errors);
+  console.error('Startup state:',await page?.evaluate(()=>({root:!!window.testRoot,boot:!!window.testRoot?.getElementById('boot'),play:!!window.testRoot?.getElementById('btn-play'),roots:[...document.querySelectorAll('*')].filter(e=>e.shadowRoot).map(e=>e.tagName),visibility:document.visibilityState})).catch(()=>null));
   await writeFile(resolve(captures,'failure.json'),JSON.stringify({error:String(error),errors,requests},null,2));
   await page?.screenshot({path:resolve(captures,'failure.png'),timeout:5000}).catch(()=>{});
   throw error;

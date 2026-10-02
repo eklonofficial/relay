@@ -97,6 +97,15 @@ after that, try joining again. Public Git deployments without a connected provid
 The relay only passes messages between players in the same room (topics starting with
 `blockhaven/`), limits message size and rate, and keeps nothing.
 
+## Verification
+
+Run `npm ci --prefix blockhaven-relay` and `npm run test:relay` from the repository root for
+local broker, encryption/fragmentation, malformed-packet and startup/retry checks.
+For an opt-in live check, run `tools/multiplayer-check.mjs` with `SITE_URL` set to the deployed
+game's `index.html` URL and `RELAY_URL` to its `wss://.../mqtt` endpoint. It uses two isolated
+browser profiles, disables direct connections, and verifies hosting, joining, world transfer
+and chat through that relay only. Install the root dependencies and Playwright Chromium first.
+
 ## If joining still fails
 
 - Press **Test Connection** on both computers and compare.
