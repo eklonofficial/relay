@@ -16,7 +16,7 @@ function quads(key, meta = 0) {
     let layer = 0;
     for (let k = 0; k < 4; k++) {
       const h = (q * 4 + k) * STRIDE / 2;
-      p.push([0, 1, 2].map(a => (u16[h + a] - POS_BIAS) / 2));
+      p.push([0, 1, 2].map(a => (u16[h + a] - POS_BIAS) / 8));
       layer = u16[h + 4];
       uv.push([u16[h + 5] & 31, (u16[h + 5] >> 5) & 31]);
     }

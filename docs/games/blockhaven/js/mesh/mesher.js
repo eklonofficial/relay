@@ -4,16 +4,18 @@ import {
   CHUNK, HEIGHT, PAD, PS, B, SHAPE, VF, TINT, TEX,
   OPAQUE, SOLID, SHAPE_OF, TRANSLUCENT, EMIT, ATTEN, VFLAGS, CULL_SAME, TINT_OF, WATERLOGGED, VARIANT_MASK,
   FACING_SHIFT, AXIS_SHIFT, FACE_TEX, CROP_STAGES, CROP_TEX,
-} from '../data/blocks.js?v=mur7zxvm';
-import { BIOME_COLORS } from '../gen/biomes.js?v=mur7zxvm';
-import { up6, rotY, attach, FACE_OF_DIR6, OPP6, DIR2D_OF_6 } from '../data/orient.js?v=mur7zxvm';
-import { MODELS } from '../data/models.js?v=mur7zxvm';
+} from '../data/blocks.js?v=murh1ou5';
+import { BIOME_COLORS } from '../gen/biomes.js?v=murh1ou5';
+import { up6, rotY, attach, FACE_OF_DIR6, OPP6, DIR2D_OF_6 } from '../data/orient.js?v=murh1ou5';
+import { MODELS } from '../data/models.js?v=murh1ou5';
 
 export const H2 = HEIGHT + 2;
 export const VOLUME_SIZE = PS * PS * H2;
 export const STRIDE = 20;          // bytes per vertex
-export const POS_SCALE = 32;       // vertex units per block
-export const POS_BIAS = 64;        // lets geometry poke slightly outside the chunk
+// Positions are in 1/8 pixel: rotated model elements (wall torches, lantern handles, cross plants)
+// keep their corners where Java puts them instead of snapping each one to the half pixel.
+export const POS_SCALE = 128;      // vertex units per block
+export const POS_BIAS = 256;       // lets geometry poke slightly outside the chunk (2 blocks)
 
 // Faces: +X -X +Y -Y +Z -Z. Corners are counter-clockwise seen from outside.
 const FACE_CORNERS = [
@@ -132,7 +134,7 @@ function emit(buf, layer, normal, flags) {
   let o = buf.quads * 4 * STRIDE;
   for (let k = 0; k < 4; k++, o += STRIDE) {
     const j = (k + rot) & 3, h = o >> 1;
-    u16[h] = Math.round(QX[j] * 2) + POS_BIAS; u16[h + 1] = Math.round(QY[j] * 2) + POS_BIAS; u16[h + 2] = Math.round(QZ[j] * 2) + POS_BIAS; u16[h + 3] = flags;
+    u16[h] = Math.round(QX[j] * 8) + POS_BIAS; u16[h + 1] = Math.round(QY[j] * 8) + POS_BIAS; u16[h + 2] = Math.round(QZ[j] * 8) + POS_BIAS; u16[h + 3] = flags;
     u16[h + 4] = layer; u16[h + 5] = QU[j] | (QV[j] << 5) | (normal << 10);
     u8[o + 12] = QA[j]; u8[o + 13] = QL[j]; u8[o + 14] = QF; u8[o + 15] = 0;
     u8[o + 16] = TR; u8[o + 17] = TG; u8[o + 18] = TB; u8[o + 19] = 255;

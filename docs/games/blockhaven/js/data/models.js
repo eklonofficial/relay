@@ -6,7 +6,7 @@
 // An element: [from, to, faces, rotation?, shade?]. Faces: 'face texture u0 v0 u1 v1 [rN] [c]; ...'
 // (rN turns the texture by N degrees; c culls the face against a full block, Java's cullface).
 // Rotation: [axis, degrees, origin, rescale?]. Coordinates are pixels, 0-16 across the block.
-// Java's planes 0.001 or 0.01 off a block side sit half a pixel in (our vertex grid), so they never fight it.
+// Java's planes 0.001 or 0.01 px off a block side sit one step of our vertex grid (1/8 px) in.
 const RAW = {
   torch: [
     [[7, 0, 7], [9, 10, 9], 'down torch 7 13 9 15; up torch 7 6 9 8', null, false],
@@ -76,8 +76,8 @@ const RAW = {
     [[7, 0, 7], [9, 16, 9], 'east pane 7 0 9 16'],
   ],
   bars_post_ends: [
-    [[7, 0.5, 7], [9, 0.5, 9], 'down edge 7 7 9 9; up edge 7 7 9 9'],
-    [[7, 15.5, 7], [9, 15.5, 9], 'down edge 7 7 9 9; up edge 7 7 9 9'],
+    [[7, 0.125, 7], [9, 0.125, 9], 'down edge 7 7 9 9; up edge 7 7 9 9'],
+    [[7, 15.875, 7], [9, 15.875, 9], 'down edge 7 7 9 9; up edge 7 7 9 9'],
   ],
   bars_post: [
     [[8, 0, 7], [8, 16, 9], 'west bars 7 0 9 16; east bars 9 0 7 16'],
@@ -94,14 +94,14 @@ const RAW = {
   bars_side: [
     [[8, 0, 0], [8, 16, 8], 'west bars 16 0 8 16; east bars 8 0 16 16'],
     [[7, 0, 0], [9, 16, 7], 'north edge 7 0 9 16 c'],
-    [[7, 0.5, 0], [9, 0.5, 7], 'down edge 9 0 7 7; up edge 7 0 9 7'],
-    [[7, 15.5, 0], [9, 15.5, 7], 'down edge 9 0 7 7; up edge 7 0 9 7'],
+    [[7, 0.125, 0], [9, 0.125, 7], 'down edge 9 0 7 7; up edge 7 0 9 7'],
+    [[7, 15.875, 0], [9, 15.875, 7], 'down edge 9 0 7 7; up edge 7 0 9 7'],
   ],
   bars_side_alt: [
     [[8, 0, 8], [8, 16, 16], 'west bars 8 0 0 16; east bars 0 0 8 16'],
     [[7, 0, 9], [9, 16, 16], 'down edge 9 9 7 16; up edge 7 9 9 16; south edge 7 0 9 16 c'],
-    [[7, 0.5, 9], [9, 0.5, 16], 'down edge 9 9 7 16; up edge 7 9 9 16'],
-    [[7, 15.5, 9], [9, 15.5, 16], 'down edge 9 9 7 16; up edge 7 9 9 16'],
+    [[7, 0.125, 9], [9, 0.125, 16], 'down edge 9 9 7 16; up edge 7 9 9 16'],
+    [[7, 15.875, 9], [9, 15.875, 16], 'down edge 9 9 7 16; up edge 7 9 9 16'],
   ],
   end_portal_frame: [
     [[0, 0, 0], [16, 13, 16], 'down bottom 0 0 16 16 c; up top 0 0 16 16; north side 0 3 16 16 c; south side 0 3 16 16 c; west side 0 3 16 16 c; east side 0 3 16 16 c'],
@@ -147,10 +147,10 @@ const RAW = {
     [[7.2, 0, 0], [7.2, 22.4, 16], 'east fire 0 0 16 16', ['z', 22.5, [8, 8, 8], true], false],
   ],
   fire_side: [
-    [[0, 0, 0.5], [16, 22.4, 0.5], 'north fire 0 0 16 16; south fire 0 0 16 16', null, false],
+    [[0, 0, 0.125], [16, 22.4, 0.125], 'north fire 0 0 16 16; south fire 0 0 16 16', null, false],
   ],
   fire_side_alt: [
-    [[0, 0, 0.5], [16, 22.4, 0.5], 'north fire 16 0 0 16; south fire 16 0 0 16', null, false],
+    [[0, 0, 0.125], [16, 22.4, 0.125], 'north fire 16 0 0 16; south fire 16 0 0 16', null, false],
   ],
   stem0: [
     [[0, -1, 8], [16, 1, 8], 'north stem 0 0 16 2; south stem 16 0 0 2', ['y', 45, [8, 8, 8], true]],
