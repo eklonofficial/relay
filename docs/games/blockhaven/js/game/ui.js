@@ -1,9 +1,9 @@
 // Container GUIs (inventory, crafting, chest, furnace, creative, trading) and the HUD, laid out in GUI pixels
 // (1 unit = var(--u)) at the original's coordinates: 176x166 panels, 18x18 slots, 16x16 icons.
-import { I, ITEMS, TABS, maxStack, ARMOR_SLOTS, iconKey } from '../data/items.js?v=murpnhgy';
-import { findRecipe, allRecipes, matches, SMELTING, TAGS } from '../data/recipes.js?v=murpnhgy';
-import { same } from './inventory.js?v=murpnhgy';
-import { tableOffers, enchantName, enchantsOf, anvilResult, isEnchantable, hasGlint, ENCHANTS, ENCHANT_LIST } from '../data/enchantments.js?v=murpnhgy';
+import { I, ITEMS, TABS, maxStack, ARMOR_SLOTS, iconKey } from '../data/items.js?v=mush3n7f';
+import { findRecipe, allRecipes, matches, SMELTING, TAGS } from '../data/recipes.js?v=mush3n7f';
+import { same } from './inventory.js?v=mush3n7f';
+import { tableOffers, enchantName, enchantsOf, anvilResult, isEnchantable, hasGlint, ENCHANTS, ENCHANT_LIST } from '../data/enchantments.js?v=mush3n7f';
 const ENCH_CURSE = id => !!(ENCHANTS[id] && ENCHANTS[id].curse);
 
 // The enchanting table's glyphs (the Standard Galactic Alphabet as usually typed in Unicode).
@@ -150,15 +150,12 @@ export class GUI {
   label(win, text, x, y, center = false) { const l = el('div', center ? 'lbl c' : 'lbl', win); l.textContent = text; at(l, x, y - 1); return l; }
   spr(parent, name, x, y, w, h, cls = '') { const d = el('div', `spr ${cls}`, parent); at(d, x, y, w, h); d.style.backgroundImage = `url(${sprites()[name]})`; return d; }
   tip(e, lines) { e.addEventListener('mouseenter', () => { if (!this.cursor) this.showTip(typeof lines === 'function' ? lines() : lines); }); e.addEventListener('mouseleave', () => this.hideTooltip()); }
-  playerView(win, x, y, w, h, sc) {
+  // The live player model in its box, turned towards the pointer (InventoryScreen.renderEntityInInventoryFollowsMouse):
+  // feet at (fx, fy) in the window, `scale` GUI px a block, following the pointer from `eye` px above the feet.
+  playerView(win, x, y, w, h, fx, fy, scale, eye) {
     const box = el('div', 'pview', win); at(box, x, y, w, h);
-    const c = el('canvas', '', box); c.width = 16; c.height = 32;
-    at(c, Math.floor((w - 16 * sc) / 2), h - 32 * sc - 3, 16 * sc, 32 * sc);
-    try {
-      const a = this.game.app, L = a.mobLayer('player');
-      let i = 0; for (let k = 0; k < 8; k++) if (a.mobLayers.get(`player_${k}`) === L) { i = k; break; }
-      c.getContext('2d').drawImage(a.skinPreview(i), 0, 0);
-    } catch { /* no skin preview available */ }
+    const c = el('canvas', '', box); at(c, 0, 0, w, h);
+    this.preview = { canvas: c, w, h, fx: fx - x, fy: fy - y, scale, eye };
   }
   refresh() {
     for (const d of this.slotEls) this.fillSlot(d, d._ref.get(), d._ref.ghost);
@@ -485,7 +482,7 @@ export class GUI {
     const win = this.win(lay, 176, 166);
     const armorRefs = this.armorRefs();
     armorRefs.forEach((r, k) => this.slotEl(r, win, '', 8, 8 + k * 18));
-    this.playerView(win, 25, 7, 51, 72, 2);
+    this.playerView(win, 25, 7, 51, 72, 51, 75, 30, 50);
     const offRef = ref(inv.offhand, 0, { placeholder: 'shield' });
     this.slotEl(offRef, win, '', 77, 62);
     this.label(win, 'Crafting', 97, 6);
@@ -601,7 +598,7 @@ export class GUI {
       const armorRefs = this.armorRefs();
       [[54, 6], [54, 33], [108, 6], [108, 33]].forEach(([x, y], k) => this.slotEl(armorRefs[k], win, '', x, y));
       this.slotEl(ref(inv.offhand, 0, { placeholder: 'shield' }), win, '', 35, 20);
-      this.playerView(win, 73, 6, 32, 43, 1);
+      this.playerView(win, 73, 6, 32, 43, 88, 45, 20, 30);
       this.gridAt(main, 9, win, 9, 54);
       const trash = this.slotEl({ trash: true, get: () => null, set: () => {} }, win, 'trash ph', 173, 112);
       trash.style.setProperty('--ph', 'var(--spr-trash)');
@@ -984,4 +981,4 @@ export class HUD {
     this.toastT = 5;
   }
 }
-import { surfaceDocument as document } from '../surface.js?v=murpnhgy';
+import { surfaceDocument as document } from '../surface.js?v=mush3n7f';

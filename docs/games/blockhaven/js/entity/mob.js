@@ -1,15 +1,15 @@
 // Living mobs: physics, AI archetypes, combat, breeding/taming, trading and animation.
-import { Entity, drawModel, rootMatrix, M } from './entity.js?v=murpnhgy';
-import { Projectile, renderStack } from './objects.js?v=murpnhgy';
-import { MOBS, PROFESSIONS } from '../data/mobs.js?v=murpnhgy';
-import { B, BLOCKS, SOLID } from '../data/blocks.js?v=murpnhgy';
-import { UNLOADED } from '../world/world.js?v=murpnhgy';
-import { villagerTrades } from '../game/trades.js?v=murpnhgy';
-import { findPath, clearWalk } from './pathfind.js?v=murpnhgy';
-import { ARMOR_BYPASS, armorStats, armorReduce, applyInvul } from '../game/combat.js?v=murpnhgy';
-import { armorSkinKey } from '../data/armor.js?v=murpnhgy';
-import { I } from '../data/items.js?v=murpnhgy';
-import { dragonInit, dragonAI, dragonDamage, dragonDying, dragonHead } from './dragon.js?v=murpnhgy';
+import { Entity, drawModel, rootMatrix, M } from './entity.js?v=mush3n7f';
+import { Projectile, renderStack } from './objects.js?v=mush3n7f';
+import { MOBS, PROFESSIONS } from '../data/mobs.js?v=mush3n7f';
+import { B, BLOCKS, SOLID } from '../data/blocks.js?v=mush3n7f';
+import { UNLOADED } from '../world/world.js?v=mush3n7f';
+import { villagerTrades } from '../game/trades.js?v=mush3n7f';
+import { findPath, clearWalk } from './pathfind.js?v=mush3n7f';
+import { ARMOR_BYPASS, armorStats, armorReduce, applyInvul } from '../game/combat.js?v=mush3n7f';
+import { armorLayer } from '../data/armor.js?v=mush3n7f';
+import { I } from '../data/items.js?v=mush3n7f';
+import { dragonInit, dragonAI, dragonDamage, dragonDying, dragonHead } from './dragon.js?v=mush3n7f';
 
 const rnd = (a, b) => a + Math.random() * (b - a);
 const rint = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
@@ -1014,10 +1014,10 @@ export class Mob extends Entity {
     this.lastPose = this.pose();
     const mats = drawModel(ctx.mobs, this.model, this.layer, root, this.lastPose, light, flash);
     if (this.saddled && (this.mobType === 'horse' || this.mobType === 'donkey')) drawModel(ctx.mobs, g.mobModel('saddle'), g.mobLayer('saddle'), root, { body: this.lastPose.body || [0, 0, 0] }, light, flash);
-    // Worn armor follows the same pose.
+    // Worn armor follows the same pose: Java's armor layers (data/armor.js), on skeletons too.
     if (this.equipment) for (const k of this.equipment.armor) {
-      const sk = k && armorSkinKey(k, !!this.model.thin);
-      if (sk) drawModel(ctx.mobs, g.mobModel(sk), g.mobLayer(sk), root, this.lastPose, light, flash);
+      const a = k && armorLayer(k);
+      if (a) drawModel(ctx.mobs, g.mobModel(a.model), g.mobLayer(a.skin), root, { ...this.lastPose, hide: a.hide }, light, flash);
     }
     // Held item.
     const held = (this.equipment && this.equipment.hand) || this.def.holds;
@@ -1062,7 +1062,7 @@ export class Mob extends Entity {
 }
 
 // Moves an entity without gravity handling (fliers/swimmers).
-import { moveEntity } from './physics.js?v=murpnhgy';
+import { moveEntity } from './physics.js?v=mush3n7f';
 function import_move(e, dt) { moveEntity(e.world, e, e.vel[0] * dt, e.vel[1] * dt, e.vel[2] * dt); }
 
 // Renders a held item using a part matrix (model units).
