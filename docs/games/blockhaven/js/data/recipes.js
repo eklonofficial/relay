@@ -1,6 +1,6 @@
 // Crafting (shaped / shapeless) and smelting recipes, with ingredient tags.
-import { WOODS, COLORS, SHAPED_MATERIALS } from './blocks.js?v=muq8yl59';
-import { I } from './items.js?v=muq8yl59';
+import { WOODS, COLORS, SHAPED_MATERIALS } from './blocks.js?v=muqxeajj';
+import { I } from './items.js?v=muqxeajj';
 
 const has = k => !!I[k];
 export const TAGS = {

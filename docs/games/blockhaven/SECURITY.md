@@ -19,6 +19,17 @@ Preventing the privileged vectors requires control outside this website: a trust
 
 ## Production build
 
+GitHub Pages must use **GitHub Actions**, not the legacy `main /docs` source.
+The Blockhaven workflow tests the packed application, stages the rest of `docs/`
+without `docs/games/blockhaven/`, and puts only `build/site/` at the existing
+`games/blockhaven/` URL. It then renders documentation and deploys that artifact.
+Serving `/docs` directly exposes the readable HTML, modules and individual assets
+before the compositor can hide anything. A production check should find a small
+canvas shell plus content-addressed resources, and a 404 for `js/main.js`.
+This deployment correction still cannot prevent privileged inspection or screen
+monitoring. GoGuardian Teacher, for example, documents live screen viewing;
+canvas pixels remain visible to that capability.
+
 From the repository root, run `npm ci` and `npm run build`. **Deploy only `build/site/`** as the application's root, on the same origin/path as the previous version to retain saves. `npm run build -- --out <directory>` chooses another output location. Do not publish the readable development tree, tests, source maps, debug pages or individual asset directories. Browser storage keys and world/Java/resource-pack upload/download formats are retained.
 
 The output has neutral HTML shells and content-addressed `.bin` resources. The engine, workers, PeerJS library, default resource pack and fonts are bundled, minified where appropriate and gzip-compressed. The browser decodes the resource and runs local blob modules/workers. Routine engine, texture, model, font and sound requests no longer have separate URLs. The companion calculator uses the same packed canvas compositor and keeps its established URL and quick-hide/resume contract. Licenses are included in `third-party-notices.txt`.

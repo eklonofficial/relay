@@ -2,9 +2,10 @@
 // layout tree for keyboard navigation, IME, paste, file pickers and accessibility.
 // Only the compositor paints them. This reduces ordinary DOM text exposure;
 // it is not a security boundary against extensions or instrumented browser APIs.
-let tree, layout, host, output, context;
+let tree, layout, host, output, context, worldCanvas;
 const native = globalThis.document;
 const assets = new Map();
+let textLayouts = new WeakMap();
 let dirty = true, animated = false;
 const hints = new WeakMap();
 let hint = '', hintTimer, pointer = { x: 0, y: 0 };
@@ -20,10 +21,10 @@ export function mount(markup, css) {
   for (const block of css.matchAll(/@font-face\s*\{([^}]+)\}/g)) {
     const get = key => block[1].match(new RegExp(`${key}:\\s*(${key === 'src' ? 'url\\([^)]*\\)\\s*(?:format\\([^)]*\\))?' : '[^;]+'})`))?.[1]?.trim();
     const face = new FontFace(get('font-family').replace(/"/g, ''), get('src'), { weight: get('font-weight') || '400', style: get('font-style') || 'normal', unicodeRange: get('unicode-range') || 'U+0-10FFFF' });
-    native.fonts.add(face); face.load().then(() => { dirty = true; }).catch(() => {});
+    native.fonts.add(face); face.load().then(() => { dirty = true; textLayouts = new WeakMap(); }).catch(() => {});
   }
   host = native.createElement('div');
-  host.style.cssText = 'position:fixed;inset:0;isolation:isolate';
+  host.style.cssText = 'position:fixed;inset:0;isolation:isolate;pointer-events:none;background:transparent';
   tree = host.attachShadow({ mode: 'closed' });
   const sheet = native.createElement('style');
   sheet.textContent = css.replace(/:root/g, ':host').replace(/html, body/g, ':host, .surface-layout').replace(/body\.ingame/g, '.surface-layout.ingame');
@@ -31,7 +32,9 @@ export function mount(markup, css) {
   layout = native.createElement('div');
   layout.className = 'surface-layout';
   layout.style.cssText = 'position:absolute;inset:0;opacity:0;pointer-events:none';
-  sheet.textContent += '\n.surface-layout > * {pointer-events:auto}';
+  // Defaults must not override the original decorative overlays' hit testing.
+  // The full-window layout itself must remain transparent to world clicks.
+  sheet.textContent += '\n:where(.surface-layout > *) {pointer-events:auto}';
   // Parse before connection, so ordinary document observers never see the text.
   const template = native.createElement('template');
   template.innerHTML = markup;
@@ -39,7 +42,16 @@ export function mount(markup, css) {
   layout.append(template.content);
   captureHints(layout);
   tree.append(layout);
-  for (const id of ['game', 'boot']) {
+  worldCanvas = tree.getElementById('game');
+  if (worldCanvas) {
+    // Pointer lock and raw input belong to a native canvas, outside the closed
+    // layout tree. This avoids shadow-root retargeting differences across browsers.
+    worldCanvas.removeAttribute('id');
+    worldCanvas.tabIndex = -1;
+    worldCanvas.style.cssText = 'position:fixed;inset:0;width:100%;height:100%;display:block;outline:none';
+    worldCanvas.remove();
+  }
+  for (const id of ['boot']) {
     const node = tree.getElementById(id);
     if (node) tree.insertBefore(node, layout);
   }
@@ -47,7 +59,7 @@ export function mount(markup, css) {
   output.style.cssText = 'position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:100';
   tree.append(output);
   context = output.getContext('2d');
-  native.body.replaceChildren(host);
+  native.body.replaceChildren(...(worldCanvas ? [worldCanvas, host] : [host]));
   const observer = new MutationObserver(records => {
     dirty = true;
     for (const r of records) {
@@ -59,6 +71,7 @@ export function mount(markup, css) {
   for (const name of ['input', 'change', 'focusin', 'focusout', 'mouseover', 'mouseout', 'scroll', 'pointermove', 'keydown', 'keyup']) {
     tree.addEventListener(name, () => { dirty = true; }, true);
   }
+  tree.addEventListener('load', () => { dirty = true; }, true);
   addEventListener('resize', () => { dirty = true; });
   native.fonts?.ready.then(() => { dirty = true; });
   tree.addEventListener('pointermove', e => { pointer = { x: e.clientX, y: e.clientY }; });
@@ -75,16 +88,19 @@ export function mount(markup, css) {
 
 // A module-local document facade, never installed on window or the native DOM.
 export const surfaceDocument = new Proxy({}, { get(_, key) {
-  if (key === 'getElementById') return id => tree?.getElementById(id) || native.getElementById(id);
+  if (key === 'getElementById') return id => (id === 'game' && worldCanvas) || tree?.getElementById(id) || native.getElementById(id);
   if (key === 'body') return layout || native.body;
   if (key === 'documentElement') return host || native.documentElement;
   if (key === 'activeElement') return tree?.activeElement || native.activeElement;
   if (key === 'pointerLockElement') return tree?.pointerLockElement || native.pointerLockElement;
   if (key === 'addEventListener' || key === 'removeEventListener') return (name, fn, options) => {
-    // Pointer lock does not focus the shadow tree: keys can target the document
-    // body. Inputs still stop propagation before these document listeners.
-    const target = /^(?:keydown|keyup|visibilitychange|pointerlockchange|pointerlockerror|fullscreenchange)$/.test(name) ? native : tree || native;
-    target[key](name, fn, options);
+    // Global input must also see events outside the layout tree: the world,
+    // drags released off a control, and keys after pointer lock changes focus.
+    // Native inputs still stop propagation before these document listeners.
+    const globalInput = /^(?:keydown|keyup|pointerrawupdate|pointermove|mousemove|mousedown|mouseup|wheel|contextmenu|visibilitychange|pointerlockchange|pointerlockerror|fullscreenchange)$/;
+    // Delegated UI clicks still need the real target inside the closed tree
+    // (for example, calculator popovers use target.closest()).
+    (globalInput.test(name) ? native : tree || native)[key](name, fn, options);
   };
   const value = native[key];
   return typeof value === 'function' ? value.bind(native) : value;
@@ -93,10 +109,10 @@ export const surfaceDocument = new Proxy({}, { get(_, key) {
 const split = value => value.split(/,(?![^()]*\))/);
 const px = value => parseFloat(value) || 0;
 const xml = value => value.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
-const visualProperties = ['background', 'border', 'border-top', 'border-right', 'border-bottom', 'border-left', 'border-radius', 'border-image', 'box-shadow', 'mask-image', '-webkit-mask-image', 'mask-size', '-webkit-mask-size'];
+const visualProperties = ['background', 'border', 'border-top', 'border-right', 'border-bottom', 'border-left', 'border-radius', 'border-image', 'box-shadow', 'mask-image', '-webkit-mask-image', 'mask-size', '-webkit-mask-size', 'image-rendering'];
 function visual(style, w, h) {
   const properties = visualProperties.map(p => `${p}:${style.getPropertyValue(p)}`).join(';');
-  if (!/url\(|gradient\(|shadow:[^;]*\d/.test(properties)) return null;
+  if (!/url\(|gradient\(|shadow:[^;]*\d|radius:[^;]*[1-9]/.test(properties)) return null;
   const key = `${w},${h}:${properties}`;
   let img = assets.get(key);
   if (!img) {
@@ -139,29 +155,50 @@ function text(ctx, value, s, x, y) {
   }
   ctx.fillStyle = s.color; ctx.fillText(value, x, baseline);
 }
-function textNode(ctx, node, s) {
+function localRect(r, matrix) {
+  const {a,b,c,d} = matrix, det = Math.abs(a) * Math.abs(d) - Math.abs(b) * Math.abs(c);
+  // Recover the unrotated Range rectangle before mapping its top-left back.
+  // getBoundingClientRect is an axis-aligned *bounding box*, not a glyph origin.
+  const w = Math.abs(det) > 1e-6 ? (r.width * Math.abs(d) - r.height * Math.abs(c)) / det : 0;
+  const h = Math.abs(det) > 1e-6 ? (r.height * Math.abs(a) - r.width * Math.abs(b)) / det : 0;
+  const p = matrix.inverse().transformPoint({x:r.x - Math.min(0,a*w) - Math.min(0,c*h), y:r.y - Math.min(0,b*w) - Math.min(0,d*h)});
+  return {x:p.x,y:p.y,width:w,height:h};
+}
+function textNode(ctx, node, s, matrix) {
   if (!node.textContent.trim()) return;
   const range = native.createRange();
+  range.selectNodeContents(node);
+  const bounds = range.getBoundingClientRect();
+  const key = [node.textContent,s.font,s.letterSpacing,bounds.x,bounds.y,bounds.width,bounds.height,matrix.toString()].join('|');
+  const cached = textLayouts.get(node);
+  if (cached?.key === key) { for (const line of cached.lines) text(ctx,line.value,s,line.x,line.y); return; }
   // Range supplies browser wrapping, bidi, spacing and mixed inline layout.
   // Group characters sharing one line to preserve kerning and avoid per-glyph paint.
   let line = '', left = 0, top = 0;
-  const flush = () => { if (line) text(ctx, line, s, left, top); };
+  const lines = [];
+  const flush = () => { if (line) { lines.push({value:line,x:left,y:top}); text(ctx, line, s, left, top); } };
   for (let i = 0; i < node.length; i++) {
     range.setStart(node, i); range.setEnd(node, i + 1);
-    const r = range.getBoundingClientRect();
+    const r = localRect(range.getBoundingClientRect(), matrix);
     if (!r.height) continue;
     if (line && Math.abs(r.y - top) > 1) { flush(); line = ''; }
     if (!line) { left = r.x; top = r.y; }
     line += node.textContent[i];
   }
   flush();
+  textLayouts.set(node,{key,lines});
 }
 function pseudo(ctx, el, name, parent) {
   const s = styleOf(el, name);
   if (s.content === 'none' || s.content === 'normal' || s.display === 'none') return;
-  const w = s.width === 'auto' ? parent.width - px(s.left) - px(s.right) : px(s.width);
-  const h = s.height === 'auto' ? parent.height - px(s.top) - px(s.bottom) : px(s.height);
-  const r = { x: s.left !== 'auto' ? parent.x + px(s.left) : parent.x + parent.width - px(s.right) - w, y: s.top !== 'auto' ? parent.y + px(s.top) : parent.y + parent.height - px(s.bottom) - h, width: w, height: h };
+  const length = (v, size) => v.endsWith('%') ? px(v) * size / 100 : px(v);
+  // Universal '*' rules do not include pseudo-elements. Their computed width
+  // can therefore be content-box even when their parent's is border-box.
+  const extraW = s.boxSizing === 'border-box' ? 0 : px(s.borderLeftWidth)+px(s.borderRightWidth)+px(s.paddingLeft)+px(s.paddingRight);
+  const extraH = s.boxSizing === 'border-box' ? 0 : px(s.borderTopWidth)+px(s.borderBottomWidth)+px(s.paddingTop)+px(s.paddingBottom);
+  const w = s.width === 'auto' ? parent.width - length(s.left,parent.width) - length(s.right,parent.width) : length(s.width,parent.width)+extraW;
+  const h = s.height === 'auto' ? parent.height - length(s.top,parent.height) - length(s.bottom,parent.height) : length(s.height,parent.height)+extraH;
+  const r = { x: s.left !== 'auto' ? parent.x + length(s.left,parent.width) : parent.x + parent.width - length(s.right,parent.width) - w, y: s.top !== 'auto' ? parent.y + length(s.top,parent.height) : parent.y + parent.height - length(s.bottom,parent.height) - h, width: w, height: h };
   box(ctx, s, r);
 }
 function control(ctx, el, s, r) {
@@ -187,10 +224,19 @@ function control(ctx, el, s, r) {
   }
   ctx.restore();
 }
-function draw(ctx, el) {
-  const s = styleOf(el), r = el.getBoundingClientRect();
+function draw(ctx, el, inherited = new DOMMatrix()) {
+  const s = styleOf(el), bounds = el.getBoundingClientRect();
+  const own = s.transform === 'none' ? new DOMMatrix() : new DOMMatrix(s.transform);
+  const matrix = inherited.multiply(own);
+  const w = s.width === 'auto' ? el.offsetWidth || bounds.width : px(s.width), h = s.height === 'auto' ? el.offsetHeight || bounds.height : px(s.height);
+  matrix.e = bounds.x - Math.min(0,matrix.a*w) - Math.min(0,matrix.c*h);
+  matrix.f = bounds.y - Math.min(0,matrix.b*w) - Math.min(0,matrix.d*h);
+  const r = {x:0,y:0,width:w,height:h,right:w,bottom:h};
   if (s.display === 'none' || s.visibility === 'hidden' || (!r.width && !r.height)) return;
   ctx.save();
+  const dpr = Math.min(2, devicePixelRatio || 1);
+  ctx.setTransform(dpr*matrix.a,dpr*matrix.b,dpr*matrix.c,dpr*matrix.d,dpr*matrix.e,dpr*matrix.f);
+  ctx.imageSmoothingEnabled = s.imageRendering !== 'pixelated';
   ctx.globalAlpha *= Number(s.opacity);
   if (!ctx.globalAlpha) { ctx.restore(); return; }
   if (s.mixBlendMode !== 'normal') ctx.globalCompositeOperation = s.mixBlendMode;
@@ -211,8 +257,8 @@ function draw(ctx, el) {
     // Position stacking within each layout container (tabs, tooltip, cursor).
     children.sort((a, b) => (a.nodeType === 1 ? px(styleOf(a).zIndex) : 0) - (b.nodeType === 1 ? px(styleOf(b).zIndex) : 0));
     for (const child of children) {
-      if (child.nodeType === 1) draw(ctx, child);
-      else if (child.nodeType === 3) textNode(ctx, child, s);
+      if (child.nodeType === 1) draw(ctx, child, matrix);
+      else if (child.nodeType === 3) textNode(ctx, child, s, matrix);
     }
   }
   pseudo(ctx, el, '::after', r);
@@ -226,6 +272,7 @@ function draw(ctx, el) {
 export function paint() {
   if (!context) return;
   dirty = animated = false;
+  animated = layout.getAnimations({subtree:true}).some(a => a.playState === 'running');
   const dpr = Math.min(2, devicePixelRatio || 1), w = Math.round(innerWidth * dpr), h = Math.round(innerHeight * dpr);
   if (output.width !== w || output.height !== h) { output.width = w; output.height = h; }
   context.setTransform(dpr, 0, 0, dpr, 0, 0); context.clearRect(0, 0, innerWidth, innerHeight);

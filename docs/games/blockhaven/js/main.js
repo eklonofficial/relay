@@ -1,43 +1,44 @@
 // Blockhaven bootstrap: assets, menus, input, camera, frame loop.
-import './page.js?v=muq8yl59';
-import { surfaceDocument as document } from './surface.js?v=muq8yl59';
-import { registerApp } from './veil.js?v=muq8yl59';
-import { ask, tell } from './dialog.js?v=muq8yl59';
-import { Demo, DEMO_SEED } from './demo.js?v=muq8yl59';
-import { armorModel, armorSkinKey, ARMOR_MATERIALS, ARMOR_PIECES, elytraModel } from './data/armor.js?v=muq8yl59';
-import { TEXTURES, TEX, B, BLOCKS, DIM, DIM_NAMES, SHAPE_OF, SHAPE, props, HEIGHT } from './data/blocks.js?v=muq8yl59';
-import { I, ITEMS } from './data/items.js?v=muq8yl59';
-import { MOBS, PROFESSIONS, playerModel, saddleModel, PLAYER_SKINS } from './data/mobs.js?v=muq8yl59';
-import { Net, cleanCode, cleanName, cleanKey, cleanChat, chatLine, MAX_PLAYERS, wakeRelays, diagnoseNetwork } from './net/net.js?v=muq8yl59';
-import { NameTags } from './net/nametags.js?v=muq8yl59';
-import { BIOMES } from './gen/biomes.js?v=muq8yl59';
-import { generateBlockTextures, drawBlockTexture } from './render/blocktex.js?v=muq8yl59';
-import { generateItemTextures, ITEM_LAYER, FX_LAYER, ITEM_LAYER_COUNT, flatTexFor } from './render/itemtex.js?v=muq8yl59';
-import { Zip, storedPack, savePack, removePack, applyBlockTextures, applyItemTextures, indexSounds } from './render/pack.js?v=muq8yl59';
-import { packModel, paintModel, SKIN, faceRects } from './render/mobtex.js?v=muq8yl59';
-import { buildMipChain } from './render/atlas.js?v=muq8yl59';
-import { Renderer, Batch } from './render/renderer.js?v=muq8yl59';
-import { World, UNLOADED } from './world/world.js?v=muq8yl59';
-import { createGenerator } from './gen/index.js?v=muq8yl59';
-import { Game } from './game/game.js?v=muq8yl59';
-import { Interact, crossbowCharge } from './game/interact.js?v=muq8yl59';
-import { SpawnPrep, STATUS_COLOR } from './game/spawnprep.js?v=muq8yl59';
-import { splash } from './splash.js?v=muq8yl59';
-import { Commands } from './game/commands.js?v=muq8yl59';
-import { GUI, HUD } from './game/ui.js?v=muq8yl59';
-import { buildIcons, hudSprites } from './game/icons.js?v=muq8yl59';
-import { Sound } from './game/audio.js?v=muq8yl59';
-import { buildLogo, buttonTexture, dirtTexture, iconDataURL } from './render/logo.js?v=muq8yl59';
-import { computeEnv } from './game/env.js?v=muq8yl59';
-import { guideSections } from './game/guide.js?v=muq8yl59';
-import { listWorlds, loadWorld, saveWorld, deleteWorld } from './game/storage.js?v=muq8yl59';
-import { importJavaWorld, exportJavaWorld } from './game/javaworld.js?v=muq8yl59';
-import { drawModel, rootMatrix, M } from './entity/entity.js?v=muq8yl59';
-import { itemMesh, emitItemMesh, clearItemMeshes } from './entity/itemmesh.js?v=muq8yl59';
-import { Lightning, billboard } from './entity/objects.js?v=muq8yl59';
-import { compose, translation, rotationX, rotationY, rotationZ, scaling, forward, mat4 } from './core/math.js?v=muq8yl59';
-import { hasGlint } from './data/enchantments.js?v=muq8yl59';
-import { BarrelRoll } from './game/barrelroll.js?v=muq8yl59';
+import './page.js?v=muqxeajj';
+import { surfaceDocument as document } from './surface.js?v=muqxeajj';
+import { registerApp } from './veil.js?v=muqxeajj';
+import { movementSamples } from './util/pointer.js?v=muqxeajj';
+import { ask, tell } from './dialog.js?v=muqxeajj';
+import { Demo, DEMO_SEED } from './demo.js?v=muqxeajj';
+import { armorModel, armorSkinKey, ARMOR_MATERIALS, ARMOR_PIECES, elytraModel } from './data/armor.js?v=muqxeajj';
+import { TEXTURES, TEX, B, BLOCKS, DIM, DIM_NAMES, SHAPE_OF, SHAPE, props, HEIGHT } from './data/blocks.js?v=muqxeajj';
+import { I, ITEMS } from './data/items.js?v=muqxeajj';
+import { MOBS, PROFESSIONS, playerModel, saddleModel, PLAYER_SKINS } from './data/mobs.js?v=muqxeajj';
+import { Net, cleanCode, cleanName, cleanKey, cleanChat, chatLine, MAX_PLAYERS, wakeRelays, diagnoseNetwork } from './net/net.js?v=muqxeajj';
+import { NameTags } from './net/nametags.js?v=muqxeajj';
+import { BIOMES } from './gen/biomes.js?v=muqxeajj';
+import { generateBlockTextures, drawBlockTexture } from './render/blocktex.js?v=muqxeajj';
+import { generateItemTextures, ITEM_LAYER, FX_LAYER, ITEM_LAYER_COUNT, flatTexFor } from './render/itemtex.js?v=muqxeajj';
+import { Zip, storedPack, savePack, removePack, applyBlockTextures, applyItemTextures, indexSounds } from './render/pack.js?v=muqxeajj';
+import { packModel, paintModel, SKIN, faceRects } from './render/mobtex.js?v=muqxeajj';
+import { buildMipChain } from './render/atlas.js?v=muqxeajj';
+import { Renderer, Batch } from './render/renderer.js?v=muqxeajj';
+import { World, UNLOADED } from './world/world.js?v=muqxeajj';
+import { createGenerator } from './gen/index.js?v=muqxeajj';
+import { Game } from './game/game.js?v=muqxeajj';
+import { Interact, crossbowCharge } from './game/interact.js?v=muqxeajj';
+import { SpawnPrep, STATUS_COLOR } from './game/spawnprep.js?v=muqxeajj';
+import { splash } from './splash.js?v=muqxeajj';
+import { Commands } from './game/commands.js?v=muqxeajj';
+import { GUI, HUD } from './game/ui.js?v=muqxeajj';
+import { buildIcons, hudSprites } from './game/icons.js?v=muqxeajj';
+import { Sound } from './game/audio.js?v=muqxeajj';
+import { buildLogo, buttonTexture, dirtTexture, iconDataURL } from './render/logo.js?v=muqxeajj';
+import { computeEnv } from './game/env.js?v=muqxeajj';
+import { guideSections } from './game/guide.js?v=muqxeajj';
+import { listWorlds, loadWorld, saveWorld, deleteWorld } from './game/storage.js?v=muqxeajj';
+import { importJavaWorld, exportJavaWorld } from './game/javaworld.js?v=muqxeajj';
+import { drawModel, rootMatrix, M } from './entity/entity.js?v=muqxeajj';
+import { itemMesh, emitItemMesh, clearItemMeshes } from './entity/itemmesh.js?v=muqxeajj';
+import { Lightning, billboard } from './entity/objects.js?v=muqxeajj';
+import { compose, translation, rotationX, rotationY, rotationZ, scaling, forward, mat4 } from './core/math.js?v=muqxeajj';
+import { hasGlint } from './data/enchantments.js?v=muqxeajj';
+import { BarrelRoll } from './game/barrelroll.js?v=muqxeajj';
 
 const $ = id => document.getElementById(id);
 // Resolves after the page has painted what was just put on screen.
@@ -691,6 +692,10 @@ class App {
   // Raw (unaccelerated) mouse input where supported, like Minecraft's "Raw Input" option.
   requestLock() {
     const c = $('game');
+    // Moving from a menu/search field into the world must release text focus.
+    // Pointer lock alone does not reliably focus the canvas in every browser.
+    document.activeElement?.blur?.();
+    c.focus({ preventScroll: true });
     let r;
     // Raw Input (on by default, as in Minecraft) asks for the mouse's own movement, without the
     // operating system's pointer acceleration, which shrinks slow movements almost to nothing.
@@ -877,15 +882,23 @@ class App {
       p.pitch = Math.max(-1.56, Math.min(1.56, p.pitch - dy * sens));
     };
     const samples = e => {
-      if (!this.locked || this.mode !== 'play' || !this.game) return;
-      const list = e.getCoalescedEvents ? e.getCoalescedEvents() : null;
-      if (list && list.length) for (const c of list) take(c.movementX, c.movementY);
-      else take(e.movementX, e.movementY);
+      if (!this.locked || this.mode !== 'play' || !this.game) return false;
+      const list = movementSamples(e);
+      for (const c of list) take(c.movementX, c.movementY);
+      return list.length > 0;
     };
     this.mouseStats = { n: 0, src: '', rate: 0, t: performance.now() };
-    if ('onpointerrawupdate' in window) document.addEventListener('pointerrawupdate', e => { this.lastRaw = performance.now(); this.mouseStats.src = 'raw'; samples(e); });
-    if ('onpointermove' in window) document.addEventListener('pointermove', e => { if (performance.now() - (this.lastRaw || 0) < 250) return; this.mouseStats.src = 'move'; samples(e); });
-    else document.addEventListener('mousemove', e => { this.mouseStats.src = 'mouse'; samples(e); });
+    if ('onpointerrawupdate' in window) document.addEventListener('pointerrawupdate', e => {
+      if (samples(e)) { this.lastRaw = performance.now(); this.mouseStats.src = 'raw'; }
+    });
+    if ('onpointermove' in window) document.addEventListener('pointermove', e => {
+      if (performance.now() - (this.lastRaw ?? -Infinity) < 250) return;
+      if (samples(e)) { this.lastPointer = performance.now(); this.mouseStats.src = 'move'; }
+    });
+    document.addEventListener('mousemove', e => {
+      if (performance.now() - Math.max(this.lastRaw ?? -Infinity, this.lastPointer ?? -Infinity) < 250) return;
+      if (samples(e)) this.mouseStats.src = 'mouse';
+    });
     document.addEventListener('mousedown', e => {
       if (this.mode !== 'play' || !this.locked) return;
       if (e.button === 0) { this.mouse.left = true; this.mouse.leftClicked = true; }

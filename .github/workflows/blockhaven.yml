@@ -2,16 +2,17 @@ name: Blockhaven
 
 # Pull requests run once (the pull_request event only); pushes to main run too.
 on:
+  workflow_dispatch:
   push:
     branches: [main]
     paths:
-      - 'docs/games/blockhaven/**'
+      - 'docs/**'
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/blockhaven.yml'
   pull_request:
     paths:
-      - 'docs/games/blockhaven/**'
+      - 'docs/**'
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/blockhaven.yml'
@@ -47,9 +48,43 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: Canvas browser regression checks
         run: npm run test:browser
+      # Keep the rest of the site, but never put Blockhaven's readable development
+      # tree in the Pages artifact. Use the same paths/origin to preserve saves.
+      - name: Stage website
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        run: |
+          mkdir -p build/pages-input/games/blockhaven
+          rsync -a --exclude='games/blockhaven/' docs/ build/pages-input/
+          cp -a build/site/. build/pages-input/games/blockhaven/
+      - name: Render documentation
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        uses: actions/jekyll-build-pages@v1
+        with:
+          source: build/pages-input
+          destination: build/pages
+      - name: Pages artifact
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: build/pages
       - name: Reviewable production files and browser captures
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: site-and-checks
           path: build/
+
+  deploy:
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    needs: check
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy verified website
+        id: deployment
+        uses: actions/deploy-pages@v4

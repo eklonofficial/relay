@@ -18,15 +18,15 @@ const server = createServer(async (req, res) => {
   catch { res.writeHead(404).end(); }
 });
 await new Promise(r => server.listen(0, '127.0.0.1', r));
-let browser;
+let browser, page;
+const errors = [], requests = [];
 try {
   const launch = { headless: true, args: ['--no-proxy-server', '--enable-webgl', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] };
   if (process.env.BROWSER_EXECUTABLE) launch.executablePath = process.env.BROWSER_EXECUTABLE;
   else if (process.platform === 'win32') launch.channel = 'msedge';
   browser = await chromium.launch(launch);
-  const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
-  page.setDefaultTimeout(120000);
-  const errors = [], requests = [];
+  page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  page.setDefaultTimeout(180000);
   page.on('pageerror', e => errors.push(e.message));
   page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
   page.on('request', r => { if (/^https?:/.test(r.url())) requests.push(new URL(r.url()).pathname); });
@@ -79,7 +79,13 @@ try {
   assert.match(gunzipSync(await readFile(resolve(root, '.' + mainResource))).toString('utf8'), /Singleplayer/);
   const boundaryEvidence = { earlyHookReadsClosedLayout: true, debuggerReadsClosedLayout: true, drawingHookReadsLabels: true, packedResourceIsDecodable: true };
   const click = async id => { const box = await page.evaluate(id => { const r = window.testRoot.getElementById(id).getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; }, id); await page.mouse.click(box.x, box.y); };
+  const reference = async name => {
+    await page.evaluate(() => { const layout = window.testRoot.querySelector('.surface-layout'); layout.style.opacity = '1'; layout.style.background = 'transparent'; window.testRoot.lastElementChild.style.visibility = 'hidden'; });
+    await page.screenshot({path:resolve(captures, name + '-native.png')});
+    await page.evaluate(() => { window.testRoot.querySelector('.surface-layout').style.opacity = '0'; window.testRoot.lastElementChild.style.visibility = ''; });
+  };
   await page.screenshot({ path: resolve(captures, 'title.png') });
+  await reference('title');
   console.log('startup and public-DOM checks passed');
   await click('btn-settings'); await click('set-clouds'); await click('btn-settings-done');
   await click('btn-controls'); await click('btn-controls-done'); await click('btn-guide');
@@ -90,13 +96,38 @@ try {
   // Keep the seeded generator stable across checks, including resource-pack application.
   await click('cw-seed'); await page.keyboard.type('1'); await click('btn-create');
   await page.waitForFunction(() => window.testRoot.getElementById('loading').classList.contains('hidden') && !window.testRoot.getElementById('hud').classList.contains('hidden'));
+  await page.mouse.click(640, 400);
+  await page.keyboard.press('F3');
+  await page.waitForTimeout(300);
+  await page.waitForFunction(() => document.pointerLockElement?.tagName === 'CANVAS' && window.testRoot.getElementById('pause').classList.contains('hidden'));
+  const position = () => page.evaluate(() => window.testRoot.getElementById('debug').textContent.match(/XYZ: ([\d.-]+) \/ ([\d.-]+) \/ ([\d.-]+)/)?.slice(1).map(Number));
+  const before = await position();
+  await page.keyboard.down('KeyW'); await page.waitForTimeout(1000); await page.keyboard.up('KeyW');
+  await page.mouse.move(700, 420); await page.waitForTimeout(500);
+  const after = await position();
+  assert.ok(Math.hypot(after[0]-before[0],after[2]-before[2]) > 0.1, 'W must move the player, not merely deliver a key event');
+  const facing = () => page.evaluate(() => window.testRoot.getElementById('debug').textContent.match(/Facing: (\w+)/)?.[1]);
+  const beforeLook = await facing();
+  // Headless absolute mouse injection can generate recenter pairs with net-zero
+  // deltas under pointer lock. Send explicit relative samples through the real
+  // locked canvas and installed event handlers; no application state is edited.
+  await page.evaluate(()=>{for(let i=0;i<6;i++) {
+    const event=new PointerEvent('pointerrawupdate',{bubbles:true,composed:true,movementX:180,movementY:2});
+    Object.defineProperty(event,'getCoalescedEvents',{value:()=>[{movementX:0,movementY:0}]});
+    document.pointerLockElement.dispatchEvent(event);
+  }});
+  await page.waitForTimeout(500);
+  assert.notEqual(await facing(),beforeLook,'locked pointer input must turn the camera');
+  await page.keyboard.press('F3');
   await page.mouse.click(640, 400); await page.keyboard.press('KeyE');
   await page.waitForFunction(() => !window.testRoot.getElementById('gui').classList.contains('hidden'));
   assert.ok(await page.evaluate(() => window.testRoot.querySelectorAll('.gs').length >= 36));
   await page.screenshot({ path: resolve(captures, 'inventory.png') });
+  await reference('inventory');
   await page.keyboard.press('Escape'); await page.keyboard.press('KeyT'); await page.keyboard.type('/gamemode creative'); await page.keyboard.press('Enter');
   await page.keyboard.press('KeyE'); await page.waitForFunction(() => window.testRoot.querySelectorAll('.gs').length > 50);
   await page.screenshot({ path: resolve(captures, 'creative.png') });
+  await reference('creative');
   console.log('menus, native text input and both inventories passed');
   await page.keyboard.press('KeyI');
   await page.waitForFunction(() => window.testRoot.querySelector('.csearch') && window.testRoot.activeElement === window.testRoot.querySelector('.csearch'));
@@ -104,7 +135,7 @@ try {
   assert.equal(await page.evaluate(() => window.testRoot.querySelector('.csearch').value), 'iron');
   await page.keyboard.press('Escape');
   await page.waitForFunction(() => window.testRoot.getElementById('gui').classList.contains('hidden'));
-  await page.mouse.click(640, 400); await page.waitForFunction(() => !!window.testRoot.pointerLockElement);
+  await page.mouse.click(640, 400); await page.waitForFunction(() => document.pointerLockElement?.tagName === 'CANVAS');
   await page.evaluate(() => document.exitPointerLock());
   await page.waitForFunction(() => !window.testRoot.getElementById('pause').classList.contains('hidden'));
   await click('btn-quit'); await page.waitForFunction(() => !window.testRoot.getElementById('title').classList.contains('hidden')); await click('btn-play');
@@ -138,4 +169,9 @@ try {
   await tampered.waitForFunction(() => document.querySelector('canvas')?.width === innerWidth && !document.querySelector('div'));
   await tampered.close();
   console.log('browser checks passed: canvas UI, native input, menus, inventory, creative search, saves/download, dialogs, calculator, resize and opaque resources');
+} catch (error) {
+  console.error('Browser errors:',errors);
+  await writeFile(resolve(captures,'failure.json'),JSON.stringify({error:String(error),errors,requests},null,2));
+  await page?.screenshot({path:resolve(captures,'failure.png'),timeout:5000}).catch(()=>{});
+  throw error;
 } finally { await browser?.close(); await new Promise(r => server.close(r)); }

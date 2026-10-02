@@ -3,10 +3,10 @@
 // to scan, roar and breathe, then takes off again. End crystals heal it through a beam; hits on
 // its head do full damage, hits on its body a quarter. Dying, it rises in light for ten seconds,
 // sheds its experience and leaves the exit portal behind.
-import { B, BLOCKS } from '../data/blocks.js?v=muq8yl59';
-import { UNLOADED } from '../world/world.js?v=muq8yl59';
-import { Projectile } from './objects.js?v=muq8yl59';
-import { AreaCloud } from './cloud.js?v=muq8yl59';
+import { B, BLOCKS } from '../data/blocks.js?v=muqxeajj';
+import { UNLOADED } from '../world/world.js?v=muqxeajj';
+import { Projectile } from './objects.js?v=muqxeajj';
+import { AreaCloud } from './cloud.js?v=muqxeajj';
 
 const rnd = (a, b) => a + Math.random() * (b - a);
 const rint = n => Math.floor(Math.random() * n);
