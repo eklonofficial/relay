@@ -37,6 +37,8 @@ config.toml
 *.log
 screenshots/
 sessions/
+node_modules/
+/Temp/
 
 # --------------------------------------------------------------- backups
 # `relay backup` writes here. Explicitly un-ignored, because the whole point

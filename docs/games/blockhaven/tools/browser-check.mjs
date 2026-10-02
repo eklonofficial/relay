@@ -1,0 +1,104 @@
+// Real browser regression checks. The test-only attachShadow instrumentation is
+// deliberate: production does not publish this reference or application state.
+import { createRequire } from 'node:module';
+import assert from 'node:assert/strict';
+import { createServer } from 'node:http';
+import { readFile, mkdir, writeFile } from 'node:fs/promises';
+import { resolve, extname, sep } from 'node:path';
+const dep = process.argv.includes('--dependencies') ? resolve(process.argv[process.argv.indexOf('--dependencies') + 1]) : process.cwd();
+const { chromium } = createRequire(resolve(dep, 'package.json'))('playwright');
+const root = resolve(process.env.SITE_OUTPUT || 'build/site');
+const captures = resolve('build/checks'); await mkdir(captures, { recursive: true });
+const types = { '.html': 'text/html', '.bin': 'application/octet-stream', '.js': 'text/javascript' };
+const server = createServer(async (req, res) => {
+  const p = resolve(root, '.' + decodeURIComponent(new URL(req.url, 'http://localhost').pathname));
+  if (!p.startsWith(root + sep) && p !== root) { res.writeHead(403).end(); return; }
+  try { const f = p === root ? resolve(root, 'index.html') : p; const bytes = await readFile(f); res.writeHead(200, { 'Content-Type': types[extname(f)] || 'application/octet-stream' }).end(bytes); }
+  catch { res.writeHead(404).end(); }
+});
+await new Promise(r => server.listen(0, '127.0.0.1', r));
+let browser;
+try {
+  const launch = { headless: true, args: ['--no-proxy-server', '--enable-webgl', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] };
+  if (process.env.BROWSER_EXECUTABLE) launch.executablePath = process.env.BROWSER_EXECUTABLE;
+  else if (process.platform === 'win32') launch.channel = 'msedge';
+  browser = await chromium.launch(launch);
+  const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  page.setDefaultTimeout(120000);
+  const errors = [], requests = [];
+  page.on('pageerror', e => errors.push(e.message));
+  page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
+  page.on('request', r => { if (/^https?:/.test(r.url())) requests.push(new URL(r.url()).pathname); });
+  await page.addInitScript(() => {
+    const original = Element.prototype.attachShadow;
+    Element.prototype.attachShadow = function (options) { const root = original.call(this, options); if (options.mode === 'closed') window.testRoot = root; return root; };
+    window.observed = [];
+    new MutationObserver(records => { for (const r of records) if (r.type === 'characterData') window.observed.push(r.target.data); }).observe(document, { subtree: true, childList: true, characterData: true });
+    // Smaller streamed area keeps CI focused on behavior, with the same assets.
+    localStorage.setItem('blockhaven.settings.v2', JSON.stringify({ renderDistance: 3, graphics: 0 }));
+  });
+  const base = 'http://127.0.0.1:' + server.address().port;
+  await page.goto(base + '/index.html', { waitUntil: 'commit' });
+  await page.waitForFunction(() => window.testRoot?.getElementById('boot') == null && !!window.testRoot?.getElementById('btn-play'));
+  const publicState = () => page.evaluate(() => ({ text: document.body.innerText, controls: document.querySelectorAll('button,input,select,textarea').length, published: 'blockhaven' in window, observed: window.observed }));
+  assert.deepEqual((await publicState()).text, ''); assert.equal((await publicState()).controls, 0); assert.equal((await publicState()).published, false);
+  const click = async id => { const box = await page.evaluate(id => { const r = window.testRoot.getElementById(id).getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; }, id); await page.mouse.click(box.x, box.y); };
+  await page.screenshot({ path: resolve(captures, 'title.png') });
+  console.log('startup and public-DOM checks passed');
+  await click('btn-settings'); await click('set-clouds'); await click('btn-settings-done');
+  await click('btn-controls'); await click('btn-controls-done'); await click('btn-guide');
+  await page.screenshot({ path: resolve(captures, 'guide.png') }); await click('btn-guide-done');
+  await click('btn-play'); await click('btn-world-new'); await click('cw-name');
+  await page.keyboard.press('ControlOrMeta+A'); await page.keyboard.type('Private sample');
+  assert.equal(await page.evaluate(() => window.testRoot.getElementById('cw-name').value), 'Private sample');
+  // Keep the seeded generator stable across checks, including resource-pack application.
+  await click('cw-seed'); await page.keyboard.type('1'); await click('btn-create');
+  await page.waitForFunction(() => window.testRoot.getElementById('loading').classList.contains('hidden') && !window.testRoot.getElementById('hud').classList.contains('hidden'));
+  await page.mouse.click(640, 400); await page.keyboard.press('KeyE');
+  await page.waitForFunction(() => !window.testRoot.getElementById('gui').classList.contains('hidden'));
+  assert.ok(await page.evaluate(() => window.testRoot.querySelectorAll('.gs').length >= 36));
+  await page.screenshot({ path: resolve(captures, 'inventory.png') });
+  await page.keyboard.press('Escape'); await page.keyboard.press('KeyT'); await page.keyboard.type('/gamemode creative'); await page.keyboard.press('Enter');
+  await page.keyboard.press('KeyE'); await page.waitForFunction(() => window.testRoot.querySelectorAll('.gs').length > 50);
+  await page.screenshot({ path: resolve(captures, 'creative.png') });
+  console.log('menus, native text input and both inventories passed');
+  await page.keyboard.press('KeyI');
+  await page.waitForFunction(() => window.testRoot.querySelector('.csearch') && window.testRoot.activeElement === window.testRoot.querySelector('.csearch'));
+  await page.keyboard.type('ron');
+  assert.equal(await page.evaluate(() => window.testRoot.querySelector('.csearch').value), 'iron');
+  await page.keyboard.press('Escape');
+  await page.waitForFunction(() => window.testRoot.getElementById('gui').classList.contains('hidden'));
+  await page.mouse.click(640, 400); await page.waitForFunction(() => !!window.testRoot.pointerLockElement);
+  await page.evaluate(() => document.exitPointerLock());
+  await page.waitForFunction(() => !window.testRoot.getElementById('pause').classList.contains('hidden'));
+  await click('btn-quit'); await page.waitForFunction(() => !window.testRoot.getElementById('title').classList.contains('hidden')); await click('btn-play');
+  await page.waitForFunction(() => window.testRoot.querySelector('.world-entry'));
+  await page.evaluate(() => window.testRoot.querySelector('.world-entry').click());
+  const downloadPromise = page.waitForEvent('download'); await click('btn-world-download');
+  const download = await downloadPromise; await download.saveAs(resolve(captures, 'sample.bhworld')); assert.equal(await download.failure(), null);
+  await click('btn-world-delete'); await page.waitForFunction(() => [...window.testRoot.querySelectorAll('.screen')].some(e => e.style.zIndex === '100000'));
+  await page.screenshot({ path: resolve(captures, 'dialog.png') }); await page.keyboard.press('Escape');
+  assert.equal((await publicState()).text, ''); assert.equal((await publicState()).controls, 0);
+  assert.doesNotMatch((await publicState()).observed.join(' '), /Private sample|Inventory|Respawn|Score|Crafting/);
+  const fontState = await page.evaluate(() => [...document.fonts].filter(f => f.family === 'p').map(f => f.status));
+  assert.ok(fontState.length && fontState.every(s => s === 'loaded'), 'packed fonts must load');
+  console.log('search, save/download, dialog and font checks passed');
+  // Quick hide must also work with a canvas-rendered calculator.
+  await page.keyboard.press('KeyJ'); await page.waitForFunction(() => document.querySelector('iframe')?.style.display === 'block');
+  const calculator = page.frames().find(f => f !== page.mainFrame());
+  await calculator.waitForFunction(() => !!window.testRoot?.querySelector('input.ex'));
+  const calcBox = await calculator.evaluate(() => { const r = window.testRoot.querySelector('input.ex').getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; });
+  await page.mouse.click(calcBox.x, calcBox.y); await page.keyboard.type('y=mx+b'); await page.keyboard.press('Enter');
+  await page.waitForFunction(() => document.querySelector('iframe').style.display === 'none');
+  assert.equal(await page.title(), 'Workspace');
+  assert.ok(requests.every(p => /\/(?:index\.html|calc\.html|[a-f0-9]{24}\.bin)$/.test(p)), JSON.stringify(requests));
+  assert.deepEqual(errors, []);
+  await page.setViewportSize({ width: 800, height: 600 }); await page.screenshot({ path: resolve(captures, 'small.png') });
+  await writeFile(resolve(captures, 'results.json'), JSON.stringify({ requests, fontState, errors }, null, 2));
+  const tampered = await browser.newPage();
+  await tampered.route('**/*.bin', route => route.fulfill({ status: 200, contentType: 'application/octet-stream', body: 'modified' }));
+  await tampered.goto(base + '/index.html');
+  await tampered.waitForFunction(() => document.querySelector('canvas')?.width === innerWidth && !document.querySelector('div'));
+  await tampered.close();
+  console.log('browser checks passed: canvas UI, native input, menus, inventory, creative search, saves/download, dialogs, calculator, resize and opaque resources');
+} finally { await browser?.close(); await new Promise(r => server.close(r)); }

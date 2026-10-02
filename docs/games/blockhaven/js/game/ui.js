@@ -1,9 +1,9 @@
 // Container GUIs (inventory, crafting, chest, furnace, creative, trading) and the HUD, laid out in GUI pixels
 // (1 unit = var(--u)) at the original's coordinates: 176x166 panels, 18x18 slots, 16x16 icons.
-import { I, ITEMS, TABS, maxStack, ARMOR_SLOTS, iconKey } from '../data/items.js?v=muq2vskd';
-import { findRecipe, allRecipes, matches, SMELTING, TAGS } from '../data/recipes.js?v=muq2vskd';
-import { same } from './inventory.js?v=muq2vskd';
-import { tableOffers, enchantName, enchantsOf, anvilResult, isEnchantable, hasGlint, ENCHANTS, ENCHANT_LIST } from '../data/enchantments.js?v=muq2vskd';
+import { I, ITEMS, TABS, maxStack, ARMOR_SLOTS, iconKey } from '../data/items.js?v=muq89fgx';
+import { findRecipe, allRecipes, matches, SMELTING, TAGS } from '../data/recipes.js?v=muq89fgx';
+import { same } from './inventory.js?v=muq89fgx';
+import { tableOffers, enchantName, enchantsOf, anvilResult, isEnchantable, hasGlint, ENCHANTS, ENCHANT_LIST } from '../data/enchantments.js?v=muq89fgx';
 const ENCH_CURSE = id => !!(ENCHANTS[id] && ENCHANTS[id].curse);
 
 // The enchanting table's glyphs (the Standard Galactic Alphabet as usually typed in Unicode).
@@ -466,7 +466,7 @@ export class GUI {
     btn(prev, () => this.rbPage--); btn(next, () => this.rbPage++);
     btn(filt, () => { this.rbCraftable = !this.rbCraftable; this.rbPage = 0; this.showTip([[this.rbCraftable ? 'Showing Craftable' : 'Showing All', '']]); });
     search.addEventListener('input', () => { this.rbQuery = search.value; this.rbPage = 0; draw(); });
-    search.addEventListener('keydown', e => e.stopPropagation());
+    search.addEventListener('keydown', e => { e.stopPropagation(); if (e.code === 'Escape') { e.preventDefault(); this.close(); } });
     search.addEventListener('mousedown', e => e.stopPropagation());
     draw();
     return { draw, el: book };
@@ -632,7 +632,7 @@ export class GUI {
         const s = el('input', 'field csearch', win);
         s.type = 'text'; s.spellcheck = false; s.value = this.search;
         at(s, 81, 4, 88, 12);
-        s.addEventListener('keydown', e => e.stopPropagation());
+        s.addEventListener('keydown', e => { e.stopPropagation(); if (e.code === 'Escape') { e.preventDefault(); this.close(); } });
         s.addEventListener('mousedown', e => e.stopPropagation());
         s.addEventListener('input', () => { this.search = s.value; items = list(); setScroll(0); });
         setTimeout(() => s.focus(), 0);
@@ -791,7 +791,7 @@ export class GUI {
     const name = el('input', 'field aname', win);
     name.type = 'text'; name.spellcheck = false; name.maxLength = 50;
     at(name, 59, 20, 110, 12);
-    name.addEventListener('keydown', e => e.stopPropagation());
+    name.addEventListener('keydown', e => { e.stopPropagation(); if (e.code === 'Escape') { e.preventDefault(); this.close(); } });
     name.addEventListener('mousedown', e => e.stopPropagation());
     let named = null;
     const leftRef = ref(slots, 0, { onChange: () => { const s = slots.get(0); named = null; name.value = s ? (s.tag && s.tag.name) || I[s.key].name : ''; } });
@@ -984,3 +984,4 @@ export class HUD {
     this.toastT = 5;
   }
 }
+import { surfaceDocument as document } from '../surface.js?v=muq89fgx';

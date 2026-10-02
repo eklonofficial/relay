@@ -1,0 +1,14 @@
+{
+  "name": "site-build",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node docs/games/blockhaven/tools/build.mjs",
+    "test": "node --test docs/games/blockhaven/tests/*.test.mjs",
+    "test:browser": "node docs/games/blockhaven/tools/browser-check.mjs"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2",
+    "playwright": "1.63.0"
+  }
+}

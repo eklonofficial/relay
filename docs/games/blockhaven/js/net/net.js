@@ -9,10 +9,11 @@
 // own hands, or their own water/fire/sand simulation) broadcasts it once; everyone else mirrors it
 // silently, so nothing is applied twice. The host keeps the authoritative save, including each
 // guest's inventory and position, and owns the clock and the weather.
-import { RemotePlayer } from './remote.js?v=muq2vskd';
-import { getChunk } from '../game/storage.js?v=muq2vskd';
-import { EntitySync } from './share.js?v=muq2vskd';
-import { hostRoom, joinRoom, diagnose } from './transport.js?v=muq2vskd';
+import { RemotePlayer } from './remote.js?v=muq89fgx';
+import { getChunk } from '../game/storage.js?v=muq89fgx';
+import { EntitySync } from './share.js?v=muq89fgx';
+import { hostRoom, joinRoom, diagnose } from './transport.js?v=muq89fgx';
+import { SealedChannel } from './sealed.js?v=muq89fgx';
 
 export const MAX_PLAYERS = 5;
 const PREFIX = 'blockhaven-v1-';
@@ -68,7 +69,7 @@ function loadLib() {
   if (!libPromise) {
     libPromise = new Promise((resolve, reject) => {
       const s = document.createElement('script');
-      s.src = new URL('../../vendor/peerjs.min.js?v=muq2vskd', import.meta.url).href;
+      s.src = new URL('../../vendor/peerjs.min.js?v=muq89fgx', import.meta.url).href;
       s.onload = () => resolve();
       s.onerror = () => { libPromise = null; reject(new Error('Could not load the multiplayer library. Check your connection.')); };
       document.head.appendChild(s);
@@ -214,7 +215,9 @@ export class Net {
     return peer;
   }
   onIncoming(conn) {
-    const link = new Link(conn);
+    this.acceptLink(new Link(new SealedChannel(conn)));
+  }
+  acceptLink(link) {
     let player = null;
     const bail = reason => { link.send({ t: 'reject', reason }); setTimeout(() => link.close(), 500); };
     const helloTimer = setTimeout(() => { if (!player) link.close(); }, 15000);
@@ -295,7 +298,7 @@ export class Net {
     }
     // A slower path that connects later is closed by claim().
     viaPeer.catch(() => {}); viaRoom.catch(() => {});
-    const link = new Link(winner.conn, HOST_PARTS);
+    const link = new Link(new SealedChannel(winner.conn), HOST_PARTS);
     net.hostLink = link; net.relayed = winner.how === 'relay';
     status(net.relayed ? 'Connected through the relay servers. Downloading the world…' : 'Downloading the world…');
     const welcome = await timeout(new Promise((resolve, reject) => {

@@ -1,7 +1,7 @@
 // Fluid state helpers shared by the simulation and entity physics, after Java's FluidState /
 // FlowingFluid. A liquid's meta is Java's legacy LiquidBlock LEVEL: 0 source, 1-7 flowing
 // (amount 8 - level), 8 falling. Waterlogged blocks (seagrass, kelp) hold a water source.
-import { B, SOLID, OPAQUE, WATERLOGGED } from '../data/blocks.js?v=muq2vskd';
+import { B, SOLID, OPAQUE, WATERLOGGED } from '../data/blocks.js?v=muq89fgx';
 
 export const isWater = id => id === B.WATER || WATERLOGGED[id] === 1;
 export const sameFluid = (id, lava) => (lava ? id === B.LAVA : isWater(id));

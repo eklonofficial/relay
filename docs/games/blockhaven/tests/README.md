@@ -1,5 +1,9 @@
 # Blockhaven checks
 
+Install repository-root tooling with `npm ci`, run `npm run build`, then `npm run test:browser`.
+Windows uses installed Edge; other platforms use Playwright Chromium (`npx playwright install chromium`).
+Deploy only `build/site/`; see `../SECURITY.md`. Browser captures go to `build/checks/`.
+
 Run the same checks as CI (`.github/workflows/blockhaven.yml`) from the repo root, with Node 22:
 
     node docs/games/blockhaven/tools/stamp.mjs --check                 # every import carries the same ?v= stamp

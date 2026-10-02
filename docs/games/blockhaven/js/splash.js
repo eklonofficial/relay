@@ -5,7 +5,7 @@
 //   0 - 0.3  modules downloaded (counted against the module graph, from the tools/stamp.mjs count)
 //   0.3 - 1  main.js's own steps: textures, then the title panorama streaming in
 // then calls splash.ready(). The splash plays its animation out, fades, and removes itself.
-import { SplashArt } from './render/splashart.js?v=muq2vskd';
+import { SplashArt } from './render/splashart.js?v=muq89fgx';
 
 const root = document.getElementById('boot'), canvas = document.getElementById('boot-canvas');
 const reduced = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
@@ -26,7 +26,7 @@ function finish() {
 if (!root || !canvas) stopped = true;
 else if ('transferControlToOffscreen' in canvas && typeof Worker === 'function') {
   const off = canvas.transferControlToOffscreen();
-  const worker = new Worker(new URL('./render/splashworker.js?v=muq2vskd', import.meta.url), { type: 'module' });
+  const worker = new Worker(new URL('./render/splashworker.js?v=muq89fgx', import.meta.url), { type: 'module' });
   worker.onmessage = e => {
     if (e.data.type === 'painted') root.style.background = 'transparent';
     if (e.data.type === 'done') { worker.terminate(); finish(); }
@@ -52,7 +52,7 @@ if (!stopped) addEventListener('resize', () => { if (!stopped) send({ type: 'res
 
 // Module downloads: our own module graph, of the size tools/stamp.mjs counted, fetched so far.
 const expected = Number(document.getElementById('boot-script')?.dataset.modules) || 0;
-const jsDir = new URL('./', import.meta.url).href;
+const jsDir = import.meta.url.startsWith('blob:') ? '' : new URL('./', import.meta.url).href;
 const pollModules = () => {
   if (reported || stopped || !expected || !performance.getEntriesByType) return;
   const names = new Set(performance.getEntriesByType('resource').map(e => e.name.split('?')[0]).filter(n => n.startsWith(jsDir) && n.endsWith('.js')));
@@ -64,3 +64,5 @@ pollModules();
 // Never stand in the way for long, whatever goes wrong while starting.
 setTimeout(() => splash.ready(), 30000);
 addEventListener('error', () => splash.ready());
+import './page.js?v=muq89fgx';
+import { surfaceDocument as document } from './surface.js?v=muq89fgx';

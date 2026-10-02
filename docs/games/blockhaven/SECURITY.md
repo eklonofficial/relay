@@ -1,73 +1,35 @@
-# Security and privacy boundaries
+﻿# Privacy and deployment boundaries
 
-This is a browser application, not a confidential execution environment. **It cannot hide
-content from software that controls the device, browser, injected scripts, or a trusted TLS
-interception certificate.** Do not use it to store sensitive information on a compromised device.
+A compromised device or browser cannot be made confidential by this application. A privileged extension can read closed shadow roots, injected code can hook drawing/decoding/crypto/input APIs, and a trusted TLS interceptor can replace the document, policy and decoder. These changes reduce exposure to ordinary DOM observers and passive traffic collectors. They do not establish trust in the endpoint or defeat an active intermediary.
 
-## Protections in this release
+## Production build
 
-- An early Content Security Policy (CSP) on both HTML pages permits local scripts and the exact
-  hashes of their shipped inline scripts. Other inline scripts, event-handler attributes,
-  `javascript:` URLs, `eval`, remote scripts, plugins, injected base URLs, and form submissions
-  are blocked by a conforming, uncompromised browser. CSP is defense in depth, not protection
-  against a privileged extension or an attacker who can replace the document/policy itself.
-- Fonts, images, audio, and embedded pages cannot load from unrelated remote origins. Data/blob
-  media, resource-pack uploads, download URLs, local workers, and the network keepalive worker
-  remain supported. Runtime styles are intentionally allowed because the UI depends on them.
-- HTML referrer policy is `no-referrer`. App-owned pack/health/diagnostic fetches also omit
-  credentials and referrers explicitly. This does **not** hide the destination, origin, IP
-  address, traffic timing, or WebSocket handshakes; browsers can send WebSocket cookies.
-- On Vercel, response headers additionally disable MIME sniffing, DNS prefetching, camera,
-  microphone, geolocation, payment, USB, and Topics access. File uploads/downloads, clipboard,
-  fullscreen, pointer lock, graphics, and audio output are not disabled.
-- Calculator/game messages validate both the sender window and its exact origin.
-- CI checks CSP hashes along with cache-busting stamps. Run `node tools/stamp.mjs` after edits
-  to regenerate both; do not fix a CSP failure by adding `unsafe-inline` to `script-src` or
-  `unsafe-eval`.
+From the repository root, run `npm ci` and `npm run build`. **Deploy only `build/site/`** as the application's root, on the same origin/path as the previous version to retain saves. `npm run build -- --out <directory>` chooses another output location. Do not publish the readable development tree, tests, source maps, debug pages or individual asset directories. Browser storage keys and world/Java/resource-pack upload/download formats are retained.
 
-GitHub Pages receives the HTML CSP/referrer protections. The Vercel-only response headers cannot
-be installed on GitHub Pages through `vercel.json` or HTML metadata. Existing embedding remains
-supported: this release does not add `frame-ancestors` or X-Frame-Options restrictions.
+The output has neutral HTML shells and content-addressed `.bin` resources. The engine, workers, PeerJS library, default resource pack and fonts are bundled, minified where appropriate and gzip-compressed. The browser decodes the resource and runs local blob modules/workers. Routine engine, texture, model, font and sound requests no longer have separate URLs. The companion calculator uses the same packed canvas compositor and keeps its established URL and quick-hide/resume contract. Licenses are included in `third-party-notices.txt`.
 
-## Residual risks, especially multiplayer
+The bootstrap verifies the full SHA-256 digest of each packed resource before decoding or executing it. This rejects altered resources when the bootstrap itself is trusted; it cannot authenticate a bootstrap replaced by an active intermediary.
 
-The default network servers use HTTPS/WSS. Custom/local HTTP/WS endpoints remain permitted for
-compatibility; use TLS for real deployments. `connect-src` permits those protocols because users
-can configure their own servers. It is **not** an allowlist against data exfiltration by code
-that already runs on the page. No third-party CSP reporting/telemetry endpoint was added.
+Gzip, base64, minification and opaque paths are packaging/obfuscation, **not encryption**. Anyone who downloads a bundle can decode it. A TLS interceptor can inspect destinations, bundles, timing and size, or replace the loader. WebAssembly, IndexedDB and service-worker encoding would not fix that boundary. No VPN, Tor, SSH tunnel, system proxy or interception certificate is used.
 
-Multiplayer is opt-in. Opening its screen wakes the configured relay; hosting/joining or running
-diagnostics contacts configured PeerJS, MQTT and STUN/TURN services. Those services can learn
-connection metadata. Direct peers may learn each other's IP addresses. The current MQTT fallback
-sends application messages through public brokers without application-layer end-to-end encryption;
-operators and other subscribers with access to those topics can observe messages. HTTPS/WSS is
-transport encryption, not protection from the relay operator. Do not share private information in
-chat or shared worlds. This release does not change the other agent's multiplayer protocol or
-claim that its relay traffic is private.
+## Canvas and DOM
 
-Worlds, settings, and imported packs remain in browser storage until exported/shared through the
-existing features. Browser storage is not encrypted storage isolated from local malware; another
-same-origin page, an XSS vulnerability, or a privileged extension may access it. This deployment
-shares an origin with other hosted pages. A dedicated origin reduces that cross-app risk, but
-moving origins also requires migrating existing browser saves and is not done here.
+Visible controls, menus, HUD, inventory, dialogs, previews and calculator controls render into canvas. The 3D scene and startup animation retain their existing canvas paths. The compositor keeps native controls in an invisible **closed shadow layout tree** for keyboard navigation, focus, IME, paste, accessibility, file pickers, scroll and existing input handlers. It does not eliminate that private tree or claim controls exist only as pixel buffers.
 
-## Why content disguise is not a security boundary
+Ordinary document selectors, text scans and document-level MutationObservers do not traverse the tree. Labels, room codes, entered text and names are not mirrored into public DOM attributes or fallback canvas text. The application instance is no longer published as `window.blockhaven`. Privileged extensions, devtools, code that captured `attachShadow`, or instrumented APIs can still read content without screenshots. Browser/OS file dialogs and downloads remain native.
 
-Canvas-only UI would hide text from a basic DOM text scanner, but injected code can intercept
-`fillText`, canvas/WebGL APIs, asset decoding, and input before rendering; screenshots are not
-required. Removing accessible DOM controls also harms keyboard, screen-reader, text-input, and
-mobile behavior, so the existing UI is retained.
+## Multiplayer
 
-Base64/XOR, opaque URLs, blob execution, minification, WebAssembly, and IndexedDB do not encrypt
-content against its executing browser. A service worker operates inside that browser, not outside
-its inspection boundary; the original document and bootstrap still have to arrive, and a TLS
-interceptor can read or replace them. Extra in-page encryption cannot solve this when the attacker
-can replace the decoder or capture its keys/plaintext.
+Application payloads use ephemeral P-256 ECDH, HKDF-SHA-256 and separate AES-256-GCM keys for each direction. Authenticated sequence numbers prevent replay and verify ordering. Nonces are unique counters under each directional key. Queues are bounded; malformed, tampered or plaintext packets fail closed. Both peers must reload the updated version; no plaintext downgrade is used. RTC and the reliable MQTT fallback use the same wrapper. Existing signalling and relay routing remain compatible with the servers; metadata and endpoint names remain observable.
 
-For the stated deep-compromise threat, use a known-clean device/browser, remove untrusted
-extensions and root certificates, and recover/reinstall a compromised OS as appropriate. A site
-cannot repair that trust boundary. No VPN, Tor, SSH tunnel, traffic camouflage, or anti-inspection
-loader is introduced here.
+**Key exchange is unauthenticated.** It protects against passive relay/traffic inspection, not active key substitution, malicious peers, injected scripts or compromised browsers. Hosts still receive shared world/player/chat content. It does not establish authenticated identities or resist a trusted TLS interceptor replacing the page. HTTPS/WSS remains necessary for real deployments. Custom HTTP/WS servers remain supported where browsers permit them; Web Crypto requires a secure context (HTTPS or trusted localhost).
 
-References: [MDN CSP](https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/CSP),
-[OWASP HTML5 security](https://cheatsheetseries.owasp.org/cheatsheets/HTML5_Security_Cheat_Sheet.html).
+## Other defenses and checks
+
+Both source pages have early hashed CSP and `no-referrer`. Production shells allow their hashed bootstrap and local blob scripts. Inline handlers, `eval`, remote scripts, objects, injected base URLs and form submission are blocked. Blob imports are deliberately allowed for the packed runtime. Configurable multiplayer endpoints require broad `connect-src`; this is not an exfiltration firewall against executing code. Runtime styles and local/data/blob media remain supported. Messages validate sender window and exact origin.
+
+Vercel output preserves the calculator root route and response headers disabling MIME sniffing, DNS prefetch, camera, microphone, geolocation, payment, USB and Topics. GitHub Pages cannot apply Vercel response headers; HTML CSP/referrer protections still apply. Embedding, clipboard, pointer lock, fullscreen and audio output remain supported.
+
+Run `node docs/games/blockhaven/tools/stamp.mjs` after source edits, then `npm test`, `npm run build` and `npm run test:browser`. CSP hashing normalizes line endings as HTML parsers do. Browser checks exercise real input, world creation, survival/creative inventory, downloads, dialogs, calculator, resize, font loading, public-DOM exposure and production requests. Unit tests check crypto round trips and rejection, plus existing simulation/protocol behavior.
+
+References: [MDN closed roots](https://developer.mozilla.org/en-US/docs/Web/API/Element/attachShadow), [MDN extension access](https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/API/dom/openOrClosedShadowRoot), [MDN key derivation](https://developer.mozilla.org/en-US/docs/Web/API/SubtleCrypto/deriveKey), [MDN CSP](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Content-Security-Policy).
