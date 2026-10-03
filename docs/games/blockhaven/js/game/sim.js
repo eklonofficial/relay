@@ -1,11 +1,12 @@
 // Block simulation: liquids, gravity, support, random ticks (crops, saplings, grass, fire, cacti).
-import { B, BLOCKS, SOLID, OPAQUE, SHAPE_OF, SHAPE, CROP_STAGES, CROP_AGE_SHIFT, WATERLOGGED, props, st, DIM } from '../data/blocks.js?v=mush3vnf';
-import { amountAt, heightAt, isWater, sameFluid } from './fluid.js?v=mush3vnf';
-import { UNLOADED } from '../world/world.js?v=mush3vnf';
-import * as T from '../gen/trees.js?v=mush3vnf';
-import { KIND } from './redstone.js?v=mush3vnf';
+import { B, BLOCKS, SOLID, OPAQUE, SHAPE_OF, SHAPE, CROP_STAGES, CROP_AGE_SHIFT, WATERLOGGED, VARIANT_MASK, STATE, props, st, DIM } from '../data/blocks.js?v=musof0se';
+import { amountAt, heightAt, isWater, sameFluid } from './fluid.js?v=musof0se';
+import { UNLOADED } from '../world/world.js?v=musof0se';
+import * as T from '../gen/trees.js?v=musof0se';
+import { KIND } from './redstone.js?v=musof0se';
 
 const NB4 = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+const SNOW_BLOCK = STATE.snow_block, SNOWY_GRASS = STATE.grass_block_snowy[1];
 const k3 = (x, y, z) => `${x},${y},${z}`;
 // Fire behaviour per block: [burn chance per fire tick, spread encouragement] (after Java Edition).
 const FLAME = new Map();
@@ -52,6 +53,15 @@ export class Sim {
       // Liquids next to the changed cell may flow into it.
       if (id === B.AIR || !SOLID[id]) for (const [ex, ez] of NB4) { const n = this.world.getBlock(x + dx + ex, y + dy, z + dz + ez); if (this.isLiquid(n) || WATERLOGGED[n]) this.schedule(x + dx + ex, y + dy, z + dz + ez, this.delayFor(n)); }
     }
+    this.snowyGrass(x, y - 1, z); this.snowyGrass(x, y, z);
+  }
+  // SnowyDirtBlock: grass is snowy while snow (a layer or a block) lies on it.
+  snowyGrass(x, y, z) {
+    const w = this.world;
+    if (w.getBlock(x, y, z) !== B.GRASS_BLOCK) return;
+    const up = w.getBlock(x, y + 1, z), m = w.getMeta(x, y, z), snowy = up === B.SNOW || (up === SNOW_BLOCK[0] && (w.getMeta(x, y + 1, z) & VARIANT_MASK[up]) === SNOW_BLOCK[1]);
+    const v = snowy ? SNOWY_GRASS : STATE.grass_block[1];
+    if ((m & VARIANT_MASK[B.GRASS_BLOCK]) !== v) this.game.setBlock(x, y, z, B.GRASS_BLOCK, (m & ~VARIANT_MASK[B.GRASS_BLOCK]) | v);
   }
 
   update(dt) {
@@ -91,7 +101,8 @@ export class Sim {
     const below = w.getBlock(x, y - 1, z);
     const eternal = below === B.NETHERRACK || (below === B.BASALT && (w.getMeta(x, y - 1, z) & 7) === 4);
     const soul = (w.getMeta(x, y, z) & 1) === 1;
-    if (!eternal && g.raining && w.lightAt(x, y, z).sky >= 15 && Math.random() < 0.6) { g.setBlock(x, y, z, B.AIR, 0); return; }
+    // (FireBlock.isNearRain: raining on it or beside it.)
+    if (!eternal && g.raining && [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]].some(([a, b]) => g.rainAt(x + a, y, z + b)) && Math.random() < 0.2 + (w.getMeta(x, y, z) & 15) * 0.03) { g.setBlock(x, y, z, B.AIR, 0); return; }
     f.age = Math.min(15, f.age + Math.floor(Math.random() * 3));
     const fuel = this.flammableAround(x, y, z);
     if (!eternal && !soul) {
@@ -308,7 +319,7 @@ export class Sim {
   }
   randomTick(x, y, z, id) {
     const g = this.game, w = this.world, m = w.getMeta(x, y, z);
-    const light = () => { const l = w.lightAt(x, y + 1, z); return Math.max(l.blk, g.isDay() ? l.sky : l.sky - 11); };
+    const light = () => { const l = w.lightAt(x, y + 1, z); return Math.max(l.blk, l.sky - g.skyDarken()); };
     switch (id) {
       case B.CROPS: {
         const v = m & 7, age = (m >> CROP_AGE_SHIFT) & 7, max = CROP_STAGES[v] - 1;

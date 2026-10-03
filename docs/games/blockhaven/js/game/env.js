@@ -1,5 +1,5 @@
 // Sky, sun, fog and ambient light per dimension, time of day and weather.
-import { DIM } from '../data/blocks.js?v=mush3vnf';
+import { DIM } from '../data/blocks.js?v=musof0se';
 
 const smoothstep = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 const mix = (a, b, t) => a.map((v, i) => v + (b[i] - v) * t);
@@ -28,16 +28,21 @@ export function computeEnv(dim, dayTime, camFwd, rain = 0, thunder = 0, brightne
   let horizon = mix([0.03, 0.045, 0.09], [0.68, 0.82, 1.0], day);
   horizon = mix(horizon, [1.0, 0.52, 0.25], sunset * 0.7 * (1 - rain));
   zenith = mix(zenith, [0.32, 0.33, 0.6], sunset * 0.25 * (1 - rain));
-  const grey = v => { const l = (v[0] + v[1] + v[2]) / 3; return [l, l, l]; };
-  zenith = mix(zenith, grey(zenith).map(v => v * 0.6), rain);
-  horizon = mix(horizon, grey(horizon).map(v => v * 0.65), rain);
-  const sunColor = mix([1.0, 0.45, 0.18], [1.0, 0.93, 0.82], smoothstep(0.0, 0.45, sy)).map(v => v * smoothstep(-0.12, 0.05, sy) * (1 - rain * 0.8));
+  // ClientLevel.getSkyColor: rain drains the colour toward 0.6 of its brightness, thunder toward 0.2.
+  const lum = v => v[0] * 0.3 + v[1] * 0.59 + v[2] * 0.11;
+  const weatherSky = v => { let c = mix(v, [1, 1, 1].map(() => lum(v) * 0.6), rain * 0.75); return mix(c, [1, 1, 1].map(() => lum(c) * 0.2), thunder * 0.75); };
+  zenith = weatherSky(zenith);
+  horizon = weatherSky(horizon);
+  // (The sun and moon fade out in the rain, 1 - rain.)
+  const sunColor = mix([1.0, 0.45, 0.18], [1.0, 0.93, 0.82], smoothstep(0.0, 0.45, sy)).map(v => v * smoothstep(-0.12, 0.05, sy) * (1 - rain));
   let skyLight = mix([0.16, 0.19, 0.32], mix([1.0, 0.72, 0.52], [1, 1, 1], smoothstep(0.05, 0.4, sy)), day);
-  skyLight = skyLight.map(v => v * (1 - rain * 0.3 - thunder * 0.2));
+  // ClientLevel.getSkyDarken: rain and thunder each take 5/16 of the daylight.
+  skyLight = skyLight.map(v => v * (1 - rain * 5 / 16) * (1 - thunder * 5 / 16));
   const night = 1 - smoothstep(-0.25, 0.05, sy);
   const fl = Math.hypot(camFwd[0], camFwd[2]) || 1, sl = Math.hypot(sunDir[0], sunDir[2]) || 1;
   const facing = Math.max(0, (camFwd[0] * sunDir[0] + camFwd[2] * sunDir[2]) / (fl * sl));
-  const fogColor = horizon.map((v, i) => v + sunColor[i] * Math.pow(facing, 4) * 0.35 * sunset);
+  // FogRenderer: rain dims the fog (blue a little less), thunder by half again.
+  const fogColor = horizon.map((v, i) => (v + sunColor[i] * Math.pow(facing, 4) * 0.35 * sunset) * (1 - rain * (i === 2 ? 0.4 : 0.5)) * (1 - thunder * 0.5));
   const amb = 0.035 + lift;
   return { sunDir, zenith, horizon, sunColor, skyLight, night, fogColor, day, ambient: [amb, amb * 1.1, amb * 1.5], sky: 1 };
 }

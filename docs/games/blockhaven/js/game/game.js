@@ -1,28 +1,29 @@
 // The running game: world + dimensions, player survival state, entities, simulation, weather and saving.
-import { B, BLOCKS, SOLID, OPAQUE, DIM, DIM_NAMES, HEIGHT, SEA, props, st, SHAPE_OF, SHAPE } from '../data/blocks.js?v=mush3vnf';
-import { importedVoidAt, emptyChunk } from './javaworld.js?v=mush3vnf';
-import { I, maxStack } from '../data/items.js?v=mush3vnf';
-import { SMELTING } from '../data/recipes.js?v=mush3vnf';
-import { MOBS } from '../data/mobs.js?v=mush3vnf';
-import { BIOMES, COLD } from '../gen/biomes.js?v=mush3vnf';
-import { World, UNLOADED, posKey } from '../world/world.js?v=mush3vnf';
-import { Player } from './player.js?v=mush3vnf';
-import { PlayerInventory, Container } from './inventory.js?v=mush3vnf';
-import { EntityManager } from '../entity/entity.js?v=mush3vnf';
-import { ItemEntity, XpOrb, FallingBlock, PrimedTnt, Lightning, Projectile } from '../entity/objects.js?v=mush3vnf';
-import { Mob, RIDEABLE } from '../entity/mob.js?v=mush3vnf';
-import { Particles } from './particles.js?v=mush3vnf';
-import { Sim } from './sim.js?v=mush3vnf';
-import { Redstone } from './redstone.js?v=mush3vnf';
-import { blockDrops } from './drops.js?v=mush3vnf';
-import { computeEnv } from './env.js?v=mush3vnf';
-import { fuelOf } from './ui.js?v=mush3vnf';
-import { unlockLevel } from './trades.js?v=mush3vnf';
-import { forward } from '../core/math.js?v=mush3vnf';
-import { EndCrystal } from '../entity/crystal.js?v=mush3vnf';
-import { migrateWorld } from './migrate.js?v=mush3vnf';
-import { ARMOR_BYPASS, armorReduce, applyInvul, isAxe, shieldFaces, applyKnockback, knockbackResist, protectionFactor, enchLv } from './combat.js?v=mush3vnf';
-import { deathText } from '../net/net.js?v=mush3vnf';
+import { B, BLOCKS, SOLID, OPAQUE, DIM, DIM_NAMES, HEIGHT, SEA, props, st, SHAPE_OF, SHAPE } from '../data/blocks.js?v=musof0se';
+import { importedVoidAt, emptyChunk } from './javaworld.js?v=musof0se';
+import { I, maxStack } from '../data/items.js?v=musof0se';
+import { SMELTING } from '../data/recipes.js?v=musof0se';
+import { MOBS } from '../data/mobs.js?v=musof0se';
+import { BIOMES, COLD } from '../gen/biomes.js?v=musof0se';
+import { World, UNLOADED, posKey } from '../world/world.js?v=musof0se';
+import { Player } from './player.js?v=musof0se';
+import { PlayerInventory, Container } from './inventory.js?v=musof0se';
+import { EntityManager } from '../entity/entity.js?v=musof0se';
+import { ItemEntity, XpOrb, FallingBlock, PrimedTnt, Lightning, Projectile } from '../entity/objects.js?v=musof0se';
+import { weatherState, tickWeather, isRaining, isThundering, skyDarken, isRainingAt, precipitationHeight, shouldFreeze, shouldSnow } from './weather.js?v=musof0se';
+import { Mob, RIDEABLE } from '../entity/mob.js?v=musof0se';
+import { Particles } from './particles.js?v=musof0se';
+import { Sim } from './sim.js?v=musof0se';
+import { Redstone } from './redstone.js?v=musof0se';
+import { blockDrops } from './drops.js?v=musof0se';
+import { computeEnv } from './env.js?v=musof0se';
+import { fuelOf } from './ui.js?v=musof0se';
+import { unlockLevel } from './trades.js?v=musof0se';
+import { forward } from '../core/math.js?v=musof0se';
+import { EndCrystal } from '../entity/crystal.js?v=musof0se';
+import { migrateWorld } from './migrate.js?v=musof0se';
+import { ARMOR_BYPASS, armorReduce, applyInvul, isAxe, shieldFaces, applyKnockback, knockbackResist, protectionFactor, enchLv } from './combat.js?v=musof0se';
+import { deathText } from '../net/net.js?v=musof0se';
 
 export const DAY = 1200; // seconds per day
 const rnd = (a, b) => a + Math.random() * (b - a);
@@ -68,9 +69,9 @@ export class Game {
     this.mode = meta.mode === 'hardcore' ? 'survival' : meta.mode; this.hardcore = meta.mode === 'hardcore' || meta.hardcore;
     this.difficulty = this.hardcore ? 'hard' : meta.difficulty || 'normal';
     this.cheats = meta.cheats !== false;
-    this.rules = Object.assign({ doDaylightCycle: true, doMobSpawning: true, keepInventory: false, mobGriefing: true, doFireTick: true, doWeatherCycle: true, naturalRegeneration: true, doMobLoot: true, doTileDrops: true, showCoordinates: true, doInsomnia: true }, meta.rules || {});
+    this.rules = Object.assign({ doDaylightCycle: true, doMobSpawning: true, keepInventory: false, mobGriefing: true, doFireTick: true, doWeatherCycle: true, naturalRegeneration: true, doMobLoot: true, doTileDrops: true, showCoordinates: true, doInsomnia: true, snowAccumulationHeight: 1 }, meta.rules || {});
     this.dayTime = meta.time ?? 0.02; this.day = meta.day || 0;
-    this.weather = meta.weather || { rain: 0, thunder: 0, timer: rnd(300, 900) };
+    this.weather = weatherState(meta.weather || {});
     this.dims = meta.dims || {};
     this.spawn = meta.spawn || null;
     this.dragonKilled = !!meta.dragonKilled;
@@ -212,8 +213,13 @@ export class Game {
   itemDef(key) { return I[key]; }
   renderItemAt(ctx, key, m, light) { this.app.renderItemAt(ctx, key, m, light); }
   later(t, fn) { this.timers.push({ t: this.time + t, fn }); }
-  isDay() { return this.dim !== DIM.OVERWORLD ? false : this.dayTime < 0.47 || this.dayTime > 0.97; }
-  get raining() { return this.dim === DIM.OVERWORLD && this.weather.rain > 0.5; }
+  // ServerLevel.isDay: the sky has lost fewer than 4 light levels (so a thunderstorm counts as night).
+  isDay() { return this.dim === DIM.OVERWORLD && this.skyDarken() < 4; }
+  skyDarken() { return this.dim === DIM.OVERWORLD ? skyDarken(this.dayTime, this.weather) : 0; }
+  get thundering() { return this.dim === DIM.OVERWORLD && isThundering(this.weather); }
+  // Level.isRainingAt: rain (not snow, not a dry biome) falling on this spot from open sky.
+  rainAt(x, y, z) { return isRainingAt(this.world, this.weather, this.dim, x, y, z); }
+  get raining() { return this.dim === DIM.OVERWORLD && isRaining(this.weather); }
   lookDir() { return forward(this.player.yaw, this.player.pitch); }
   biomeTemp(p) { const b = BIOMES[this.world.biomeAt(p[0], p[2])]; return b ? b.temp - Math.max(0, p[1] - 90) * 0.0125 : 0.5; }
   // ---------------- riding ----------------
@@ -705,7 +711,7 @@ export class Game {
     if (feet === B.SWEET_BERRY_BUSH && Math.hypot(p.vel[0], p.vel[2]) > 0.5 && Math.random() < dt * 2) this.damagePlayer(1, { kind: 'fire' });
     if (s.fire > 0) {
       s.fire -= dt;
-      if (p.inWater || (this.raining && this.world.lightAt(p.pos[0], p.pos[1] + 1, p.pos[2]).sky >= 15)) s.fire = 0;
+      if (p.inWater || this.rainAt(p.pos[0], p.pos[1], p.pos[2]) || this.rainAt(p.pos[0], p.pos[1] + 1.8, p.pos[2])) s.fire = 0;
       this.fireT = (this.fireT || 0) + dt;
       if (this.fireT > 1 && !e.fire_resistance) { this.fireT = 0; this.damagePlayer(1, { kind: 'fire' }); }
     }
@@ -748,23 +754,47 @@ export class Game {
     this.portalTick(dt);
     if (this.stats.health > 0 && this.stats.effects.night_vision) this.nightVision = 1; else this.nightVision = 0;
   }
+  // Java's weather, a tick at a time (game/weather.js): the cycle runs on the host (guests are sent
+  // its state), the rain and thunder levels follow it everywhere.
   updateWeather(dt) {
-    const w = this.weather;
-    if (this.rules.doWeatherCycle) {
-      w.timer -= dt;
-      if (w.timer <= 0) {
-        if (w.target) { w.target = 0; w.thunderOn = false; w.timer = rnd(600, 1500); }
-        else { w.target = 1; w.thunderOn = Math.random() < 0.25; w.timer = rnd(240, 600); }
-      }
+    const w = this.weather, host = !(this.net && !this.net.isHost);
+    this.weatherAcc = (this.weatherAcc || 0) + dt * 20;
+    for (; this.weatherAcc >= 1; this.weatherAcc--) {
+      tickWeather(w, host && this.rules.doWeatherCycle);
+      if (host && this.dim === DIM.OVERWORLD && isRaining(w) && isThundering(w)) this.thunderTick();
+      if (host && this.dim === DIM.OVERWORLD) this.precipitationTick();
     }
-    const tgt = w.target ? 1 : 0;
-    w.rain += (tgt - w.rain) * Math.min(1, dt * 0.15);
-    w.thunder += ((w.thunderOn && w.target ? 1 : 0) - w.thunder) * Math.min(1, dt * 0.15);
-    if (this.dim === DIM.OVERWORLD && w.thunder > 0.8 && Math.random() < dt / 12) {
-      const p = this.player.pos, x = p[0] + rnd(-48, 48), z = p[2] + rnd(-48, 48);
-      const h = this.world.heightAt(x, z);
-      if (h > 0) this.entities.add(new Lightning(this, Math.floor(x) + 0.5, h + 1, Math.floor(z) + 0.5));
+  }
+  // ServerLevel.tickChunk's ice and snow: each chunk ticked around the player, one tick in 16, picks
+  // a column. Still water on top freezes where it's cold enough to snow, and while it rains, snow
+  // settles there (on a snow layer it adds one, up to the snowAccumulationHeight rule).
+  precipitationTick() {
+    const R = 8, w = this.world, p = this.player.pos, pcx = Math.floor(p[0] / 16), pcz = Math.floor(p[2] / 16);
+    const raining = isRaining(this.weather), most = Math.min(this.rules.snowAccumulationHeight, 8);
+    for (let cx = pcx - R; cx <= pcx + R; cx++) for (let cz = pcz - R; cz <= pcz + R; cz++) {
+      if (Math.random() >= 1 / 16) continue;
+      const x = cx * 16 + Math.floor(Math.random() * 16), z = cz * 16 + Math.floor(Math.random() * 16), y = precipitationHeight(w, x, z);
+      if (y <= 0) continue;
+      const biome = w.biomeAt(x, z);
+      if (shouldFreeze(w, biome, x, y - 1, z)) this.setBlock(x, y - 1, z, B.ICE, 0);
+      if (!raining || most <= 0 || !shouldSnow(w, biome, x, y, z)) continue;
+      if (w.getBlock(x, y, z) !== B.SNOW) this.setBlock(x, y, z, B.SNOW, 0);
+      else { const l = (w.getMeta(x, y, z) & 7) + 1; if (l < most) this.setBlock(x, y, z, B.SNOW, l); }
     }
+  }
+  // ServerLevel.tickChunk's lightning: each chunk ticked around the player (8 chunks out) is struck
+  // one tick in 100000 during a thunderstorm, at a random spot on top of its blocks, or at a living
+  // thing standing out in the open near it (findLightningTargetAround), if it is raining there.
+  thunderTick() {
+    const R = 8, n = (2 * R + 1) ** 2;
+    if (Math.random() >= n / 100000) return;
+    const p = this.player.pos, cx = Math.floor(p[0] / 16) + Math.floor(Math.random() * (2 * R + 1)) - R, cz = Math.floor(p[2] / 16) + Math.floor(Math.random() * (2 * R + 1)) - R;
+    let x = cx * 16 + Math.floor(Math.random() * 16), z = cz * 16 + Math.floor(Math.random() * 16), y = precipitationHeight(this.world, x, z);
+    if (y < 0) return;
+    const near = this.entities.list.filter(e => e.isLiving && !e.dead && Math.abs(e.pos[0] - x - 0.5) <= 3.5 && Math.abs(e.pos[2] - z - 0.5) <= 3.5 && e.pos[1] >= y - 3 && this.world.lightAt(e.pos[0], e.pos[1] + 1, e.pos[2]).sky >= 15);
+    if (near.length) { const e = near[Math.floor(Math.random() * near.length)]; x = Math.floor(e.pos[0]); z = Math.floor(e.pos[2]); y = Math.floor(e.pos[1]); }
+    if (!this.rainAt(x, y, z)) return;
+    this.entities.add(new Lightning(this, x + 0.5, y, z + 0.5));
   }
   // Furnaces smelt, spawners spawn.
   tickBlockEntities(dt) {
@@ -846,7 +876,7 @@ export class Game {
       }
       if (!found) continue;
       const l = w.lightAt(x, y, z);
-      const sky = this.dim === DIM.OVERWORLD ? (this.isDay() ? l.sky : l.sky - 11 + Math.floor(this.weather.rain * 3)) : 0;
+      const sky = this.dim === DIM.OVERWORLD ? l.sky - this.skyDarken() : 0; // (Level.getMaxLocalRawBrightness)
       const light = Math.max(l.blk, sky);
       const biome = BIOMES[w.biomeAt(x, z)]?.key || 'plains';
       if (Math.hypot(x - p[0], y - p[1], z - p[2]) < 24) continue;

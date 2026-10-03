@@ -1,8 +1,8 @@
-import { CHUNK, TEX, DIM } from '../data/blocks.js?v=mush3vnf';
-import { meshSingleBlock, STRIDE } from '../mesh/mesher.js?v=mush3vnf';
-import * as S from './shaders.js?v=mush3vnf';
-import { uploadArray, updateLayer } from './atlas.js?v=mush3vnf';
-import { mat4, perspective, multiply, invert, viewMatrix, frustumPlanes, boxVisible } from '../core/math.js?v=mush3vnf';
+import { CHUNK, TEX, DIM } from '../data/blocks.js?v=musof0se';
+import { meshSingleBlock, STRIDE } from '../mesh/mesher.js?v=musof0se';
+import * as S from './shaders.js?v=musof0se';
+import { uploadArray, updateLayer } from './atlas.js?v=musof0se';
+import { mat4, perspective, multiply, invert, viewMatrix, frustumPlanes, boxVisible } from '../core/math.js?v=musof0se';
 
 // Graphics presets: 0 Disabled, 1 Regular, 2 High, 3 PC.
 export const QUALITY = [
@@ -143,7 +143,21 @@ export class Renderer {
   // Replaces one 128x128 entity layer (a player's own skin, a pack's armor), mipmaps and all.
   setEntityLayer(layer, pixels) { updateLayer(this.gl, this.entityTex, layer, pixels, 128, 8); }
   setItemTextures(chain, count) { this.itemTex = uploadArray(this.gl, chain, count); }
-  texFor(kind) { return kind === 'block' ? this.blockTex : kind === 'item' ? this.itemTex : this.entityTex; }
+  texFor(kind) { return kind === 'block' ? this.blockTex : kind === 'item' ? this.itemTex : kind === 'weather' ? this.weatherTex : this.entityTex; }
+  // Rain and snow (render/weathertex.js): two 64x256 layers that repeat as the sheets of weather scroll.
+  setWeatherTextures(layers) {
+    const gl = this.gl, w = 64, h = 256, data = new Uint8Array(w * h * 4 * layers.length);
+    layers.forEach((d, i) => data.set(d, i * w * h * 4));
+    if (this.weatherTex) gl.deleteTexture(this.weatherTex);
+    const t = this.weatherTex = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D_ARRAY, t);
+    gl.texImage3D(gl.TEXTURE_2D_ARRAY, 0, gl.RGBA8, w, h, layers.length, 0, gl.RGBA, gl.UNSIGNED_BYTE, data);
+    gl.generateMipmap(gl.TEXTURE_2D_ARRAY);
+    gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MIN_FILTER, gl.NEAREST_MIPMAP_NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_WRAP_S, gl.REPEAT);
+    gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_WRAP_T, gl.REPEAT);
+  }
 
   depthTexture(w, h, compare) {
     const gl = this.gl, t = gl.createTexture();
@@ -558,7 +572,7 @@ export class Renderer {
     }
     // Translucent effects: weather, smoke, glints.
     gl.useProgram(e.p);
-    for (const b of s.blendBatches || []) { const tx = this.texFor(b.tex); if (tx) { if (b.additive) { gl.enable(gl.BLEND); } this.drawBatch(b.batch, tx, b.alphaTest ?? 0.02, true); } }
+    for (const b of s.blendBatches || []) { const tx = this.texFor(b.tex); if (tx) { if (b.additive) { gl.enable(gl.BLEND); } if (b.noCull) gl.disable(gl.CULL_FACE); this.drawBatch(b.batch, tx, b.alphaTest ?? 0.02, true); if (b.noCull) gl.enable(gl.CULL_FACE); } }
     gl.depthMask(true);
     gl.disable(gl.BLEND);
     gl.enable(gl.CULL_FACE);
