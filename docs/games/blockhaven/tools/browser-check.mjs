@@ -60,7 +60,9 @@ try {
   });
   const base = 'http://127.0.0.1:' + server.address().port;
   await page.goto(base + '/index.html', { waitUntil: 'commit' });
-  await page.waitForFunction(() => window.testRoot?.getElementById('boot') == null && !!window.testRoot?.getElementById('btn-play'));
+  // Poll readiness independently of Chromium's animation-frame scheduling:
+  // software-rendered CI can miss RAF polls while the title panorama is busy.
+  await page.waitForFunction(() => window.testRoot?.getElementById('boot') == null && !!window.testRoot?.getElementById('btn-play'), null, {polling:100});
   const publicState = () => page.evaluate(() => ({ text: document.body.innerText, controls: document.querySelectorAll('button,input,select,textarea').length, published: 'blockhaven' in window, observed: window.observed }));
   assert.deepEqual((await publicState()).text, ''); assert.equal((await publicState()).controls, 0); assert.equal((await publicState()).published, false);
   assert.equal(await page.title(), 'Graphing Calculator');
