@@ -36,3 +36,17 @@ test('poses: a rabbit kicks through its jump, a camel walks and shows its tack o
   assert.ok(frogPose(MOBS.frog.model(), {}).poses.hide.croakingBody);
   assert.equal(restParts(c).head.z, -19.5);
 });
+
+test('breeds: rabbits by biome, axolotls in their common colours, parrots in any of five', async () => {
+  const { BIOMES, COLD } = await load('gen/biomes.js');
+  const cold = [...COLD][0], desert = BIOMES.find(b => b.key === 'desert').id, plains = BIOMES.find(b => b.key === 'plains').id;
+  for (let i = 0; i < 50; i++) {
+    assert.ok(['white', 'white_splotched'].includes(MOBS.rabbit.pickBreed(cold)));
+    assert.equal(MOBS.rabbit.pickBreed(desert), 'gold');
+    assert.ok([null, 'salt', 'black'].includes(MOBS.rabbit.pickBreed(plains)));
+    assert.notEqual(MOBS.axolotl.pickBreed(), 'blue');
+  }
+  assert.equal(MOBS.rabbit.breeds.gold().texture, 'entity/rabbit/gold');
+  assert.equal(MOBS.axolotl.breeds.blue().texture, 'entity/axolotl/axolotl_blue');
+  assert.equal(Object.keys(MOBS.parrot.breeds).length, 4);
+});

@@ -40,3 +40,10 @@ test('poses: spider legs splay, an enderman screams, magma slices part, blaze ro
   const bz = blazePose(MOBS.blaze.model(), { age: 0 });
   assert.ok(Math.abs(Math.hypot(bz.pivots.part0[0], bz.pivots.part0[2]) - 9) < 1e-9 && Math.abs(Math.hypot(bz.pivots.part8[0], bz.pivots.part8[2]) - 5) < 1e-9);
 });
+
+test('energy swirls: the charged creeper and the wither wear their armor layers, grown and wrapping', () => {
+  const c = MOBS.creeper.swirl.model(), w = MOBS.wither.swirl.model();
+  assert.equal(c.texture, 'entity/creeper/creeper_armor'); assert.equal(c.parts.head.boxes[0].inflate, 2); assert.ok(c.fill);
+  assert.equal(w.texture, 'entity/wither/wither_armor'); assert.equal(w.parts.centerHead.boxes[0].inflate, 0.5); assert.ok(w.fill);
+  assert.equal(MOBS.creeper.swirl.x(100), 1); assert.equal(MOBS.wither.swirl.x(0), 3);
+});
