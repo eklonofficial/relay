@@ -1,10 +1,13 @@
 // Mob skins: packs every model box into a 64x64 layer (MC-style box unwrap) and paints its faces.
-import { Painter, shade, mixHex } from './paint.js?v=mush3u38';
+import { Painter, shade, mixHex } from './paint.js?v=mush3uwi';
 
 export const SKIN = 64;
 // Every entity texture layer is ENTITY pixels square: Java's textures (64x32 up to 128x128) sit in its
 // top-left corner at their own size, and texture coordinates are measured against the layer.
 export const ENTITY = 128;
+// A texture bigger than the layer (the dragon's 256x256) is kept at a fraction of its size: this many
+// of its texels to one layer texel.
+export const texFactor = model => Math.max(1, ...(model.texSize || []).map(v => v / ENTITY));
 
 // Shelf-pack box unwraps; shrinks texel density until everything fits. The face box (head part, box 0) keeps up to 1.5x the
 // density of the rest (never above 1:1) so faces stay readable on big mobs.
@@ -42,7 +45,7 @@ export function faceRects(b) {
 // Paint styles. A style is { pal: [4 colours dark..light], pattern?, decor?: { face: fn(p, x, y, w, h, face, st) } }.
 // Faces: 'front' is -Z (the mob's face, drawn unmirrored); on 'right' (-X) column 0 touches the front, on 'left' (+X) the last column does.
 export function paintModel(model, seed) {
-  const p = new Painter(ENTITY, ENTITY, seed);
+  const k = texFactor(model), p = new Painter(ENTITY * k, ENTITY * k, seed);
   p.n1 = p.valueNoise(22); p.n2 = p.valueNoise(9);   // ~3px and ~7px clumps, sampled in skin coordinates
   for (const part of Object.values(model.parts)) {
     for (const b of part.boxes) {
@@ -59,7 +62,11 @@ export function paintModel(model, seed) {
     }
   }
   p.clip = null;
-  return p.d;
+  if (k === 1) return p.d;
+  // (Shrunk to the layer, a texel from each k x k block.)
+  const out = new Uint8ClampedArray(ENTITY * ENTITY * 4);
+  for (let y = 0; y < ENTITY; y++) for (let x = 0; x < ENTITY; x++) out.set(p.d.subarray(((y * k) * ENTITY * k + x * k) * 4, ((y * k) * ENTITY * k + x * k) * 4 + 4), (y * ENTITY + x) * 4);
+  return out;
 }
 
 const tone = (v, a, b, c) => v < a ? 0 : v < b ? 1 : v < c ? 2 : 3;
