@@ -329,6 +329,11 @@ for (let i = 0; i < 8; i++) tex(`wheat_stage${i}`);
 for (const c of ['carrots', 'potatoes', 'beetroots', 'nether_wart']) for (let i = 0; i < 4; i++) tex(`${c}_stage${i}`);
 for (const c of ['pumpkin_stem', 'melon_stem']) for (let i = 0; i < 8; i++) tex(`${c}_stage${i}`);
 for (let i = 0; i < 10; i++) tex(`destroy_${i}`);
+// Chests, beds and skulls wear Java's block-entity texture sheets ([width, height, pack image,
+// tiles used]), cut into 16x16 layers named <sheet>_sheet_<n> (row by row; the models use the first
+// n), so a pack's sheet maps onto them texel for texel (see mesh/mesher.js).
+export const SHEETS = { chest: [64, 64, 'entity/chest/normal', 12], bed: [64, 64, 'entity/bed/red', 11], skeleton_skull: [64, 32, 'entity/skeleton/skeleton', 2], wither_skull: [64, 32, 'entity/skeleton/wither_skeleton', 2] };
+for (const [k, [, , , n]] of Object.entries(SHEETS)) for (let i = 0; i < n; i++) tex(`${k}_sheet_${i}`);
 for (const t of ['bed_top_head', 'end_portal_frame_eye', 'water_flow', 'lava_flow', 'lantern_hanging', 'campfire_log', 'campfire_log_lit', 'glass_pane_top']) tex(t);
 // Flowing liquid tops: the whole (twice as large) flow frame, turned along the current like Java's.
 for (const t of ['water_flow_top', 'lava_flow_top', 'water_overlay']) tex(t);

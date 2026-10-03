@@ -3,11 +3,11 @@
 import {
   CHUNK, HEIGHT, PAD, PS, B, SHAPE, VF, TINT, TEX,
   OPAQUE, SOLID, SHAPE_OF, TRANSLUCENT, EMIT, ATTEN, VFLAGS, CULL_SAME, TINT_OF, WATERLOGGED, VARIANT_MASK,
-  FACING_SHIFT, AXIS_SHIFT, FACE_TEX, CROP_STAGES, CROP_TEX,
-} from '../data/blocks.js?v=mush3uwi';
-import { BIOME_COLORS } from '../gen/biomes.js?v=mush3uwi';
-import { up6, rotY, attach, FACE_OF_DIR6, OPP6, DIR2D_OF_6 } from '../data/orient.js?v=mush3uwi';
-import { MODELS } from '../data/models.js?v=mush3uwi';
+  FACING_SHIFT, AXIS_SHIFT, FACE_TEX, CROP_STAGES, CROP_TEX, SHEETS,
+} from '../data/blocks.js?v=mush3vnf';
+import { BIOME_COLORS } from '../gen/biomes.js?v=mush3vnf';
+import { up6, rotY, attach, FACE_OF_DIR6, OPP6, DIR2D_OF_6 } from '../data/orient.js?v=mush3vnf';
+import { MODELS } from '../data/models.js?v=mush3vnf';
 
 export const H2 = HEIGHT + 2;
 export const VOLUME_SIZE = PS * PS * H2;
@@ -315,6 +315,99 @@ function model(buf, ci, ox, oy, oz, xf, els, tex, flags, flagOf = null) {
     }
   }
 }
+// ---- block entities: Java's chest, bed and skull models on their texture sheets ----
+// Affine transforms in block pixels, as 12 numbers (3 rows of x, y, z, translation).
+const mx = (a, b) => [0, 1, 2].flatMap(r => [0, 1, 2, 3].map(c => a[r * 4] * b[c] + a[r * 4 + 1] * b[4 + c] + a[r * 4 + 2] * b[8 + c] + (c === 3 ? a[r * 4 + 3] : 0)));
+const mT = (x, y, z) => [1, 0, 0, x, 0, 1, 0, y, 0, 0, 1, z];
+const mS = (x, y, z) => [x, 0, 0, 0, 0, y, 0, 0, 0, 0, z, 0];
+const mRX = a => { const c = Math.cos(a), s = Math.sin(a); return [1, 0, 0, 0, 0, c, -s, 0, 0, s, c, 0]; };
+const mRY = a => { const c = Math.cos(a), s = Math.sin(a); return [c, 0, s, 0, 0, 1, 0, 0, -s, 0, c, 0]; };
+const mRZ = a => { const c = Math.cos(a), s = Math.sin(a); return [c, -s, 0, 0, s, c, 0, 0, 0, 0, 1, 0]; };
+const mChain = (...ms) => ms.reduce(mx);
+// A part's pose (ModelPart.translateAndRotate): moved to its pivot, turned about z, y, then x.
+const mPose = (x, y, z, rx = 0, ry = 0, rz = 0) => mChain(mT(x, y, z), mRZ(rz), mRY(ry), mRX(rx));
+const SNAP = v => Math.round(v * 8) / 8;
+const JP = new Float64Array(12);
+// The four corners of one tile's piece of a face, in Java's vertex order.
+const CELL = [[1, 0], [0, 0], [0, 1], [1, 1]];
+// Where a texture rectangle from a to b crosses tile edges, as fractions of the way along it.
+function tileCuts(a, b) {
+  const lo = Math.min(a, b), hi = Math.max(a, b), out = [0, 1];
+  for (let g = Math.floor(lo / 16) * 16 + 16; g < hi; g += 16) out.push((g - a) / (b - a));
+  return out.sort((p, q) => p - q);
+}
+// One ModelPart.Cube (texture offset u v, corner x y z, size w h d, mirrored or not) placed by `m`,
+// its faces textured from `sheet` exactly as Java unwraps the cube, each face cut where it crosses
+// from one 16x16 tile of the sheet into the next.
+function jcube(buf, ci, ox, oy, oz, m, sheet, [u, v, x, y, z, w, h, d, mirror = false], flags) {
+  const cols = SHEETS[sheet][0] / 16, own = cellLight(ci);
+  let x0 = x, x1 = x + w;
+  if (mirror) { const t = x0; x0 = x1; x1 = t; }
+  const y0 = y, y1 = y + h, z0 = z, z1 = z + d;
+  // ModelPart.Cube's corners and its six polygons (down, up, west, north, east, south) with their
+  // texture rectangles (u1, v1, u2, v2).
+  const V = [[x1, y0, z0], [x1, y1, z0], [x0, y1, z0], [x0, y0, z1], [x1, y0, z1], [x1, y1, z1], [x0, y1, z1], [x0, y0, z0]];
+  const f5 = u + d, f6 = u + d + w, f7 = u + d + w + w, f8 = u + d + w + d, f9 = u + d + w + d + w, f10 = v, f11 = v + d, f12 = v + d + h;
+  const polys = [[[4, 3, 7, 0], f5, f10, f6, f11], [[1, 2, 6, 5], f6, f11, f7, f10], [[7, 3, 6, 2], u, f11, f5, f12],
+    [[0, 7, 2, 1], f5, f11, f6, f12], [[4, 0, 1, 5], f6, f11, f8, f12], [[3, 4, 5, 6], f8, f11, f9, f12]];
+  for (const [vi, u1, v1, u2, v2] of polys) {
+    if (u1 === u2 || v1 === v2) continue;
+    // Vertex 1 holds (u1, v1), 0 (u2, v1), 2 (u1, v2): a point s of the way from u1 to u2 and t
+    // from v1 to v2 lies at P1 + s (P0 - P1) + t (P2 - P1).
+    const P0 = V[vi[0]], P1 = V[vi[1]], P2 = V[vi[2]], su = tileCuts(u1, u2), tv = tileCuts(v1, v2);
+    for (let a = 0; a + 1 < su.length; a++) for (let b = 0; b + 1 < tv.length; b++) {
+      const sA = su[a], sB = su[a + 1], tA = tv[b], tB = tv[b + 1];
+      const tx = Math.floor((u1 + (u2 - u1) * (sA + sB) / 2) / 16), ty = Math.floor((v1 + (v2 - v1) * (tA + tB) / 2) / 16);
+      const layer = TEX[`${sheet}_sheet_${ty * cols + tx}`];
+      if (layer === undefined) continue;
+      for (let k = 0; k < 4; k++) {
+        const c = CELL[mirror ? 3 - k : k], s = c[0] ? sB : sA, t = c[1] ? tB : tA;
+        const px = P1[0] + s * (P0[0] - P1[0]) + t * (P2[0] - P1[0]), py = P1[1] + s * (P0[1] - P1[1]) + t * (P2[1] - P1[1]), pz = P1[2] + s * (P0[2] - P1[2]) + t * (P2[2] - P1[2]);
+        for (let r = 0; r < 3; r++) JP[k * 3 + r] = SNAP(m[r * 4] * px + m[r * 4 + 1] * py + m[r * 4 + 2] * pz + m[r * 4 + 3]);
+        QU[k] = Math.round(u1 + (u2 - u1) * s - tx * 16); QV[k] = Math.round(v1 + (v2 - v1) * t - ty * 16);
+      }
+      const ax = JP[3] - JP[0], ay = JP[4] - JP[1], az = JP[5] - JP[2], bx = JP[9] - JP[0], by = JP[10] - JP[1], bz = JP[11] - JP[2];
+      const nx = ay * bz - az * by, ny = az * bx - ax * bz, nz = ax * by - ay * bx, anx = Math.abs(nx), any = Math.abs(ny), anz = Math.abs(nz);
+      const face = anx >= any && anx >= anz ? (nx > 0 ? 0 : 1) : any >= anz ? (ny > 0 ? 2 : 3) : (nz > 0 ? 4 : 5);
+      for (let k = 0; k < 4; k++) { QX[k] = ox + JP[k * 3]; QY[k] = oy + JP[k * 3 + 1]; QZ[k] = oz + JP[k * 3 + 2]; QA[k] = 3; QL[k] = own; QB[k] = 0; }
+      emit(buf, layer, face, flags);
+    }
+  }
+}
+// Quarter turns about the block's middle, from facing south (as rotY).
+const mFacing = f => { let m = mT(0, 0, 0); for (let r = 0; r < f; r++) m = mx([0, 0, -1, 16, 0, 1, 0, 0, 1, 0, 0, 0], m); return m; };
+// ChestRenderer: the base, and the lid and latch on their hinge.
+function chestModel(buf, i, ox, oy, oz, facing, part, flags) {
+  const m = mFacing(facing);
+  if (part !== 'lid') jcube(buf, i, ox, oy, oz, m, 'chest', [0, 19, 1, 0, 1, 14, 10, 14], flags);
+  if (part !== 'base') {
+    const lm = mx(m, mPose(0, 9, 1));
+    jcube(buf, i, ox, oy, oz, lm, 'chest', [0, 0, 1, 0, 0, 14, 5, 14], flags);
+    jcube(buf, i, ox, oy, oz, lm, 'chest', [0, 0, 7, -2, 14, 2, 4, 1], flags);
+  }
+}
+const D90 = Math.PI / 2;
+// BedRenderer: the half laid flat (the model stands upright), turned to face its way, legs at the
+// corners.
+function bedModel(buf, i, ox, oy, oz, facing, head, flags) {
+  const m = mChain(mT(0, 9, 0), mRX(D90), mT(8, 8, 8), mRZ(Math.PI + facing * D90), mT(-8, -8, -8));
+  if (head) {
+    jcube(buf, i, ox, oy, oz, m, 'bed', [0, 0, 0, 0, 0, 16, 16, 6], flags);
+    jcube(buf, i, ox, oy, oz, mx(m, mPose(0, 0, 0, D90, 0, D90)), 'bed', [50, 6, 0, 6, 0, 3, 3, 3], flags);
+    jcube(buf, i, ox, oy, oz, mx(m, mPose(0, 0, 0, D90, 0, Math.PI)), 'bed', [50, 18, -16, 6, 0, 3, 3, 3], flags);
+  } else {
+    jcube(buf, i, ox, oy, oz, m, 'bed', [0, 22, 0, 0, 0, 16, 16, 6], flags);
+    jcube(buf, i, ox, oy, oz, mx(m, mPose(0, 0, 0, D90, 0, 0)), 'bed', [50, 0, 0, 6, -16, 3, 3, 3], flags);
+    jcube(buf, i, ox, oy, oz, mx(m, mPose(0, 0, 0, D90, 0, 3 * D90)), 'bed', [50, 12, -16, 6, -16, 3, 3, 3], flags);
+  }
+}
+// SkullBlockRenderer: SkullModel's head on the floor (drawn like a mob's, upside down and mirrored
+// into place), turned to face its way.
+function skullModel(buf, i, ox, oy, oz, facing, sheet, flags) {
+  const m = mChain(mT(8, 0, 8), mS(-1, -1, 1), mRY((facing * 90 + 180) * Math.PI / 180));
+  jcube(buf, i, ox, oy, oz, m, sheet, [0, 0, -4, -8, -4, 8, 8, 8], flags);
+}
+
 let XA = 0, XB = 0;
 const TXM = {}; // texture names -> layers for the model being placed
 const BAMBOO = [MODELS.bamboo1, MODELS.bamboo2, MODELS.bamboo3, MODELS.bamboo4];
@@ -695,33 +788,17 @@ function special(bufO, bufT, i, id, m, shape, ox, oy, oz, x, y, z) {
       TXM.top = texOf(id, m, 2); TXM.bottom = texOf(id, m, 3); TXM.side = texOf(id, m, 0);
       model(buf, i, ox, oy, oz, null, MODELS.cactus, TXM, flags);
       break;
-    case SHAPE.CHEST: {
-      const facing = m & 3, L = six(id, m);
-      L6[4] = texOf(id, m, 6);
-      // Base and lid are separate boxes like the original. Meta bit 16: base only (an open chest in
-      // the world, its lid drawn animated); bit 32: lid and latch only (that animated lid).
-      if (!(m & 32)) rbox(buf, i, ox, oy, oz, facing, 1, 0, 1, 15, 10, 15, L, flags);
-      if (!(m & 16)) {
-        rbox(buf, i, ox, oy, oz, facing, 1, 10, 1, 15, 14, 15, L, flags);
-        rbox(buf, i, ox, oy, oz, facing, 7, 7, 15, 9, 11, 16, sixOf(TEX.iron_block ?? texOf(id, m, 6)), flags);
-      }
+    case SHAPE.CHEST:
+      // Meta bit 16: the base only (an open chest in the world, its lid drawn animated); bit 32: the
+      // lid and latch only (that animated lid).
+      chestModel(buf, i, ox, oy, oz, m & 3, m & 16 ? 'base' : m & 32 ? 'lid' : 'all', flags);
       break;
-    }
-    case SHAPE.BED: {
-      const facing = m & 3, head = (m >> 2) & 1;
-      const L = six(id, m);
-      L6[2] = head ? TEX.bed_top_head : texOf(id, m, 2);
-      const rot = [0, 0, (facing + 2) & 3, 0, 0, 0];
-      box(buf, i, ox, oy, oz, 0, 3, 0, 16, 9, 16, L, flags, { uvRot: rot, dv: -7 });
-      for (const [lx, lz] of [[0, 0], [13, 0], [0, 13], [13, 13]]) box(buf, i, ox, oy, oz, lx, 0, lz, lx + 3, 3, lz + 3, sixOf(TEX.planks_oak), flags);
+    case SHAPE.BED:
+      bedModel(buf, i, ox, oy, oz, m & 3, (m >> 2) & 1, flags);
       break;
-    }
-    case SHAPE.SKULL: {
-      const facing = (m >> 1) & 3, L = six(id, m);
-      L6[4] = texOf(id, m, 6);
-      rbox(buf, i, ox, oy, oz, facing, 4, 0, 4, 12, 8, 12, L, flags);
+    case SHAPE.SKULL:
+      skullModel(buf, i, ox, oy, oz, (m >> 1) & 3, m & 1 ? 'wither_skull' : 'skeleton_skull', flags);
       break;
-    }
     case SHAPE.LANTERN:
       TXM.lantern = texOf(id, m, 0);
       model(buf, i, ox, oy, oz, null, (m >> 1) & 1 ? MODELS.hanging_lantern : MODELS.lantern, TXM, flags);
