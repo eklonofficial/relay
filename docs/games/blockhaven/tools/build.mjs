@@ -32,10 +32,12 @@ const replacements = {
       if (args.path.endsWith(join('net', 'net.js'))) {
         source = read('net-config.js').replace('window.BLOCKHAVEN_NET =', 'const __defaultConfig =') + '\n' + source.replace('...(window.BLOCKHAVEN_NET || {})', '...__defaultConfig, ...(window.BLOCKHAVEN_NET || {})');
       }
-      source = source.replace(/new URL\(['"]\.\.\/worker\.js[^'"]*['"], import\.meta\.url\)/g, `__resource('a',${JSON.stringify(worker)})`);
-      source = source.replace(/new URL\(['"]\.\/render\/splashworker\.js[^'"]*['"], import\.meta\.url\)/g, `__resource('b',${JSON.stringify(splashWorker)})`);
-      source = source.replace(/new URL\(['"]\.\.\/\.\.\/vendor\/peerjs\.min\.js[^'"]*['"], import\.meta\.url\)\.href/g, `__resource('c',${JSON.stringify(lib)})`);
-      source = source.replace(/fetch\('assets\/default-pack\.zip[^']*'/g, `fetch(${JSON.stringify(binary('assets/default-pack.zip', 'application/zip'))}`);
+      // Replacer functions, not strings: in a replacement string "$&" and the like are patterns, and
+      // minified code is full of them (a variable named $ masked with $&1).
+      source = source.replace(/new URL\(['"]\.\.\/worker\.js[^'"]*['"], import\.meta\.url\)/g, () => `__resource('a',${JSON.stringify(worker)})`);
+      source = source.replace(/new URL\(['"]\.\/render\/splashworker\.js[^'"]*['"], import\.meta\.url\)/g, () => `__resource('b',${JSON.stringify(splashWorker)})`);
+      source = source.replace(/new URL\(['"]\.\.\/\.\.\/vendor\/peerjs\.min\.js[^'"]*['"], import\.meta\.url\)\.href/g, () => `__resource('c',${JSON.stringify(lib)})`);
+      source = source.replace(/fetch\('assets\/default-pack\.zip[^']*'/g, () => `fetch(${JSON.stringify(binary('assets/default-pack.zip', 'application/zip'))}`);
       if (source.includes('__resource(')) source = `const __urls=new Map();function __resource(k,s){if(!__urls.has(k))__urls.set(k,URL.createObjectURL(new Blob([s],{type:'text/javascript'})));return __urls.get(k)}\n` + source;
       return { contents: source, loader: 'js' };
     });

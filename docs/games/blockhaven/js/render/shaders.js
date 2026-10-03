@@ -1,4 +1,4 @@
-import { VF } from '../data/blocks.js?v=murm7eyf';
+import { VF } from '../data/blocks.js?v=murpnhgy';
 
 const HEADER = `#version 300 es
 precision highp float;
@@ -101,7 +101,7 @@ flat out int vNormal;
 const float SHADE[7] = float[7](0.8, 0.8, 1.0, 0.55, 0.68, 0.68, 0.9);
 
 void main() {
-  vec3 p = (vec3(aPos.xyz) - 64.0) / 32.0 + uChunk;
+  vec3 p = (vec3(aPos.xyz) - 256.0) / 128.0 + uChunk;
   int flags = int(aPos.w);
   int uvn = int(aTex.y);
   float u = float(uvn & 31), v = float((uvn >> 5) & 31);

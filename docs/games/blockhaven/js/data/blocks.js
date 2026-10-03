@@ -329,7 +329,7 @@ for (let i = 0; i < 8; i++) tex(`wheat_stage${i}`);
 for (const c of ['carrots', 'potatoes', 'beetroots', 'nether_wart']) for (let i = 0; i < 4; i++) tex(`${c}_stage${i}`);
 for (const c of ['pumpkin_stem', 'melon_stem']) for (let i = 0; i < 8; i++) tex(`${c}_stage${i}`);
 for (let i = 0; i < 10; i++) tex(`destroy_${i}`);
-for (const t of ['bed_top_head', 'end_portal_frame_eye', 'water_flow', 'lava_flow', 'lantern_hanging']) tex(t);
+for (const t of ['bed_top_head', 'end_portal_frame_eye', 'water_flow', 'lava_flow', 'lantern_hanging', 'campfire_log', 'campfire_log_lit', 'glass_pane_top']) tex(t);
 // Flowing liquid tops: the whole (twice as large) flow frame, turned along the current like Java's.
 for (const t of ['water_flow_top', 'lava_flow_top', 'water_overlay']) tex(t);
 for (const t of ['redstone_dust_line', 'repeater_on', 'comparator_on', 'lever_base', 'observer_back', 'observer_back_on', 'daylight_detector_inverted_top',
