@@ -1,10 +1,10 @@
 // Chat commands (cheats) with Minecraft-style syntax, ~relative coordinates and suggestions.
-import { B, STATE, DIM, BLOCKS } from '../data/blocks.js?v=muso40ud';
-import { setWeather, sample, RAIN_DELAY, RAIN_DURATION, THUNDER_DURATION, parseTime } from './weather.js?v=muso40ud';
-import { I, ITEMS } from '../data/items.js?v=muso40ud';
-import { MOBS } from '../data/mobs.js?v=muso40ud';
-import { BIOMES } from '../gen/biomes.js?v=muso40ud';
-import { ENCHANTS, canEnchant, compatible, enchantsOf, setEnchants, enchantName } from '../data/enchantments.js?v=muso40ud';
+import { B, STATE, DIM, BLOCKS } from '../data/blocks.js?v=musof0se';
+import { setWeather, sample, RAIN_DELAY, RAIN_DURATION, THUNDER_DURATION, parseTime } from './weather.js?v=musof0se';
+import { I, ITEMS } from '../data/items.js?v=musof0se';
+import { MOBS } from '../data/mobs.js?v=musof0se';
+import { BIOMES } from '../gen/biomes.js?v=musof0se';
+import { ENCHANTS, canEnchant, compatible, enchantsOf, setEnchants, enchantName } from '../data/enchantments.js?v=musof0se';
 
 const MODES = { survival: 'survival', s: 'survival', 0: 'survival', creative: 'creative', c: 'creative', 1: 'creative', adventure: 'adventure', a: 'adventure', 2: 'adventure', spectator: 'spectator', sp: 'spectator', 3: 'spectator' };
 const DIMS = { overworld: DIM.OVERWORLD, 'minecraft:overworld': DIM.OVERWORLD, nether: DIM.NETHER, the_nether: DIM.NETHER, 'minecraft:the_nether': DIM.NETHER, end: DIM.END, the_end: DIM.END, 'minecraft:the_end': DIM.END };
@@ -29,7 +29,7 @@ export const COMMANDS = {
   locate: { args: '<structure|biome>', desc: 'Find the nearest structure or biome' },
   seed: { args: '', desc: 'Show the world seed' },
   difficulty: { args: '<peaceful|easy|normal|hard>', desc: 'Set difficulty' },
-  gamerule: { args: '<rule> [true|false]', desc: 'Change a game rule' },
+  gamerule: { args: '<rule> [value]', desc: 'Change a game rule' },
   spawnpoint: { args: '', desc: 'Set spawn to your position' },
   effect: { args: 'give <effect> [seconds] [level] | clear', desc: 'Apply status effects' },
   xp: { args: '<amount> [levels]', desc: 'Give experience' },
@@ -198,7 +198,8 @@ export class Commands {
         if (!r) return out('Rules: ' + Object.entries(g.rules).map(([k, v]) => `${k}=${v}`).join(', '));
         if (!(r in g.rules)) return err(`Unknown game rule '${r}'`);
         if (parts[1] === undefined) return out(`Gamerule ${r} is currently set to: ${g.rules[r]}`);
-        g.rules[r] = parts[1] === 'true';
+        if (typeof g.rules[r] === 'number') { if (!/^-?\d+$/.test(parts[1])) return err(`Invalid integer '${parts[1]}'`); g.rules[r] = Number(parts[1]); }
+        else g.rules[r] = parts[1] === 'true';
         return out(`Gamerule ${r} is now set to: ${g.rules[r]}`);
       }
       case 'spawnpoint': g.spawn = p.slice(); return out(`Set spawn point to ${p.map(v => v.toFixed(1)).join(', ')}`);

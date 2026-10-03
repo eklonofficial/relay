@@ -1,8 +1,9 @@
 // Java Edition's weather (1.20.1): ServerLevel.advanceWeatherCycle's timers, the rain and thunder
 // levels that follow them, where it rains or snows (Biome.getPrecipitationAt, Level.isRainingAt) and
 // how dark the sky gets (Level.updateSkyBrightness). Times are in ticks (20 a second).
-import { BIOMES, DRY } from '../gen/biomes.js?v=muso40ud';
-import { B, SOLID, DIM } from '../data/blocks.js?v=muso40ud';
+import { BIOMES, DRY } from '../gen/biomes.js?v=musof0se';
+import { B, SOLID, DIM, SHAPE, SHAPE_OF, STATE, WATERLOGGED, VARIANT_MASK } from '../data/blocks.js?v=musof0se';
+import { collisionBoxes } from '../data/shapes.js?v=musof0se';
 
 // ServerLevel's UniformInts.
 export const RAIN_DELAY = [12000, 180000], RAIN_DURATION = [12000, 24000], THUNDER_DELAY = [12000, 180000], THUNDER_DURATION = [3600, 15600];
@@ -76,11 +77,11 @@ export function precipitationAt(biome, x, y, z) {
   return temperatureAt(biome, x, y, z) < 0.15 ? 'snow' : 'rain';
 }
 // The MOTION_BLOCKING heightmap: the top block that stops a fall (solid, leaves) or holds a fluid;
-// rain and snow come down to the block above it.
+// rain and snow come down to the block above it. (Snow layers don't count: Java's are never solid.)
 export function precipitationHeight(world, x, z) {
   let y = world.heightAt(x, z);
   if (y < 0) return -1;
-  while (y > 0) { const id = world.getBlock(x, y, z); if (SOLID[id] || id === B.WATER || id === B.LAVA) break; y--; }
+  while (y > 0) { const id = world.getBlock(x, y, z); if ((SOLID[id] && id !== B.SNOW) || id === B.WATER || id === B.LAVA) break; y--; }
   return y + 1;
 }
 // Level.isRainingAt: raining, open to the sky there, and rain (not snow) in its biome.
@@ -88,6 +89,37 @@ export function isRainingAt(world, w, dim, x, y, z) {
   if (dim !== DIM.OVERWORLD || !isRaining(w)) return false;
   if (precipitationHeight(world, x, z) > Math.floor(y)) return false;
   return precipitationAt(world.biomeAt(x, z), x, Math.floor(y), z) === 'rain';
+}
+
+// Biome.shouldFreeze: a still water source too cold for rain, with block light below 10 and
+// something other than water beside it (ice grows in from the shore).
+export function shouldFreeze(world, biome, x, y, z) {
+  if (temperatureAt(biome, x, y, z) >= 0.15 || y < 0 || y > 255 || world.lightAt(x, y, z).blk >= 10) return false;
+  if (world.getBlock(x, y, z) !== B.WATER || (world.getMeta(x, y, z) & 15) !== 0) return false;
+  let edge = false;
+  for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+    const n = world.getBlock(x + dx, y, z + dz);
+    if (n === 255) return false; // (an unloaded neighbour: isAreaLoaded)
+    if (n !== B.WATER && !WATERLOGGED[n]) edge = true;
+  }
+  return edge;
+}
+// Biome.shouldSnow: too cold for rain, block light below 10, air or a snow layer, and somewhere
+// snow can lie.
+export function shouldSnow(world, biome, x, y, z) {
+  if (temperatureAt(biome, x, y, z) >= 0.15 || y < 1 || y > 255 || world.lightAt(x, y, z).blk >= 10) return false;
+  const id = world.getBlock(x, y, z);
+  return (id === B.AIR || id === B.SNOW) && snowCanSurvive(world, x, y, z);
+}
+// SnowLayerBlock.canSurvive: not on ice, packed ice or barriers; always on honey and soul sand;
+// otherwise on a full top face, or on a full stack of snow layers.
+export function snowCanSurvive(world, x, y, z) {
+  const id = world.getBlock(x, y - 1, z), m = world.getMeta(x, y - 1, z), is = k => STATE[k] && id === STATE[k][0] && (m & VARIANT_MASK[id]) === STATE[k][1];
+  if (id === B.ICE || is('packed_ice')) return false;
+  if (is('honey_block') || is('soul_sand')) return true;
+  if (id === B.SNOW) return (m & 7) === 7;
+  if (SHAPE_OF[id] === SHAPE.PANE) return false;
+  return collisionBoxes(id, m).some(b => b[0] <= 0 && b[2] <= 0 && b[3] >= 1 && b[5] >= 1 && b[4] === 1);
 }
 
 // Java's TimeArgument: a number of ticks, or with a unit: 't' ticks, 's' seconds, 'd' days.

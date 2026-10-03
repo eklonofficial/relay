@@ -62,3 +62,28 @@ test('JavaRandom gives java.util.Random\'s numbers (for the rain and snow column
   const q = new JavaRandom(-12345678901n);
   assert.equal(q.nextInt(10), 4); assert.equal(q.nextFloat().toFixed(6), '0.795654');
 });
+
+test('ice and snow form as ServerLevel.tickPrecipitation forms them', () => {
+  const blocks = new Map(), key = (x, y, z) => `${x},${y},${z}`;
+  const world = {
+    heightAt: () => 64, lightAt: () => ({ sky: 15, blk: 0 }), biomeAt: () => biome('snowy_plains'),
+    getBlock: (x, y, z) => blocks.get(key(x, y, z))?.[0] ?? (y <= 62 ? B.STONE : B.AIR),
+    getMeta: (x, y, z) => blocks.get(key(x, y, z))?.[1] ?? 0,
+  };
+  const cold = biome('snowy_plains'), warm = biome('plains');
+  // A pond three wide: its edge freezes, its middle waits for the ice to grow in.
+  for (let x = -1; x <= 1; x++) for (let z = -1; z <= 1; z++) blocks.set(key(x, 63, z), [B.WATER, 0]);
+  assert.ok(W.shouldFreeze(world, cold, 1, 63, 0));
+  assert.ok(!W.shouldFreeze(world, cold, 0, 63, 0), 'the middle is all water around');
+  assert.ok(!W.shouldFreeze(world, warm, 1, 63, 0), 'too warm');
+  assert.ok(!W.shouldFreeze({ ...world, lightAt: () => ({ sky: 15, blk: 12 }) }, cold, 1, 63, 0), 'too bright');
+  // Snow lies on stone, not on ice, and not where it's warm.
+  assert.ok(W.shouldSnow(world, cold, 5, 63, 5));
+  assert.ok(!W.shouldSnow(world, warm, 5, 63, 5));
+  blocks.set(key(1, 63, 0), [B.ICE, 0]);
+  assert.ok(!W.shouldSnow(world, cold, 1, 64, 0), 'not on ice');
+  // Rain and snow fall through snow layers (they aren't motion-blocking).
+  blocks.set(key(5, 63, 5), [B.SNOW, 0]);
+  assert.equal(W.precipitationHeight(world, 5, 5), 63);
+  assert.ok(W.shouldSnow(world, cold, 5, 63, 5), 'a snow layer can take another');
+});
