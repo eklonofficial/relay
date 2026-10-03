@@ -4,7 +4,7 @@
 //                                           and panes, whose connections Java stores in the state)
 // fromJava(name, props) -> state (id | meta << 8); unknown blocks fall back to the closest family
 //                          we have (stairs to stairs, logs to logs, ...), then to stone or air.
-import { BLOCKS, B, STATE, SHAPE, SHAPE_OF, OPAQUE, CROP_STAGES, CROP_AGE_SHIFT, COLORS } from '../data/blocks.js?v=musn4era';
+import { BLOCKS, B, STATE, SHAPE, SHAPE_OF, OPAQUE, CROP_STAGES, CROP_AGE_SHIFT, COLORS } from '../data/blocks.js?v=musn9kyc';
 
 const H = ['south', 'west', 'north', 'east'];                       // our 2D facing order
 const D6 = ['down', 'up', 'north', 'south', 'west', 'east'];         // Java's six-way order
@@ -95,7 +95,7 @@ export function toJava(id, m, nb = () => -1) {
     case SHAPE.SNOW: p.layers = String((m & 7) + 1); break;
     case SHAPE.LIQUID: p.level = String(m & 15); break;
     case SHAPE.CACTUS: case SHAPE.FIRE: p.age = '0'; break;
-    case SHAPE.CHEST: p.facing = H[m & 3]; p.type = 'single'; p.waterlogged = 'false'; break;
+    case SHAPE.CHEST: p.facing = H[m & 3]; p.type = ['single', 'left', 'right'][(m >> 2) & 3] || 'single'; p.waterlogged = 'false'; break;
     case SHAPE.CAMPFIRE: p.facing = 'north'; p.lit = 'true'; p.signal_fire = 'false'; p.waterlogged = 'false'; break;
     case SHAPE.FENCE: case SHAPE.PANE:
       p.north = String(connects(id, nb(0, 0, -1))); p.south = String(connects(id, nb(0, 0, 1)));
@@ -246,7 +246,7 @@ function resolve(name, p) {
     case SHAPE.RAIL: if (/east_west|ascending_east|ascending_west|south_east|north_west/.test(p.shape || '')) m |= 1; break;
     case SHAPE.SNOW: m |= Math.max(0, Math.min(7, (Number(p.layers) || 1) - 1)); break;
     case SHAPE.LIQUID: m = Number(p.level) & 15; break;
-    case SHAPE.CHEST: m |= h2(p.facing); break;
+    case SHAPE.CHEST: m |= h2(p.facing) | (p.type === 'left' ? 1 : p.type === 'right' ? 2 : 0) << 2; break;
     case SHAPE.CROP: {
       const v = m & 7, max = Math.max(1, CROP_STAGES[v] - 1);
       m |= Math.round((Number(p.age) || 0) / JAVA_CROP_MAX[v] * max) << CROP_AGE_SHIFT;

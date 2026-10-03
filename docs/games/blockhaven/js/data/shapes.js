@@ -1,6 +1,6 @@
 // Collision and selection boxes per block state, in block units (0..1, fences reach 1.5).
-import { SHAPE, SHAPE_OF, SOLID, B } from './blocks.js?v=musn4era';
-import { boxUp6, boxAttach } from './orient.js?v=musn4era';
+import { SHAPE, SHAPE_OF, SOLID, B, chestPartner } from './blocks.js?v=musn9kyc';
+import { boxUp6, boxAttach } from './orient.js?v=musn9kyc';
 
 const P = 1 / 16;
 // Rotate a canonical (+Z-facing) box by `facing` quarter turns about the block centre.
@@ -41,7 +41,11 @@ export function collisionBoxes(id, m, out = []) {
     case SHAPE.CARPET: out.push([0, 0, 0, 1, P, 1]); break;
     case SHAPE.FARMLAND: out.push([0, 0, 0, 1, 15 * P, 1]); break;
     case SHAPE.CACTUS: out.push([P, 0, P, 15 * P, 1, 15 * P]); break;
-    case SHAPE.CHEST: out.push([P, 0, P, 15 * P, 14 * P, 15 * P]); break;
+    case SHAPE.CHEST: {
+      const d = chestPartner(m);
+      out.push([d && d[0] < 0 ? 0 : P, 0, d && d[1] < 0 ? 0 : P, d && d[0] > 0 ? 1 : 15 * P, 14 * P, d && d[1] > 0 ? 1 : 15 * P]);
+      break;
+    }
     case SHAPE.BED: out.push([0, 0, 0, 1, 9 * P, 1]); break;
     case SHAPE.LANTERN: { const h = (m >> 1) & 1; out.push(h ? [5 * P, 7 * P, 5 * P, 11 * P, 16 * P, 11 * P] : [5 * P, 0, 5 * P, 11 * P, 9 * P, 11 * P]); break; }
     case SHAPE.ENDFRAME: out.push([0, 0, 0, 1, 13 * P, 1]); break;

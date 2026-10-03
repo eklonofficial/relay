@@ -335,7 +335,7 @@ for (let i = 0; i < 10; i++) tex(`destroy_${i}`);
 // Chests, beds and skulls wear Java's block-entity texture sheets ([width, height, pack image,
 // tiles used]), cut into 16x16 layers named <sheet>_sheet_<n> (row by row; the models use the first
 // n), so a pack's sheet maps onto them texel for texel (see mesh/mesher.js).
-export const SHEETS = { chest: [64, 64, 'entity/chest/normal', 12], skeleton_skull: [64, 32, 'entity/skeleton/skeleton', 2], wither_skull: [64, 32, 'entity/skeleton/wither_skeleton', 2] };
+export const SHEETS = { chest: [64, 64, 'entity/chest/normal', 12], chest_left: [64, 64, 'entity/chest/normal_left', 12], chest_right: [64, 64, 'entity/chest/normal_right', 12], skeleton_skull: [64, 32, 'entity/skeleton/skeleton', 2], wither_skull: [64, 32, 'entity/skeleton/wither_skeleton', 2] };
 for (const c of COLORS) SHEETS[`${c}_bed`] = [64, 64, `entity/bed/${c}`, 11];
 for (const [k, [, , , n]] of Object.entries(SHEETS)) for (let i = 0; i < n; i++) tex(`${k}_sheet_${i}`);
 for (const t of ['bed_top_head', 'end_portal_frame_eye', 'water_flow', 'lava_flow', 'lantern_hanging', 'campfire_log', 'campfire_log_lit', 'glass_pane_top']) tex(t);
@@ -399,6 +399,13 @@ export function props(id, meta = 0) {
   };
 }
 
+// A chest's half of a double chest (ChestType, meta bits 2-3: 0 single, 1 left, 2 right) and the
+// direction of its other half (ChestBlock.getConnectedDirection: a left half's partner is on its
+// facing's clockwise side, a right half's on the other), as [dx, dz] or null. Facings run 0 south,
+// 1 west, 2 north, 3 east, which is clockwise.
+export const CHEST_DIRS = [[0, 1], [-1, 0], [0, -1], [1, 0]];
+export const chestType = m => (m >> 2) & 3;
+export const chestPartner = m => { const t = chestType(m); return t ? CHEST_DIRS[(m + (t === 1 ? 1 : 3)) & 3] : null; };
 export const variantOf = (id, meta) => meta & VARIANT_MASK[id];
 export const facingOf = (id, meta) => FACING_SHIFT[id] < 0 ? 0 : (meta >> FACING_SHIFT[id]) & 3;
 

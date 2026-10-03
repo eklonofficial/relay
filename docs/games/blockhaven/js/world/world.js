@@ -1,9 +1,9 @@
 // Chunk storage, streaming, edits and queries for one dimension.
-import { CHUNK, HEIGHT, PAD, PS, B, OPAQUE, SOLID, EMIT, ATTEN, VARIANT_MASK, SHAPE_OF, SHAPE, DIM } from '../data/blocks.js?v=musn4era';
-import { VOLUME_SIZE } from '../mesh/mesher.js?v=musn4era';
-import { selectionBoxes, collisionBoxes } from '../data/shapes.js?v=musn4era';
-import { sinceOf } from '../gen/versions.js?v=musn4era';
-import { getChunk, decodeChunk } from '../game/storage.js?v=musn4era';
+import { CHUNK, HEIGHT, PAD, PS, B, OPAQUE, SOLID, EMIT, ATTEN, VARIANT_MASK, SHAPE_OF, SHAPE, DIM } from '../data/blocks.js?v=musn9kyc';
+import { VOLUME_SIZE } from '../mesh/mesher.js?v=musn9kyc';
+import { selectionBoxes, collisionBoxes } from '../data/shapes.js?v=musn9kyc';
+import { sinceOf } from '../gen/versions.js?v=musn9kyc';
+import { getChunk, decodeChunk } from '../game/storage.js?v=musn9kyc';
 
 export const UNLOADED = 255;
 export const chunkKey = (cx, cz) => `${cx},${cz}`;
@@ -41,7 +41,7 @@ export class World {
     const count = Math.max(1, Math.min(4, (navigator.hardwareConcurrency || 4) - 1));
     this.workers = [];
     for (let i = 0; i < count; i++) {
-      const w = new Worker(new URL('../worker.js?v=musn4era', import.meta.url), { type: 'module' });
+      const w = new Worker(new URL('../worker.js?v=musn9kyc', import.meta.url), { type: 'module' });
       w.busy = 0;
       w.onmessage = e => this.onWorkerMessage(w, e.data);
       w.onerror = e => console.error('worker error', e.message);
