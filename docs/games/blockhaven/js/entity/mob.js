@@ -1,23 +1,23 @@
 // Living mobs: physics, AI archetypes, combat, breeding/taming, trading and animation.
-import { Entity, drawModel, rootMatrix, M } from './entity.js?v=musmw2di';
-import { Projectile, renderStack } from './objects.js?v=musmw2di';
-import { MOBS, PROFESSIONS } from '../data/mobs.js?v=musmw2di';
-import { B, BLOCKS, SOLID, OPAQUE } from '../data/blocks.js?v=musmw2di';
-import { UNLOADED } from '../world/world.js?v=musmw2di';
-import { villagerTrades } from '../game/trades.js?v=musmw2di';
-import { findPath, clearWalk } from './pathfind.js?v=musmw2di';
-import { ARMOR_BYPASS, armorStats, armorReduce, applyInvul } from '../game/combat.js?v=musmw2di';
-import { animalPose, chickenPose, wolfPose, horsePose } from './animals.js?v=musmw2di';
-import { villagerPose, illagerPose, piglinPose } from './javamodels.js?v=musmw2di';
-import { ironGolemPose, ironGolemSway, snowGolemPose, hoglinPose, striderPose, ravagerPose } from './beasts.js?v=musmw2di';
-import { squidPose, fishPose, fishSway, pufferfishPose, guardianPose, dolphinPose, turtlePose, axolotlPose } from './aquatic.js?v=musmw2di';
-import { witherPose, dragonPose, dragonHistory } from './bosses.js?v=musmw2di';
-import { rabbitPose, ocelotPose, parrotPose, batPose, frogPose, camelPose } from './critters.js?v=musmw2di';
-import { creeperPose, spiderPose, endermanPose, magmaPose, silverfishPose, blazePose, ghastPose, phantomPose } from './monsters.js?v=musmw2di';
-import { humanoidPose } from './humanoid.js?v=musmw2di';
-import { armorLayer } from '../data/armor.js?v=musmw2di';
-import { I } from '../data/items.js?v=musmw2di';
-import { dragonInit, dragonAI, dragonDamage, dragonDying, dragonHead } from './dragon.js?v=musmw2di';
+import { Entity, drawModel, rootMatrix, M } from './entity.js?v=musmwdx0';
+import { Projectile, renderStack } from './objects.js?v=musmwdx0';
+import { MOBS, PROFESSIONS } from '../data/mobs.js?v=musmwdx0';
+import { B, BLOCKS, SOLID, OPAQUE } from '../data/blocks.js?v=musmwdx0';
+import { UNLOADED } from '../world/world.js?v=musmwdx0';
+import { villagerTrades } from '../game/trades.js?v=musmwdx0';
+import { findPath, clearWalk } from './pathfind.js?v=musmwdx0';
+import { ARMOR_BYPASS, armorStats, armorReduce, applyInvul } from '../game/combat.js?v=musmwdx0';
+import { animalPose, chickenPose, wolfPose, horsePose } from './animals.js?v=musmwdx0';
+import { villagerPose, illagerPose, piglinPose } from './javamodels.js?v=musmwdx0';
+import { ironGolemPose, ironGolemSway, snowGolemPose, hoglinPose, striderPose, ravagerPose } from './beasts.js?v=musmwdx0';
+import { squidPose, fishPose, fishSway, pufferfishPose, guardianPose, dolphinPose, turtlePose, axolotlPose } from './aquatic.js?v=musmwdx0';
+import { witherPose, dragonPose, dragonHistory } from './bosses.js?v=musmwdx0';
+import { rabbitPose, ocelotPose, parrotPose, batPose, frogPose, camelPose } from './critters.js?v=musmwdx0';
+import { creeperPose, spiderPose, endermanPose, magmaPose, silverfishPose, blazePose, ghastPose, phantomPose } from './monsters.js?v=musmwdx0';
+import { humanoidPose } from './humanoid.js?v=musmwdx0';
+import { armorLayer } from '../data/armor.js?v=musmwdx0';
+import { I } from '../data/items.js?v=musmwdx0';
+import { dragonInit, dragonAI, dragonDamage, dragonDying, dragonHead } from './dragon.js?v=musmwdx0';
 
 const rnd = (a, b) => a + Math.random() * (b - a);
 const rint = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
@@ -86,6 +86,8 @@ export class Mob extends Entity {
     this.persistent = !!(opts.persistent || d.persistent);
     this.home = opts.home || null;
     this.fuse = 0; this.charged = !!opts.charged; this.resting = !!opts.resting;
+    // Its breed (Java's variant, data/mobs.js): handed down, saved, or picked for where it spawns.
+    this.breed = opts.breed !== undefined ? opts.breed : d.pickBreed && game && game.world ? d.pickBreed(game.world.biomeAt(x, z)) : null;
     this.tamed = !!opts.tamed; this.sitting = !!opts.sitting;
     this.sheared = !!opts.sheared;
     this.woolColor = opts.woolColor || (type === 'sheep' ? (Math.random() < 0.82 ? 'white' : ['light_gray', 'gray', 'black', 'brown', 'pink'][rint(0, 4)]) : null);
@@ -507,7 +509,7 @@ export class Mob extends Entity {
         this.navigateTo(mate.pos, this.speed * 0.8, dt);
         if (this.distTo(mate.pos) < 1.5 + this.hw) {
           this.love = 0; mate.love = 0; this.breedCd = mate.breedCd = 300;
-          g.spawnMob(this.mobType, this.pos[0], this.pos[1] + 0.2, this.pos[2], { baby: true, woolColor: Math.random() < 0.5 ? this.woolColor : mate.woolColor });
+          g.spawnMob(this.mobType, this.pos[0], this.pos[1] + 0.2, this.pos[2], { baby: true, woolColor: Math.random() < 0.5 ? this.woolColor : mate.woolColor, breed: this.def.childBreed ? this.def.childBreed(this.breed, mate.breed, g.world.biomeAt(this.pos[0], this.pos[2])) : Math.random() < 0.5 ? this.breed : mate.breed });
           g.spawnXp(this.pos, rint(1, 7));
         }
         return;
@@ -1143,6 +1145,9 @@ export class Mob extends Entity {
     this.lastPose = dragon ? Object.assign(dragon.poses, { pivots: dragon.pivots }) : this.pose();
     // WolfRenderer.getTextureLocation: tame and angry wolves wear their own skins.
     let layer = this.layer;
+    // Its breed's skin (and RabbitRenderer's: a rabbit named Toast is Toast).
+    const breed = this.mobType === 'rabbit' && this.name === 'Toast' ? 'toast' : this.breed;
+    if (breed && this.def.breeds && this.def.breeds[breed]) layer = g.mobLayer(`${this.skinKey}_${breed}`);
     if (this.mobType === 'wolf') layer = g.mobLayer(this.tamed ? 'wolf_tame' : this.target ? 'wolf_angry' : 'wolf');
     // GhastRenderer: the open-mouthed face while it readies a fireball.
     if (this.mobType === 'ghast' && this.charging > 0) layer = g.mobLayer('ghast_shooting');
@@ -1226,14 +1231,14 @@ export class Mob extends Entity {
     if (this.deathT > 0) return null;
     return {
       t: 'mob', type: this.mobType, p: this.pos, yaw: this.yaw, health: this.health, baby: this.baby, size: this.size, tamed: this.tamed, sitting: this.sitting, saddled: this.saddled, rideSpeed: this.rideSpeed, jumpStrength: this.jumpStrength, temper: this.temper,
-      sheared: this.sheared, woolColor: this.woolColor, name: this.name, persistent: this.persistent, home: this.home, charged: this.charged, resting: this.resting,
+      sheared: this.sheared, woolColor: this.woolColor, name: this.name, persistent: this.persistent, home: this.home, charged: this.charged, resting: this.resting, breed: this.breed,
       profession: this.profession, level: this.level, xp: this.xp, trades: this.trades, equipment: this.equipment,
     };
   }
 }
 
 // Moves an entity without gravity handling (fliers/swimmers).
-import { moveEntity } from './physics.js?v=musmw2di';
+import { moveEntity } from './physics.js?v=musmwdx0';
 function import_move(e, dt) { moveEntity(e.world, e, e.vel[0] * dt, e.vel[1] * dt, e.vel[2] * dt); }
 
 // Renders a held item using a part matrix (model units).

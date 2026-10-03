@@ -1,14 +1,15 @@
 // Mob roster: stats, AI archetype, drops, box models and procedural skins.
 // Model space: 1 unit = 1/16 block, feet at y=0, the mob faces -Z.
-import { D, pal, shade as shadeHex } from '../render/mobtex.js?v=musmw2di';
-import { pigModel as jPig, cowModel as jCow, sheepModel as jSheep, sheepFurModel as jSheepFur, chickenModel as jChicken, wolfModel as jWolf, foxModel as jFox, polarBearModel as jPolarBear, goatModel as jGoat, llamaModel as jLlama, horseModel as jHorse } from '../entity/animals.js?v=musmw2di';
-import { creeperModel as jCreeper, spiderModel as jSpider, endermanModel as jEnderman, slimeModel as jSlime, slimeOuterModel as jSlimeOuter, magmaCubeModel as jMagma, silverfishModel as jSilverfish, endermiteModel as jEndermite, blazeModel as jBlaze, ghastModel as jGhast, phantomModel as jPhantom } from '../entity/monsters.js?v=musmw2di';
-import { ironGolemModel as jIronGolem, snowGolemModel as jSnowGolem, hoglinModel as jHoglin, striderModel as jStrider, ravagerModel as jRavager } from '../entity/beasts.js?v=musmw2di';
-import { squidModel as jSquid, codModel as jCod, salmonModel as jSalmon, tropicalFishModel as jTropical, pufferfishModel as jPuffer, guardianModel as jGuardian, dolphinModel as jDolphin, turtleModel as jTurtle, axolotlModel as jAxolotl } from '../entity/aquatic.js?v=musmw2di';
-import { rabbitModel as jRabbit, ocelotModel as jOcelot, pandaModel as jPanda, parrotModel as jParrot, batModel as jBat, frogModel as jFrog, camelModel as jCamel } from '../entity/critters.js?v=musmw2di';
-import { witherModel as jWither, dragonModel as jDragon } from '../entity/bosses.js?v=musmw2di';
-import { villagerModel as jVillager, witchModel as jWitch, illagerModel as jIllager, piglinModel as jPiglin, zombieVillagerModel as jZombieVillager } from '../entity/javamodels.js?v=musmw2di';
-import { playerModel as javaPlayerModel, mobHumanoid } from '../entity/humanoid.js?v=musmw2di';
+import { BIOMES, COLD as COLD_BIOMES } from '../gen/biomes.js?v=musmwdx0';
+import { D, pal, shade as shadeHex } from '../render/mobtex.js?v=musmwdx0';
+import { pigModel as jPig, cowModel as jCow, sheepModel as jSheep, sheepFurModel as jSheepFur, chickenModel as jChicken, wolfModel as jWolf, foxModel as jFox, polarBearModel as jPolarBear, goatModel as jGoat, llamaModel as jLlama, horseModel as jHorse } from '../entity/animals.js?v=musmwdx0';
+import { creeperModel as jCreeper, spiderModel as jSpider, endermanModel as jEnderman, slimeModel as jSlime, slimeOuterModel as jSlimeOuter, magmaCubeModel as jMagma, silverfishModel as jSilverfish, endermiteModel as jEndermite, blazeModel as jBlaze, ghastModel as jGhast, phantomModel as jPhantom } from '../entity/monsters.js?v=musmwdx0';
+import { ironGolemModel as jIronGolem, snowGolemModel as jSnowGolem, hoglinModel as jHoglin, striderModel as jStrider, ravagerModel as jRavager } from '../entity/beasts.js?v=musmwdx0';
+import { squidModel as jSquid, codModel as jCod, salmonModel as jSalmon, tropicalFishModel as jTropical, pufferfishModel as jPuffer, guardianModel as jGuardian, dolphinModel as jDolphin, turtleModel as jTurtle, axolotlModel as jAxolotl } from '../entity/aquatic.js?v=musmwdx0';
+import { rabbitModel as jRabbit, ocelotModel as jOcelot, pandaModel as jPanda, parrotModel as jParrot, batModel as jBat, frogModel as jFrog, camelModel as jCamel } from '../entity/critters.js?v=musmwdx0';
+import { witherModel as jWither, dragonModel as jDragon } from '../entity/bosses.js?v=musmwdx0';
+import { villagerModel as jVillager, witchModel as jWitch, illagerModel as jIllager, piglinModel as jPiglin, zombieVillagerModel as jZombieVillager } from '../entity/javamodels.js?v=musmwdx0';
+import { playerModel as javaPlayerModel, mobHumanoid } from '../entity/humanoid.js?v=musmwdx0';
 
 const box = (o, s, style, extra = {}) => ({ o, s, style, ...extra });
 const part = (pivot, boxes, extra = {}) => ({ pivot, boxes, ...extra });
@@ -771,6 +772,33 @@ MOBS.camel.model = fromOld(MOBS.camel.model, jCamel, 'entity/camel/camel', s => 
 MOBS.wither.model = fromOld(MOBS.wither.model, jWither, 'entity/wither/wither', s => ({ body: s('spine'), sideHead: s('headL') }));
 MOBS.wither.scale = 2;
 MOBS.ender_dragon.model = fromOld(MOBS.ender_dragon.model, jDragon, ['entity/enderdragon/dragon', 'entity/enderdragon/dragon_eyes'], s => ({ snout: s('head', 1), wing: s('wingR'), membrane: s('wingR', 1), spine: s('body', 1), leg: s('leg0') }));
+
+// Breeds (Java's variants): each one is its own pack texture, chosen as the mob spawns (`pickBreed`,
+// given the biome; null keeps the base look), saved with it and handed down to its young
+// (`childBreed`). Without a pack each is the base look in its own colours.
+const recolor = (m, col) => { for (const p of Object.values(m.parts)) for (const b of p.boxes) if (b.style) b.style = { ...b.style, pal: pal(col, 0.12) }; return m; };
+const breeds = (k, list) => Object.fromEntries(list.map(([name, texture, col]) => [name, () => ({ ...recolor(MOBS[k].model(), col), texture })]));
+// Rabbit.getRandomRabbitVariant: white (one in five splotched) in snowy biomes, gold in deserts,
+// otherwise brown, salt and pepper, or black; Rabbit.getBreedOffspring takes a parent's, 1 in 20 the
+// biome's. A rabbit named Toast wears its own.
+MOBS.rabbit.breeds = breeds('rabbit', [['white', 'entity/rabbit/white', '#ece8e2'], ['black', 'entity/rabbit/black', '#2e2a28'], ['white_splotched', 'entity/rabbit/white_splotched', '#e2ddd6'],
+  ['gold', 'entity/rabbit/gold', '#d8b26a'], ['salt', 'entity/rabbit/salt', '#bca68a'], ['toast', 'entity/rabbit/toast', '#8a7a6a']]);
+MOBS.rabbit.pickBreed = biome => {
+  const i = Math.floor(Math.random() * 100);
+  if (COLD_BIOMES.has(biome)) return i < 80 ? 'white' : 'white_splotched';
+  if (BIOMES[biome] && BIOMES[biome].key === 'desert') return 'gold';
+  return i < 50 ? null : i < 90 ? 'salt' : 'black';
+};
+MOBS.rabbit.childBreed = (a, b, biome) => (Math.random() < 0.05 ? MOBS.rabbit.pickBreed(biome) : Math.random() < 0.5 ? a : b);
+// Axolotl: one of the four common colours (lucy, wild, gold, cyan); blue only by breeding, 1 in 1200.
+MOBS.axolotl.breeds = breeds('axolotl', [['wild', 'entity/axolotl/axolotl_wild', '#7a5e46'], ['gold', 'entity/axolotl/axolotl_gold', '#e8c446'],
+  ['cyan', 'entity/axolotl/axolotl_cyan', '#b4dce8'], ['blue', 'entity/axolotl/axolotl_blue', '#3e4ac8']]);
+MOBS.axolotl.pickBreed = () => [null, 'wild', 'gold', 'cyan'][Math.floor(Math.random() * 4)];
+MOBS.axolotl.childBreed = (a, b) => (Math.random() < 1 / 1200 ? 'blue' : Math.random() < 0.5 ? a : b);
+// Parrot: any of its five colours.
+MOBS.parrot.breeds = breeds('parrot', [['blue', 'entity/parrot/parrot_blue', '#2a5ad8'], ['green', 'entity/parrot/parrot_green', '#3aa83a'],
+  ['yellow_blue', 'entity/parrot/parrot_yellow_blue', '#e8c830'], ['grey', 'entity/parrot/parrot_grey', '#a8a8a8']]);
+MOBS.parrot.pickBreed = () => [null, 'blue', 'green', 'yellow_blue', 'grey'][Math.floor(Math.random() * 5)];
 
 MOBS.villager.professionModel = prof => villagerModel(PROFESSION_COLORS[prof] || '#6a4a3a', PROF_DECOR[prof] || null, undefined, undefined,
   ['entity/villager/villager', 'entity/villager/type/plains', `entity/villager/profession/${prof}`])();
