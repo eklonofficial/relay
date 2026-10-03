@@ -1,10 +1,11 @@
 // Mob roster: stats, AI archetype, drops, box models and procedural skins.
 // Model space: 1 unit = 1/16 block, feet at y=0, the mob faces -Z.
-import { D, pal, shade as shadeHex } from '../render/mobtex.js?v=mush3rqf';
-import { pigModel as jPig, cowModel as jCow, sheepModel as jSheep, sheepFurModel as jSheepFur, chickenModel as jChicken, wolfModel as jWolf, foxModel as jFox, polarBearModel as jPolarBear, goatModel as jGoat, llamaModel as jLlama, horseModel as jHorse } from '../entity/animals.js?v=mush3rqf';
-import { creeperModel as jCreeper, spiderModel as jSpider, endermanModel as jEnderman, slimeModel as jSlime, slimeOuterModel as jSlimeOuter, magmaCubeModel as jMagma, silverfishModel as jSilverfish, endermiteModel as jEndermite, blazeModel as jBlaze, ghastModel as jGhast, phantomModel as jPhantom } from '../entity/monsters.js?v=mush3rqf';
-import { villagerModel as jVillager, witchModel as jWitch, illagerModel as jIllager, piglinModel as jPiglin, zombieVillagerModel as jZombieVillager } from '../entity/javamodels.js?v=mush3rqf';
-import { playerModel as javaPlayerModel, mobHumanoid } from '../entity/humanoid.js?v=mush3rqf';
+import { D, pal, shade as shadeHex } from '../render/mobtex.js?v=mush3shv';
+import { pigModel as jPig, cowModel as jCow, sheepModel as jSheep, sheepFurModel as jSheepFur, chickenModel as jChicken, wolfModel as jWolf, foxModel as jFox, polarBearModel as jPolarBear, goatModel as jGoat, llamaModel as jLlama, horseModel as jHorse } from '../entity/animals.js?v=mush3shv';
+import { creeperModel as jCreeper, spiderModel as jSpider, endermanModel as jEnderman, slimeModel as jSlime, slimeOuterModel as jSlimeOuter, magmaCubeModel as jMagma, silverfishModel as jSilverfish, endermiteModel as jEndermite, blazeModel as jBlaze, ghastModel as jGhast, phantomModel as jPhantom } from '../entity/monsters.js?v=mush3shv';
+import { ironGolemModel as jIronGolem, snowGolemModel as jSnowGolem, hoglinModel as jHoglin, striderModel as jStrider, ravagerModel as jRavager } from '../entity/beasts.js?v=mush3shv';
+import { villagerModel as jVillager, witchModel as jWitch, illagerModel as jIllager, piglinModel as jPiglin, zombieVillagerModel as jZombieVillager } from '../entity/javamodels.js?v=mush3shv';
+import { playerModel as javaPlayerModel, mobHumanoid } from '../entity/humanoid.js?v=mush3shv';
 
 const box = (o, s, style, extra = {}) => ({ o, s, style, ...extra });
 const part = (pivot, boxes, extra = {}) => ({ pivot, boxes, ...extra });
@@ -706,6 +707,17 @@ MOBS.phantom.model = fromOld(MOBS.phantom.model, jPhantom, ['entity/phantom', 'e
   const slices = face.map(row => S('#401a10', 'noise', { all: lava, front: D.all(lava, D.art([row], { y: '#ffd040', r: '#c82a10', d: '#2a0e08' })) }, 0.2));
   MOBS.magma_cube.model = () => jMagma({ slice: i => slices[i], core: S('#f8a030', 'noise', null, 0.1) });
 }
+
+// Golems and beasts (entity/beasts.js).
+MOBS.iron_golem.model = fromOld(MOBS.iron_golem.model, jIronGolem, 'entity/iron_golem/iron_golem', s => ({ nose: s('head', 1), waist: s('body', 1), arm: s('rightArm'), leg: s('rightLeg') }));
+// IronGolemCrackinessLayer: cracks over the skin as it loses health.
+MOBS.iron_golem.variants = Object.fromEntries(['low', 'medium', 'high'].map(c => [c, ['entity/iron_golem/iron_golem', `entity/iron_golem/iron_golem_crackiness_${c}`]]));
+MOBS.snow_golem.model = fromOld(MOBS.snow_golem.model, jSnowGolem, 'entity/snow_golem', s => ({ arm: s('rightArm') }));
+MOBS.hoglin.model = fromOld(MOBS.hoglin.model, jHoglin, 'entity/hoglin/hoglin', s => ({ horn: s('head', 1), mane: S('#e8c89a', 'fur', { all: D.stripes('#c8a070', 2, true) }) }));
+MOBS.strider.model = fromOld(MOBS.strider.model, jStrider, 'entity/strider/strider', s => ({ bristle: s('body', 1) }));
+// StriderRenderer: its cold (out of lava) skin, and the saddle, which SaddleLayer draws over it.
+MOBS.strider.variants = { cold: 'entity/strider/strider_cold', saddle: 'entity/strider/strider_saddle' };
+MOBS.ravager.model = fromOld(MOBS.ravager.model, jRavager, 'entity/illager/ravager', s => ({ horn: s('head', 1) }));
 
 MOBS.villager.professionModel = prof => villagerModel(PROFESSION_COLORS[prof] || '#6a4a3a', PROF_DECOR[prof] || null, undefined, undefined,
   ['entity/villager/villager', 'entity/villager/type/plains', `entity/villager/profession/${prof}`])();

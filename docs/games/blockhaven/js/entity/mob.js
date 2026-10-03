@@ -1,19 +1,20 @@
 // Living mobs: physics, AI archetypes, combat, breeding/taming, trading and animation.
-import { Entity, drawModel, rootMatrix, M } from './entity.js?v=mush3rqf';
-import { Projectile, renderStack } from './objects.js?v=mush3rqf';
-import { MOBS, PROFESSIONS } from '../data/mobs.js?v=mush3rqf';
-import { B, BLOCKS, SOLID } from '../data/blocks.js?v=mush3rqf';
-import { UNLOADED } from '../world/world.js?v=mush3rqf';
-import { villagerTrades } from '../game/trades.js?v=mush3rqf';
-import { findPath, clearWalk } from './pathfind.js?v=mush3rqf';
-import { ARMOR_BYPASS, armorStats, armorReduce, applyInvul } from '../game/combat.js?v=mush3rqf';
-import { animalPose, chickenPose, wolfPose, horsePose } from './animals.js?v=mush3rqf';
-import { villagerPose, illagerPose, piglinPose } from './javamodels.js?v=mush3rqf';
-import { creeperPose, spiderPose, endermanPose, magmaPose, silverfishPose, blazePose, ghastPose, phantomPose } from './monsters.js?v=mush3rqf';
-import { humanoidPose } from './humanoid.js?v=mush3rqf';
-import { armorLayer } from '../data/armor.js?v=mush3rqf';
-import { I } from '../data/items.js?v=mush3rqf';
-import { dragonInit, dragonAI, dragonDamage, dragonDying, dragonHead } from './dragon.js?v=mush3rqf';
+import { Entity, drawModel, rootMatrix, M } from './entity.js?v=mush3shv';
+import { Projectile, renderStack } from './objects.js?v=mush3shv';
+import { MOBS, PROFESSIONS } from '../data/mobs.js?v=mush3shv';
+import { B, BLOCKS, SOLID } from '../data/blocks.js?v=mush3shv';
+import { UNLOADED } from '../world/world.js?v=mush3shv';
+import { villagerTrades } from '../game/trades.js?v=mush3shv';
+import { findPath, clearWalk } from './pathfind.js?v=mush3shv';
+import { ARMOR_BYPASS, armorStats, armorReduce, applyInvul } from '../game/combat.js?v=mush3shv';
+import { animalPose, chickenPose, wolfPose, horsePose } from './animals.js?v=mush3shv';
+import { villagerPose, illagerPose, piglinPose } from './javamodels.js?v=mush3shv';
+import { ironGolemPose, ironGolemSway, snowGolemPose, hoglinPose, striderPose, ravagerPose } from './beasts.js?v=mush3shv';
+import { creeperPose, spiderPose, endermanPose, magmaPose, silverfishPose, blazePose, ghastPose, phantomPose } from './monsters.js?v=mush3shv';
+import { humanoidPose } from './humanoid.js?v=mush3shv';
+import { armorLayer } from '../data/armor.js?v=mush3shv';
+import { I } from '../data/items.js?v=mush3shv';
+import { dragonInit, dragonAI, dragonDamage, dragonDying, dragonHead } from './dragon.js?v=mush3shv';
 
 const rnd = (a, b) => a + Math.random() * (b - a);
 const rint = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
@@ -421,6 +422,8 @@ export class Mob extends Entity {
     const g = this.game, d = this.def, w = this.world;
     const feet = w.getBlock(this.pos[0], this.pos[1] + 0.1, this.pos[2]);
     if (feet === B.LAVA && !d.fireImmune && !d.lavaWalker) { this.setFire(8); this.hurt(4, { kind: 'lava' }); }
+    // A strider is cold (Strider.isSuffocating) unless it stands in or on lava.
+    if (d.lavaWalker) this.cold = !(this.inLava || feet === B.LAVA || w.getBlock(this.pos[0], this.pos[1] - 0.2, this.pos[2]) === B.LAVA);
     if ((feet === B.FIRE || feet === B.CAMPFIRE) && !d.fireImmune) { this.setFire(8); this.inFireT = (this.inFireT || 0) + dt; if (this.inFireT > 0.5) { this.inFireT = 0; this.hurt(1, { kind: 'fire' }); } }
     if ((feet === B.FIRE || feet === B.CAMPFIRE) && !d.fireImmune) this.setFire(4);
     if (this.fire > 0) {
@@ -949,10 +952,13 @@ export class Mob extends Entity {
       const v = illagerPose(st); v.poses.pivots = v.pivots; return v.poses;
     }
     if (m.anim === 'jpiglin') { const v = piglinPose(m, st); v.poses.pivots = v.pivots; return v.poses; }
-    const monster = { jcreeper: creeperPose, jspider: spiderPose, jenderman: endermanPose, jmagma: magmaPose, jsilverfish: silverfishPose, jblaze: blazePose, jghast: ghastPose, jphantom: phantomPose }[m.anim];
+    const monster = { jcreeper: creeperPose, jspider: spiderPose, jenderman: endermanPose, jmagma: magmaPose, jsilverfish: silverfishPose, jblaze: blazePose, jghast: ghastPose, jphantom: phantomPose,
+      jirongolem: ironGolemPose, jsnowgolem: snowGolemPose, jhoglin: hoglinPose, jstrider: striderPose, jravager: ravagerPose }[m.anim];
     if (m.anim === 'jslime') return {};
     if (monster) {
-      st.creepy = !!this.angry; st.squish = this.squish || 0;
+      st.creepy = !!this.angry; st.squish = this.squish || 0; st.ridden = !!this.rider;
+      // (Java's attack animation counts 10 ticks down from the blow.)
+      st.attackTicks = this.swing * 10;
       const v = monster(m, st); v.poses.pivots = v.pivots; return v.poses;
     }
     if (m.anim === 'jquadruped' || m.anim === 'jchicken' || m.anim === 'jwolf' || m.anim === 'jhorse') {
@@ -1072,10 +1078,14 @@ export class Mob extends Entity {
       const k = 1 / ((this.squish || 0) / (this.size * 0.5 + 1) + 1);
       extra = M.s(k * 0.999, 0.999 / k, k * 0.999);
     }
+    // IronGolemRenderer.setupRotations: it lurches side to side as it walks.
+    if (this.model.anim === 'jirongolem') extra = M.rz(ironGolemSway(this.walk / 0.6662, this.walkAmt));
     let yOff = 0;
     if (this.model.anim === 'bat' || this.model.anim === 'blaze' || this.model.anim === 'ghast') yOff = Math.sin(this.age * 2) * 0.1;
     const shake = this.angry ? 0.035 : 0;
-    const root = rootMatrix([this.pos[0] + rnd(-shake, shake), this.pos[1] + yOff, this.pos[2] + rnd(-shake, shake)], this.bodyYaw, sc, extra);
+    // StriderRenderer.setupRotations: a cold strider shivers.
+    const shiver = this.mobType === 'strider' && this.cold ? Math.cos(this.age * 20 * 3.25) * Math.PI * 0.4 * Math.PI / 180 : 0;
+    const root = rootMatrix([this.pos[0] + rnd(-shake, shake), this.pos[1] + yOff, this.pos[2] + rnd(-shake, shake)], this.bodyYaw + shiver, sc, extra);
     const flash = this.hurtT > 0 || (this.mobType === 'creeper' && this.fuse > 0 && Math.floor(this.fuse * 8) % 2 === 0) ? 0.8 : 0;
     this.lastPose = this.pose();
     // WolfRenderer.getTextureLocation: tame and angry wolves wear their own skins.
@@ -1083,6 +1093,11 @@ export class Mob extends Entity {
     if (this.mobType === 'wolf' && this.model.java) layer = g.mobLayer(this.tamed ? 'wolf_tame' : this.target ? 'wolf_angry' : 'wolf');
     // GhastRenderer: the open-mouthed face while it readies a fireball.
     if (this.mobType === 'ghast' && this.model.java && this.charging > 0) layer = g.mobLayer('ghast_shooting');
+    if (this.mobType === 'strider' && this.model.java && this.cold) layer = g.mobLayer('strider_cold');
+    if (this.mobType === 'iron_golem' && this.model.java) {
+      const f = this.health / this.maxHealth, c = f < 0.25 ? 'high' : f < 0.5 ? 'medium' : f < 0.75 ? 'low' : null;
+      if (c) layer = g.mobLayer(`iron_golem_${c}`);
+    }
     const mats = drawModel(ctx.mobs, this.model, layer, root, this.lastPose, light, flash);
     // MushroomCowMushroomLayer: two red mushrooms on a mooshroom's back and one on its head.
     if (this.mobType === 'mooshroom' && this.model.java && !this.baby) {
@@ -1091,6 +1106,13 @@ export class Mob extends Entity {
         const gl = new Float32Array([mm[0], mm[4], mm[8], 0, mm[1], mm[5], mm[9], 0, mm[2], mm[6], mm[10], 0, mm[3], mm[7], mm[11], 1]);
         ctx.blockModels.push({ id: B.FLOWER, meta: 13, light: (light[0] + light[1] + light[2]) / 3, matrix: gl });
       }
+    }
+    if (this.mobType === 'strider' && this.saddled && this.model.java) drawModel(ctx.mobs, this.model, g.mobLayer('strider_saddle'), root, this.lastPose, light, flash);
+    // SnowGolemHeadLayer: a carved pumpkin (facing forward, 10 px across) over its head, until sheared.
+    if (this.mobType === 'snow_golem' && this.model.java && !this.sheared && mats.head) {
+      const mm = M.chain(mats.head, M.t(0, 5.5, 0), M.s(10), M.t(-0.5, -0.5, -0.5));
+      const gl = new Float32Array([mm[0], mm[4], mm[8], 0, mm[1], mm[5], mm[9], 0, mm[2], mm[6], mm[10], 0, mm[3], mm[7], mm[11], 1]);
+      ctx.blockModels.push({ id: B.PUMPKIN, meta: 1 | (2 << 2), light: (light[0] + light[1] + light[2]) / 3, matrix: gl });
     }
     // A second skin over the first (the stray's clothes, the drowned's outer layer), posed alike.
     const over = g.mobModel(`${this.skinKey}_overlay`, true);
@@ -1149,7 +1171,7 @@ export class Mob extends Entity {
 }
 
 // Moves an entity without gravity handling (fliers/swimmers).
-import { moveEntity } from './physics.js?v=mush3rqf';
+import { moveEntity } from './physics.js?v=mush3shv';
 function import_move(e, dt) { moveEntity(e.world, e, e.vel[0] * dt, e.vel[1] * dt, e.vel[2] * dt); }
 
 // Renders a held item using a part matrix (model units).
