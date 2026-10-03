@@ -9,15 +9,15 @@
 // Heights: Blockhaven worlds are 256 tall with the sea surface at y=64; Java's overworld runs
 // -64..319 with its sea surface at y=62, so overworld blocks shift by 2 (Java y -2..253 is kept).
 // The Nether and the End keep their y.
-import { BLOCKS, B, CHUNK, HEIGHT, DIM, SHAPE } from '../data/blocks.js?v=mush3vnf';
-import { BIOMES } from '../gen/biomes.js?v=mush3vnf';
-import { I } from '../data/items.js?v=mush3vnf';
-import { ENCHANTS } from '../data/enchantments.js?v=mush3vnf';
-import { createGenerator } from '../gen/index.js?v=mush3vnf';
-import { readNbt, writeNbt, readRegion, writeRegion, maybeGunzip, gzip, TAG, byte, short, int, long, float, double, string, compound, list, longArray } from './nbt.js?v=mush3vnf';
-import { toJava, fromJava, biomeToJava } from './javablocks.js?v=mush3vnf';
-import { encodeChunk, decodeChunk, putChunks, getChunk } from './storage.js?v=mush3vnf';
-import { SAVE_VERSION } from './migrate.js?v=mush3vnf';
+import { BLOCKS, B, CHUNK, HEIGHT, DIM, SHAPE } from '../data/blocks.js?v=musnlb5a';
+import { BIOMES } from '../gen/biomes.js?v=musnlb5a';
+import { I } from '../data/items.js?v=musnlb5a';
+import { ENCHANTS } from '../data/enchantments.js?v=musnlb5a';
+import { createGenerator } from '../gen/index.js?v=musnlb5a';
+import { readNbt, writeNbt, readRegion, writeRegion, maybeGunzip, gzip, TAG, byte, short, int, long, float, double, string, compound, list, longArray } from './nbt.js?v=musnlb5a';
+import { toJava, fromJava, biomeToJava } from './javablocks.js?v=musnlb5a';
+import { encodeChunk, decodeChunk, putChunks, getChunk } from './storage.js?v=musnlb5a';
+import { SAVE_VERSION } from './migrate.js?v=musnlb5a';
 
 const DATA_VERSION = 3465; // 1.20.1
 const Y_SHIFT = [2, 0, 0];
@@ -284,6 +284,7 @@ export async function importJavaWorld(zip, onProgress = () => {}, opts = {}) {
     mode: hardcore ? 'hardcore' : ['survival', 'creative', 'adventure', 'spectator'][gameType] || 'survival', hardcore,
     difficulty: ['peaceful', 'easy', 'normal', 'hard'][D.Difficulty | 0] || 'normal', cheats: !!D.allowCommands, created: Date.now(),
     time: (((Number(D.DayTime ?? 0) % 24000) + 24000) % 24000) / 24000, day: Math.floor(Number(D.DayTime ?? 0) / 24000),
+    weather: { raining: !!Number(D.raining), thundering: !!Number(D.thundering), rainTime: Number(D.rainTime) | 0, thunderTime: Number(D.thunderTime) | 0, clearTime: Number(D.clearWeatherTime) | 0, rain: Number(D.raining) ? 1 : 0, thunder: Number(D.thundering) ? 1 : 0 },
     spawn: [Number(D.SpawnX | 0) + 0.5, Number(D.SpawnY | 0) + Y_SHIFT[0], Number(D.SpawnZ | 0) + 0.5],
     dims, java, saveVersion: SAVE_VERSION,
   };
@@ -380,7 +381,7 @@ function levelDat(w, player) {
       hardcore: byte(w.hardcore || w.mode === 'hardcore' ? 1 : 0), allowCommands: byte(w.cheats ? 1 : 0),
       Difficulty: byte(Math.max(0, ['peaceful', 'easy', 'normal', 'hard'].indexOf(w.difficulty || 'normal'))), DifficultyLocked: byte(0),
       SpawnX: int(Math.floor(spawn[0])), SpawnY: int(Math.floor(spawn[1]) - Y_SHIFT[0]), SpawnZ: int(Math.floor(spawn[2])), SpawnAngle: float(0),
-      Time: long(time), DayTime: long(time), LastPlayed: long(Date.now()), raining: byte(0), thundering: byte(0), rainTime: int(0), thunderTime: int(0), clearWeatherTime: int(0),
+      Time: long(time), DayTime: long(time), LastPlayed: long(Date.now()), raining: byte(w.weather && w.weather.raining ? 1 : 0), thundering: byte(w.weather && w.weather.thundering ? 1 : 0), rainTime: int(w.weather ? w.weather.rainTime | 0 : 0), thunderTime: int(w.weather ? w.weather.thunderTime | 0 : 0), clearWeatherTime: int(w.weather ? w.weather.clearTime | 0 : 0),
       WasModded: byte(0), ServerBrands: list(TAG.STRING, ['vanilla']),
       DataPacks: compound({ Enabled: list(TAG.STRING, ['vanilla']), Disabled: list(TAG.STRING, []) }),
       GameRules: compound({}),
