@@ -1,9 +1,10 @@
 // Mob roster: stats, AI archetype, drops, box models and procedural skins.
 // Model space: 1 unit = 1/16 block, feet at y=0, the mob faces -Z.
-import { D, pal, shade as shadeHex } from '../render/mobtex.js?v=mush3qz5';
-import { pigModel as jPig, cowModel as jCow, sheepModel as jSheep, sheepFurModel as jSheepFur, chickenModel as jChicken, wolfModel as jWolf, foxModel as jFox, polarBearModel as jPolarBear, goatModel as jGoat, llamaModel as jLlama, horseModel as jHorse } from '../entity/animals.js?v=mush3qz5';
-import { villagerModel as jVillager, witchModel as jWitch, illagerModel as jIllager, piglinModel as jPiglin, zombieVillagerModel as jZombieVillager } from '../entity/javamodels.js?v=mush3qz5';
-import { playerModel as javaPlayerModel, mobHumanoid } from '../entity/humanoid.js?v=mush3qz5';
+import { D, pal, shade as shadeHex } from '../render/mobtex.js?v=mush3rqf';
+import { pigModel as jPig, cowModel as jCow, sheepModel as jSheep, sheepFurModel as jSheepFur, chickenModel as jChicken, wolfModel as jWolf, foxModel as jFox, polarBearModel as jPolarBear, goatModel as jGoat, llamaModel as jLlama, horseModel as jHorse } from '../entity/animals.js?v=mush3rqf';
+import { creeperModel as jCreeper, spiderModel as jSpider, endermanModel as jEnderman, slimeModel as jSlime, slimeOuterModel as jSlimeOuter, magmaCubeModel as jMagma, silverfishModel as jSilverfish, endermiteModel as jEndermite, blazeModel as jBlaze, ghastModel as jGhast, phantomModel as jPhantom } from '../entity/monsters.js?v=mush3rqf';
+import { villagerModel as jVillager, witchModel as jWitch, illagerModel as jIllager, piglinModel as jPiglin, zombieVillagerModel as jZombieVillager } from '../entity/javamodels.js?v=mush3rqf';
+import { playerModel as javaPlayerModel, mobHumanoid } from '../entity/humanoid.js?v=mush3rqf';
 
 const box = (o, s, style, extra = {}) => ({ o, s, style, ...extra });
 const part = (pivot, boxes, extra = {}) => ({ pivot, boxes, ...extra });
@@ -680,6 +681,31 @@ MOBS.goat.model = fromOld(MOBS.goat.model, jGoat, 'entity/goat/goat', s => ({ ea
 MOBS.llama.model = fromOld(MOBS.llama.model, jLlama, 'entity/llama/creamy', s => ({ snout: s('head', 1), ear: s('head', 2) }));
 MOBS.horse.model = fromOld(MOBS.horse.model, (st, t) => jHorse(st, t), 'entity/horse/horse_brown', s => ({ neck: s('head'), head: s('head', 1), mouth: s('head', 2), ear: s('head', 3), mane: s('head', 5), tail: s('tail') }));
 MOBS.donkey.model = fromOld(MOBS.donkey.model, (st, t) => jHorse(st, t, true), 'entity/horse/donkey', s => ({ neck: s('head'), head: s('head', 1), mouth: s('head', 2), ear: s('head', 3), mane: s('head', 5), tail: s('tail') }));
+
+// Monsters (entity/monsters.js).
+MOBS.creeper.model = fromOld(MOBS.creeper.model, jCreeper, 'entity/creeper/creeper');
+MOBS.spider.model = fromOld(MOBS.spider.model, jSpider, ['entity/spider/spider', 'entity/spider_eyes'], s => ({ neck: s('body'), body: s('body', 1) }));
+MOBS.cave_spider.model = fromOld(MOBS.cave_spider.model, jSpider, ['entity/spider/cave_spider', 'entity/spider_eyes'], s => ({ neck: s('body'), body: s('body', 1) }));
+MOBS.enderman.model = fromOld(MOBS.enderman.model, jEnderman, ['entity/enderman/enderman', 'entity/enderman/enderman_eyes'], s => ({ limb: s('rightArm'), jaw: s('mouth') }));
+MOBS.silverfish.model = fromOld(MOBS.silverfish.model, jSilverfish, 'entity/silverfish', s => ({ head: s('s0'), body: s('s1') }));
+MOBS.endermite.model = fromOld(MOBS.endermite.model, jEndermite, 'entity/endermite', s => ({ head: s('s0'), body: s('s1') }));
+MOBS.blaze.model = fromOld(MOBS.blaze.model, jBlaze, 'entity/blaze', s => ({ rod: s('rod0') }));
+MOBS.ghast.model = fromOld(MOBS.ghast.model, jGhast, 'entity/ghast/ghast', s => ({ tentacle: s('t0') }));
+// GhastRenderer: 4.5 times the model's size, and its own face while it readies a fireball.
+MOBS.ghast.scale = 4.5;
+MOBS.ghast.variants = { shooting: 'entity/ghast/ghast_shooting' };
+MOBS.phantom.model = fromOld(MOBS.phantom.model, jPhantom, ['entity/phantom', 'entity/phantom_eyes'], s => ({ wing: s('wingR'), wingTip: s('wingR', 1), tail: s('tail') }));
+{
+  // Slimes: the core, eyes and mouth, inside see-through jelly (SlimeOuterLayer).
+  const see = (p, x, y, w, h) => { for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) p.put(x + i, y + j, p.get(x + i, y + j), i === 0 || j === 0 || i === w - 1 || j === h - 1 ? 190 : 140); };
+  const st = { core: S('#5aae48', 'slime', null, 0.1), eye: S('#1e4a18', 'flat'), shell: S('#7ed06a', 'slime', { all: see }, 0.1) };
+  MOBS.slime.model = () => jSlime(st);
+  MOBS.slime.overlay = () => jSlimeOuter(st);
+  // Magma cube: lava seams on every slice, its face spread over the slices it crosses.
+  const lava = D.seams('#c8481a', '#f8a030', 3), face = ['........', 'dddddddd', 'dyyddyyd', 'dyrddryd', 'dddddddd', '........', '........', '........'];
+  const slices = face.map(row => S('#401a10', 'noise', { all: lava, front: D.all(lava, D.art([row], { y: '#ffd040', r: '#c82a10', d: '#2a0e08' })) }, 0.2));
+  MOBS.magma_cube.model = () => jMagma({ slice: i => slices[i], core: S('#f8a030', 'noise', null, 0.1) });
+}
 
 MOBS.villager.professionModel = prof => villagerModel(PROFESSION_COLORS[prof] || '#6a4a3a', PROF_DECOR[prof] || null, undefined, undefined,
   ['entity/villager/villager', 'entity/villager/type/plains', `entity/villager/profession/${prof}`])();

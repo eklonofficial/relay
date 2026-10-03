@@ -93,6 +93,13 @@ const rotlerp = (t, a, b) => a + t * wrap(b - a);
 const quadArm = f => -65 * f + f * f;
 
 export function humanoidPose(st) {
+  // Into our model space (see the top of this file).
+  const poses = {}, pivots = {};
+  for (const [k, p] of Object.entries(humanoidParts(st))) { poses[k] = [-p.rx, -p.ry, p.rz]; pivots[k] = pivot(p.x, p.y, p.z); }
+  return { poses, pivots };
+}
+// The same pose in Java's terms ({ x, y, z, rx, ry, rz } per part), for models built on HumanoidModel.
+export function humanoidParts(st) {
   const part = (x, y, z) => ({ x, y, z, rx: 0, ry: 0, rz: 0 });
   const legX = st.legX ?? 1.9;
   const head = part(0, 0, 0), body = part(0, 0, 0), rightArm = part(-5, 2, 0), leftArm = part(5, 2, 0), rightLeg = part(-legX, 12, 0), leftLeg = part(legX, 12, 0);
@@ -214,10 +221,7 @@ export function humanoidPose(st) {
     leftLeg.rx = lerp(swim, leftLeg.rx, 0.3 * Math.cos(limb * 0.33333334 + PI));
     rightLeg.rx = lerp(swim, rightLeg.rx, 0.3 * Math.cos(limb * 0.33333334));
   }
-  // Into our model space (see the top of this file).
-  const parts = { head, body, rightArm, leftArm, rightLeg, leftLeg }, poses = {}, pivots = {};
-  for (const [k, p] of Object.entries(parts)) { poses[k] = [-p.rx, -p.ry, p.rz]; pivots[k] = pivot(p.x, p.y, p.z); }
-  return { poses, pivots };
+  return { head, body, rightArm, leftArm, rightLeg, leftLeg };
 }
 
 // AnimationUtils.bobArms.
