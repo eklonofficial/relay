@@ -1,9 +1,9 @@
 // Container GUIs (inventory, crafting, chest, furnace, creative, trading) and the HUD, laid out in GUI pixels
 // (1 unit = var(--u)) at the original's coordinates: 176x166 panels, 18x18 slots, 16x16 icons.
-import { I, ITEMS, TABS, maxStack, ARMOR_SLOTS, iconKey } from '../data/items.js?v=musmvqjf';
-import { findRecipe, allRecipes, matches, SMELTING, TAGS } from '../data/recipes.js?v=musmvqjf';
-import { same } from './inventory.js?v=musmvqjf';
-import { tableOffers, enchantName, enchantsOf, anvilResult, isEnchantable, hasGlint, ENCHANTS, ENCHANT_LIST } from '../data/enchantments.js?v=musmvqjf';
+import { I, ITEMS, TABS, maxStack, ARMOR_SLOTS, iconKey } from '../data/items.js?v=musmw2di';
+import { findRecipe, allRecipes, matches, SMELTING, TAGS } from '../data/recipes.js?v=musmw2di';
+import { same } from './inventory.js?v=musmw2di';
+import { tableOffers, enchantName, enchantsOf, anvilResult, isEnchantable, hasGlint, ENCHANTS, ENCHANT_LIST } from '../data/enchantments.js?v=musmw2di';
 const ENCH_CURSE = id => !!(ENCHANTS[id] && ENCHANTS[id].curse);
 
 // The enchanting table's glyphs (the Standard Galactic Alphabet as usually typed in Unicode).
@@ -981,4 +981,4 @@ export class HUD {
     this.toastT = 5;
   }
 }
-import { surfaceDocument as document } from '../surface.js?v=musmvqjf';
+import { surfaceDocument as document } from '../surface.js?v=musmw2di';

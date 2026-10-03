@@ -1,6 +1,6 @@
 // Item registry: every block item plus tools, weapons, armor, food and materials.
-import { BLOCK_ITEMS, BLOCKS, COLORS, SHAPE, st } from './blocks.js?v=musmvqjf';
-import { EGG_MOBS } from './mobs.js?v=musmvqjf';
+import { BLOCK_ITEMS, BLOCKS, COLORS, SHAPE, st } from './blocks.js?v=musmw2di';
+import { EGG_MOBS } from './mobs.js?v=musmw2di';
 
 export const ITEMS = [];
 export const I = {};          // key -> item

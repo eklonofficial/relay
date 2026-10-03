@@ -1,23 +1,23 @@
 // Living mobs: physics, AI archetypes, combat, breeding/taming, trading and animation.
-import { Entity, drawModel, rootMatrix, M } from './entity.js?v=musmvqjf';
-import { Projectile, renderStack } from './objects.js?v=musmvqjf';
-import { MOBS, PROFESSIONS } from '../data/mobs.js?v=musmvqjf';
-import { B, BLOCKS, SOLID, OPAQUE } from '../data/blocks.js?v=musmvqjf';
-import { UNLOADED } from '../world/world.js?v=musmvqjf';
-import { villagerTrades } from '../game/trades.js?v=musmvqjf';
-import { findPath, clearWalk } from './pathfind.js?v=musmvqjf';
-import { ARMOR_BYPASS, armorStats, armorReduce, applyInvul } from '../game/combat.js?v=musmvqjf';
-import { animalPose, chickenPose, wolfPose, horsePose } from './animals.js?v=musmvqjf';
-import { villagerPose, illagerPose, piglinPose } from './javamodels.js?v=musmvqjf';
-import { ironGolemPose, ironGolemSway, snowGolemPose, hoglinPose, striderPose, ravagerPose } from './beasts.js?v=musmvqjf';
-import { squidPose, fishPose, fishSway, pufferfishPose, guardianPose, dolphinPose, turtlePose, axolotlPose } from './aquatic.js?v=musmvqjf';
-import { witherPose, dragonPose, dragonHistory } from './bosses.js?v=musmvqjf';
-import { rabbitPose, ocelotPose, parrotPose, batPose, frogPose, camelPose } from './critters.js?v=musmvqjf';
-import { creeperPose, spiderPose, endermanPose, magmaPose, silverfishPose, blazePose, ghastPose, phantomPose } from './monsters.js?v=musmvqjf';
-import { humanoidPose } from './humanoid.js?v=musmvqjf';
-import { armorLayer } from '../data/armor.js?v=musmvqjf';
-import { I } from '../data/items.js?v=musmvqjf';
-import { dragonInit, dragonAI, dragonDamage, dragonDying, dragonHead } from './dragon.js?v=musmvqjf';
+import { Entity, drawModel, rootMatrix, M } from './entity.js?v=musmw2di';
+import { Projectile, renderStack } from './objects.js?v=musmw2di';
+import { MOBS, PROFESSIONS } from '../data/mobs.js?v=musmw2di';
+import { B, BLOCKS, SOLID, OPAQUE } from '../data/blocks.js?v=musmw2di';
+import { UNLOADED } from '../world/world.js?v=musmw2di';
+import { villagerTrades } from '../game/trades.js?v=musmw2di';
+import { findPath, clearWalk } from './pathfind.js?v=musmw2di';
+import { ARMOR_BYPASS, armorStats, armorReduce, applyInvul } from '../game/combat.js?v=musmw2di';
+import { animalPose, chickenPose, wolfPose, horsePose } from './animals.js?v=musmw2di';
+import { villagerPose, illagerPose, piglinPose } from './javamodels.js?v=musmw2di';
+import { ironGolemPose, ironGolemSway, snowGolemPose, hoglinPose, striderPose, ravagerPose } from './beasts.js?v=musmw2di';
+import { squidPose, fishPose, fishSway, pufferfishPose, guardianPose, dolphinPose, turtlePose, axolotlPose } from './aquatic.js?v=musmw2di';
+import { witherPose, dragonPose, dragonHistory } from './bosses.js?v=musmw2di';
+import { rabbitPose, ocelotPose, parrotPose, batPose, frogPose, camelPose } from './critters.js?v=musmw2di';
+import { creeperPose, spiderPose, endermanPose, magmaPose, silverfishPose, blazePose, ghastPose, phantomPose } from './monsters.js?v=musmw2di';
+import { humanoidPose } from './humanoid.js?v=musmw2di';
+import { armorLayer } from '../data/armor.js?v=musmw2di';
+import { I } from '../data/items.js?v=musmw2di';
+import { dragonInit, dragonAI, dragonDamage, dragonDying, dragonHead } from './dragon.js?v=musmw2di';
 
 const rnd = (a, b) => a + Math.random() * (b - a);
 const rint = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
@@ -1169,6 +1169,13 @@ export class Mob extends Entity {
       const gl = new Float32Array([mm[0], mm[4], mm[8], 0, mm[1], mm[5], mm[9], 0, mm[2], mm[6], mm[10], 0, mm[3], mm[7], mm[11], 1]);
       ctx.blockModels.push({ id: B.PUMPKIN, meta: 1 | (2 << 2), light: (light[0] + light[1] + light[2]) / 3, matrix: gl });
     }
+    // EnergySwirlLayer: a charged creeper, or a wither below half health, wears its energy skin a
+    // little bigger, scrolling, added onto it at half strength.
+    const sw = this.def.swirl;
+    if (sw && ctx.mobsSwirl && (this.mobType === 'creeper' ? this.charged : this.health <= this.maxHealth / 2)) {
+      const t = this.age * 20;
+      drawModel(ctx.mobsSwirl, g.mobModel(`${this.skinKey}_swirl`), g.mobLayer(`${this.skinKey}_swirl`), root, { ...this.lastPose, uvShift: [sw.x(t) % 1, (t * 0.01) % 1] }, [light[0] * 0.5, light[1] * 0.5, light[2] * 0.5]);
+    }
     // A second skin over the first (the stray's clothes, the drowned's outer layer), posed alike.
     const over = g.mobModel(`${this.skinKey}_overlay`, true);
     // (A sheep's wool is tinted by its colour, and gone once sheared: SheepFurLayer.)
@@ -1226,7 +1233,7 @@ export class Mob extends Entity {
 }
 
 // Moves an entity without gravity handling (fliers/swimmers).
-import { moveEntity } from './physics.js?v=musmvqjf';
+import { moveEntity } from './physics.js?v=musmw2di';
 function import_move(e, dt) { moveEntity(e.world, e, e.vel[0] * dt, e.vel[1] * dt, e.vel[2] * dt); }
 
 // Renders a held item using a part matrix (model units).

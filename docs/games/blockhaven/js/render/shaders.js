@@ -1,4 +1,4 @@
-import { VF } from '../data/blocks.js?v=musmvqjf';
+import { VF } from '../data/blocks.js?v=musmw2di';
 
 const HEADER = `#version 300 es
 precision highp float;
@@ -522,12 +522,14 @@ export const ENTITY_FS = HEADER + LIGHTING + `
 uniform sampler2DArray uTex;
 uniform float uAlphaTest;
 uniform float uTime;
+uniform float uWrap;
 in vec3 vUV;
 in vec3 vWorld;
 in vec4 vColor;
 out vec4 outColor;
 void main() {
-  vec4 t = texture(uTex, vUV);
+  // (uWrap: the texture repeats, for a scrolling energy swirl.)
+  vec4 t = uWrap > 0.5 ? textureGrad(uTex, vec3(fract(vUV.xy), vUV.z), dFdx(vUV.xy), dFdy(vUV.xy)) : texture(uTex, vUV);
   if (t.a < uAlphaTest) discard;
   vec3 col = t.rgb * vColor.rgb;
   // Vertex alpha above 2 marks an enchanted item: a violet sheen drifting across it.
