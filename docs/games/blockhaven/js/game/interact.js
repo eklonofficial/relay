@@ -1,12 +1,12 @@
 // Player actions: mining, placing, using items and blocks, attacking.
-import { meleeDamage, isCrit, knockStrength, isSword, SHIELD_DELAY, SHIELD_DISABLE, enchantDamage, enchLv, sweepDamage } from './combat.js?v=musxdph0';
-import { B, BLOCKS, SOLID, OPAQUE, SHAPE_OF, SHAPE, props, st, DIM, FACING_SHIFT, AXIS_SHIFT, VARIANT_MASK } from '../data/blocks.js?v=musxdph0';
-import { I, breakTime } from '../data/items.js?v=musxdph0';
-import { enchantWithLevels } from '../data/enchantments.js?v=musxdph0';
-import { collisionBoxes, selectionBoxes } from '../data/shapes.js?v=musxdph0';
-import { UNLOADED, posKey } from '../world/world.js?v=musxdph0';
-import { forward } from '../core/math.js?v=musxdph0';
-import { KIND } from './redstone.js?v=musxdph0';
+import { meleeDamage, isCrit, knockStrength, isSword, SHIELD_DELAY, SHIELD_DISABLE, enchantDamage, enchLv, sweepDamage } from './combat.js?v=musyq7i1';
+import { B, BLOCKS, SOLID, OPAQUE, SHAPE_OF, SHAPE, props, st, DIM, FACING_SHIFT, AXIS_SHIFT, VARIANT_MASK } from '../data/blocks.js?v=musyq7i1';
+import { I, breakTime } from '../data/items.js?v=musyq7i1';
+import { enchantWithLevels } from '../data/enchantments.js?v=musyq7i1';
+import { collisionBoxes, selectionBoxes } from '../data/shapes.js?v=musyq7i1';
+import { UNLOADED, posKey } from '../world/world.js?v=musyq7i1';
+import { forward } from '../core/math.js?v=musyq7i1';
+import { KIND } from './redstone.js?v=musyq7i1';
 
 const DIRS = [[0, 1], [-1, 0], [0, -1], [1, 0]];
 export const CROSSBOW_CHARGE = 1.25; // seconds (25 ticks)

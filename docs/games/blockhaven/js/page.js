@@ -1,4 +1,4 @@
-import { mount } from './surface.js?v=musxdph0';
+import { mount } from './surface.js?v=musyq7i1';
 // The production builder replaces this development adapter with packed markup.
 const css = [...document.querySelectorAll('style')].map(s => s.textContent).join('\n');
 const markup = document.body.innerHTML;

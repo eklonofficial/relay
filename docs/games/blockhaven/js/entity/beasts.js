@@ -1,8 +1,8 @@
 // Java Edition's golem and beast models (IronGolemModel, SnowGolemModel, HoglinModel, StriderModel,
 // RavagerModel) with their texture offsets, and their setupAnim / prepareMobModel poses. Coordinates as
 // in entity/animals.js.
-import { jbox, pivot } from './humanoid.js?v=musxdph0';
-import { P, child, rot, model, toOurs, R } from './animals.js?v=musxdph0';
+import { jbox, pivot } from './humanoid.js?v=musyq7i1';
+import { P, child, rot, model, toOurs, R } from './animals.js?v=musyq7i1';
 
 const PI = Math.PI;
 // Mth.triangleWave.
