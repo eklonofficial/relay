@@ -3,11 +3,11 @@
 import {
   CHUNK, HEIGHT, PAD, PS, B, SHAPE, VF, TINT, TEX,
   OPAQUE, SOLID, SHAPE_OF, TRANSLUCENT, EMIT, ATTEN, VFLAGS, CULL_SAME, TINT_OF, WATERLOGGED, VARIANT_MASK,
-  FACING_SHIFT, AXIS_SHIFT, FACE_TEX, CROP_STAGES, CROP_TEX, SHEETS,
-} from '../data/blocks.js?v=mush3vnf';
-import { BIOME_COLORS } from '../gen/biomes.js?v=mush3vnf';
-import { up6, rotY, attach, FACE_OF_DIR6, OPP6, DIR2D_OF_6 } from '../data/orient.js?v=mush3vnf';
-import { MODELS } from '../data/models.js?v=mush3vnf';
+  FACING_SHIFT, AXIS_SHIFT, FACE_TEX, CROP_STAGES, CROP_TEX, SHEETS, COLORS as BED_COLOR,
+} from '../data/blocks.js?v=musn4era';
+import { BIOME_COLORS } from '../gen/biomes.js?v=musn4era';
+import { up6, rotY, attach, FACE_OF_DIR6, OPP6, DIR2D_OF_6 } from '../data/orient.js?v=musn4era';
+import { MODELS } from '../data/models.js?v=musn4era';
 
 export const H2 = HEIGHT + 2;
 export const VOLUME_SIZE = PS * PS * H2;
@@ -388,17 +388,17 @@ function chestModel(buf, i, ox, oy, oz, facing, part, flags) {
 }
 const D90 = Math.PI / 2;
 // BedRenderer: the half laid flat (the model stands upright), turned to face its way, legs at the
-// corners.
-function bedModel(buf, i, ox, oy, oz, facing, head, flags) {
+// corners, on its colour's sheet.
+function bedModel(buf, i, ox, oy, oz, facing, head, sheet, flags) {
   const m = mChain(mT(0, 9, 0), mRX(D90), mT(8, 8, 8), mRZ(Math.PI + facing * D90), mT(-8, -8, -8));
   if (head) {
-    jcube(buf, i, ox, oy, oz, m, 'bed', [0, 0, 0, 0, 0, 16, 16, 6], flags);
-    jcube(buf, i, ox, oy, oz, mx(m, mPose(0, 0, 0, D90, 0, D90)), 'bed', [50, 6, 0, 6, 0, 3, 3, 3], flags);
-    jcube(buf, i, ox, oy, oz, mx(m, mPose(0, 0, 0, D90, 0, Math.PI)), 'bed', [50, 18, -16, 6, 0, 3, 3, 3], flags);
+    jcube(buf, i, ox, oy, oz, m, sheet, [0, 0, 0, 0, 0, 16, 16, 6], flags);
+    jcube(buf, i, ox, oy, oz, mx(m, mPose(0, 0, 0, D90, 0, D90)), sheet, [50, 6, 0, 6, 0, 3, 3, 3], flags);
+    jcube(buf, i, ox, oy, oz, mx(m, mPose(0, 0, 0, D90, 0, Math.PI)), sheet, [50, 18, -16, 6, 0, 3, 3, 3], flags);
   } else {
-    jcube(buf, i, ox, oy, oz, m, 'bed', [0, 22, 0, 0, 0, 16, 16, 6], flags);
-    jcube(buf, i, ox, oy, oz, mx(m, mPose(0, 0, 0, D90, 0, 0)), 'bed', [50, 0, 0, 6, -16, 3, 3, 3], flags);
-    jcube(buf, i, ox, oy, oz, mx(m, mPose(0, 0, 0, D90, 0, 3 * D90)), 'bed', [50, 12, -16, 6, -16, 3, 3, 3], flags);
+    jcube(buf, i, ox, oy, oz, m, sheet, [0, 22, 0, 0, 0, 16, 16, 6], flags);
+    jcube(buf, i, ox, oy, oz, mx(m, mPose(0, 0, 0, D90, 0, 0)), sheet, [50, 0, 0, 6, -16, 3, 3, 3], flags);
+    jcube(buf, i, ox, oy, oz, mx(m, mPose(0, 0, 0, D90, 0, 3 * D90)), sheet, [50, 12, -16, 6, -16, 3, 3, 3], flags);
   }
 }
 // SkullBlockRenderer: SkullModel's head on the floor (drawn like a mob's, upside down and mirrored
@@ -794,7 +794,7 @@ function special(bufO, bufT, i, id, m, shape, ox, oy, oz, x, y, z) {
       chestModel(buf, i, ox, oy, oz, m & 3, m & 16 ? 'base' : m & 32 ? 'lid' : 'all', flags);
       break;
     case SHAPE.BED:
-      bedModel(buf, i, ox, oy, oz, m & 3, (m >> 2) & 1, flags);
+      bedModel(buf, i, ox, oy, oz, (m >> 4) & 3, (m >> 6) & 1, `${BED_COLOR[m & 15]}_bed`, flags);
       break;
     case SHAPE.SKULL:
       skullModel(buf, i, ox, oy, oz, (m >> 1) & 3, m & 1 ? 'wither_skull' : 'skeleton_skull', flags);

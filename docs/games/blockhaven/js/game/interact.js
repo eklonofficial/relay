@@ -1,12 +1,12 @@
 // Player actions: mining, placing, using items and blocks, attacking.
-import { meleeDamage, isCrit, knockStrength, isSword, SHIELD_DELAY, SHIELD_DISABLE, enchantDamage, enchLv, sweepDamage } from './combat.js?v=mush3vnf';
-import { B, BLOCKS, SOLID, OPAQUE, SHAPE_OF, SHAPE, props, st, DIM, FACING_SHIFT, AXIS_SHIFT, VARIANT_MASK } from '../data/blocks.js?v=mush3vnf';
-import { I, breakTime } from '../data/items.js?v=mush3vnf';
-import { enchantWithLevels } from '../data/enchantments.js?v=mush3vnf';
-import { collisionBoxes, selectionBoxes } from '../data/shapes.js?v=mush3vnf';
-import { UNLOADED, posKey } from '../world/world.js?v=mush3vnf';
-import { forward } from '../core/math.js?v=mush3vnf';
-import { KIND } from './redstone.js?v=mush3vnf';
+import { meleeDamage, isCrit, knockStrength, isSword, SHIELD_DELAY, SHIELD_DISABLE, enchantDamage, enchLv, sweepDamage } from './combat.js?v=musn4era';
+import { B, BLOCKS, SOLID, OPAQUE, SHAPE_OF, SHAPE, props, st, DIM, FACING_SHIFT, AXIS_SHIFT, VARIANT_MASK } from '../data/blocks.js?v=musn4era';
+import { I, breakTime } from '../data/items.js?v=musn4era';
+import { enchantWithLevels } from '../data/enchantments.js?v=musn4era';
+import { collisionBoxes, selectionBoxes } from '../data/shapes.js?v=musn4era';
+import { UNLOADED, posKey } from '../world/world.js?v=musn4era';
+import { forward } from '../core/math.js?v=musn4era';
+import { KIND } from './redstone.js?v=musn4era';
 
 const DIRS = [[0, 1], [-1, 0], [0, -1], [1, 0]];
 export const CROSSBOW_CHARGE = 1.25; // seconds (25 ticks)
@@ -443,8 +443,9 @@ export class Interact {
       case SHAPE.BED: {
         const [dx, dz] = DIRS[look];
         if (!this.canPlaceAt(x + dx, y, z + dz, id) || !SOLID[below]) return;
-        this.commit(x, y, z, id, look, held, false);
-        w.setBlock(x + dx, y, z + dz, id, look | 4);
+        // (meta holds the item's colour already: its variant.)
+        this.commit(x, y, z, id, (meta & 15) | look << 4, held, false);
+        w.setBlock(x + dx, y, z + dz, id, (meta & 15) | look << 4 | 64);
         return;
       }
       case SHAPE.LANTERN: if (n[1] === -1) meta |= 2; break;

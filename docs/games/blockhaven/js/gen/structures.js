@@ -4,12 +4,12 @@
 // written into every chunk it overlaps (ChunkBuilder clips writes), so they span chunk borders
 // seamlessly. Planning must never read the chunk, only the terrain functions, so every chunk
 // sees the same plan.
-import { hash2, hash3, mulberry32 } from '../core/noise.js?v=mush3vnf';
-import { B, st, DIM, SEA, CHUNK, COLORS, CROP_AGE_SHIFT } from '../data/blocks.js?v=mush3vnf';
-import { BI, OCEANS } from './biomes.js?v=mush3vnf';
-import { NETHER_LAVA } from './nether.js?v=mush3vnf';
-import { END_OUTER_R } from './end.js?v=mush3vnf';
-import { randomBookEnchant, enchantWithLevels } from '../data/enchantments.js?v=mush3vnf';
+import { hash2, hash3, mulberry32 } from '../core/noise.js?v=musn4era';
+import { B, st, DIM, SEA, CHUNK, COLORS, CROP_AGE_SHIFT, STATE } from '../data/blocks.js?v=musn4era';
+import { BI, OCEANS } from './biomes.js?v=musn4era';
+import { NETHER_LAVA } from './nether.js?v=musn4era';
+import { END_OUTER_R } from './end.js?v=musn4era';
+import { randomBookEnchant, enchantWithLevels } from '../data/enchantments.js?v=musn4era';
 
 const DIRS = [[0, 1], [-1, 0], [0, -1], [1, 0]]; // +z, -x, -z, +x (same as placement code)
 const S = k => st(k);
@@ -76,7 +76,8 @@ const slab = (key, top = false) => { const s = S(key); return [s[0], s[1] | ((to
 const logAxis = (key, axis) => { const s = S(key); return [s[0], s[1] | (axis << 4)]; }; // 0 y, 1 x, 2 z
 const wallTorch = (wallDir, soul = false) => { const s = S(soul ? 'soul_torch' : 'torch'); return [s[0], s[1] | ((wallDir + 1) << 1)]; };
 function door(w, x, y, z, key, facing) { const s = S(key); w.set(x, y, z, s[0], s[1] | (facing << 3)); w.set(x, y + 1, z, s[0], s[1] | (facing << 3) | 64); }
-function bed(w, x, y, z, dir) { const [dx, dz] = DIRS[dir]; w.set(x, y, z, B.BED, dir); w.set(x + dx, y, z + dz, B.BED, dir | 4); }
+// A red bed (as village houses have), foot at (x, z), head toward `dir`.
+function bed(w, x, y, z, dir) { const [dx, dz] = DIRS[dir], red = STATE.red_bed[1]; w.set(x, y, z, B.BED, red | dir << 4); w.set(x + dx, y, z + dz, B.BED, red | dir << 4 | 64); }
 function chest(w, x, y, z, facing, r, table, extra = null) {
   const items = lootItems(r, table);
   if (extra) { let slot = Math.floor(r() * 27); while (items[slot]) slot = (slot + 1) % 27; items[slot] = extra; }
