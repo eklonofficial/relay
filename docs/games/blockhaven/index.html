@@ -9,16 +9,16 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Graphing Calculator</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%232f72dc'/%3E%3Cpath d='M5 25 C11 25 12 7 16 7 S21 25 27 25' fill='none' stroke='white' stroke-width='2.6' stroke-linecap='round'/%3E%3C/svg%3E">
-<link rel="preload" href="fonts/minecraft-regular.woff2?v=muop1mmj" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="fonts/minecraft-regular.woff2?v=STAMP" as="font" type="font/woff2" crossorigin>
 <style>
   /* The "Minecraft" font (public domain, fonts/LICENSE-minecraft-font.txt; built by tools/font.py): 7-px caps and a
      1-px descender on a 10-px em, so 10 GUI px of font-size puts one font pixel on one GUI pixel. Its bold is the
      original's bold (each glyph drawn twice, 1 px apart). Pixelify Sans (OFL) covers characters it lacks. */
-  @font-face { font-family: "Minecraft"; font-style: normal; font-weight: 400; font-display: block; src: url(fonts/minecraft-regular.woff2?v=muop1mmj) format("woff2"); }
-  @font-face { font-family: "Minecraft"; font-style: normal; font-weight: 700; font-display: block; src: url(fonts/minecraft-bold.woff2?v=muop1mmj) format("woff2"); }
-  @font-face { font-family: "Pixelify Sans"; font-style: normal; font-weight: 400 700; font-display: swap; src: url(fonts/pixelify-sans-latin.woff2?v=muoh3kij) format("woff2"); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
-  @font-face { font-family: "Pixelify Sans"; font-style: normal; font-weight: 400 700; font-display: swap; src: url(fonts/pixelify-sans-latin-ext.woff2?v=muoh3kij) format("woff2"); unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
-  @font-face { font-family: "Pixelify Sans"; font-style: normal; font-weight: 400 700; font-display: swap; src: url(fonts/pixelify-sans-cyrillic.woff2?v=muoh3kij) format("woff2"); unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; }
+  @font-face { font-family: "Minecraft"; font-style: normal; font-weight: 400; font-display: block; src: url(fonts/minecraft-regular.woff2?v=STAMP) format("woff2"); }
+  @font-face { font-family: "Minecraft"; font-style: normal; font-weight: 700; font-display: block; src: url(fonts/minecraft-bold.woff2?v=STAMP) format("woff2"); }
+  @font-face { font-family: "Pixelify Sans"; font-style: normal; font-weight: 400 700; font-display: swap; src: url(fonts/pixelify-sans-latin.woff2?v=STAMP) format("woff2"); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+  @font-face { font-family: "Pixelify Sans"; font-style: normal; font-weight: 400 700; font-display: swap; src: url(fonts/pixelify-sans-latin-ext.woff2?v=STAMP) format("woff2"); unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+  @font-face { font-family: "Pixelify Sans"; font-style: normal; font-weight: 400 700; font-display: swap; src: url(fonts/pixelify-sans-cyrillic.woff2?v=STAMP) format("woff2"); unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; }
   :root {
     --gs: 3; /* GUI scale, set from the window size like Minecraft's "Auto" */
     --u: calc(var(--gs) * 1px); /* one GUI pixel */
@@ -359,7 +359,7 @@
 <body>
 <div id="boot"><canvas id="boot-canvas"></canvas></div>
 <!-- data-modules: how many modules the page loads, kept up to date by tools/stamp.mjs (the splash's download progress) -->
-<script type="module" id="boot-script" src="js/splash.js?v=mush3n7f" data-modules="82"></script>
+<script type="module" id="boot-script" src="js/splash.js?v=mush3nyu" data-modules="82"></script>
 <canvas id="game"></canvas>
 
 <div id="demo" class="hidden">
@@ -541,7 +541,7 @@
 </div>
 
 <div id="error" class="screen dirt hidden"></div>
-<script defer src="net-config.js?v=mush3n7f"></script>
-<script type="module" src="js/main.js?v=mush3n7f"></script>
+<script defer src="net-config.js?v=mush3nyu"></script>
+<script type="module" src="js/main.js?v=mush3nyu"></script>
 </body>
 </html>

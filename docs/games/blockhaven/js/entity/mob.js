@@ -1,15 +1,15 @@
 // Living mobs: physics, AI archetypes, combat, breeding/taming, trading and animation.
-import { Entity, drawModel, rootMatrix, M } from './entity.js?v=mush3n7f';
-import { Projectile, renderStack } from './objects.js?v=mush3n7f';
-import { MOBS, PROFESSIONS } from '../data/mobs.js?v=mush3n7f';
-import { B, BLOCKS, SOLID } from '../data/blocks.js?v=mush3n7f';
-import { UNLOADED } from '../world/world.js?v=mush3n7f';
-import { villagerTrades } from '../game/trades.js?v=mush3n7f';
-import { findPath, clearWalk } from './pathfind.js?v=mush3n7f';
-import { ARMOR_BYPASS, armorStats, armorReduce, applyInvul } from '../game/combat.js?v=mush3n7f';
-import { armorLayer } from '../data/armor.js?v=mush3n7f';
-import { I } from '../data/items.js?v=mush3n7f';
-import { dragonInit, dragonAI, dragonDamage, dragonDying, dragonHead } from './dragon.js?v=mush3n7f';
+import { Entity, drawModel, rootMatrix, M } from './entity.js?v=mush3nyu';
+import { Projectile, renderStack } from './objects.js?v=mush3nyu';
+import { MOBS, PROFESSIONS } from '../data/mobs.js?v=mush3nyu';
+import { B, BLOCKS, SOLID } from '../data/blocks.js?v=mush3nyu';
+import { UNLOADED } from '../world/world.js?v=mush3nyu';
+import { villagerTrades } from '../game/trades.js?v=mush3nyu';
+import { findPath, clearWalk } from './pathfind.js?v=mush3nyu';
+import { ARMOR_BYPASS, armorStats, armorReduce, applyInvul } from '../game/combat.js?v=mush3nyu';
+import { armorLayer } from '../data/armor.js?v=mush3nyu';
+import { I } from '../data/items.js?v=mush3nyu';
+import { dragonInit, dragonAI, dragonDamage, dragonDying, dragonHead } from './dragon.js?v=mush3nyu';
 
 const rnd = (a, b) => a + Math.random() * (b - a);
 const rint = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
@@ -1062,7 +1062,7 @@ export class Mob extends Entity {
 }
 
 // Moves an entity without gravity handling (fliers/swimmers).
-import { moveEntity } from './physics.js?v=mush3n7f';
+import { moveEntity } from './physics.js?v=mush3nyu';
 function import_move(e, dt) { moveEntity(e.world, e, e.vel[0] * dt, e.vel[1] * dt, e.vel[2] * dt); }
 
 // Renders a held item using a part matrix (model units).
