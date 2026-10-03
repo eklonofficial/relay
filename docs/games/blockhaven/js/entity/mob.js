@@ -1,20 +1,21 @@
 // Living mobs: physics, AI archetypes, combat, breeding/taming, trading and animation.
-import { Entity, drawModel, rootMatrix, M } from './entity.js?v=mush3shv';
-import { Projectile, renderStack } from './objects.js?v=mush3shv';
-import { MOBS, PROFESSIONS } from '../data/mobs.js?v=mush3shv';
-import { B, BLOCKS, SOLID } from '../data/blocks.js?v=mush3shv';
-import { UNLOADED } from '../world/world.js?v=mush3shv';
-import { villagerTrades } from '../game/trades.js?v=mush3shv';
-import { findPath, clearWalk } from './pathfind.js?v=mush3shv';
-import { ARMOR_BYPASS, armorStats, armorReduce, applyInvul } from '../game/combat.js?v=mush3shv';
-import { animalPose, chickenPose, wolfPose, horsePose } from './animals.js?v=mush3shv';
-import { villagerPose, illagerPose, piglinPose } from './javamodels.js?v=mush3shv';
-import { ironGolemPose, ironGolemSway, snowGolemPose, hoglinPose, striderPose, ravagerPose } from './beasts.js?v=mush3shv';
-import { creeperPose, spiderPose, endermanPose, magmaPose, silverfishPose, blazePose, ghastPose, phantomPose } from './monsters.js?v=mush3shv';
-import { humanoidPose } from './humanoid.js?v=mush3shv';
-import { armorLayer } from '../data/armor.js?v=mush3shv';
-import { I } from '../data/items.js?v=mush3shv';
-import { dragonInit, dragonAI, dragonDamage, dragonDying, dragonHead } from './dragon.js?v=mush3shv';
+import { Entity, drawModel, rootMatrix, M } from './entity.js?v=mush3t9n';
+import { Projectile, renderStack } from './objects.js?v=mush3t9n';
+import { MOBS, PROFESSIONS } from '../data/mobs.js?v=mush3t9n';
+import { B, BLOCKS, SOLID } from '../data/blocks.js?v=mush3t9n';
+import { UNLOADED } from '../world/world.js?v=mush3t9n';
+import { villagerTrades } from '../game/trades.js?v=mush3t9n';
+import { findPath, clearWalk } from './pathfind.js?v=mush3t9n';
+import { ARMOR_BYPASS, armorStats, armorReduce, applyInvul } from '../game/combat.js?v=mush3t9n';
+import { animalPose, chickenPose, wolfPose, horsePose } from './animals.js?v=mush3t9n';
+import { villagerPose, illagerPose, piglinPose } from './javamodels.js?v=mush3t9n';
+import { ironGolemPose, ironGolemSway, snowGolemPose, hoglinPose, striderPose, ravagerPose } from './beasts.js?v=mush3t9n';
+import { squidPose, fishPose, fishSway, pufferfishPose, guardianPose, dolphinPose, turtlePose, axolotlPose } from './aquatic.js?v=mush3t9n';
+import { creeperPose, spiderPose, endermanPose, magmaPose, silverfishPose, blazePose, ghastPose, phantomPose } from './monsters.js?v=mush3t9n';
+import { humanoidPose } from './humanoid.js?v=mush3t9n';
+import { armorLayer } from '../data/armor.js?v=mush3t9n';
+import { I } from '../data/items.js?v=mush3t9n';
+import { dragonInit, dragonAI, dragonDamage, dragonDying, dragonHead } from './dragon.js?v=mush3t9n';
 
 const rnd = (a, b) => a + Math.random() * (b - a);
 const rint = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
@@ -675,8 +676,65 @@ export class Mob extends Entity {
     if (t && this.size > 1 && this.overlaps(t, 0.1) && this.attackT <= 0) { this.attackT = 1; this.doAttack(t); }
     if (t && this.size === 1 && this.mobType === 'magma_cube' && this.overlaps(t, 0.1) && this.attackT <= 0) { this.attackT = 1; this.doAttack(t); }
   }
+  // Squid.aiStep, Guardian.aiStep and Pufferfish.tick's look, stepped at Java's 20 ticks a second.
+  waterTicks(dt) {
+    this.tickAcc = (this.tickAcc || 0) + dt * 20;
+    for (; this.tickAcc >= 1; this.tickAcc--) {
+      if (this.mobType === 'squid' || this.mobType === 'glow_squid') this.squidTick();
+      else if (this.def.ai === 'guardian') this.guardianTick();
+    }
+    if (this.mobType === 'pufferfish') {
+      // PufferfishPuffGoal and Pufferfish.tick: puffs up a step when someone comes near (and fully after
+      // 2 s), and lets the air out a step at a time once they leave.
+      const near = this.playerTargetable() && this.distToPlayer() < 2.5;
+      this.puff = this.puff || 0;
+      if (near) { this.deflateT = 0; this.inflateT = (this.inflateT || 0) + dt; if (this.puff === 0) { this.puff = 1; this.inflateT = 0; } else if (this.puff === 1 && this.inflateT > 2) this.puff = 2; }
+      else if (this.puff > 0) { this.inflateT = 0; this.deflateT = (this.deflateT || 0) + dt; if (this.puff === 2 && this.deflateT > 3) this.puff = 1; else if (this.puff === 1 && this.deflateT > 5) this.puff = 0; }
+    }
+  }
+  squidTick() {
+    if (this.tentacleSpeed === undefined) { this.tentacleSpeed = 1 / (Math.random() + 1) * 0.2; this.tentacleMovement = 0; this.rotateSpeed = this.tentacleSpeed; this.xBodyRot = 0; this.zBodyRot = 0; }
+    this.tentacleMovement += this.tentacleSpeed;
+    if (this.tentacleMovement > Math.PI * 2) { this.tentacleMovement = 0; if (Math.random() < 0.1) this.tentacleSpeed = 1 / (Math.random() + 1) * 0.2; }
+    const v = this.vel;
+    if (this.inWater) {
+      if (this.tentacleMovement < Math.PI) {
+        const f = this.tentacleMovement / Math.PI;
+        this.tentacleAngle = Math.sin(f * f * Math.PI) * Math.PI * 0.25;
+        this.rotateSpeed = f > 0.75 ? 1 : this.rotateSpeed * 0.8;
+      } else { this.tentacleAngle = 0; this.rotateSpeed *= 0.99; }
+      this.zBodyRot += Math.PI * this.rotateSpeed * 1.5;
+      this.xBodyRot += (-Math.atan2(Math.hypot(v[0], v[2]), v[1]) * 180 / Math.PI - this.xBodyRot) * 0.1;
+    } else {
+      this.tentacleAngle = Math.abs(Math.sin(this.tentacleMovement)) * Math.PI * 0.25;
+      this.xBodyRot += (-90 - this.xBodyRot) * 0.02;
+    }
+  }
+  guardianTick() {
+    const moving = Math.hypot(this.vel[0], this.vel[1], this.vel[2]) > 0.05;
+    this.tailSpeed = this.tailSpeed ?? 0.125;
+    if (!this.inWater) this.tailSpeed = 2;
+    else if (moving) this.tailSpeed = this.tailSpeed < 0.5 ? 4 : this.tailSpeed + (0.5 - this.tailSpeed) * 0.1;
+    else this.tailSpeed += (0.125 - this.tailSpeed) * 0.2;
+    this.tailAnim = (this.tailAnim || 0) + this.tailSpeed;
+    this.spikesAnim = this.spikesAnim ?? 1;
+    if (!this.inWater) this.spikesAnim = Math.random();
+    else this.spikesAnim += ((moving ? 0 : 1) - this.spikesAnim) * (moving ? 0.25 : 0.06);
+  }
+  // GuardianModel.setupAnim's eye: turned toward its target (or the viewer), and dropped a pixel when
+  // that is below it.
+  guardianEye() {
+    const t = this.target || this.game.playerEntity;
+    if (!t || !t.pos) return [0, 0];
+    const ty = t.pos[1] + (t.h || 1.8) * 0.85, gy = this.pos[1] + this.h * 0.5;
+    const look = [-Math.sin(this.yaw), -Math.cos(this.yaw)];
+    let dx = this.pos[0] - t.pos[0], dz = this.pos[2] - t.pos[2]; const n = Math.hypot(dx, dz) || 1; dx /= n; dz /= n;
+    const d = look[0] * dz + look[1] * -dx; // (guardian - target) turned a quarter, against the look
+    return [Math.sqrt(Math.abs(d)) * 2 * Math.sign(d), ty - gy > 0 ? 0 : 1];
+  }
   aiSwim(dt) {
     const g = this.game;
+    this.waterTicks(dt);
     if (!this.inWater) return;
     this.wanderT -= dt;
     if (this.mobType === 'pufferfish' && this.distToPlayer() < 2.5 && this.attackT <= 0 && this.playerTargetable()) { this.attackT = 1; this.doAttack(this.focus); }
@@ -693,6 +751,7 @@ export class Mob extends Entity {
   // for full damage; elders also curse nearby players with Mining Fatigue every minute.
   aiGuardian(dt) {
     const g = this.game, d = this.def;
+    this.waterTicks(dt);
     if (d.elder) {
       this.curseT = (this.curseT ?? 5) - dt;
       if (this.curseT <= 0) {
@@ -953,12 +1012,16 @@ export class Mob extends Entity {
     }
     if (m.anim === 'jpiglin') { const v = piglinPose(m, st); v.poses.pivots = v.pivots; return v.poses; }
     const monster = { jcreeper: creeperPose, jspider: spiderPose, jenderman: endermanPose, jmagma: magmaPose, jsilverfish: silverfishPose, jblaze: blazePose, jghast: ghastPose, jphantom: phantomPose,
-      jirongolem: ironGolemPose, jsnowgolem: snowGolemPose, jhoglin: hoglinPose, jstrider: striderPose, jravager: ravagerPose }[m.anim];
+      jirongolem: ironGolemPose, jsnowgolem: snowGolemPose, jhoglin: hoglinPose, jstrider: striderPose, jravager: ravagerPose,
+      jsquid: squidPose, jfish: fishPose, jpufferfish: pufferfishPose, jguardian: guardianPose, jdolphin: dolphinPose, jturtle: turtlePose, jaxolotl: axolotlPose }[m.anim];
     if (m.anim === 'jslime') return {};
     if (monster) {
       st.creepy = !!this.angry; st.squish = this.squish || 0; st.ridden = !!this.rider;
       // (Java's attack animation counts 10 ticks down from the blow.)
       st.attackTicks = this.swing * 10;
+      st.inWater = this.inWater; st.onGround = this.onGround; st.moving = Math.hypot(this.vel[0], this.vel[1], this.vel[2]) > 0.05 || st.limbAmt > 1e-5;
+      st.tentacleAngle = this.tentacleAngle || 0;
+      if (m.anim === 'jguardian') { st.spikes = (1 - (this.spikesAnim ?? 1)) * 0.55; st.tail = this.tailAnim || 0; st.eye = this.guardianEye(); }
       const v = monster(m, st); v.poses.pivots = v.pivots; return v.poses;
     }
     if (m.anim === 'jquadruped' || m.anim === 'jchicken' || m.anim === 'jwolf' || m.anim === 'jhorse') {
@@ -1059,6 +1122,11 @@ export class Mob extends Entity {
   render(ctx) {
     const g = this.game;
     if (!this.model) { this.model = g.mobModel(this.skinKey); this.layer = g.mobLayer(this.skinKey); }
+    // PufferfishRenderer: the model for how puffed up it is.
+    if (this.mobType === 'pufferfish' && this.def.forms) {
+      const k = this.puff === 2 ? 'pufferfish_big' : this.puff === 1 ? 'pufferfish_mid' : this.skinKey;
+      this.model = g.mobModel(k); this.layer = g.mobLayer(k);
+    }
     const light = this.def.glow ? [1.1, 1.1, 1.1] : this.brightness();
     let extra = null;
     if (this.deathT > 0 && this.mobType !== 'ender_dragon') extra = M.rz(Math.min(1, this.deathT * 2) * Math.PI / 2);
@@ -1077,6 +1145,20 @@ export class Mob extends Entity {
       // SlimeRenderer.scale / MagmaCubeRenderer.scale: squashed by the squish (see aiSlime).
       const k = 1 / ((this.squish || 0) / (this.size * 0.5 + 1) + 1);
       extra = M.s(k * 0.999, 0.999 / k, k * 0.999);
+    }
+    const anim = this.model.anim;
+    if (anim === 'jsquid') {
+      // SquidRenderer.setupRotations: pitched and spun about its middle.
+      extra = M.chain(M.t(0, 8, 0), M.rx((this.xBodyRot || 0) * Math.PI / 180), M.ry((this.zBodyRot || 0) * Math.PI / 180), M.t(0, -19.2, 0));
+    } else if (anim === 'jfish') {
+      // Cod/Salmon/TropicalFishRenderer.setupRotations: the body sways, and a stranded fish flops on its side.
+      const st = { age: this.age * 20, inWater: this.inWater };
+      extra = M.ry(fishSway(this.model, st));
+      if (this.model.salmon) extra = M.mul(extra, M.t(0, 0, -6.4));
+      if (!this.inWater) extra = M.chain(extra, M.t(...this.model.flop), M.rz(Math.PI / 2));
+    } else if (anim === 'jpufferfish') {
+      // PufferfishRenderer.setupRotations: a slow bob.
+      extra = M.t(0, Math.cos(this.age * 20 * 0.05) * 0.08 * 16, 0);
     }
     // IronGolemRenderer.setupRotations: it lurches side to side as it walks.
     if (this.model.anim === 'jirongolem') extra = M.rz(ironGolemSway(this.walk / 0.6662, this.walkAmt));
@@ -1098,7 +1180,9 @@ export class Mob extends Entity {
       const f = this.health / this.maxHealth, c = f < 0.25 ? 'high' : f < 0.5 ? 'medium' : f < 0.75 ? 'low' : null;
       if (c) layer = g.mobLayer(`iron_golem_${c}`);
     }
-    const mats = drawModel(ctx.mobs, this.model, layer, root, this.lastPose, light, flash);
+    // (A tinted mob, like a tropical fish in its base colour.)
+    const tinted = (m, l) => m && m.tint ? [l[0] * m.tint[0], l[1] * m.tint[1], l[2] * m.tint[2]] : l;
+    const mats = drawModel(ctx.mobs, this.model, layer, root, this.lastPose, tinted(this.model, light), flash);
     // MushroomCowMushroomLayer: two red mushrooms on a mooshroom's back and one on its head.
     if (this.mobType === 'mooshroom' && this.model.java && !this.baby) {
       const at = (m, x, y, z, a) => M.chain(m, M.t(x, y, z), M.ry(a), M.s(16), M.t(-0.5, -0.5, -0.5));
@@ -1118,7 +1202,7 @@ export class Mob extends Entity {
     const over = g.mobModel(`${this.skinKey}_overlay`, true);
     // (A sheep's wool is tinted by its colour, and gone once sheared: SheepFurLayer.)
     const wool = over && over.wool, woolRgb = wool && (WOOL_COLORS[this.woolColor] || [1, 1, 1]);
-    if (over && !(wool && this.sheared)) drawModel(over.clear ? ctx.mobsClear || ctx.mobs : ctx.mobs, over, g.mobLayer(`${this.skinKey}_overlay`), root, this.lastPose, wool ? [light[0] * woolRgb[0], light[1] * woolRgb[1], light[2] * woolRgb[2]] : light, flash);
+    if (over && !(wool && this.sheared)) drawModel(over.clear ? ctx.mobsClear || ctx.mobs : ctx.mobs, over, g.mobLayer(`${this.skinKey}_overlay`), root, this.lastPose, wool ? [light[0] * woolRgb[0], light[1] * woolRgb[1], light[2] * woolRgb[2]] : tinted(over, light), flash);
     if (this.saddled && (this.mobType === 'horse' || this.mobType === 'donkey')) drawModel(ctx.mobs, g.mobModel('saddle'), g.mobLayer('saddle'), root, { body: this.lastPose.body || [0, 0, 0] }, light, flash);
     // Worn armor follows the same pose: Java's armor layers (data/armor.js), on skeletons too.
     if (this.equipment) for (const k of this.equipment.armor) {
@@ -1171,7 +1255,7 @@ export class Mob extends Entity {
 }
 
 // Moves an entity without gravity handling (fliers/swimmers).
-import { moveEntity } from './physics.js?v=mush3shv';
+import { moveEntity } from './physics.js?v=mush3t9n';
 function import_move(e, dt) { moveEntity(e.world, e, e.vel[0] * dt, e.vel[1] * dt, e.vel[2] * dt); }
 
 // Renders a held item using a part matrix (model units).
