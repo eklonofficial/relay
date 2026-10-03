@@ -1,17 +1,18 @@
 // Java Edition's monster models (CreeperModel, SpiderModel, EndermanModel, SlimeModel, LavaSlimeModel,
 // SilverfishModel, EndermiteModel, BlazeModel, GhastModel, PhantomModel) with their texture offsets, and
 // their setupAnim poses. Coordinates as in entity/animals.js.
-import { jbox, pivot, humanoidParts } from './humanoid.js?v=mush3vnf';
-import { P, child, rot, model, toOurs, R } from './animals.js?v=mush3vnf';
+import { jbox, pivot, humanoidParts } from './humanoid.js?v=musmw2di';
+import { P, child, rot, model, toOurs, R } from './animals.js?v=musmw2di';
 
 const PI = Math.PI;
 
 // CreeperModel: head and body on one pivot, four short legs.
-export function creeperModel(st, texture = 'entity/creeper/creeper') {
-  const leg = (x, z) => P(pivot(x, 18, z), [jbox(0, 16, -2, 0, -2, 4, 6, 4, 0, { style: st.leg || st.body })]);
+// (Grown by `k`, it is the charged creeper's CreeperPowerLayer, 2.0.)
+export function creeperModel(st, texture = 'entity/creeper/creeper', k = 0) {
+  const leg = (x, z) => P(pivot(x, 18, z), [jbox(0, 16, -2, 0, -2, 4, 6, 4, k, { style: st.leg || st.body })]);
   return model('jcreeper', {
-    head: P(pivot(0, 6, 0), [jbox(0, 0, -4, -8, -4, 8, 8, 8, 0, { style: st.head })]),
-    body: P(pivot(0, 6, 0), [jbox(16, 16, -4, 0, -2, 8, 12, 4, 0, { style: st.body })]),
+    head: P(pivot(0, 6, 0), [jbox(0, 0, -4, -8, -4, 8, 8, 8, k, { style: st.head })]),
+    body: P(pivot(0, 6, 0), [jbox(16, 16, -4, 0, -2, 8, 12, 4, k, { style: st.body })]),
     rightHindLeg: leg(-2, 4), leftHindLeg: leg(2, 4), rightFrontLeg: leg(-2, -4), leftFrontLeg: leg(2, -4),
   }, [64, 32], texture);
 }

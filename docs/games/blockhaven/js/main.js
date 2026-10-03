@@ -1,45 +1,45 @@
 // Blockhaven bootstrap: assets, menus, input, camera, frame loop.
-import './page.js?v=mush3vnf';
-import { surfaceDocument as document } from './surface.js?v=mush3vnf';
-import { registerApp } from './veil.js?v=mush3vnf';
-import { movementSamples } from './util/pointer.js?v=mush3vnf';
-import { ask, tell } from './dialog.js?v=mush3vnf';
-import { Demo, DEMO_SEED } from './demo.js?v=mush3vnf';
-import { armorLayerModel, armorLayer, ARMOR_MATERIALS, LEATHER_COLOR, elytraModel } from './data/armor.js?v=mush3vnf';
-import { humanoidPose, processSkin } from './entity/humanoid.js?v=mush3vnf';
-import { TEXTURES, TEX, B, BLOCKS, DIM, DIM_NAMES, SHAPE_OF, SHAPE, props, HEIGHT } from './data/blocks.js?v=mush3vnf';
-import { I, ITEMS } from './data/items.js?v=mush3vnf';
-import { MOBS, PROFESSIONS, playerModel, saddleModel, PLAYER_SKINS } from './data/mobs.js?v=mush3vnf';
-import { Net, cleanCode, cleanName, cleanKey, cleanChat, chatLine, MAX_PLAYERS, wakeRelays, diagnoseNetwork } from './net/net.js?v=mush3vnf';
-import { NameTags } from './net/nametags.js?v=mush3vnf';
-import { BIOMES } from './gen/biomes.js?v=mush3vnf';
-import { generateBlockTextures, drawBlockTexture } from './render/blocktex.js?v=mush3vnf';
-import { generateItemTextures, ITEM_LAYER, FX_LAYER, ITEM_LAYER_COUNT, flatTexFor } from './render/itemtex.js?v=mush3vnf';
-import { Zip, storedPack, savePack, removePack, applyBlockTextures, applyItemTextures, applyArmorTextures, readEntityTexture, indexSounds } from './render/pack.js?v=mush3vnf';
-import { packModel, paintModel, ENTITY, texFactor, faceRects } from './render/mobtex.js?v=mush3vnf';
-import { buildMipChain } from './render/atlas.js?v=mush3vnf';
-import { Renderer, Batch } from './render/renderer.js?v=mush3vnf';
-import { World, UNLOADED } from './world/world.js?v=mush3vnf';
-import { createGenerator } from './gen/index.js?v=mush3vnf';
-import { Game } from './game/game.js?v=mush3vnf';
-import { Interact, crossbowCharge } from './game/interact.js?v=mush3vnf';
-import { SpawnPrep, STATUS_COLOR } from './game/spawnprep.js?v=mush3vnf';
-import { splash } from './splash.js?v=mush3vnf';
-import { Commands } from './game/commands.js?v=mush3vnf';
-import { GUI, HUD } from './game/ui.js?v=mush3vnf';
-import { buildIcons, hudSprites } from './game/icons.js?v=mush3vnf';
-import { Sound } from './game/audio.js?v=mush3vnf';
-import { buildLogo, buttonTexture, dirtTexture, iconDataURL } from './render/logo.js?v=mush3vnf';
-import { computeEnv } from './game/env.js?v=mush3vnf';
-import { guideSections } from './game/guide.js?v=mush3vnf';
-import { listWorlds, loadWorld, saveWorld, deleteWorld } from './game/storage.js?v=mush3vnf';
-import { importJavaWorld, exportJavaWorld } from './game/javaworld.js?v=mush3vnf';
-import { drawModel, rootMatrix, M } from './entity/entity.js?v=mush3vnf';
-import { itemMesh, emitItemMesh, clearItemMeshes } from './entity/itemmesh.js?v=mush3vnf';
-import { Lightning, billboard } from './entity/objects.js?v=mush3vnf';
-import { compose, translation, rotationX, rotationY, rotationZ, scaling, forward, mat4 } from './core/math.js?v=mush3vnf';
-import { hasGlint } from './data/enchantments.js?v=mush3vnf';
-import { BarrelRoll } from './game/barrelroll.js?v=mush3vnf';
+import './page.js?v=musmw2di';
+import { surfaceDocument as document } from './surface.js?v=musmw2di';
+import { registerApp } from './veil.js?v=musmw2di';
+import { movementSamples } from './util/pointer.js?v=musmw2di';
+import { ask, tell } from './dialog.js?v=musmw2di';
+import { Demo, DEMO_SEED } from './demo.js?v=musmw2di';
+import { armorLayerModel, armorLayer, ARMOR_MATERIALS, LEATHER_COLOR, elytraModel } from './data/armor.js?v=musmw2di';
+import { humanoidPose, processSkin } from './entity/humanoid.js?v=musmw2di';
+import { TEXTURES, TEX, B, BLOCKS, DIM, DIM_NAMES, SHAPE_OF, SHAPE, props, HEIGHT } from './data/blocks.js?v=musmw2di';
+import { I, ITEMS } from './data/items.js?v=musmw2di';
+import { MOBS, PROFESSIONS, playerModel, saddleModel, PLAYER_SKINS } from './data/mobs.js?v=musmw2di';
+import { Net, cleanCode, cleanName, cleanKey, cleanChat, chatLine, MAX_PLAYERS, wakeRelays, diagnoseNetwork } from './net/net.js?v=musmw2di';
+import { NameTags } from './net/nametags.js?v=musmw2di';
+import { BIOMES } from './gen/biomes.js?v=musmw2di';
+import { generateBlockTextures, drawBlockTexture } from './render/blocktex.js?v=musmw2di';
+import { generateItemTextures, ITEM_LAYER, FX_LAYER, ITEM_LAYER_COUNT, flatTexFor } from './render/itemtex.js?v=musmw2di';
+import { Zip, storedPack, savePack, removePack, applyBlockTextures, applyItemTextures, applyArmorTextures, readEntityTexture, indexSounds } from './render/pack.js?v=musmw2di';
+import { packModel, paintModel, ENTITY, texFactor, faceRects } from './render/mobtex.js?v=musmw2di';
+import { buildMipChain } from './render/atlas.js?v=musmw2di';
+import { Renderer, Batch } from './render/renderer.js?v=musmw2di';
+import { World, UNLOADED } from './world/world.js?v=musmw2di';
+import { createGenerator } from './gen/index.js?v=musmw2di';
+import { Game } from './game/game.js?v=musmw2di';
+import { Interact, crossbowCharge } from './game/interact.js?v=musmw2di';
+import { SpawnPrep, STATUS_COLOR } from './game/spawnprep.js?v=musmw2di';
+import { splash } from './splash.js?v=musmw2di';
+import { Commands } from './game/commands.js?v=musmw2di';
+import { GUI, HUD } from './game/ui.js?v=musmw2di';
+import { buildIcons, hudSprites } from './game/icons.js?v=musmw2di';
+import { Sound } from './game/audio.js?v=musmw2di';
+import { buildLogo, buttonTexture, dirtTexture, iconDataURL } from './render/logo.js?v=musmw2di';
+import { computeEnv } from './game/env.js?v=musmw2di';
+import { guideSections } from './game/guide.js?v=musmw2di';
+import { listWorlds, loadWorld, saveWorld, deleteWorld } from './game/storage.js?v=musmw2di';
+import { importJavaWorld, exportJavaWorld } from './game/javaworld.js?v=musmw2di';
+import { drawModel, rootMatrix, M } from './entity/entity.js?v=musmw2di';
+import { itemMesh, emitItemMesh, clearItemMeshes } from './entity/itemmesh.js?v=musmw2di';
+import { Lightning, billboard } from './entity/objects.js?v=musmw2di';
+import { compose, translation, rotationX, rotationY, rotationZ, scaling, forward, mat4 } from './core/math.js?v=musmw2di';
+import { hasGlint } from './data/enchantments.js?v=musmw2di';
+import { BarrelRoll } from './game/barrelroll.js?v=musmw2di';
 
 const $ = id => document.getElementById(id);
 // Resolves after the page has painted what was just put on screen.
@@ -175,6 +175,7 @@ class App {
     this.mobModels.set('armor_outer', this.mobModels.get('armor_iron_1')); this.mobModels.set('armor_inner', this.mobModels.get('armor_iron_2'));
     // Second skins drawn over some mobs (the stray's clothes, the drowned's outer layer).
     for (const [k, d] of Object.entries(MOBS)) if (d.overlay) addSkin(`${k}_overlay`, d.overlay(), seed++);
+    for (const [k, d] of Object.entries(MOBS)) if (d.swirl) addSkin(`${k}_swirl`, d.swirl.model(), seed++);
     // Skins a mob wears in some states, painted like its own (the wolf's tame and angry looks).
     for (const [k, d] of Object.entries(MOBS)) for (const [v, texture] of Object.entries(d.variants || {})) addSkin(`${k}_${v}`, { ...d.model(), texture }, seed++);
     // Other models a mob switches to (the pufferfish puffing up).
@@ -186,7 +187,7 @@ class App {
     this.sprites = hudSprites();
     this.sound = new Sound();
     this.sound.volume = settings.volume / 100; this.sound.music = settings.music / 100;
-    this.batches = { mobs: new Batch(), mobsClear: new Batch(), items: new Batch(), itemFx: new Batch(), blockParticles: new Batch(), hand: new Batch() };
+    this.batches = { mobs: new Batch(), mobsClear: new Batch(), mobsSwirl: new Batch(), items: new Batch(), itemFx: new Batch(), blockParticles: new Batch(), hand: new Batch() };
     this.nametags = new NameTags($('nametags'));
     this.bindSettings(); this.bindMenus(); this.bindInput();
     $('splash').textContent = SPLASHES[Math.floor(Math.random() * SPLASHES.length)];
@@ -777,7 +778,7 @@ class App {
       if (!model.texture || !this.mobLayers.has(key)) continue;
       let px = null;
       const k = texFactor(model);
-      for (const path of [].concat(model.texture)) px = (await readEntityTexture(zip, path, model.texSize && model.texSize.map(v => v / k), px)) || px;
+      for (const path of [].concat(model.texture)) px = (await readEntityTexture(zip, path, model.texSize && model.texSize.map(v => v / k), px, !!model.fill)) || px;
       if (px) { const layer = this.mobLayers.get(key); this.skinPixels[layer] = px; this.renderer.setEntityLayer(layer, px); }
     }
     // Worn armor from the pack's textures/models/armor.
@@ -1283,7 +1284,7 @@ class App {
     for (const b of Object.values(B_)) b.reset();
     const right = [Math.cos(cam.yaw), 0, -Math.sin(cam.yaw)];
     const up = [Math.sin(cam.yaw) * Math.sin(cam.pitch), Math.cos(cam.pitch), Math.cos(cam.yaw) * Math.sin(cam.pitch)];
-    const ctx = { camPos: cam.pos, camRight: right, camUp: up, mobs: B_.mobs, mobsClear: B_.mobsClear, items: B_.items, itemFx: B_.itemFx, blockParticles: B_.blockParticles, blockModels: [], labels: [] };
+    const ctx = { camPos: cam.pos, camRight: right, camUp: up, mobs: B_.mobs, mobsClear: B_.mobsClear, mobsSwirl: B_.mobsSwirl, items: B_.items, itemFx: B_.itemFx, blockParticles: B_.blockParticles, blockModels: [], labels: [] };
     const maxD2 = (settings.renderDistance * 16) ** 2;
     for (const e of g.entities.list) {
       if (e.dead || e.frozen) continue;
@@ -1328,7 +1329,7 @@ class App {
       blockModels: ctx.blockModels,
       solidBatches: [{ batch: B_.mobs, tex: 'mob' }, { batch: B_.items, tex: 'item' }, { batch: B_.blockParticles, tex: 'block' }],
       // (See-through mob layers, like a slime's outer jelly: Java's entityTranslucent.)
-      blendBatches: [{ batch: B_.mobsClear, tex: 'mob' }, { batch: B_.itemFx, tex: 'item' }],
+      blendBatches: [{ batch: B_.mobsClear, tex: 'mob' }, { batch: B_.mobsSwirl, tex: 'mob', additive: true, wrap: true, alphaTest: 0 }, { batch: B_.itemFx, tex: 'item' }],
       hand, post: { hurt: this.post.hurt, flash: this.post.flash + (g.stats.fire > 0 && this.view === 0 ? 0.03 : 0), portal: this.portalEffect, dark: this.post.dark, saturation: 1.1 },
     });
     if (this.net && !this.hudHidden) this.nametags.update(cam, this.fovCur, this.net.remotePlayers(), g.world); else this.nametags.clear();
