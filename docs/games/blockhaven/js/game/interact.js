@@ -1,12 +1,12 @@
 // Player actions: mining, placing, using items and blocks, attacking.
-import { meleeDamage, isCrit, knockStrength, isSword, SHIELD_DELAY, SHIELD_DISABLE, enchantDamage, enchLv, sweepDamage } from './combat.js?v=mush3vnf';
-import { B, BLOCKS, SOLID, OPAQUE, SHAPE_OF, SHAPE, props, st, DIM, FACING_SHIFT, AXIS_SHIFT, VARIANT_MASK } from '../data/blocks.js?v=mush3vnf';
-import { I, breakTime } from '../data/items.js?v=mush3vnf';
-import { enchantWithLevels } from '../data/enchantments.js?v=mush3vnf';
-import { collisionBoxes, selectionBoxes } from '../data/shapes.js?v=mush3vnf';
-import { UNLOADED, posKey } from '../world/world.js?v=mush3vnf';
-import { forward } from '../core/math.js?v=mush3vnf';
-import { KIND } from './redstone.js?v=mush3vnf';
+import { meleeDamage, isCrit, knockStrength, isSword, SHIELD_DELAY, SHIELD_DISABLE, enchantDamage, enchLv, sweepDamage } from './combat.js?v=musnlb5a';
+import { B, BLOCKS, SOLID, OPAQUE, SHAPE_OF, SHAPE, props, st, DIM, FACING_SHIFT, AXIS_SHIFT, VARIANT_MASK } from '../data/blocks.js?v=musnlb5a';
+import { I, breakTime } from '../data/items.js?v=musnlb5a';
+import { enchantWithLevels } from '../data/enchantments.js?v=musnlb5a';
+import { collisionBoxes, selectionBoxes } from '../data/shapes.js?v=musnlb5a';
+import { UNLOADED, posKey } from '../world/world.js?v=musnlb5a';
+import { forward } from '../core/math.js?v=musnlb5a';
+import { KIND } from './redstone.js?v=musnlb5a';
 
 const DIRS = [[0, 1], [-1, 0], [0, -1], [1, 0]];
 export const CROSSBOW_CHARGE = 1.25; // seconds (25 ticks)
@@ -371,10 +371,10 @@ export class Interact {
     if (g.dim !== DIM.OVERWORLD) { g.explode([t.x + 0.5, t.y + 0.5, t.z + 0.5], 5, { fire: true }); return true; }
     g.spawn = [t.x + 0.5, t.y + 0.6, t.z + 0.5];
     g.chat('Respawn point set', '#aaaaaa');
-    if (g.isDay() && !g.raining) { g.chat('You can only sleep at night or during thunderstorms', '#aaaaaa'); return true; }
+    if (g.isDay()) { g.chat('You can sleep only at night or during thunderstorms', '#aaaaaa'); return true; }
     const monsters = g.entities.near(g.player.pos, 8, e => e.def && e.def.kind === 'hostile');
     if (monsters.length && g.survivalLike) { g.chat('You may not rest now; there are monsters nearby', '#ff8080'); return true; }
-    g.app.sleep(() => { g.dayTime = 0.0; g.day++; g.weather.target = 0; g.weather.rain = 0; g.weather.thunder = 0; g.nightsNoSleep = 0; });
+    g.app.sleep(() => { g.dayTime = 0.0; g.day++; if (g.rules.doWeatherCycle && g.raining) Object.assign(g.weather, { rainTime: 0, raining: false, thunderTime: 0, thundering: false }); g.nightsNoSleep = 0; });
     return true;
   }
 
