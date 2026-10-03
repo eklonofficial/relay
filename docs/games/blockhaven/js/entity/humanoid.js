@@ -7,10 +7,10 @@
 // the renderer unwrap them as Java's ModelPart.Cube does.
 
 // A Java box: texture offset (u, v), corner and size in Java coordinates around its part's pivot.
-function jbox(u, v, x, y, z, w, h, d, inflate = 0, extra = {}) {
+export function jbox(u, v, x, y, z, w, h, d, inflate = 0, extra = {}) {
   return { uv: [u, v], us: [w, h, d], o: [-(x + w), -(y + h), z], s: [w, h, d], inflate, ...extra };
 }
-const pivot = (x, y, z) => [-x, 24 - y, z];
+export const pivot = (x, y, z) => [-x, 24 - y, z];
 
 // PlayerModel.createMesh: 64x64 skin with the second (outer) layer on every part. Slim (Alex) arms
 // are 3 px wide. Styles paint the default skins; the outer layer stays clear unless given one.
@@ -221,18 +221,18 @@ export function humanoidPose(st) {
 }
 
 // AnimationUtils.bobArms.
-function bobArms(rightArm, leftArm, age) {
+export function bobArms(rightArm, leftArm, age) {
   rightArm.rz += Math.cos(age * 0.09) * 0.05 + 0.05; leftArm.rz -= Math.cos(age * 0.09) * 0.05 + 0.05;
   rightArm.rx += Math.sin(age * 0.067) * 0.05; leftArm.rx -= Math.sin(age * 0.067) * 0.05;
 }
 // AnimationUtils.animateCrossbowCharge / animateCrossbowHold.
-function xbowCharge(rightArm, leftArm, f, right) {
+export function xbowCharge(rightArm, leftArm, f, right) {
   const main = right ? rightArm : leftArm, off = right ? leftArm : rightArm;
   main.ry = right ? -0.8 : 0.8; main.rx = -0.97079635; off.rx = main.rx;
   off.ry = lerp(f, 0.4, 0.85) * (right ? 1 : -1);
   off.rx = lerp(f, off.rx, -PI / 2);
 }
-function xbowHold(rightArm, leftArm, head, right) {
+export function xbowHold(rightArm, leftArm, head, right) {
   const main = right ? rightArm : leftArm, off = right ? leftArm : rightArm;
   main.ry = (right ? -0.3 : 0.3) + head.ry; off.ry = (right ? 0.6 : -0.6) + head.ry;
   main.rx = -PI / 2 + head.rx + 0.1; off.rx = -1.5 + head.rx;

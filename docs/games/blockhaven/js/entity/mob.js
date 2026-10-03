@@ -1,16 +1,17 @@
 // Living mobs: physics, AI archetypes, combat, breeding/taming, trading and animation.
-import { Entity, drawModel, rootMatrix, M } from './entity.js?v=mush3opu';
-import { Projectile, renderStack } from './objects.js?v=mush3opu';
-import { MOBS, PROFESSIONS } from '../data/mobs.js?v=mush3opu';
-import { B, BLOCKS, SOLID } from '../data/blocks.js?v=mush3opu';
-import { UNLOADED } from '../world/world.js?v=mush3opu';
-import { villagerTrades } from '../game/trades.js?v=mush3opu';
-import { findPath, clearWalk } from './pathfind.js?v=mush3opu';
-import { ARMOR_BYPASS, armorStats, armorReduce, applyInvul } from '../game/combat.js?v=mush3opu';
-import { humanoidPose } from './humanoid.js?v=mush3opu';
-import { armorLayer } from '../data/armor.js?v=mush3opu';
-import { I } from '../data/items.js?v=mush3opu';
-import { dragonInit, dragonAI, dragonDamage, dragonDying, dragonHead } from './dragon.js?v=mush3opu';
+import { Entity, drawModel, rootMatrix, M } from './entity.js?v=mush3ph6';
+import { Projectile, renderStack } from './objects.js?v=mush3ph6';
+import { MOBS, PROFESSIONS } from '../data/mobs.js?v=mush3ph6';
+import { B, BLOCKS, SOLID } from '../data/blocks.js?v=mush3ph6';
+import { UNLOADED } from '../world/world.js?v=mush3ph6';
+import { villagerTrades } from '../game/trades.js?v=mush3ph6';
+import { findPath, clearWalk } from './pathfind.js?v=mush3ph6';
+import { ARMOR_BYPASS, armorStats, armorReduce, applyInvul } from '../game/combat.js?v=mush3ph6';
+import { villagerPose, illagerPose, piglinPose } from './javamodels.js?v=mush3ph6';
+import { humanoidPose } from './humanoid.js?v=mush3ph6';
+import { armorLayer } from '../data/armor.js?v=mush3ph6';
+import { I } from '../data/items.js?v=mush3ph6';
+import { dragonInit, dragonAI, dragonDamage, dragonDying, dragonHead } from './dragon.js?v=mush3ph6';
 
 const rnd = (a, b) => a + Math.random() * (b - a);
 const rint = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
@@ -360,6 +361,7 @@ export class Mob extends Entity {
     }
     this.invul = Math.max(0, this.invul - dt); this.hurtT = Math.max(0, this.hurtT - dt);
     this.attackT -= dt; this.swing = Math.max(0, this.swing - dt * 3); this.breedCd -= dt;
+    if (this.castT > 0) this.castT -= dt;
     if (this.love > 0) { this.love -= dt; if (Math.random() < dt * 3) g.particles.fx('heart', [this.pos[0], this.pos[1] + this.h + 0.2, this.pos[2]], 1, 0.3); }
     if (this.baby) { this.growT -= dt; if (this.growT <= 0) this.growUp(); }
     for (const k of Object.keys(this.effects)) {
@@ -569,7 +571,7 @@ export class Mob extends Entity {
     if (see && d < a.range && this.attackT <= 0) {
       this.attackT = a.cd * rnd(0.8, 1.3);
       this.swing = 1;
-      if (a.ranged === 'fangs') this.evokerFangs(t);
+      if (a.ranged === 'fangs') { this.evokerFangs(t); this.castT = 1.5; }
       else this.shoot(a.ranged, t, a.ranged === 'arrow' ? 32 : 22);
     }
   }
@@ -921,10 +923,24 @@ export class Mob extends Entity {
     let right = held ? 'item' : 'empty';
     if (aggressive && held === 'bow') right = 'bow';
     if (aggressive && held === 'trident' && m.arms === 'drowned') right = 'spear';
-    const { poses, pivots } = humanoidPose({
+    const st = {
       limbSwing: this.walk / 0.6662, limbAmt: this.walkAmt, age: this.age * 20, headPitch: -this.headPitch, headYaw: -wrap(this.yaw - this.bodyYaw),
-      attack: this.swing > 0 ? 1 - this.swing : 0, rightPose: right, aggressive, arms: m.arms, legX: m.legX, riding: !!this.riding,
-    });
+      attack: this.swing > 0 ? 1 - this.swing : 0, rightPose: right, aggressive, arms: m.arms, legX: m.legX, riding: !!this.riding, holding: !!held, id: this.id,
+    };
+    if (m.anim === 'jvillager') { const v = villagerPose(m, st); v.poses.pivots = v.pivots; return v.poses; }
+    if (m.anim === 'jillager') {
+      // AbstractIllager.getArmPose: an evoker casting, a vindicator hunting with its axe, a pillager
+      // holding its crossbow on a target (charging it for the last 1.25 s before it shoots); otherwise
+      // arms folded (pillagers keep theirs at their sides).
+      const a = this.def.attack || {};
+      if (this.castT > 0) st.armPose = 'spellcasting';
+      else if (aggressive && a.crossbow) { st.armPose = this.attackT < 1.25 ? 'xbow_charge' : 'xbow_hold'; st.xbowCharge = Math.max(0, Math.min(1, 1 - this.attackT / 1.25)); }
+      else if (aggressive && !a.ranged) st.armPose = 'attacking';
+      else st.armPose = this.mobType === 'pillager' ? 'neutral' : 'crossed';
+      const v = illagerPose(st); v.poses.pivots = v.pivots; return v.poses;
+    }
+    if (m.anim === 'jpiglin') { const v = piglinPose(m, st); v.poses.pivots = v.pivots; return v.poses; }
+    const { poses, pivots } = humanoidPose(st);
     poses.pivots = pivots;
     return poses;
   }
@@ -1039,7 +1055,8 @@ export class Mob extends Entity {
     }
     // Held item.
     const held = (this.equipment && this.equipment.hand) || this.def.holds;
-    if (held && mats.rightArm) {
+    // (An illager with its arms folded shows nothing in its hand, as Java's IllagerRenderer.)
+    if (held && mats.rightArm && !(this.lastPose.hide && this.lastPose.hide.rightArm)) {
       // At the hand: the middle of the arm box, which Java's models set off the pivot.
       const ab = this.model.parts.rightArm.boxes[0], cx = ab.o[0] + ab.s[0] / 2;
       const m = M.chain(mats.rightArm, M.t(cx, -9, -1), M.rx(-Math.PI / 2), M.s(10));
@@ -1082,7 +1099,7 @@ export class Mob extends Entity {
 }
 
 // Moves an entity without gravity handling (fliers/swimmers).
-import { moveEntity } from './physics.js?v=mush3opu';
+import { moveEntity } from './physics.js?v=mush3ph6';
 function import_move(e, dt) { moveEntity(e.world, e, e.vel[0] * dt, e.vel[1] * dt, e.vel[2] * dt); }
 
 // Renders a held item using a part matrix (model units).

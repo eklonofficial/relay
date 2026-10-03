@@ -1,7 +1,8 @@
 // Mob roster: stats, AI archetype, drops, box models and procedural skins.
 // Model space: 1 unit = 1/16 block, feet at y=0, the mob faces -Z.
-import { D, pal, shade as shadeHex } from '../render/mobtex.js?v=mush3opu';
-import { playerModel as javaPlayerModel, mobHumanoid } from '../entity/humanoid.js?v=mush3opu';
+import { D, pal, shade as shadeHex } from '../render/mobtex.js?v=mush3ph6';
+import { villagerModel as jVillager, witchModel as jWitch, illagerModel as jIllager, piglinModel as jPiglin, zombieVillagerModel as jZombieVillager } from '../entity/javamodels.js?v=mush3ph6';
+import { playerModel as javaPlayerModel, mobHumanoid } from '../entity/humanoid.js?v=mush3ph6';
 
 const box = (o, s, style, extra = {}) => ({ o, s, style, ...extra });
 const part = (pivot, boxes, extra = {}) => ({ pivot, boxes, ...extra });
@@ -307,14 +308,16 @@ mob('strider', {
 // --- villagers & utility ---
 const VILLAGER_SKIN = '#b58663';
 // Villager: one dark brow over green eyes, a long shaded nose, a cloth robe with a collar and hem, hands folded in front.
-// `extra` is the profession's robe decoration ({ front, all }).
-const villagerModel = (robe, extra, skin = VILLAGER_SKIN, eyeC = '#2e8a3a') => () => {
+// `extra` is the profession's robe decoration ({ front, all }). Java's VillagerModel (entity/javamodels.js);
+// `texture` is the pack images that replace this paint, laid one over another as Java's layers draw them.
+const villagerStyles = (robe, extra, skin = VILLAGER_SKIN, eyeC = '#2e8a3a') => {
   const hem = D.all(D.band(0.93, 1, shadeHex(robe, 0.72)), extra && extra.all);
   const robeSt = S(robe, 'cloth', { front: D.all(D.bar(shadeHex(robe, 0.7), 0, 4), D.at(0.05, 0.93, D.stripes(shadeHex(robe, 0.86), 99, true), 0.5, 0.56), hem, extra && extra.front), sides: hem, back: hem, top: D.bar(shadeHex(skin, 0.8), 0.5, 4, 2) }, 0.1);
-  const m = humanoid({ head: S(skin, 'noise', { front: D.all(D.brow(shadeHex(skin, 0.45), 0.3, 1), eyes({ c: '#f4f2ec', pupil: eyeC, y: 0.4, gap: 2 }), D.bar(shadeHex(skin, 0.82), 0.5, 4), D.bar(shadeHex(skin, 0.7), 0.9, 2)), top: D.blotch(shadeHex(skin, 0.9), 0.3) }, 0.08), body: S(robe, 'cloth'), robe: robeSt, arm: S(robe, 'cloth', { top: D.band(0, 1, shadeHex(robe, 0.8)) }, 0.1), leg: S('#4a3a2e', 'cloth'), nose: S(skin, 'noise', { front: D.band(0.75, 1, shadeHex(skin, 0.82)), sides: D.band(0.75, 1, shadeHex(skin, 0.75)), bottom: D.band(0, 1, shadeHex(skin, 0.7)) }, 0.06) }, { headH: 10, bodyD: 6, nose: true, robe: true, crossed: true });
-  if (m.parts.arms) m.parts.arms.boxes[0].style = S(robe, 'cloth', { front: D.bar(skin, 0, 4, 99), top: D.bar(skin, 0, 4, 99) }, 0.1);
-  return m;
+  const st = { head: S(skin, 'noise', { front: D.all(D.brow(shadeHex(skin, 0.45), 0.3, 1), eyes({ c: '#f4f2ec', pupil: eyeC, y: 0.4, gap: 2 }), D.bar(shadeHex(skin, 0.82), 0.5, 4), D.bar(shadeHex(skin, 0.7), 0.9, 2)), top: D.blotch(shadeHex(skin, 0.9), 0.3) }, 0.08), body: S(robe, 'cloth'), robe: robeSt, arm: S(robe, 'cloth', { top: D.band(0, 1, shadeHex(robe, 0.8)) }, 0.1), leg: S('#4a3a2e', 'cloth'), nose: S(skin, 'noise', { front: D.band(0.75, 1, shadeHex(skin, 0.82)), sides: D.band(0.75, 1, shadeHex(skin, 0.75)), bottom: D.band(0, 1, shadeHex(skin, 0.7)) }, 0.06) };
+  st.hands = S(robe, 'cloth', { front: D.bar(skin, 0, 4, 99), top: D.bar(skin, 0, 4, 99) }, 0.1);
+  return st;
 };
+const villagerModel = (robe, extra, skin, eyeC, texture = ['entity/villager/villager', 'entity/villager/type/plains']) => () => jVillager(villagerStyles(robe, extra, skin, eyeC), texture);
 // Profession looks: [robe decoration on the front, decoration on every side].
 const band = (a, b, c) => D.band(a, b, c), apron = (c, top = 0.3) => D.at(top, 0.95, D.all(D.band(0, 1, c), D.stripes(shadeHex(c, 0.85), 99, true)), 0.2, 0.8);
 const PROF_DECOR = {
@@ -335,7 +338,7 @@ const PROF_DECOR = {
 export const PROFESSIONS = ['farmer', 'librarian', 'armorer', 'weaponsmith', 'toolsmith', 'butcher', 'cleric', 'fletcher', 'leatherworker', 'shepherd', 'fisherman', 'mason', 'cartographer', 'nitwit'];
 export const PROFESSION_COLORS = { farmer: '#c8a860', librarian: '#e8e8e8', armorer: '#3a3a3a', weaponsmith: '#4a4a4a', toolsmith: '#5a4030', butcher: '#e8e8e8', cleric: '#6a3a8a', fletcher: '#6a8a3a', leatherworker: '#8a5a2a', shepherd: '#a88a6a', fisherman: '#3a6a8a', mason: '#6a6a5a', cartographer: '#e0d8b0', nitwit: '#3a8a3a' };
 mob('villager', { hw: 0.3, h: 1.95, health: 20, speed: 2.1, kind: 'utility', ai: 'villager', egg: ['#563c33', '#bd8b72'], drops: [], xp: [0, 0], sound: 'villager', persistent: true, model: villagerModel('#6a4a3a', { all: D.band(0.42, 0.46, '#3a2818') }) });
-mob('wandering_trader', { hw: 0.3, h: 1.95, health: 20, speed: 2.3, kind: 'utility', ai: 'villager', egg: ['#456296', '#eaa430'], drops: [], xp: [0, 0], sound: 'villager', model: villagerModel('#2a4a8a', { all: D.all(D.band(0.42, 0.47, '#e0a030'), D.band(0, 0.08, '#1e3468')), front: D.at(0, 1, D.band(0, 1, '#e0a030'), 0.44, 0.56) }) });
+mob('wandering_trader', { hw: 0.3, h: 1.95, health: 20, speed: 2.3, kind: 'utility', ai: 'villager', egg: ['#456296', '#eaa430'], drops: [], xp: [0, 0], sound: 'villager', model: villagerModel('#2a4a8a', { all: D.all(D.band(0.42, 0.47, '#e0a030'), D.band(0, 0.08, '#1e3468')), front: D.at(0, 1, D.band(0, 1, '#e0a030'), 0.44, 0.56) }, undefined, undefined, 'entity/wandering_trader') });
 mob('iron_golem', { chase: 3.6,
   hw: 0.7, h: 2.7, health: 100, speed: 1.6, kind: 'utility', ai: 'golem', attack: { dmg: 11, cd: 1.3, fling: 1 }, egg: ['#dbcdc1', '#74a332'], drops: [['iron_ingot', 3, 5], ['poppy', 0, 2]], xp: [0, 0], sound: 'golem', knockbackResist: 1, persistent: true,
   model: () => { const iron = '#d6cec2', crack = '#8a8278', st = S(iron, 'metal', { all: D.cracks(crack, 2, 4) }, 0.08); const vine = S(iron, 'metal', { all: D.cracks(crack, 1, 4), front: D.all(D.cracks(crack, 1, 4), D.vines('#3e7a2a', '#62a43a', 2)), back: D.vines('#3e7a2a', '#62a43a', 2), sides: D.vines('#3e7a2a', '#62a43a', 1), top: D.patches('#4e8a2e', 2, 1.5) }, 0.08);
@@ -382,7 +385,8 @@ mob('drowned', { chase: 4.0, ...undead, armor: 2, hw: 0.3, h: 1.95, health: 20, 
   // DrownedOuterLayer: a second skin 0.25 px out (clear unless a pack supplies it).
   overlay: () => mobHumanoid('drowned', {}, { inflate: 0.25, texture: 'entity/zombie/drowned_outer_layer', arms: 'drowned' }) });
 mob('zombie_villager', { chase: 4.0, ...undead, armor: 2, hw: 0.3, h: 1.95, health: 20, speed: 2.3, attack: { dmg: 3, cd: 1 }, burns: true, egg: ['#563c33', '#799c65'], drops: [['rotten_flesh', 0, 2]], sound: 'zombie', curable: true,
-  model: () => { const rot = D.blotch('#4a7a3a', 0.2), robe = '#6a4a3a'; const m = humanoid({ head: S(ZOMBIE_SKIN, 'noise', { front: D.all(rot, D.brow('#2e4a24', 0.3, 1), eyes({ c: '#8a2a1a', pupil: '#3a0a06', y: 0.4, gap: 2 }), D.bar('#3a5a2e', 0.9, 2)), all: rot }, 0.1), body: S(robe, 'cloth'), robe: S(robe, 'cloth', { all: D.all(D.patches('#4e6a3a', 1, 1.5), D.ragged(0.9, 1, '#3a2a1e')), front: D.all(D.patches('#4e6a3a', 1, 1.5), D.bar('#4a3222', 0, 4), D.ragged(0.9, 1, '#3a2a1e')) }, 0.1), arm: S(ZOMBIE_SKIN, 'noise', { all: D.all(rot, D.ragged(0, 0.4, robe)) }, 0.1), leg: S('#4a3a2e', 'cloth'), nose: S(ZOMBIE_SKIN, 'noise', { front: D.band(0.75, 1, '#4a7a3a') }, 0.1) }, { headH: 10, bodyD: 6, nose: true, robe: true }); m.anim = 'zombie'; return m; } });
+  model: () => { const rot = D.blotch('#4a7a3a', 0.2), robe = '#6a4a3a';
+    return jZombieVillager({ head: S(ZOMBIE_SKIN, 'noise', { front: D.all(rot, D.brow('#2e4a24', 0.3, 1), eyes({ c: '#8a2a1a', pupil: '#3a0a06', y: 0.4, gap: 2 }), D.bar('#3a5a2e', 0.9, 2)), all: rot }, 0.1), body: S(robe, 'cloth'), robe: S(robe, 'cloth', { all: D.all(D.patches('#4e6a3a', 1, 1.5), D.ragged(0.9, 1, '#3a2a1e')), front: D.all(D.patches('#4e6a3a', 1, 1.5), D.bar('#4a3222', 0, 4), D.ragged(0.9, 1, '#3a2a1e')) }, 0.1), arm: S(ZOMBIE_SKIN, 'noise', { all: D.all(rot, D.ragged(0, 0.4, robe)) }, 0.1), leg: S('#4a3a2e', 'cloth'), nose: S(ZOMBIE_SKIN, 'noise', { front: D.band(0.75, 1, '#4a7a3a') }, 0.1) }, ['entity/zombie_villager/zombie_villager', 'entity/zombie_villager/type/plains']); } });
 // Skeletons: skull with deep sockets, nose hole and teeth; ribcage over a dark chest; jointed limb bones.
 // `rag` drapes tattered cloth over the body, hips and head (stray).
 // Java's SkeletonModel (64x32); `texture` is the pack image that replaces this paint.
@@ -412,7 +416,9 @@ mob('stray', { chase: 3.9, ...undead, hw: 0.3, h: 1.99, health: 20, speed: 2.4, 
   overlay: () => mobHumanoid('outer', {}, { inflate: 0.25, texture: 'entity/skeleton/stray_overlay', arms: 'skeleton' }) });
 mob('wither_skeleton', { chase: 4.4, ...undead, hw: 0.35, h: 2.4, scale: 1.2, health: 20, speed: 2.5, attack: { dmg: 8, cd: 1, wither: 10 }, fireImmune: true, egg: ['#141414', '#474d4d'], drops: [['coal', 0, 1], ['bone', 0, 2], ['wither_skeleton_skull', 0, 1, 0.025]], sound: 'skeleton', holds: 'stone_sword', model: skeletonModel('#444444', null, '#060606', 'entity/skeleton/wither_skeleton') });
 mob('zombified_piglin', { chase: 4.6, ...undead, kind: 'neutral', ai: 'melee', hw: 0.3, h: 1.95, health: 20, speed: 2.3, attack: { dmg: 8, cd: 1 }, fireImmune: true, egg: ['#ea9393', '#4c7129'], drops: [['rotten_flesh', 0, 1], ['gold_nugget', 0, 1], ['gold_ingot', 0, 1, 0.025]], sound: 'zpiglin', holds: 'golden_sword', groupAnger: true,
-  model: () => { const skin = '#e0968a', rot = D.all(D.patches('#6a9a4a', 2, 1.6, '#4e7a36'), D.patches('#e8e0cc', 1, 1.1)); const m = humanoid({ head: S(skin, 'noise', { front: D.all(D.at(0, 1, D.patches('#6a9a4a', 1, 2), 0.6, 1), D.at(0.3, 0.9, D.band(0, 1, '#e8e0cc'), 0.7, 1), D.brow('#b86a60', 0.25, 1), eyes({ c: '#f4f0e8', pupil: K, y: 0.375, gap: 4 }), D.bar('#f0e8d8', 0.875, 6), D.bar('#8a3a3a', 0.875, 4)), all: rot }, 0.08), body: S('#7a5a3a', 'cloth', { all: D.all(D.patches('#6a9a4a', 1, 1.5), D.band(0.72, 0.8, '#d8b030'), D.ragged(0.9, 1, '#5a4028')) }), arm: S(skin, 'noise', { all: rot }, 0.08), leg: S('#5e4430', 'cloth', { all: D.ragged(0.86, 1, '#3a2a1e') }) }); m.parts.head.boxes[0].s = [10, 8, 8]; m.parts.head.boxes[0].o = [-5, 0, -4]; m.parts.head.boxes.push(box([-2, 0, -5], [4, 4, 1], S('#eaa49a', 'noise', { front: D.snout('#7a3a3a') }, 0.06))); m.anim = 'zombie'; return m; } });
+  model: () => { const skin = '#e0968a', rot = D.all(D.patches('#6a9a4a', 2, 1.6, '#4e7a36'), D.patches('#e8e0cc', 1, 1.1)); const st = { head: S(skin, 'noise', { front: D.all(D.at(0, 1, D.patches('#6a9a4a', 1, 2), 0.6, 1), D.at(0.3, 0.9, D.band(0, 1, '#e8e0cc'), 0.7, 1), D.brow('#b86a60', 0.25, 1), eyes({ c: '#f4f0e8', pupil: K, y: 0.375, gap: 4 }), D.bar('#f0e8d8', 0.875, 6), D.bar('#8a3a3a', 0.875, 4)), all: rot }, 0.08), body: S('#7a5a3a', 'cloth', { all: D.all(D.patches('#6a9a4a', 1, 1.5), D.band(0.72, 0.8, '#d8b030'), D.ragged(0.9, 1, '#5a4028')) }), arm: S(skin, 'noise', { all: rot }, 0.08), leg: S('#5e4430', 'cloth', { all: D.ragged(0.86, 1, '#3a2a1e') }) };
+    st.snout = S('#eaa49a', 'noise', { front: D.snout('#7a3a3a') }, 0.06); st.ear = S(skin, 'noise', { all: rot }, 0.08); st.tusk = S('#e8e0cc', 'noise', null, 0.04);
+    return jPiglin(st, 'entity/piglin/zombified_piglin', true); } });
 mob('phantom', {
   hw: 0.45, h: 0.5, health: 20, speed: 7, kind: 'hostile', ai: 'phantom', flying: true, undead: true, burns: true, attack: { dmg: 6, cd: 1.5 }, egg: ['#43518a', '#88ff00'], drops: [['phantom_membrane', 0, 1]], xp: [5, 5], sound: 'phantom',
   model: () => ({ anim: 'phantom', eye: 2, parts: {
@@ -482,7 +488,14 @@ mob('enderman', { chase: 6.2,
 });
 mob('witch', {
   hw: 0.3, h: 1.95, health: 26, speed: 2.2, kind: 'hostile', ai: 'ranged', attack: { ranged: 'potion', range: 8, cd: 3 }, egg: ['#340000', '#51a03e'], drops: [['glass_bottle', 0, 2], ['glowstone_dust', 0, 2], ['gunpowder', 0, 2], ['redstone', 0, 2], ['spider_eye', 0, 2], ['sugar', 0, 2], ['stick', 0, 2]], xp: [5, 5], sound: 'witch',
-  model: () => { const hat = S('#2c2434', 'cloth', null, 0.14); const m = villagerModel('#3e2a4c', { front: D.at(0.46, 1, D.patches('#5a3e6a', 2, 1.2)), all: D.band(0.42, 0.46, '#5a8a2a') }, '#a89a70', '#7a2aa8')(); m.parts.head.boxes[1].style = S('#a89a70', 'noise', { front: D.all(D.band(0.75, 1, '#8a7c58'), D.rect(0.5, 0.5, 0.5, 0.25, '#5a8a2a')) }, 0.06); m.parts.head.boxes.push(box([-5, 10, -5], [10, 2, 10], hat), box([-3.5, 12, -3.5], [7, 4, 7], S('#2c2434', 'cloth', { sides: D.band(0.75, 1, '#5a8a2a'), front: D.band(0.75, 1, '#5a8a2a'), back: D.band(0.75, 1, '#5a8a2a') }, 0.14)), box([-2, 16, -2], [4, 3, 4], hat), box([-1, 19, -1], [2, 2, 2], hat)); return m; },
+  model: () => {
+    const st = villagerStyles('#3e2a4c', { front: D.at(0.46, 1, D.patches('#5a3e6a', 2, 1.2)), all: D.band(0.42, 0.46, '#5a8a2a') }, '#a89a70', '#7a2aa8');
+    st.nose = S('#a89a70', 'noise', { front: D.all(D.band(0.75, 1, '#8a7c58'), D.rect(0.5, 0.5, 0.5, 0.25, '#5a8a2a')) }, 0.06);
+    st.mole = S('#5a8a2a', 'noise', null, 0.06);
+    st.hat = S('#2c2434', 'cloth', null, 0.14);
+    st.hat2 = S('#2c2434', 'cloth', { sides: D.band(0.75, 1, '#5a8a2a'), front: D.band(0.75, 1, '#5a8a2a'), back: D.band(0.75, 1, '#5a8a2a') }, 0.14);
+    return jWitch(st, 'entity/witch');
+  },
 });
 // Slime: a pale see-through-looking shell with the darker core showing inside it, eyes and mouth on the core.
 const cube = (col, inner, eyeCol, scale = 1) => () => {
@@ -512,9 +525,10 @@ const bug = (col, n, spot = null) => () => { const parts = {}; const seg = { top
 mob('silverfish', { chase: 4.4, hw: 0.2, h: 0.3, health: 8, speed: 3, kind: 'hostile', ai: 'melee', attack: { dmg: 1, cd: 1 }, egg: ['#6e6e6e', '#303030'], drops: [], xp: [5, 5], sound: 'silverfish', model: bug('#8e9096', 4) });
 mob('endermite', { chase: 4.4, hw: 0.2, h: 0.3, health: 8, speed: 3, kind: 'hostile', ai: 'melee', attack: { dmg: 2, cd: 1 }, egg: ['#161616', '#6e6e6e'], drops: [], xp: [3, 3], sound: 'silverfish', model: bug('#342a3e', 4, '#b060e0') });
 // Illagers: grey skin, one heavy scowling brow, deep-set eyes and a big nose; `trim` edges the robe (evoker gold).
-const illager = (robe, eyeCol = '#1a3a1a', armed = true, trim = null) => () => {
+// Java's IllagerModel (entity/javamodels.js); `texture` is the pack image that replaces this paint.
+const illager = (robe, eyeCol = '#1a3a1a', armed = true, trim = null, texture = 'entity/illager/pillager') => () => {
   const skin = '#969c9a', edge = D.all(D.band(0.44, 0.48, shadeHex(robe, 0.55)), D.band(0.93, 1, trim || shadeHex(robe, 0.7)));
-  const m = humanoid({ head: S(skin, 'noise', { front: D.all(D.art([
+  return jIllager({ head: S(skin, 'noise', { front: D.all(D.art([
       '........',
       '........',
       '........',
@@ -524,13 +538,11 @@ const illager = (robe, eyeCol = '#1a3a1a', armed = true, trim = null) => () => {
       '........',
       '........',
       '..1111..',
-      '........'], { k: '#262626', w: '#e8e8e4', p: eyeCol })), top: D.blotch('#7a807e', 0.3) }, 0.07), body: S(robe, 'cloth'), robe: S(robe, 'cloth', { all: edge, front: D.all(edge, trim ? D.at(0, 1, D.band(0, 1, trim), 0.44, 0.56) : D.at(0.05, 0.93, D.stripes(shadeHex(robe, 0.8), 99, true), 0.5, 0.56)) }, 0.1), arm: S(robe, 'cloth', trim ? { all: D.band(0.85, 1, trim) } : null, 0.1), leg: S('#2a2a2c', 'cloth'), nose: S(skin, 'noise', { front: D.band(0.75, 1, '#7a807e'), bottom: D.band(0, 1, '#6a706e') }, 0.07) }, { headH: 10, bodyD: 6, nose: true, robe: true, crossed: !armed });
-  if (armed) m.anim = 'zombie';
-  return m;
+      '........'], { k: '#262626', w: '#e8e8e4', p: eyeCol })), top: D.blotch('#7a807e', 0.3) }, 0.07), body: S(robe, 'cloth'), robe: S(robe, 'cloth', { all: edge, front: D.all(edge, trim ? D.at(0, 1, D.band(0, 1, trim), 0.44, 0.56) : D.at(0.05, 0.93, D.stripes(shadeHex(robe, 0.8), 99, true), 0.5, 0.56)) }, 0.1), arm: S(robe, 'cloth', trim ? { all: D.band(0.85, 1, trim) } : null, 0.1), leg: S('#2a2a2c', 'cloth'), nose: S(skin, 'noise', { front: D.band(0.75, 1, '#7a807e'), bottom: D.band(0, 1, '#6a706e') }, 0.07) }, texture);
 };
-mob('pillager', { chase: 3.9, hw: 0.3, h: 1.95, health: 24, speed: 2.4, kind: 'hostile', ai: 'ranged', raider: true, attack: { ranged: 'arrow', range: 16, cd: 2.5, crossbow: true }, egg: ['#532f36', '#959b9b'], drops: [['arrow', 0, 2], ['crossbow', 0, 1, 0.085]], xp: [5, 5], sound: 'illager', holds: 'crossbow', model: illager('#4e3e3a', '#2a2a2a') });
-mob('vindicator', { chase: 4.6, hw: 0.3, h: 1.95, health: 24, speed: 2.5, kind: 'hostile', ai: 'melee', raider: true, attack: { dmg: 13, cd: 1.2 }, egg: ['#959b9b', '#275e61'], drops: [['emerald', 0, 1], ['iron_axe', 0, 1, 0.085]], xp: [5, 5], sound: 'illager', holds: 'iron_axe', model: illager('#2e3e44', '#1a4a2a') });
-mob('evoker', { hw: 0.3, h: 1.95, health: 24, speed: 2.2, kind: 'hostile', ai: 'ranged', raider: true, attack: { ranged: 'fangs', range: 12, cd: 4 }, egg: ['#959b9b', '#1e1c1a'], drops: [['totem_of_undying', 1, 1], ['emerald', 0, 1]], xp: [10, 10], sound: 'illager', model: illager('#1e1e22', '#1a1a1a', false, '#d8b030') });
+mob('pillager', { chase: 3.9, hw: 0.3, h: 1.95, health: 24, speed: 2.4, kind: 'hostile', ai: 'ranged', raider: true, attack: { ranged: 'arrow', range: 16, cd: 2.5, crossbow: true }, egg: ['#532f36', '#959b9b'], drops: [['arrow', 0, 2], ['crossbow', 0, 1, 0.085]], xp: [5, 5], sound: 'illager', holds: 'crossbow', model: illager('#4e3e3a', '#2a2a2a', true, null, 'entity/illager/pillager') });
+mob('vindicator', { chase: 4.6, hw: 0.3, h: 1.95, health: 24, speed: 2.5, kind: 'hostile', ai: 'melee', raider: true, attack: { dmg: 13, cd: 1.2 }, egg: ['#959b9b', '#275e61'], drops: [['emerald', 0, 1], ['iron_axe', 0, 1, 0.085]], xp: [5, 5], sound: 'illager', holds: 'iron_axe', model: illager('#2e3e44', '#1a4a2a', true, null, 'entity/illager/vindicator') });
+mob('evoker', { hw: 0.3, h: 1.95, health: 24, speed: 2.2, kind: 'hostile', ai: 'ranged', raider: true, attack: { ranged: 'fangs', range: 12, cd: 4 }, egg: ['#959b9b', '#1e1c1a'], drops: [['totem_of_undying', 1, 1], ['emerald', 0, 1]], xp: [10, 10], sound: 'illager', model: illager('#1e1e22', '#1a1a1a', false, '#d8b030', 'entity/illager/evoker') });
 mob('ravager', {
   hw: 0.98, h: 2.2, health: 100, speed: 2.5, kind: 'hostile', ai: 'melee', raider: true, attack: { dmg: 12, cd: 2, fling: 1 }, egg: ['#757470', '#5b5049'], drops: [['saddle', 1, 1]], xp: [20, 20], sound: 'ravager', breaksLeaves: true, knockbackResist: 0.75,
   model: () => { const hide = '#5e5852'; const m = quadruped({ body: S(hide, 'fur', { top: D.stripes('#48433e', 3, true), bottom: D.blotch('#4a4540', 0.5) }), head: S(hide, 'fur', face(D.art([
@@ -578,7 +590,10 @@ mob('ghast', {
       '................'], { k: '#2e2e2e', g: '#8a8a8a', r: '#c83a3a' }), all: D.blotch('#dcdcd8', 0.2) }, 0.05))]) }; for (let i = 0; i < 9; i++) parts[`t${i}`] = part([-5 + (i % 3) * 5, 4, -5 + Math.floor(i / 3) * 5], [box([-1, -8 - (i * 7) % 5, -1], [2, 8 + (i * 7) % 5, 2], S('#e8e8e6', 'noise', { all: D.stripes('#d4d4d0', 4) }, 0.05))]); return { anim: 'ghast', eye: 14, parts }; },
 });
 // Piglin: wide pink head with a snout plate, small tusks and droopy ears; leather tunic with a gold belt, gold armbands.
-const piglinModel = gold => () => { const skin = '#e4a08e', ear = S('#dc907e', 'noise', { sides: D.ragged(0.6, 1, '#b8705e') }, 0.08); const m = humanoid({ head: S(skin, 'noise', { front: D.all(D.brow('#b87060', 0.25, 1), eyes({ c: '#f4f0e8', pupil: '#3a2a1a', y: 0.375, gap: 4 }), D.art(['..........', '..........', '..........', '..........', '..........', '..........', '.w......w.', '.w......w.'], { w: '#f2ecdc' })), top: D.blotch('#c88070', 0.25) }, 0.08), body: S('#7a5234', 'cloth', { all: D.all(D.band(0.72, 0.82, gold), D.ragged(0, 0.12, '#5a3a22')), front: D.all(D.band(0.72, 0.82, gold), D.at(0.72, 0.82, D.band(0, 1, '#a07818'), 0.375, 0.625), D.bar('#5a3a22', 0, 4)) }), arm: S(skin, 'noise', { all: D.band(0.55, 0.68, gold), top: D.band(0, 1, '#7a5234') }, 0.08), leg: S('#5e4028', 'cloth', { all: D.band(0.8, 1, '#3a2818') }) }); m.parts.head.boxes[0].s = [10, 8, 8]; m.parts.head.boxes[0].o = [-5, 0, -4]; m.parts.head.boxes.push(box([-2, 0, -5], [4, 4, 1], S('#eeaca0', 'noise', { front: D.snout('#7a3a3a') }, 0.06)), box([-6, 4, -1], [1, 5, 4], ear), box([5, 4, -1], [1, 5, 4], ear)); m.anim = 'zombie'; return m; };
+// Java's PiglinModel (entity/javamodels.js); `texture` is the pack image that replaces this paint.
+const piglinModel = gold => () => { const skin = '#e4a08e', ear = S('#dc907e', 'noise', { sides: D.ragged(0.6, 1, '#b8705e') }, 0.08); const st = { head: S(skin, 'noise', { front: D.all(D.brow('#b87060', 0.25, 1), eyes({ c: '#f4f0e8', pupil: '#3a2a1a', y: 0.375, gap: 4 }), D.art(['..........', '..........', '..........', '..........', '..........', '..........', '.w......w.', '.w......w.'], { w: '#f2ecdc' })), top: D.blotch('#c88070', 0.25) }, 0.08), body: S('#7a5234', 'cloth', { all: D.all(D.band(0.72, 0.82, gold), D.ragged(0, 0.12, '#5a3a22')), front: D.all(D.band(0.72, 0.82, gold), D.at(0.72, 0.82, D.band(0, 1, '#a07818'), 0.375, 0.625), D.bar('#5a3a22', 0, 4)) }), arm: S(skin, 'noise', { all: D.band(0.55, 0.68, gold), top: D.band(0, 1, '#7a5234') }, 0.08), leg: S('#5e4028', 'cloth', { all: D.band(0.8, 1, '#3a2818') }) };
+  st.snout = S('#eeaca0', 'noise', { front: D.snout('#7a3a3a') }, 0.06); st.ear = ear; st.tusk = S('#f2ecdc', 'noise', null, 0.04);
+  return jPiglin(st, 'entity/piglin/piglin'); };
 mob('piglin', { chase: 4.5, hw: 0.3, h: 1.95, health: 16, speed: 2.5, kind: 'hostile', ai: 'melee', attack: { dmg: 5, cd: 1 }, goldCalm: true, barters: true, egg: ['#995f40', '#f9f3a4'], drops: [['gold_ingot', 0, 1, 0.08]], xp: [5, 5], sound: 'piglin', holds: 'golden_sword', model: piglinModel('#e0b020') });
 mob('hoglin', { chase: 4.6,
   hw: 0.7, h: 1.4, health: 40, speed: 2.5, kind: 'hostile', ai: 'melee', attack: { dmg: 6, cd: 1.2, fling: 0.6 }, egg: ['#c66e55', '#5f6464'], drops: [['porkchop', 2, 4], ['leather', 0, 1]], cooked: { porkchop: 'cooked_porkchop' }, xp: [5, 5], sound: 'hoglin',
@@ -634,7 +649,8 @@ mob('ender_dragon', {
   },
 });
 
-MOBS.villager.professionModel = prof => villagerModel(PROFESSION_COLORS[prof] || '#6a4a3a', PROF_DECOR[prof] || null)();
+MOBS.villager.professionModel = prof => villagerModel(PROFESSION_COLORS[prof] || '#6a4a3a', PROF_DECOR[prof] || null, undefined, undefined,
+  ['entity/villager/villager', 'entity/villager/type/plains', `entity/villager/profession/${prof}`])();
 
 // The player's own model (first-person arm and third-person view).
 // The four default player skins players pick from in Multiplayer: [name, skin tone, hair,
