@@ -1,16 +1,16 @@
 // Mob roster: stats, AI archetype, drops, box models and procedural skins.
 // Model space: 1 unit = 1/16 block, feet at y=0, the mob faces -Z.
-import { BIOMES, COLD as COLD_BIOMES } from '../gen/biomes.js?v=musmx1xd';
-import { COLORS } from './blocks.js?v=musmx1xd';
-import { D, pal, shade as shadeHex } from '../render/mobtex.js?v=musmx1xd';
-import { pigModel as jPig, cowModel as jCow, sheepModel as jSheep, sheepFurModel as jSheepFur, chickenModel as jChicken, wolfModel as jWolf, foxModel as jFox, polarBearModel as jPolarBear, goatModel as jGoat, llamaModel as jLlama, horseModel as jHorse } from '../entity/animals.js?v=musmx1xd';
-import { creeperModel as jCreeper, spiderModel as jSpider, endermanModel as jEnderman, slimeModel as jSlime, slimeOuterModel as jSlimeOuter, magmaCubeModel as jMagma, silverfishModel as jSilverfish, endermiteModel as jEndermite, blazeModel as jBlaze, ghastModel as jGhast, phantomModel as jPhantom } from '../entity/monsters.js?v=musmx1xd';
-import { ironGolemModel as jIronGolem, snowGolemModel as jSnowGolem, hoglinModel as jHoglin, striderModel as jStrider, ravagerModel as jRavager } from '../entity/beasts.js?v=musmx1xd';
-import { squidModel as jSquid, codModel as jCod, salmonModel as jSalmon, tropicalFishModel as jTropical, pufferfishModel as jPuffer, guardianModel as jGuardian, dolphinModel as jDolphin, turtleModel as jTurtle, axolotlModel as jAxolotl } from '../entity/aquatic.js?v=musmx1xd';
-import { rabbitModel as jRabbit, ocelotModel as jOcelot, pandaModel as jPanda, parrotModel as jParrot, batModel as jBat, frogModel as jFrog, camelModel as jCamel } from '../entity/critters.js?v=musmx1xd';
-import { witherModel as jWither, dragonModel as jDragon } from '../entity/bosses.js?v=musmx1xd';
-import { villagerModel as jVillager, witchModel as jWitch, illagerModel as jIllager, piglinModel as jPiglin, zombieVillagerModel as jZombieVillager } from '../entity/javamodels.js?v=musmx1xd';
-import { playerModel as javaPlayerModel, mobHumanoid } from '../entity/humanoid.js?v=musmx1xd';
+import { BIOMES, COLD as COLD_BIOMES } from '../gen/biomes.js?v=musmxd8k';
+import { COLORS } from './blocks.js?v=musmxd8k';
+import { D, pal, shade as shadeHex } from '../render/mobtex.js?v=musmxd8k';
+import { pigModel as jPig, cowModel as jCow, sheepModel as jSheep, sheepFurModel as jSheepFur, chickenModel as jChicken, wolfModel as jWolf, foxModel as jFox, polarBearModel as jPolarBear, goatModel as jGoat, llamaModel as jLlama, horseModel as jHorse } from '../entity/animals.js?v=musmxd8k';
+import { creeperModel as jCreeper, spiderModel as jSpider, endermanModel as jEnderman, slimeModel as jSlime, slimeOuterModel as jSlimeOuter, magmaCubeModel as jMagma, silverfishModel as jSilverfish, endermiteModel as jEndermite, blazeModel as jBlaze, ghastModel as jGhast, phantomModel as jPhantom } from '../entity/monsters.js?v=musmxd8k';
+import { ironGolemModel as jIronGolem, snowGolemModel as jSnowGolem, hoglinModel as jHoglin, striderModel as jStrider, ravagerModel as jRavager } from '../entity/beasts.js?v=musmxd8k';
+import { squidModel as jSquid, codModel as jCod, salmonModel as jSalmon, tropicalFishModel as jTropical, pufferfishModel as jPuffer, guardianModel as jGuardian, dolphinModel as jDolphin, turtleModel as jTurtle, axolotlModel as jAxolotl } from '../entity/aquatic.js?v=musmxd8k';
+import { rabbitModel as jRabbit, ocelotModel as jOcelot, pandaModel as jPanda, parrotModel as jParrot, batModel as jBat, frogModel as jFrog, camelModel as jCamel } from '../entity/critters.js?v=musmxd8k';
+import { witherModel as jWither, dragonModel as jDragon } from '../entity/bosses.js?v=musmxd8k';
+import { villagerModel as jVillager, witchModel as jWitch, illagerModel as jIllager, piglinModel as jPiglin, zombieVillagerModel as jZombieVillager } from '../entity/javamodels.js?v=musmxd8k';
+import { playerModel as javaPlayerModel, mobHumanoid } from '../entity/humanoid.js?v=musmxd8k';
 
 const box = (o, s, style, extra = {}) => ({ o, s, style, ...extra });
 const part = (pivot, boxes, extra = {}) => ({ pivot, boxes, ...extra });
@@ -822,11 +822,13 @@ MOBS.villager.professionModel = prof => villagerModel(PROFESSION_COLORS[prof] ||
   ['entity/villager/villager', 'entity/villager/type/plains', `entity/villager/profession/${prof}`])();
 
 // The player's own model (first-person arm and third-person view).
-// The four default player skins players pick from in Multiplayer: [name, skin tone, hair,
-// hair length (0 short .. 1 long), eye colour, shirt, trousers, shoes].
+// The default player skins: [name, skin tone, hair, hair length (0 short .. 1 long), eye colour,
+// shirt, trousers, shoes, Java's default skin (a pack's texture, which takes the painted one's place),
+// slim arms]. Steve, the first, is everyone's until they choose; Steve and Alex are painted in their
+// own colours when no pack has them.
 export const PLAYER_SKINS = [
-  ['Classic', '#c8926a', '#3a2412', 0.25, '#3a4ab8', '#2aa8a8', '#3a3aa8', '#5a5a5a'],
-  ['Ranger', '#eac19a', '#c8621e', 0.9, '#3a8a3a', '#5a9a3a', '#6a4a2a', '#3a2a1a'],
+  ['Steve', '#b58a6a', '#2b1e0e', 0.25, '#52418a', '#00a8a8', '#463aa5', '#6a6a6a', 'entity/player/wide/steve', false],
+  ['Alex', '#f3cfa8', '#e3802c', 0.9, '#3d8a3a', '#7fb238', '#6b4a2c', '#59473a', 'entity/player/slim/alex', true],
   ['Ember', '#8a5a3a', '#1a1414', 0.3, '#4a2a14', '#c83a3a', '#2a2a2e', '#e8e8e8'],
   ['Frost', '#f0cfb0', '#e8d890', 0.55, '#3aa8d8', '#7a4ab8', '#8a8a92', '#3a3a44'],
 ];
