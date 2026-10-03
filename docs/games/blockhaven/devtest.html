@@ -1,5 +1,15 @@
 <!doctype html><html><body style="margin:0;overflow:hidden"><canvas id="c" style="width:100vw;height:100vh;display:block"></canvas>
 <script type="module">
+// Renderer + world on their own, for screenshots and timing. Parameters:
+//   seed, type, dim, cam=x,y,z,yaw,pitch, time (day fraction), rd, preset (0-3), medium (0 air, 1 water)
+//   pack=1     load the bundled default pack's block textures and animations
+//   t=<s>      freeze shader time (water, clouds, animated textures) for repeatable pictures
+//   bench=<s>  once loaded, turn a full circle over <s> seconds timing every frame to the GPU's
+//              finish; the result (ms) lands in window.bench { cpu (time to submit), avg, p95, max,
+//              frames, draws, quads }
+//   dark, flash  post effects (0..1)
+// window.ready turns true when the world around the camera is generated, meshed and uploaded;
+// window.capture() then returns the next frame's pixels (RGBA, bottom row first) as base64.
 import { TEXTURES, DIM } from './js/data/blocks.js';
 import { generateBlockTextures } from './js/render/blocktex.js';
 import { buildMipChain } from './js/render/atlas.js';
@@ -7,24 +17,67 @@ import { Renderer } from './js/render/renderer.js';
 import { World } from './js/world/world.js';
 import { computeEnv } from './js/game/env.js';
 import { forward } from './js/core/math.js';
+import { Zip, applyBlockTextures } from './js/render/pack.js';
 const q = new URLSearchParams(location.search);
-const seed = Number(q.get('seed') || 2024), type = q.get('type') || 'default', dim = Number(q.get('dim') || 0);
+const num = (k, d) => (q.has(k) ? Number(q.get(k)) : d);
+const seed = num('seed', 2024), type = q.get('type') || 'default', dim = num('dim', 0);
 const cam = (q.get('cam') || '0,120,0,0.8,-0.3').split(',').map(Number);
-const time = Number(q.get('time') || 0.08), rd = Number(q.get('rd') || 6);
+const time = num('time', 0.08), rd = num('rd', 6), medium = num('medium', 0);
+const fixedT = q.has('t') ? num('t', 0) : null, benchSecs = num('bench', 0);
+const post = { dark: num('dark', 0), flash: num('flash', 0) };
 const r = new Renderer(document.getElementById('c'));
-r.setBlockTextures(buildMipChain(generateBlockTextures()), TEXTURES.length);
+r.setQuality(num('preset', 1));
+const tex = generateBlockTextures();
+r.setBlockTextures(buildMipChain(tex), TEXTURES.length);
+if (q.get('pack') === '1') {
+  const zip = await Zip.open(await (await fetch('assets/default-pack.zip')).blob());
+  const anims = new Map();
+  await applyBlockTextures(zip, TEXTURES, tex, anims);
+  r.setBlockTextures(buildMipChain(tex), TEXTURES.length);
+  r.setAnimations(anims);
+}
 const world = new World({ seed, dim, worldType: type, callbacks: { onMesh: (c, m) => r.uploadChunk(c, m), onUnload: c => r.freeChunk(c) } });
 window.errors = [];
-let t0 = performance.now();
+window.ready = false;
+let calm = 0, captureWanted = null, bench = null;
+window.capture = () => new Promise(res => { captureWanted = res; });
+const gl = r.gl, one = new Uint8Array(4);
+const t0 = performance.now();
 function frame(now) {
   requestAnimationFrame(frame);
   r.resize(innerWidth, innerHeight);
   world.update(cam[0], cam[2], rd);
-  const fwd = forward(cam[3], cam[4]);
-  const env = computeEnv(dim, time, fwd, 0, 0);
-  r.render({ camPos: cam.slice(0, 3), yaw: cam[3], pitch: cam[4], roll: 0, fov: 75, time: (now - t0) / 1000, env, medium: 0, renderDistance: rd, clouds: true, chunks: world.chunks.values(), dim });
-  let meshed = 0; for (const c of world.chunks.values()) if (c.meshedVersion) meshed++;
-  window.meshed = meshed;
+  const t = fixedT ?? (now - t0) / 1000;
+  r.animate(Math.floor(t * 20));
+  if (bench) cam[3] = bench.yaw0 + Math.PI * 2 * Math.min(1, (now - bench.start) / (benchSecs * 1000));
+  const env = computeEnv(dim, time, forward(cam[3], cam[4]), 0, 0);
+  const a = performance.now();
+  r.render({ camPos: cam.slice(0, 3), yaw: cam[3], pitch: cam[4], roll: 0, fov: 75, time: t, env, medium, renderDistance: rd, clouds: q.get('clouds') !== '0', chunks: world.chunks.values(), dim, post });
+  if (bench) {
+    bench.cpu.push(performance.now() - a);
+    gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, one); // waits for the GPU to finish the frame
+    bench.ms.push(performance.now() - a);
+    if (now - bench.start >= benchSecs * 1000) {
+      const s = bench.ms.slice().sort((x, y) => x - y), avg = s.reduce((x, y) => x + y, 0) / s.length;
+      const cpu = bench.cpu.reduce((x, y) => x + y, 0) / bench.cpu.length;
+      window.bench = { cpu: +cpu.toFixed(2), avg: +avg.toFixed(2), p95: +s[Math.floor(s.length * 0.95)].toFixed(2), max: +s[s.length - 1].toFixed(2), frames: s.length, draws: r.stats.draws, quads: r.stats.quads };
+      bench = null; cam[3] = window.benchYaw0;
+    }
+  }
+  if (captureWanted) {
+    const px = new Uint8Array(r.width * r.height * 4);
+    gl.readPixels(0, 0, r.width, r.height, gl.RGBA, gl.UNSIGNED_BYTE, px);
+    let s = ''; for (let i = 0; i < px.length; i += 0x8000) s += String.fromCharCode.apply(null, px.subarray(i, i + 0x8000));
+    captureWanted({ w: r.width, h: r.height, data: btoa(s) }); captureWanted = null;
+  }
+  // Loaded: nothing generating, meshing or waiting to upload for a second.
+  let busy = world.uploads.size > 0;
+  for (const c of world.chunks.values()) if (c.genPending || c.meshPending) { busy = true; break; }
+  calm = busy ? 0 : calm + 1;
+  if (!window.ready && calm > 60) {
+    window.ready = true;
+    if (benchSecs) { window.benchYaw0 = cam[3]; bench = { start: now, yaw0: cam[3], ms: [], cpu: [] }; }
+  }
 }
 requestAnimationFrame(frame);
 </script></body></html>
