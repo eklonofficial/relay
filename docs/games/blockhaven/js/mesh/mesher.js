@@ -4,10 +4,10 @@ import {
   CHUNK, HEIGHT, PAD, PS, B, SHAPE, VF, TINT, TEX,
   OPAQUE, SOLID, SHAPE_OF, TRANSLUCENT, EMIT, ATTEN, VFLAGS, CULL_SAME, TINT_OF, WATERLOGGED, VARIANT_MASK,
   FACING_SHIFT, AXIS_SHIFT, FACE_TEX, CROP_STAGES, CROP_TEX, SHEETS,
-} from '../data/blocks.js?v=mush3vnf';
-import { BIOME_COLORS } from '../gen/biomes.js?v=mush3vnf';
-import { up6, rotY, attach, FACE_OF_DIR6, OPP6, DIR2D_OF_6 } from '../data/orient.js?v=mush3vnf';
-import { MODELS } from '../data/models.js?v=mush3vnf';
+} from '../data/blocks.js?v=musxdph0';
+import { BIOME_COLORS } from '../gen/biomes.js?v=musxdph0';
+import { up6, rotY, attach, FACE_OF_DIR6, OPP6, DIR2D_OF_6 } from '../data/orient.js?v=musxdph0';
+import { MODELS } from '../data/models.js?v=musxdph0';
 
 export const H2 = HEIGHT + 2;
 export const VOLUME_SIZE = PS * PS * H2;
@@ -997,11 +997,14 @@ export function meshChunk(job) {
   const maxY = topY();
   computeLight(maxY, job.sky !== false);
 
-  const opaque = new VB(4096), trans = new VB(1024);
+  // Java's chunk render types: full opaque cubes (and lava) are `solid` and drawn without an alpha
+  // test, so the GPU can reject hidden pixels before shading them; everything else that isn't
+  // translucent is `cutout` (leaves, plants, glass, rails, torches and other shaped blocks).
+  const solid = new VB(4096), cutout = new VB(1024), trans = new VB(1024);
   // Quads come out bottom-up, so 16-tall sections are contiguous ranges (drawn with per-section culling).
-  const secO = new Int32Array(17), secT = new Int32Array(17);
+  const secS = new Int32Array(17), secC = new Int32Array(17), secT = new Int32Array(17);
   for (let y = 1; y <= maxY; y++) {
-    if ((y - 1) % 16 === 0) { const s = (y - 1) >> 4; secO[s] = opaque.quads; secT[s] = trans.quads; }
+    if ((y - 1) % 16 === 0) { const s = (y - 1) >> 4; secS[s] = solid.quads; secC[s] = cutout.quads; secT[s] = trans.quads; }
     for (let z = PAD; z < PAD + CHUNK; z++) {
       for (let x = PAD; x < PAD + CHUNK; x++) {
         const i = x + z * S + y * SS, id = vol[i];
@@ -1011,18 +1014,21 @@ export function meshChunk(job) {
         const ox = lx * 16, oy = (y - 1) * 16, oz = lz * 16;
         const shape = SHAPE_OF[id], m = meta[i];
         setTint(id);
-        if (shape === SHAPE.CUBE) cube(TRANSLUCENT[id] ? trans : opaque, i, id, m, ox, oy, oz);
-        else if (shape === SHAPE.LIQUID) liquid(trans, opaque, i, id === B.LAVA, ox, oy, oz);
-        else special(opaque, trans, i, id, m, shape, ox, oy, oz, lx, y - 1, lz);
-        if (WATERLOGGED[id]) liquid(trans, opaque, i, false, ox, oy, oz);
+        if (shape === SHAPE.CUBE) cube(TRANSLUCENT[id] ? trans : OPAQUE[id] ? solid : cutout, i, id, m, ox, oy, oz);
+        else if (shape === SHAPE.LIQUID) liquid(trans, solid, i, id === B.LAVA, ox, oy, oz);
+        else special(cutout, trans, i, id, m, shape, ox, oy, oz, lx, y - 1, lz);
+        if (WATERLOGGED[id]) liquid(trans, solid, i, false, ox, oy, oz);
       }
     }
   }
 
   // Close the last section: every section boundary above the top block ends at the full count.
   // (Using maxY >> 4 here dropped the top section whenever the terrain height was a multiple of 16.)
-  for (let sct = ((Math.max(1, maxY) - 1) >> 4) + 1; sct <= 16; sct++) { secO[sct] = opaque.quads; secT[sct] = trans.quads; }
-  for (let sct = 1; sct < 17; sct++) { if (secO[sct] < secO[sct - 1]) secO[sct] = secO[sct - 1]; if (secT[sct] < secT[sct - 1]) secT[sct] = secT[sct - 1]; }
+  for (const [sec, vb] of [[secS, solid], [secC, cutout], [secT, trans]]) {
+    for (let sct = ((Math.max(1, maxY) - 1) >> 4) + 1; sct <= 16; sct++) sec[sct] = vb.quads;
+    for (let sct = 1; sct < 17; sct++) if (sec[sct] < sec[sct - 1]) sec[sct] = sec[sct - 1];
+  }
+  const S_ = topDown(solid, secS), C_ = topDown(cutout, secC);
 
   // Light for the chunk's own columns, for entities and particles on the main thread.
   const light = new Uint8Array(CHUNK * CHUNK * HEIGHT);
@@ -1032,10 +1038,27 @@ export function meshChunk(job) {
   }
 
   return {
-    opaque: opaque.result(), opaqueQuads: opaque.quads,
-    trans: trans.result(), transQuads: trans.quads,
-    maxY: maxY - 1, light: light.buffer, secO, secT,
+    solid: S_.buf, solidQuads: solid.quads, secS: S_.sec,
+    cutout: C_.buf, cutoutQuads: cutout.quads, secC: C_.sec,
+    trans: trans.result(), transQuads: trans.quads, secT,
+    maxY: maxY - 1, light: light.buffer,
   };
+}
+
+// Lays a mesh's 16-tall sections out top section first (each section's quads keep their order).
+// Opaque geometry drawn from the top down lets the depth test throw away the caves under the
+// ground before they are shaded. sec[k]..sec[k + 1] is then section 15 - k.
+function topDown(vb, sec) {
+  const q = 4 * STRIDE, out = new Uint8Array(vb.quads * q), rs = new Int32Array(17);
+  let o = 0;
+  for (let k = 0; k < 16; k++) {
+    const a = sec[15 - k], b = sec[16 - k];
+    rs[k] = o;
+    out.set(vb.u8.subarray(a * q, b * q), o * q);
+    o += b - a;
+  }
+  rs[16] = o;
+  return { buf: out.buffer, sec: rs };
 }
 
 // Mesh one block state on its own (held items, dropped blocks, falling blocks).

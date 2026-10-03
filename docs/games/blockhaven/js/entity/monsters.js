@@ -1,8 +1,8 @@
 // Java Edition's monster models (CreeperModel, SpiderModel, EndermanModel, SlimeModel, LavaSlimeModel,
 // SilverfishModel, EndermiteModel, BlazeModel, GhastModel, PhantomModel) with their texture offsets, and
 // their setupAnim poses. Coordinates as in entity/animals.js.
-import { jbox, pivot, humanoidParts } from './humanoid.js?v=mush3vnf';
-import { P, child, rot, model, toOurs, R } from './animals.js?v=mush3vnf';
+import { jbox, pivot, humanoidParts } from './humanoid.js?v=musxdph0';
+import { P, child, rot, model, toOurs, R } from './animals.js?v=musxdph0';
 
 const PI = Math.PI;
 

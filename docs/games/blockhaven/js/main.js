@@ -1,45 +1,45 @@
 // Blockhaven bootstrap: assets, menus, input, camera, frame loop.
-import './page.js?v=mush3vnf';
-import { surfaceDocument as document } from './surface.js?v=mush3vnf';
-import { registerApp } from './veil.js?v=mush3vnf';
-import { movementSamples } from './util/pointer.js?v=mush3vnf';
-import { ask, tell } from './dialog.js?v=mush3vnf';
-import { Demo, DEMO_SEED } from './demo.js?v=mush3vnf';
-import { armorLayerModel, armorLayer, ARMOR_MATERIALS, LEATHER_COLOR, elytraModel } from './data/armor.js?v=mush3vnf';
-import { humanoidPose, processSkin } from './entity/humanoid.js?v=mush3vnf';
-import { TEXTURES, TEX, B, BLOCKS, DIM, DIM_NAMES, SHAPE_OF, SHAPE, props, HEIGHT } from './data/blocks.js?v=mush3vnf';
-import { I, ITEMS } from './data/items.js?v=mush3vnf';
-import { MOBS, PROFESSIONS, playerModel, saddleModel, PLAYER_SKINS } from './data/mobs.js?v=mush3vnf';
-import { Net, cleanCode, cleanName, cleanKey, cleanChat, chatLine, MAX_PLAYERS, wakeRelays, diagnoseNetwork } from './net/net.js?v=mush3vnf';
-import { NameTags } from './net/nametags.js?v=mush3vnf';
-import { BIOMES } from './gen/biomes.js?v=mush3vnf';
-import { generateBlockTextures, drawBlockTexture } from './render/blocktex.js?v=mush3vnf';
-import { generateItemTextures, ITEM_LAYER, FX_LAYER, ITEM_LAYER_COUNT, flatTexFor } from './render/itemtex.js?v=mush3vnf';
-import { Zip, storedPack, savePack, removePack, applyBlockTextures, applyItemTextures, applyArmorTextures, readEntityTexture, indexSounds } from './render/pack.js?v=mush3vnf';
-import { packModel, paintModel, ENTITY, texFactor, faceRects } from './render/mobtex.js?v=mush3vnf';
-import { buildMipChain } from './render/atlas.js?v=mush3vnf';
-import { Renderer, Batch } from './render/renderer.js?v=mush3vnf';
-import { World, UNLOADED } from './world/world.js?v=mush3vnf';
-import { createGenerator } from './gen/index.js?v=mush3vnf';
-import { Game } from './game/game.js?v=mush3vnf';
-import { Interact, crossbowCharge } from './game/interact.js?v=mush3vnf';
-import { SpawnPrep, STATUS_COLOR } from './game/spawnprep.js?v=mush3vnf';
-import { splash } from './splash.js?v=mush3vnf';
-import { Commands } from './game/commands.js?v=mush3vnf';
-import { GUI, HUD } from './game/ui.js?v=mush3vnf';
-import { buildIcons, hudSprites } from './game/icons.js?v=mush3vnf';
-import { Sound } from './game/audio.js?v=mush3vnf';
-import { buildLogo, buttonTexture, dirtTexture, iconDataURL } from './render/logo.js?v=mush3vnf';
-import { computeEnv } from './game/env.js?v=mush3vnf';
-import { guideSections } from './game/guide.js?v=mush3vnf';
-import { listWorlds, loadWorld, saveWorld, deleteWorld } from './game/storage.js?v=mush3vnf';
-import { importJavaWorld, exportJavaWorld } from './game/javaworld.js?v=mush3vnf';
-import { drawModel, rootMatrix, M } from './entity/entity.js?v=mush3vnf';
-import { itemMesh, emitItemMesh, clearItemMeshes } from './entity/itemmesh.js?v=mush3vnf';
-import { Lightning, billboard } from './entity/objects.js?v=mush3vnf';
-import { compose, translation, rotationX, rotationY, rotationZ, scaling, forward, mat4 } from './core/math.js?v=mush3vnf';
-import { hasGlint } from './data/enchantments.js?v=mush3vnf';
-import { BarrelRoll } from './game/barrelroll.js?v=mush3vnf';
+import './page.js?v=musxdph0';
+import { surfaceDocument as document } from './surface.js?v=musxdph0';
+import { registerApp } from './veil.js?v=musxdph0';
+import { movementSamples } from './util/pointer.js?v=musxdph0';
+import { ask, tell } from './dialog.js?v=musxdph0';
+import { Demo, DEMO_SEED } from './demo.js?v=musxdph0';
+import { armorLayerModel, armorLayer, ARMOR_MATERIALS, LEATHER_COLOR, elytraModel } from './data/armor.js?v=musxdph0';
+import { humanoidPose, processSkin } from './entity/humanoid.js?v=musxdph0';
+import { TEXTURES, TEX, B, BLOCKS, DIM, DIM_NAMES, SHAPE_OF, SHAPE, props, HEIGHT } from './data/blocks.js?v=musxdph0';
+import { I, ITEMS } from './data/items.js?v=musxdph0';
+import { MOBS, PROFESSIONS, playerModel, saddleModel, PLAYER_SKINS } from './data/mobs.js?v=musxdph0';
+import { Net, cleanCode, cleanName, cleanKey, cleanChat, chatLine, MAX_PLAYERS, wakeRelays, diagnoseNetwork } from './net/net.js?v=musxdph0';
+import { NameTags } from './net/nametags.js?v=musxdph0';
+import { BIOMES } from './gen/biomes.js?v=musxdph0';
+import { generateBlockTextures, drawBlockTexture } from './render/blocktex.js?v=musxdph0';
+import { generateItemTextures, ITEM_LAYER, FX_LAYER, ITEM_LAYER_COUNT, flatTexFor } from './render/itemtex.js?v=musxdph0';
+import { Zip, storedPack, savePack, removePack, applyBlockTextures, applyItemTextures, applyArmorTextures, readEntityTexture, indexSounds } from './render/pack.js?v=musxdph0';
+import { packModel, paintModel, ENTITY, texFactor, faceRects } from './render/mobtex.js?v=musxdph0';
+import { buildMipChain } from './render/atlas.js?v=musxdph0';
+import { Renderer, Batch } from './render/renderer.js?v=musxdph0';
+import { World, UNLOADED } from './world/world.js?v=musxdph0';
+import { createGenerator } from './gen/index.js?v=musxdph0';
+import { Game } from './game/game.js?v=musxdph0';
+import { Interact, crossbowCharge } from './game/interact.js?v=musxdph0';
+import { SpawnPrep, STATUS_COLOR } from './game/spawnprep.js?v=musxdph0';
+import { splash } from './splash.js?v=musxdph0';
+import { Commands } from './game/commands.js?v=musxdph0';
+import { GUI, HUD } from './game/ui.js?v=musxdph0';
+import { buildIcons, hudSprites } from './game/icons.js?v=musxdph0';
+import { Sound } from './game/audio.js?v=musxdph0';
+import { buildLogo, buttonTexture, dirtTexture, iconDataURL } from './render/logo.js?v=musxdph0';
+import { computeEnv } from './game/env.js?v=musxdph0';
+import { guideSections } from './game/guide.js?v=musxdph0';
+import { listWorlds, loadWorld, saveWorld, deleteWorld } from './game/storage.js?v=musxdph0';
+import { importJavaWorld, exportJavaWorld } from './game/javaworld.js?v=musxdph0';
+import { drawModel, rootMatrix, M } from './entity/entity.js?v=musxdph0';
+import { itemMesh, emitItemMesh, clearItemMeshes } from './entity/itemmesh.js?v=musxdph0';
+import { Lightning, billboard } from './entity/objects.js?v=musxdph0';
+import { compose, translation, rotationX, rotationY, rotationZ, scaling, forward, mat4 } from './core/math.js?v=musxdph0';
+import { hasGlint } from './data/enchantments.js?v=musxdph0';
+import { BarrelRoll } from './game/barrelroll.js?v=musxdph0';
 
 const $ = id => document.getElementById(id);
 // Resolves after the page has painted what was just put on screen.
@@ -1375,8 +1375,11 @@ class App {
     // Orthographic: `scale` GUI px a block, the feet at (fx, fy) in the box, depth +-4 blocks.
     const sx = 2 * pv.scale / pv.w, sy = 2 * pv.scale / pv.h;
     const vp = new Float32Array([sx, 0, 0, 0, 0, sy, 0, 0, 0, 0, -0.125, 0, 2 * pv.fx / pv.w - 1, 1 - 2 * pv.fy / pv.h, 0, 1]);
+    // The pixels come back a frame later (read without stalling the GPU), and only when this size.
     const px = this.renderer.renderPreview([{ batch: B_.mobs, tex: 'mob' }, { batch: B_.items, tex: 'item' }], W, H, vp, { env: g.env, time: this.time, blockModels: ctx.blockModels });
-    const img = new ImageData(W, H), row = W * 4;
+    if (!px) return;
+    if (!this.pvImg || this.pvImg.width !== W || this.pvImg.height !== H) this.pvImg = new ImageData(W, H);
+    const img = this.pvImg, row = W * 4;
     for (let y = 0; y < H; y++) img.data.set(px.subarray((H - 1 - y) * row, (H - y) * row), y * row);
     c.getContext('2d').putImageData(img, 0, 0);
   }
@@ -1691,11 +1694,11 @@ class App {
         const b = BIOMES[g.world.biomeAt(pos[0], pos[2])];
         const facing = ['south (+Z)', 'west (-X)', 'north (-Z)', 'east (+X)'][((Math.round(-p.yaw / (Math.PI / 2)) % 4) + 6) % 4];
         const hours = Math.floor((g.dayTime * 24 + 6) % 24), mins = Math.floor((g.dayTime * 1440) % 60);
-        $('debug').textContent = `Blockhaven  ${this.fps} fps  (${Math.round(this.renderScale * 100)}% res)\n` +
+        $('debug').textContent = `Blockhaven  ${this.fps} fps  ${(1000 / Math.max(1, this.fps)).toFixed(1)} ms  (${Math.round(this.renderScale * 100)}% res)\n` +
           `XYZ: ${pos[0].toFixed(2)} / ${pos[1].toFixed(2)} / ${pos[2].toFixed(2)}   Facing: ${facing}\n` +
           `Chunk: ${Math.floor(pos[0] / 16)} ${Math.floor(pos[2] / 16)}   Biome: ${b ? b.name : '?'}   Dimension: ${DIM_NAMES[g.dim]}\n` +
           `Light: sky ${l.sky} block ${l.blk}   Day ${g.day + 1} ${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}   ${g.weather.rain > 0.5 ? (g.weather.thunder > 0.5 ? 'Thunder' : 'Rain') : 'Clear'}\n` +
-          `Chunks: ${g.world.chunks.size} loaded, ${this.renderer.stats.chunks} drawn   Quads: ${this.renderer.stats.quads.toLocaleString()}   Entities: ${g.entities.list.length}\n` +
+          `Chunks: ${g.world.chunks.size} loaded, ${this.renderer.stats.chunks} drawn   Quads: ${this.renderer.stats.quads.toLocaleString()}   Draws: ${this.renderer.stats.draws}   Entities: ${g.entities.list.length}\n` +
           `Mode: ${g.mode}${g.hardcore ? ' (hardcore)' : ''}   Difficulty: ${g.difficulty}   Seed: ${g.seed}\n` +
           `Mouse: ${this.mouseRate()} samples/s via ${this.mouseStats.src || '-'}   Raw input: ${this.rawInput === true ? 'on' : this.rawInput === false ? 'off' : '?'}   Low latency: ${settings.lowLatency ? 'on' : 'off'}` +
           (t ? `\nTarget: ${props(t.id, t.meta).name} @ ${t.x} ${t.y} ${t.z}` : this.interact.entityTarget ? `\nTarget: ${this.interact.entityTarget.displayName || this.interact.entityTarget.type} (${Math.ceil(this.interact.entityTarget.health || 0)} HP)` : '');
