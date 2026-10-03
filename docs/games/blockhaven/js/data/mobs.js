@@ -1,13 +1,14 @@
 // Mob roster: stats, AI archetype, drops, box models and procedural skins.
 // Model space: 1 unit = 1/16 block, feet at y=0, the mob faces -Z.
-import { D, pal, shade as shadeHex } from '../render/mobtex.js?v=mush3u38';
-import { pigModel as jPig, cowModel as jCow, sheepModel as jSheep, sheepFurModel as jSheepFur, chickenModel as jChicken, wolfModel as jWolf, foxModel as jFox, polarBearModel as jPolarBear, goatModel as jGoat, llamaModel as jLlama, horseModel as jHorse } from '../entity/animals.js?v=mush3u38';
-import { creeperModel as jCreeper, spiderModel as jSpider, endermanModel as jEnderman, slimeModel as jSlime, slimeOuterModel as jSlimeOuter, magmaCubeModel as jMagma, silverfishModel as jSilverfish, endermiteModel as jEndermite, blazeModel as jBlaze, ghastModel as jGhast, phantomModel as jPhantom } from '../entity/monsters.js?v=mush3u38';
-import { ironGolemModel as jIronGolem, snowGolemModel as jSnowGolem, hoglinModel as jHoglin, striderModel as jStrider, ravagerModel as jRavager } from '../entity/beasts.js?v=mush3u38';
-import { squidModel as jSquid, codModel as jCod, salmonModel as jSalmon, tropicalFishModel as jTropical, pufferfishModel as jPuffer, guardianModel as jGuardian, dolphinModel as jDolphin, turtleModel as jTurtle, axolotlModel as jAxolotl } from '../entity/aquatic.js?v=mush3u38';
-import { rabbitModel as jRabbit, ocelotModel as jOcelot, pandaModel as jPanda, parrotModel as jParrot, batModel as jBat, frogModel as jFrog, camelModel as jCamel } from '../entity/critters.js?v=mush3u38';
-import { villagerModel as jVillager, witchModel as jWitch, illagerModel as jIllager, piglinModel as jPiglin, zombieVillagerModel as jZombieVillager } from '../entity/javamodels.js?v=mush3u38';
-import { playerModel as javaPlayerModel, mobHumanoid } from '../entity/humanoid.js?v=mush3u38';
+import { D, pal, shade as shadeHex } from '../render/mobtex.js?v=mush3uwi';
+import { pigModel as jPig, cowModel as jCow, sheepModel as jSheep, sheepFurModel as jSheepFur, chickenModel as jChicken, wolfModel as jWolf, foxModel as jFox, polarBearModel as jPolarBear, goatModel as jGoat, llamaModel as jLlama, horseModel as jHorse } from '../entity/animals.js?v=mush3uwi';
+import { creeperModel as jCreeper, spiderModel as jSpider, endermanModel as jEnderman, slimeModel as jSlime, slimeOuterModel as jSlimeOuter, magmaCubeModel as jMagma, silverfishModel as jSilverfish, endermiteModel as jEndermite, blazeModel as jBlaze, ghastModel as jGhast, phantomModel as jPhantom } from '../entity/monsters.js?v=mush3uwi';
+import { ironGolemModel as jIronGolem, snowGolemModel as jSnowGolem, hoglinModel as jHoglin, striderModel as jStrider, ravagerModel as jRavager } from '../entity/beasts.js?v=mush3uwi';
+import { squidModel as jSquid, codModel as jCod, salmonModel as jSalmon, tropicalFishModel as jTropical, pufferfishModel as jPuffer, guardianModel as jGuardian, dolphinModel as jDolphin, turtleModel as jTurtle, axolotlModel as jAxolotl } from '../entity/aquatic.js?v=mush3uwi';
+import { rabbitModel as jRabbit, ocelotModel as jOcelot, pandaModel as jPanda, parrotModel as jParrot, batModel as jBat, frogModel as jFrog, camelModel as jCamel } from '../entity/critters.js?v=mush3uwi';
+import { witherModel as jWither, dragonModel as jDragon } from '../entity/bosses.js?v=mush3uwi';
+import { villagerModel as jVillager, witchModel as jWitch, illagerModel as jIllager, piglinModel as jPiglin, zombieVillagerModel as jZombieVillager } from '../entity/javamodels.js?v=mush3uwi';
+import { playerModel as javaPlayerModel, mobHumanoid } from '../entity/humanoid.js?v=mush3uwi';
 
 const box = (o, s, style, extra = {}) => ({ o, s, style, ...extra });
 const part = (pivot, boxes, extra = {}) => ({ pivot, boxes, ...extra });
@@ -760,6 +761,11 @@ MOBS.bat.model = fromOld(MOBS.bat.model, jBat, 'entity/bat', s => ({ ear: s('hea
 MOBS.bat.scale = 0.35;
 MOBS.frog.model = fromOld(MOBS.frog.model, jFrog, 'entity/frog/temperate_frog', s => ({ eye: s('head', 1), tongue: S('#d0505a', 'flat') }));
 MOBS.camel.model = fromOld(MOBS.camel.model, jCamel, 'entity/camel/camel', s => ({ neck: s('neck'), hump: s('body', 1), saddle: S('#6a3a1e', 'cloth', { all: D.band(0.4, 0.6, '#c8a040') }) }));
+
+// The bosses (entity/bosses.js). WitherBossRenderer draws the wither at twice its size.
+MOBS.wither.model = fromOld(MOBS.wither.model, jWither, 'entity/wither/wither', s => ({ body: s('spine'), sideHead: s('headL') }));
+MOBS.wither.scale = 2;
+MOBS.ender_dragon.model = fromOld(MOBS.ender_dragon.model, jDragon, ['entity/enderdragon/dragon', 'entity/enderdragon/dragon_eyes'], s => ({ snout: s('head', 1), wing: s('wingR'), membrane: s('wingR', 1), spine: s('body', 1), leg: s('leg0') }));
 
 MOBS.villager.professionModel = prof => villagerModel(PROFESSION_COLORS[prof] || '#6a4a3a', PROF_DECOR[prof] || null, undefined, undefined,
   ['entity/villager/villager', 'entity/villager/type/plains', `entity/villager/profession/${prof}`])();

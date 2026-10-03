@@ -1,22 +1,23 @@
 // Living mobs: physics, AI archetypes, combat, breeding/taming, trading and animation.
-import { Entity, drawModel, rootMatrix, M } from './entity.js?v=mush3u38';
-import { Projectile, renderStack } from './objects.js?v=mush3u38';
-import { MOBS, PROFESSIONS } from '../data/mobs.js?v=mush3u38';
-import { B, BLOCKS, SOLID } from '../data/blocks.js?v=mush3u38';
-import { UNLOADED } from '../world/world.js?v=mush3u38';
-import { villagerTrades } from '../game/trades.js?v=mush3u38';
-import { findPath, clearWalk } from './pathfind.js?v=mush3u38';
-import { ARMOR_BYPASS, armorStats, armorReduce, applyInvul } from '../game/combat.js?v=mush3u38';
-import { animalPose, chickenPose, wolfPose, horsePose } from './animals.js?v=mush3u38';
-import { villagerPose, illagerPose, piglinPose } from './javamodels.js?v=mush3u38';
-import { ironGolemPose, ironGolemSway, snowGolemPose, hoglinPose, striderPose, ravagerPose } from './beasts.js?v=mush3u38';
-import { squidPose, fishPose, fishSway, pufferfishPose, guardianPose, dolphinPose, turtlePose, axolotlPose } from './aquatic.js?v=mush3u38';
-import { rabbitPose, ocelotPose, parrotPose, batPose, frogPose, camelPose } from './critters.js?v=mush3u38';
-import { creeperPose, spiderPose, endermanPose, magmaPose, silverfishPose, blazePose, ghastPose, phantomPose } from './monsters.js?v=mush3u38';
-import { humanoidPose } from './humanoid.js?v=mush3u38';
-import { armorLayer } from '../data/armor.js?v=mush3u38';
-import { I } from '../data/items.js?v=mush3u38';
-import { dragonInit, dragonAI, dragonDamage, dragonDying, dragonHead } from './dragon.js?v=mush3u38';
+import { Entity, drawModel, rootMatrix, M } from './entity.js?v=mush3uwi';
+import { Projectile, renderStack } from './objects.js?v=mush3uwi';
+import { MOBS, PROFESSIONS } from '../data/mobs.js?v=mush3uwi';
+import { B, BLOCKS, SOLID } from '../data/blocks.js?v=mush3uwi';
+import { UNLOADED } from '../world/world.js?v=mush3uwi';
+import { villagerTrades } from '../game/trades.js?v=mush3uwi';
+import { findPath, clearWalk } from './pathfind.js?v=mush3uwi';
+import { ARMOR_BYPASS, armorStats, armorReduce, applyInvul } from '../game/combat.js?v=mush3uwi';
+import { animalPose, chickenPose, wolfPose, horsePose } from './animals.js?v=mush3uwi';
+import { villagerPose, illagerPose, piglinPose } from './javamodels.js?v=mush3uwi';
+import { ironGolemPose, ironGolemSway, snowGolemPose, hoglinPose, striderPose, ravagerPose } from './beasts.js?v=mush3uwi';
+import { squidPose, fishPose, fishSway, pufferfishPose, guardianPose, dolphinPose, turtlePose, axolotlPose } from './aquatic.js?v=mush3uwi';
+import { witherPose, dragonPose, dragonHistory } from './bosses.js?v=mush3uwi';
+import { rabbitPose, ocelotPose, parrotPose, batPose, frogPose, camelPose } from './critters.js?v=mush3uwi';
+import { creeperPose, spiderPose, endermanPose, magmaPose, silverfishPose, blazePose, ghastPose, phantomPose } from './monsters.js?v=mush3uwi';
+import { humanoidPose } from './humanoid.js?v=mush3uwi';
+import { armorLayer } from '../data/armor.js?v=mush3uwi';
+import { I } from '../data/items.js?v=mush3uwi';
+import { dragonInit, dragonAI, dragonDamage, dragonDying, dragonHead } from './dragon.js?v=mush3uwi';
 
 const rnd = (a, b) => a + Math.random() * (b - a);
 const rint = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
@@ -1015,7 +1016,7 @@ export class Mob extends Entity {
     const monster = { jcreeper: creeperPose, jspider: spiderPose, jenderman: endermanPose, jmagma: magmaPose, jsilverfish: silverfishPose, jblaze: blazePose, jghast: ghastPose, jphantom: phantomPose,
       jirongolem: ironGolemPose, jsnowgolem: snowGolemPose, jhoglin: hoglinPose, jstrider: striderPose, jravager: ravagerPose,
       jsquid: squidPose, jfish: fishPose, jpufferfish: pufferfishPose, jguardian: guardianPose, jdolphin: dolphinPose, jturtle: turtlePose, jaxolotl: axolotlPose,
-      jrabbit: rabbitPose, jocelot: ocelotPose, jparrot: parrotPose, jbat: batPose, jfrog: frogPose, jcamel: camelPose }[m.anim];
+      jrabbit: rabbitPose, jocelot: ocelotPose, jparrot: parrotPose, jbat: batPose, jfrog: frogPose, jcamel: camelPose, jwither: witherPose }[m.anim];
     if (m.anim === 'jslime') return {};
     if (monster) {
       st.creepy = !!this.angry; st.squish = this.squish || 0; st.ridden = !!this.rider;
@@ -1030,6 +1031,8 @@ export class Mob extends Entity {
       st.jump = this.airT > 0 && this.airT < 0.5 ? this.airT / 0.5 : 0;
       st.jumpT = this.airT > 0 ? this.airT : null;
       st.saddled = !!this.saddled; st.sitting = !!this.sitting;
+      // (The wither's side heads glance about on their own.)
+      if (m.anim === 'jwither') { const t = this.age; st.sideHeads = [[Math.sin(t * 0.9) * 0.2, 0.3 + Math.sin(t * 0.7) * 0.5], [Math.sin(t * 1.1 + 2) * 0.2, -0.3 + Math.sin(t * 0.8 + 1) * 0.5]]; }
       if (m.anim === 'jparrot') {
         // Parrot.calculateFlapping, a tick at a time: the wings beat fast in the air and settle on landing.
         this.flapAcc = (this.flapAcc || 0) + dtPose * 20;
@@ -1184,12 +1187,26 @@ export class Mob extends Entity {
     if (this.model.anim === 'bat' || this.model.anim === 'blaze' || this.model.anim === 'ghast') yOff = Math.sin(this.age * 2) * 0.1;
     // BatRenderer.setupRotations: a flying bat bobs.
     if (this.model.anim === 'jbat') yOff = Math.cos(this.age * 20 * 0.3) * 0.1;
+    // EnderDragonRenderer: the dragon turns and pitches by its recent flight, and its neck and tail
+    // follow the path it flew (EnderDragon's flap time and latency positions, a tick at a time).
+    let dragon = null;
+    if (anim === 'jdragon') {
+      this.dragonAcc = (this.dragonAcc || 0) + Math.max(0, this.age - (this.dragonAge ?? this.age)) * 20; this.dragonAge = this.age;
+      if (!this.dragonPos) dragonHistory(this, -this.bodyYaw * 180 / Math.PI, this.pos[1]);
+      for (; this.dragonAcc >= 1; this.dragonAcc--) {
+        dragonHistory(this, -this.bodyYaw * 180 / Math.PI, this.pos[1]);
+        const v = this.vel, f = 0.2 / (Math.hypot(v[0], v[2]) / 20 * 10 + 1) * 2 ** (v[1] / 20);
+        this.flapTime = (this.flapTime || 0) + ((this.perch || 0) > 0.5 ? 0.1 : f);
+      }
+      dragon = dragonPose(this.model, { history: this, flap: this.flapTime || 0, perch: this.perch || 0 });
+      extra = M.chain(M.rx(dragon.pitch), M.t(0, 0, 16));
+    }
     const shake = this.angry ? 0.035 : 0;
     // StriderRenderer.setupRotations: a cold strider shivers.
     const shiver = this.mobType === 'strider' && this.cold ? Math.cos(this.age * 20 * 3.25) * Math.PI * 0.4 * Math.PI / 180 : 0;
-    const root = rootMatrix([this.pos[0] + rnd(-shake, shake), this.pos[1] + yOff, this.pos[2] + rnd(-shake, shake)], this.bodyYaw + shiver, sc, extra);
+    const root = rootMatrix([this.pos[0] + rnd(-shake, shake), this.pos[1] + yOff, this.pos[2] + rnd(-shake, shake)], dragon ? -dragon.heading * Math.PI / 180 : this.bodyYaw + shiver, sc, extra);
     const flash = this.hurtT > 0 || (this.mobType === 'creeper' && this.fuse > 0 && Math.floor(this.fuse * 8) % 2 === 0) ? 0.8 : 0;
-    this.lastPose = this.pose();
+    this.lastPose = dragon ? Object.assign(dragon.poses, { pivots: dragon.pivots }) : this.pose();
     // WolfRenderer.getTextureLocation: tame and angry wolves wear their own skins.
     let layer = this.layer;
     if (this.mobType === 'wolf' && this.model.java) layer = g.mobLayer(this.tamed ? 'wolf_tame' : this.target ? 'wolf_angry' : 'wolf');
@@ -1275,7 +1292,7 @@ export class Mob extends Entity {
 }
 
 // Moves an entity without gravity handling (fliers/swimmers).
-import { moveEntity } from './physics.js?v=mush3u38';
+import { moveEntity } from './physics.js?v=mush3uwi';
 function import_move(e, dt) { moveEntity(e.world, e, e.vel[0] * dt, e.vel[1] * dt, e.vel[2] * dt); }
 
 // Renders a held item using a part matrix (model units).

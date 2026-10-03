@@ -1,8 +1,8 @@
 // Entity base class, manager and the box-model renderer shared by every mob.
-import { moveEntity } from './physics.js?v=mush3u38';
-import { B } from '../data/blocks.js?v=mush3u38';
-import { fluidPush } from '../game/fluid.js?v=mush3u38';
-import { ENTITY } from '../render/mobtex.js?v=mush3u38';
+import { moveEntity } from './physics.js?v=mush3uwi';
+import { B } from '../data/blocks.js?v=mush3uwi';
+import { fluidPush } from '../game/fluid.js?v=mush3uwi';
+import { ENTITY, texFactor } from '../render/mobtex.js?v=mush3uwi';
 
 let nextId = 1;
 export class Entity {
@@ -186,7 +186,7 @@ function emitBox(batch, m, box, layer, tw, th, light, alpha, java = false) {
 
 // Draws a model: root matrix (world), poses per part, skin layer, light colour, hurt 0..1, alpha.
 export function drawModel(batch, model, layer, root, poses, light, hurt = 0, alpha = 1) {
-  const tw = ENTITY, th = ENTITY; // texels are measured against the (square) entity layer
+  const tw = ENTITY * texFactor(model), th = tw; // texels are measured against the (square) entity layer
   const mats = {};
   const partMatrix = name => {
     if (mats[name]) return mats[name];
