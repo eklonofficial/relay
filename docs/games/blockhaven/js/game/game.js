@@ -1,28 +1,28 @@
 // The running game: world + dimensions, player survival state, entities, simulation, weather and saving.
-import { B, BLOCKS, SOLID, OPAQUE, DIM, DIM_NAMES, HEIGHT, SEA, props, st, SHAPE_OF, SHAPE } from '../data/blocks.js?v=mush3nyu';
-import { importedVoidAt, emptyChunk } from './javaworld.js?v=mush3nyu';
-import { I, maxStack } from '../data/items.js?v=mush3nyu';
-import { SMELTING } from '../data/recipes.js?v=mush3nyu';
-import { MOBS } from '../data/mobs.js?v=mush3nyu';
-import { BIOMES, COLD } from '../gen/biomes.js?v=mush3nyu';
-import { World, UNLOADED, posKey } from '../world/world.js?v=mush3nyu';
-import { Player } from './player.js?v=mush3nyu';
-import { PlayerInventory, Container } from './inventory.js?v=mush3nyu';
-import { EntityManager } from '../entity/entity.js?v=mush3nyu';
-import { ItemEntity, XpOrb, FallingBlock, PrimedTnt, Lightning, Projectile } from '../entity/objects.js?v=mush3nyu';
-import { Mob, RIDEABLE } from '../entity/mob.js?v=mush3nyu';
-import { Particles } from './particles.js?v=mush3nyu';
-import { Sim } from './sim.js?v=mush3nyu';
-import { Redstone } from './redstone.js?v=mush3nyu';
-import { blockDrops } from './drops.js?v=mush3nyu';
-import { computeEnv } from './env.js?v=mush3nyu';
-import { fuelOf } from './ui.js?v=mush3nyu';
-import { unlockLevel } from './trades.js?v=mush3nyu';
-import { forward } from '../core/math.js?v=mush3nyu';
-import { EndCrystal } from '../entity/crystal.js?v=mush3nyu';
-import { migrateWorld } from './migrate.js?v=mush3nyu';
-import { ARMOR_BYPASS, armorReduce, applyInvul, isAxe, shieldFaces, applyKnockback, knockbackResist, protectionFactor, enchLv } from './combat.js?v=mush3nyu';
-import { deathText } from '../net/net.js?v=mush3nyu';
+import { B, BLOCKS, SOLID, OPAQUE, DIM, DIM_NAMES, HEIGHT, SEA, props, st, SHAPE_OF, SHAPE } from '../data/blocks.js?v=mush3opu';
+import { importedVoidAt, emptyChunk } from './javaworld.js?v=mush3opu';
+import { I, maxStack } from '../data/items.js?v=mush3opu';
+import { SMELTING } from '../data/recipes.js?v=mush3opu';
+import { MOBS } from '../data/mobs.js?v=mush3opu';
+import { BIOMES, COLD } from '../gen/biomes.js?v=mush3opu';
+import { World, UNLOADED, posKey } from '../world/world.js?v=mush3opu';
+import { Player } from './player.js?v=mush3opu';
+import { PlayerInventory, Container } from './inventory.js?v=mush3opu';
+import { EntityManager } from '../entity/entity.js?v=mush3opu';
+import { ItemEntity, XpOrb, FallingBlock, PrimedTnt, Lightning, Projectile } from '../entity/objects.js?v=mush3opu';
+import { Mob, RIDEABLE } from '../entity/mob.js?v=mush3opu';
+import { Particles } from './particles.js?v=mush3opu';
+import { Sim } from './sim.js?v=mush3opu';
+import { Redstone } from './redstone.js?v=mush3opu';
+import { blockDrops } from './drops.js?v=mush3opu';
+import { computeEnv } from './env.js?v=mush3opu';
+import { fuelOf } from './ui.js?v=mush3opu';
+import { unlockLevel } from './trades.js?v=mush3opu';
+import { forward } from '../core/math.js?v=mush3opu';
+import { EndCrystal } from '../entity/crystal.js?v=mush3opu';
+import { migrateWorld } from './migrate.js?v=mush3opu';
+import { ARMOR_BYPASS, armorReduce, applyInvul, isAxe, shieldFaces, applyKnockback, knockbackResist, protectionFactor, enchLv } from './combat.js?v=mush3opu';
+import { deathText } from '../net/net.js?v=mush3opu';
 
 export const DAY = 1200; // seconds per day
 const rnd = (a, b) => a + Math.random() * (b - a);
@@ -207,7 +207,7 @@ export class Game {
   itemLayer(key) { return this.app.itemLayer(key); }
   itemPixels(key) { return this.app.itemPixels(key); }
   fxLayer(name) { return this.app.fxLayer(name); }
-  mobModel(key) { return this.app.mobModel(key); }
+  mobModel(key, optional = false) { return this.app.mobModel(key, optional); }
   mobLayer(key) { return this.app.mobLayer(key); }
   itemDef(key) { return I[key]; }
   renderItemAt(ctx, key, m, light) { this.app.renderItemAt(ctx, key, m, light); }

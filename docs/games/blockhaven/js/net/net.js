@@ -9,11 +9,11 @@
 // own hands, or their own water/fire/sand simulation) broadcasts it once; everyone else mirrors it
 // silently, so nothing is applied twice. The host keeps the authoritative save, including each
 // guest's inventory and position, and owns the clock and the weather.
-import { RemotePlayer } from './remote.js?v=mush3nyu';
-import { getChunk } from '../game/storage.js?v=mush3nyu';
-import { EntitySync } from './share.js?v=mush3nyu';
-import { hostRoom, joinRoom, diagnose } from './transport.js?v=mush3nyu';
-import { SealedChannel } from './sealed.js?v=mush3nyu';
+import { RemotePlayer } from './remote.js?v=mush3opu';
+import { getChunk } from '../game/storage.js?v=mush3opu';
+import { EntitySync } from './share.js?v=mush3opu';
+import { hostRoom, joinRoom, diagnose } from './transport.js?v=mush3opu';
+import { SealedChannel } from './sealed.js?v=mush3opu';
 
 export const MAX_PLAYERS = 5;
 const PREFIX = 'blockhaven-v1-';
@@ -69,7 +69,7 @@ function loadLib() {
   if (!libPromise) {
     libPromise = new Promise((resolve, reject) => {
       const s = document.createElement('script');
-      s.src = new URL('../../vendor/peerjs.min.js?v=mush3nyu', import.meta.url).href;
+      s.src = new URL('../../vendor/peerjs.min.js?v=mush3opu', import.meta.url).href;
       s.onload = () => resolve();
       s.onerror = () => { libPromise = null; reject(new Error('Could not load the multiplayer library. Check your connection.')); };
       document.head.appendChild(s);

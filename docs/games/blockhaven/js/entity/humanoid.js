@@ -47,6 +47,34 @@ export function armorModel(inner, st = {}) {
     },
   };
 }
+// The humanoid mobs' meshes (64x64 layers; 64x32 textures use the top half), `texture` naming the
+// pack image (assets/minecraft/textures/<texture>.png) that replaces the painted skin:
+//   'zombie'   ZombieModel (zombies, husks): the left limbs mirror the right ones' pixels.
+//   'drowned'  DrownedModel: its own left arm and leg.
+//   'skeleton' SkeletonModel: 2-px limbs, the legs 2 px out from the middle.
+//   'outer'    HumanoidModel with every box `inflate` out (the stray's clothes, the drowned's outer layer).
+// `arms` picks the arm animation (see humanoidPose).
+export function mobHumanoid(kind, st = {}, { inflate = 0, texture = null, arms = 'zombie' } = {}) {
+  const k = inflate, part = (pv, boxes) => ({ pivot: pv, boxes });
+  const thin = kind === 'skeleton', own = kind === 'drowned';
+  const legX = thin ? 2 : 1.9;
+  const arm = (right) => thin ? jbox(40, 16, -1, -2, -1, 2, 12, 2, k, right ? { style: st.arm } : { mirror: true })
+    : right ? jbox(40, 16, -3, -2, -2, 4, 12, 4, k, { style: st.arm })
+      : own ? jbox(32, 48, -1, -2, -2, 4, 12, 4, k, { style: st.arm }) : jbox(40, 16, -1, -2, -2, 4, 12, 4, k, { mirror: true });
+  const leg = (right) => thin ? jbox(0, 16, -1, 0, -1, 2, 12, 2, k, right ? { style: st.leg } : { mirror: true })
+    : right ? jbox(0, 16, -2, 0, -2, 4, 12, 4, k, { style: st.leg })
+      : own ? jbox(16, 48, -2, 0, -2, 4, 12, 4, k, { style: st.leg }) : jbox(0, 16, -2, 0, -2, 4, 12, 4, k, { mirror: true });
+  return {
+    java: true, tex: [64, 64], anim: 'jhumanoid', arms, legX, texture, eye: 24 + 8 * 0.55,
+    parts: {
+      head: part(pivot(0, 0, 0), [jbox(0, 0, -4, -8, -4, 8, 8, 8, k, { style: st.head }), jbox(32, 0, -4, -8, -4, 8, 8, 8, k + 0.5, { style: st.hat })]),
+      body: part(pivot(0, 0, 0), [jbox(16, 16, -4, 0, -2, 8, 12, 4, k, { style: st.body })]),
+      rightArm: part(pivot(-5, 2, 0), [arm(true)]), leftArm: part(pivot(5, 2, 0), [arm(false)]),
+      rightLeg: part(pivot(-legX, 12, 0), [leg(true)]), leftLeg: part(pivot(legX, 12, 0), [leg(false)]),
+    },
+  };
+}
+
 // HumanoidArmorLayer.setPartVisibility: the parts each piece shows (by slot: head, chest, legs, feet).
 export const ARMOR_PARTS = [['head'], ['body', 'rightArm', 'leftArm'], ['body', 'rightLeg', 'leftLeg'], ['rightLeg', 'leftLeg']];
 const ALL_PARTS = ['head', 'body', 'rightArm', 'leftArm', 'rightLeg', 'leftLeg'];
@@ -66,7 +94,8 @@ const quadArm = f => -65 * f + f * f;
 
 export function humanoidPose(st) {
   const part = (x, y, z) => ({ x, y, z, rx: 0, ry: 0, rz: 0 });
-  const head = part(0, 0, 0), body = part(0, 0, 0), rightArm = part(-5, 2, 0), leftArm = part(5, 2, 0), rightLeg = part(-1.9, 12, 0), leftLeg = part(1.9, 12, 0);
+  const legX = st.legX ?? 1.9;
+  const head = part(0, 0, 0), body = part(0, 0, 0), rightArm = part(-5, 2, 0), leftArm = part(5, 2, 0), rightLeg = part(-legX, 12, 0), leftLeg = part(legX, 12, 0);
   const limb = st.limbSwing || 0, amt = st.limbAmt || 0, age = st.age || 0, attack = st.attack || 0, swim = st.swim || 0;
   const flying = (st.fallFlying || 0) > 4;
   head.ry = st.headYaw || 0;
@@ -141,6 +170,27 @@ export function humanoidPose(st) {
   // AnimationUtils.bobModelPart: the idle sway of the arms.
   if (rp !== 'spyglass') { rightArm.rz += Math.cos(age * 0.09) * 0.05 + 0.05; rightArm.rx += Math.sin(age * 0.067) * 0.05; }
   if (lp !== 'spyglass') { leftArm.rz -= Math.cos(age * 0.09) * 0.05 + 0.05; leftArm.rx -= Math.sin(age * 0.067) * 0.05; }
+  // The mobs' own arms, after the humanoid pose (AbstractZombieModel, SkeletonModel, DrownedModel).
+  if (st.arms === 'zombie' || st.arms === 'drowned') {
+    // AnimationUtils.animateZombieArms: held out in front, higher when hunting, chopping as they hit.
+    const f = Math.sin(attack * PI), g = Math.sin((1 - (1 - attack) * (1 - attack)) * PI);
+    rightArm.rz = 0; leftArm.rz = 0;
+    rightArm.ry = -(0.1 - f * 0.6); leftArm.ry = 0.1 - f * 0.6;
+    const out = -PI / (st.aggressive ? 1.5 : 2.25);
+    rightArm.rx = out + f * 1.2 - g * 0.4; leftArm.rx = out + f * 1.2 - g * 0.4;
+    bobArms(rightArm, leftArm, age);
+    if (st.arms === 'drowned') {
+      if (rp === 'spear') { rightArm.rx = rightArm.rx * 0.5 - PI; rightArm.ry = 0; }
+      if (lp === 'spear') { leftArm.rx = leftArm.rx * 0.5 - PI; leftArm.ry = 0; }
+    }
+  } else if (st.arms === 'skeleton' && st.aggressive && rp !== 'bow') {
+    // SkeletonModel: a skeleton fighting without a bow reaches out with both arms.
+    const f = Math.sin(attack * PI), g = Math.sin((1 - (1 - attack) * (1 - attack)) * PI);
+    rightArm.rz = 0; leftArm.rz = 0;
+    rightArm.ry = -(0.1 - f * 0.6); leftArm.ry = 0.1 - f * 0.6;
+    rightArm.rx = -PI / 2 - (f * 1.2 - g * 0.4); leftArm.rx = -PI / 2 - (f * 1.2 - g * 0.4);
+    bobArms(rightArm, leftArm, age);
+  }
   // Swimming and crawling: the front crawl stroke and a flutter kick.
   if (swim > 0) {
     const s = limb % 26, fr = st.attack > 0 && !st.attackLeft ? 0 : swim, fl = st.attack > 0 && st.attackLeft ? 0 : swim;
@@ -170,6 +220,11 @@ export function humanoidPose(st) {
   return { poses, pivots };
 }
 
+// AnimationUtils.bobArms.
+function bobArms(rightArm, leftArm, age) {
+  rightArm.rz += Math.cos(age * 0.09) * 0.05 + 0.05; leftArm.rz -= Math.cos(age * 0.09) * 0.05 + 0.05;
+  rightArm.rx += Math.sin(age * 0.067) * 0.05; leftArm.rx -= Math.sin(age * 0.067) * 0.05;
+}
 // AnimationUtils.animateCrossbowCharge / animateCrossbowHold.
 function xbowCharge(rightArm, leftArm, f, right) {
   const main = right ? rightArm : leftArm, off = right ? leftArm : rightArm;

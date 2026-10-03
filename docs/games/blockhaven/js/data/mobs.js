@@ -1,7 +1,7 @@
 // Mob roster: stats, AI archetype, drops, box models and procedural skins.
 // Model space: 1 unit = 1/16 block, feet at y=0, the mob faces -Z.
-import { D, pal, shade as shadeHex } from '../render/mobtex.js?v=mush3nyu';
-import { playerModel as javaPlayerModel } from '../entity/humanoid.js?v=mush3nyu';
+import { D, pal, shade as shadeHex } from '../render/mobtex.js?v=mush3opu';
+import { playerModel as javaPlayerModel, mobHumanoid } from '../entity/humanoid.js?v=mush3opu';
 
 const box = (o, s, style, extra = {}) => ({ o, s, style, ...extra });
 const part = (pivot, boxes, extra = {}) => ({ pivot, boxes, ...extra });
@@ -365,25 +365,28 @@ mob('snow_golem', {
 
 // --- undead ---
 // Zombie family: sunken dark eyes under a heavy brow, rotting blotches, torn short-sleeved shirt, trousers.
-const zombieLike = (skin, shirt, pants, eye = null, weed = null) => () => {
+// Java's ZombieModel / DrownedModel (entity/humanoid.js); `texture` is the pack image that replaces this paint.
+const zombieLike = (skin, shirt, pants, eye = null, weed = null, texture = 'entity/zombie/zombie', kind = 'zombie') => () => {
   const rot = D.blotch(shadeHex(skin, 0.8), 0.18), dark = shadeHex(skin, 0.62);
-  const m = humanoid({
+  return mobHumanoid(kind, {
     head: S(skin, 'noise', { front: D.all(rot, D.brow(shadeHex(skin, 0.78), 0.375, 1), eyes({ c: eye || dark, pupil: eye ? shadeHex(eye, 0.6) : '#0e140e', y: 0.5, gap: 2 }), D.bar(shadeHex(skin, 0.8), 0.625, 2), D.bar(dark, 0.78, 4)), all: rot, top: D.blotch(shadeHex(skin, 0.7), 0.3) }, 0.1),
     body: S(shirt, 'cloth', { all: D.all(D.patches(skin, 1, 1), D.ragged(0.86, 1, pants), weed), top: D.bar(skin, 0.5, 4, 2) }, 0.1),
     arm: S(skin, 'noise', { all: D.all(rot, D.ragged(0, 0.3, shirt)), top: D.band(0, 1, shirt) }, 0.1),
     leg: S(pants, 'cloth', { all: D.all(D.ragged(0.86, 1, shadeHex(pants, 0.6)), weed) }, 0.1),
-  });
-  m.anim = 'zombie'; return m;
+  }, { texture, arms: kind });
 };
 const undead = { kind: 'hostile', ai: 'melee', undead: true, xp: [5, 5] };
 mob('zombie', { chase: 4.0, ...undead, armor: 2, hw: 0.3, h: 1.95, health: 20, speed: 2.3, attack: { dmg: 3, cd: 1 }, burns: true, egg: ['#00afaf', '#799c65'], drops: [['rotten_flesh', 0, 2], ['iron_ingot', 0, 1, 0.025], ['carrot', 0, 1, 0.025], ['potato', 0, 1, 0.025]], sound: 'zombie', breaksDoors: true, model: zombieLike(ZOMBIE_SKIN, '#2e9aa6', '#46409a') });
-mob('husk', { chase: 4.0, ...undead, armor: 2, hw: 0.3, h: 1.95, health: 20, speed: 2.3, attack: { dmg: 3, cd: 1, hunger: 7 }, egg: ['#797061', '#e6cc94'], drops: [['rotten_flesh', 0, 2]], sound: 'zombie', model: zombieLike(HUSK, '#6a5c44', '#4a3e30') });
-mob('drowned', { chase: 4.0, ...undead, armor: 2, hw: 0.3, h: 1.95, health: 20, speed: 2.3, swim: true, amphibious: true, attack: { dmg: 3, cd: 1, trident: 0.06 }, burns: true, egg: ['#8ff1d7', '#799c65'], drops: [['rotten_flesh', 0, 2], ['copper_ingot', 0, 1, 0.11]], sound: 'zombie', model: zombieLike(DROWNED, '#2a5e58', '#4a3e7a', '#9af0e8', D.vines('#2e6a2a', '#4a9a3a', 1)) });
+mob('husk', { chase: 4.0, ...undead, armor: 2, hw: 0.3, h: 1.95, health: 20, speed: 2.3, attack: { dmg: 3, cd: 1, hunger: 7 }, egg: ['#797061', '#e6cc94'], drops: [['rotten_flesh', 0, 2]], sound: 'zombie', scale: 1.0625, model: zombieLike(HUSK, '#6a5c44', '#4a3e30', null, null, 'entity/zombie/husk') });
+mob('drowned', { chase: 4.0, ...undead, armor: 2, hw: 0.3, h: 1.95, health: 20, speed: 2.3, swim: true, amphibious: true, attack: { dmg: 3, cd: 1, trident: 0.06 }, burns: true, egg: ['#8ff1d7', '#799c65'], drops: [['rotten_flesh', 0, 2], ['copper_ingot', 0, 1, 0.11]], sound: 'zombie', model: zombieLike(DROWNED, '#2a5e58', '#4a3e7a', '#9af0e8', D.vines('#2e6a2a', '#4a9a3a', 1), 'entity/zombie/drowned', 'drowned'),
+  // DrownedOuterLayer: a second skin 0.25 px out (clear unless a pack supplies it).
+  overlay: () => mobHumanoid('drowned', {}, { inflate: 0.25, texture: 'entity/zombie/drowned_outer_layer', arms: 'drowned' }) });
 mob('zombie_villager', { chase: 4.0, ...undead, armor: 2, hw: 0.3, h: 1.95, health: 20, speed: 2.3, attack: { dmg: 3, cd: 1 }, burns: true, egg: ['#563c33', '#799c65'], drops: [['rotten_flesh', 0, 2]], sound: 'zombie', curable: true,
   model: () => { const rot = D.blotch('#4a7a3a', 0.2), robe = '#6a4a3a'; const m = humanoid({ head: S(ZOMBIE_SKIN, 'noise', { front: D.all(rot, D.brow('#2e4a24', 0.3, 1), eyes({ c: '#8a2a1a', pupil: '#3a0a06', y: 0.4, gap: 2 }), D.bar('#3a5a2e', 0.9, 2)), all: rot }, 0.1), body: S(robe, 'cloth'), robe: S(robe, 'cloth', { all: D.all(D.patches('#4e6a3a', 1, 1.5), D.ragged(0.9, 1, '#3a2a1e')), front: D.all(D.patches('#4e6a3a', 1, 1.5), D.bar('#4a3222', 0, 4), D.ragged(0.9, 1, '#3a2a1e')) }, 0.1), arm: S(ZOMBIE_SKIN, 'noise', { all: D.all(rot, D.ragged(0, 0.4, robe)) }, 0.1), leg: S('#4a3a2e', 'cloth'), nose: S(ZOMBIE_SKIN, 'noise', { front: D.band(0.75, 1, '#4a7a3a') }, 0.1) }, { headH: 10, bodyD: 6, nose: true, robe: true }); m.anim = 'zombie'; return m; } });
 // Skeletons: skull with deep sockets, nose hole and teeth; ribcage over a dark chest; jointed limb bones.
 // `rag` drapes tattered cloth over the body, hips and head (stray).
-const skeletonModel = (bone, rag, eye = '#1a1a1a') => () => {
+// Java's SkeletonModel (64x32); `texture` is the pack image that replaces this paint.
+const skeletonModel = (bone, rag, eye = '#1a1a1a', texture = 'entity/skeleton/skeleton') => () => {
   const gap = shadeHex(bone, 0.32), joint = shadeHex(bone, 0.78);
   const limb = D.all(D.band(0.46, 0.54, joint), D.band(0, 0.06, joint));
   const skull = D.art([
@@ -396,17 +399,18 @@ const skeletonModel = (bone, rag, eye = '#1a1a1a') => () => {
     '.k3k3k3.',
     '..1111..'], { k: eye });
   const tatter = rag ? D.ragged(0, 0.3, rag) : null;
-  const m = humanoid({
+  return mobHumanoid('skeleton', {
     head: S(bone, 'bone', { front: D.all(skull, tatter), sides: tatter, back: tatter, top: rag ? D.band(0, 1, rag) : D.cracks(joint, 1, 3) }, 0.1),
     body: rag ? S(rag, 'cloth', { all: D.ragged(0.8, 1, gap, 2), front: D.all(D.at(0.3, 0.8, D.ribs(bone, gap), 0.25, 0.75), D.ragged(0.8, 1, gap, 2)) }, 0.1) : S(bone, 'bone', { front: D.ribs(bone, gap), back: D.all(D.band(0, 1, gap), D.at(0, 1, D.band(0, 1, bone), 0.375, 0.625)), sides: D.all(D.band(0, 1, gap), D.stripes(bone, 2)) }, 0.1),
     arm: S(bone, 'bone', { sides: limb, front: limb, back: limb }, 0.1),
     leg: S(bone, 'bone', { sides: D.all(limb, rag ? D.ragged(0, 0.35, rag) : null), front: D.all(limb, rag ? D.ragged(0, 0.35, rag) : null), back: D.all(limb, rag ? D.ragged(0, 0.35, rag) : null) }, 0.1),
-  }, { thin: true });
-  m.anim = 'skeleton'; return m;
+  }, { texture, arms: 'skeleton' });
 };
 mob('skeleton', { chase: 3.9, ...undead, hw: 0.3, h: 1.99, health: 20, speed: 2.4, attack: { ranged: 'arrow', range: 15, cd: 2 }, burns: true, egg: ['#c1c1c1', '#494949'], drops: [['bone', 0, 2], ['arrow', 0, 2]], sound: 'skeleton', holds: 'bow', model: skeletonModel('#c6c6c0') });
-mob('stray', { chase: 3.9, ...undead, hw: 0.3, h: 1.99, health: 20, speed: 2.4, attack: { ranged: 'arrow', range: 15, cd: 2, slow: true }, burns: true, egg: ['#617677', '#ddeaea'], drops: [['bone', 0, 2], ['arrow', 0, 2]], sound: 'skeleton', holds: 'bow', model: skeletonModel('#b0bcbc', '#5e7a7c', '#1e2a2e') });
-mob('wither_skeleton', { chase: 4.4, ...undead, hw: 0.35, h: 2.4, scale: 1.2, health: 20, speed: 2.5, attack: { dmg: 8, cd: 1, wither: 10 }, fireImmune: true, egg: ['#141414', '#474d4d'], drops: [['coal', 0, 1], ['bone', 0, 2], ['wither_skeleton_skull', 0, 1, 0.025]], sound: 'skeleton', holds: 'stone_sword', model: skeletonModel('#444444', null, '#060606') });
+mob('stray', { chase: 3.9, ...undead, hw: 0.3, h: 1.99, health: 20, speed: 2.4, attack: { ranged: 'arrow', range: 15, cd: 2, slow: true }, burns: true, egg: ['#617677', '#ddeaea'], drops: [['bone', 0, 2], ['arrow', 0, 2]], sound: 'skeleton', holds: 'bow', model: skeletonModel('#b0bcbc', '#5e7a7c', '#1e2a2e', 'entity/skeleton/stray'),
+  // StrayClothingLayer: the humanoid mesh 0.25 px out (a pack's stray_overlay; here the rags are painted on).
+  overlay: () => mobHumanoid('outer', {}, { inflate: 0.25, texture: 'entity/skeleton/stray_overlay', arms: 'skeleton' }) });
+mob('wither_skeleton', { chase: 4.4, ...undead, hw: 0.35, h: 2.4, scale: 1.2, health: 20, speed: 2.5, attack: { dmg: 8, cd: 1, wither: 10 }, fireImmune: true, egg: ['#141414', '#474d4d'], drops: [['coal', 0, 1], ['bone', 0, 2], ['wither_skeleton_skull', 0, 1, 0.025]], sound: 'skeleton', holds: 'stone_sword', model: skeletonModel('#444444', null, '#060606', 'entity/skeleton/wither_skeleton') });
 mob('zombified_piglin', { chase: 4.6, ...undead, kind: 'neutral', ai: 'melee', hw: 0.3, h: 1.95, health: 20, speed: 2.3, attack: { dmg: 8, cd: 1 }, fireImmune: true, egg: ['#ea9393', '#4c7129'], drops: [['rotten_flesh', 0, 1], ['gold_nugget', 0, 1], ['gold_ingot', 0, 1, 0.025]], sound: 'zpiglin', holds: 'golden_sword', groupAnger: true,
   model: () => { const skin = '#e0968a', rot = D.all(D.patches('#6a9a4a', 2, 1.6, '#4e7a36'), D.patches('#e8e0cc', 1, 1.1)); const m = humanoid({ head: S(skin, 'noise', { front: D.all(D.at(0, 1, D.patches('#6a9a4a', 1, 2), 0.6, 1), D.at(0.3, 0.9, D.band(0, 1, '#e8e0cc'), 0.7, 1), D.brow('#b86a60', 0.25, 1), eyes({ c: '#f4f0e8', pupil: K, y: 0.375, gap: 4 }), D.bar('#f0e8d8', 0.875, 6), D.bar('#8a3a3a', 0.875, 4)), all: rot }, 0.08), body: S('#7a5a3a', 'cloth', { all: D.all(D.patches('#6a9a4a', 1, 1.5), D.band(0.72, 0.8, '#d8b030'), D.ragged(0.9, 1, '#5a4028')) }), arm: S(skin, 'noise', { all: rot }, 0.08), leg: S('#5e4430', 'cloth', { all: D.ragged(0.86, 1, '#3a2a1e') }) }); m.parts.head.boxes[0].s = [10, 8, 8]; m.parts.head.boxes[0].o = [-5, 0, -4]; m.parts.head.boxes.push(box([-2, 0, -5], [4, 4, 1], S('#eaa49a', 'noise', { front: D.snout('#7a3a3a') }, 0.06))); m.anim = 'zombie'; return m; } });
 mob('phantom', {

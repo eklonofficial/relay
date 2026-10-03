@@ -1,4 +1,4 @@
-import { VF } from '../data/blocks.js?v=mush3nyu';
+import { VF } from '../data/blocks.js?v=mush3opu';
 
 const HEADER = `#version 300 es
 precision highp float;

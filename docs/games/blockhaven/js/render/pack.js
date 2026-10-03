@@ -182,6 +182,19 @@ export async function applyBlockTextures(zip, names, layers, anims = null) {
   }));
   return n;
 }
+// An entity texture (assets/minecraft/textures/<path>.png) as a 64x64 entity layer: scaled so it is
+// 64 wide (high-resolution packs), a 64x32 image filling the top half. null if the pack lacks it.
+export async function readEntityTexture(zip, path) {
+  const bytes = await zip.bytes(`assets/minecraft/textures/${path}.png`);
+  if (!bytes) return null;
+  try {
+    const bmp = await decodeImage(bytes);
+    const c = document.createElement('canvas'); c.width = c.height = 64;
+    const ctx = c.getContext('2d'); ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(bmp, 0, 0, 64, Math.min(64, Math.round(bmp.height * 64 / bmp.width)));
+    return new Uint8ClampedArray(ctx.getImageData(0, 0, 64, 64).data);
+  } catch { return null; }
+}
 // Armor layers (textures/models/armor/<material>_layer_<1|2>.png, 64x32 in Java's armor layout, or a
 // multiple of it), as 64x64 entity layers with the image in the top half. Leather is greyscale in
 // Java and tinted by its dye, so it is tinted with `leather` ([r, g, b]) and its overlay laid on top.
