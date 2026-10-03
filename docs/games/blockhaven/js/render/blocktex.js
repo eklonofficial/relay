@@ -1,7 +1,7 @@
 // Procedural 16x16 block textures. Every name registered in data/blocks.js must be drawable here.
-import { Painter, ramp, shade, mixHex, hex } from './paint.js?v=mush3uwi';
-import { TEXTURES, COLORS } from '../data/blocks.js?v=mush3uwi';
-import { EXTRA_BLOCK_TEX } from './enchtex.js?v=mush3uwi';
+import { Painter, ramp, shade, mixHex, hex } from './paint.js?v=mush3vnf';
+import { TEXTURES, COLORS, SHEETS } from '../data/blocks.js?v=mush3vnf';
+import { EXTRA_BLOCK_TEX } from './enchtex.js?v=mush3vnf';
 
 const N = 16;
 
@@ -998,7 +998,58 @@ function calibrate(d, ref) {
   for (let i = 0; i < d.length; i += 4) if (d[i + 3] > 0 && d[i + 3] !== 254) for (let c = 0; c < 3; c++) d[i + c] = Math.min(255, Math.round(d[i + c] * k[c]));
 }
 
+// Block-entity sheets (data/blocks.js SHEETS) in Java's layout, painted from our own tiles so the
+// chest, bed and skull keep their look until a pack's entity textures take over. Each cube is
+// [u, v, w, h, d, faces], faces giving [tile, x, y, flip] per face (west, north, east, south, down,
+// up; 'sides' for the four), cropped from the tile at (x, y). Chest and bed sides are stored upside
+// down, as Java draws block entities the right way up with entity texture layouts.
+const SHEET_ART = {
+  chest: [
+    [0, 0, 14, 5, 14, { sides: ['chest_side', 1, 1, true], down: ['chest_top', 1, 1], up: ['chest_top', 1, 1] }],
+    [0, 19, 14, 10, 14, { sides: ['chest_side', 1, 6, true], down: ['chest_top', 1, 1], up: ['chest_top', 1, 1] }],
+    [0, 0, 2, 4, 1, { all: ['#9a9a9a'] }],
+  ],
+  bed: [
+    // (The model stands upright: its north face is the top of the bed, pillow end first.)
+    [0, 0, 16, 16, 6, { north: ['bed_top_head', 0, 0], south: ['planks_oak', 0, 0], sides: ['bed_top_foot', 0, 0], down: ['bed_top_foot', 0, 0], up: ['bed_top_foot', 0, 0] }],
+    [0, 22, 16, 16, 6, { north: ['bed_top_foot', 0, 0], south: ['planks_oak', 0, 0], sides: ['bed_top_foot', 0, 0], down: ['bed_top_foot', 0, 0], up: ['bed_top_foot', 0, 0] }],
+    ...[0, 6, 12, 18].map(v => [50, v, 3, 3, 3, { all: ['planks_oak', 0, 0] }]),
+  ],
+  skeleton_skull: [[0, 0, 8, 8, 8, { north: ['skeleton_skull_front', 0, 0, false, 2], sides: ['skeleton_skull_side', 0, 0, false, 2], down: ['skeleton_skull_top', 0, 0, false, 2], up: ['skeleton_skull_top', 0, 0, false, 2] }]],
+  wither_skull: [[0, 0, 8, 8, 8, { north: ['wither_skull_front', 0, 0, false, 2], sides: ['wither_skull_side', 0, 0, false, 2], down: ['wither_skull_top', 0, 0, false, 2], up: ['wither_skull_top', 0, 0, false, 2] }]],
+};
+const sheetCache = new Map();
+function paintSheet(k) {
+  if (sheetCache.has(k)) return sheetCache.get(k);
+  const [w, h] = SHEETS[k], p = new Painter(w, h, 7), tiles = new Map();
+  const tile = n => { if (!tiles.has(n)) tiles.set(n, drawBlockTexture(n, 3)); return tiles.get(n); };
+  for (const [u, v, cw, ch, cd, f] of SHEET_ART[k]) {
+    // ModelPart.Cube's texture rectangles.
+    const rects = { down: [u + cd, v, cw, cd], up: [u + cd + cw, v, cw, cd], west: [u, v + cd, cd, ch], north: [u + cd, v + cd, cw, ch], east: [u + cd + cw, v + cd, cd, ch], south: [u + cd + cw + cd, v + cd, cw, ch] };
+    for (const [face, [x, y, rw, rh]] of Object.entries(rects)) {
+      const src = f[face] || (face !== 'down' && face !== 'up' && f.sides) || f.all;
+      if (!src) continue;
+      const [name, sx = 0, sy = 0, flip = false, step = 1] = src;
+      for (let j = 0; j < rh; j++) for (let i = 0; i < rw; i++) {
+        if (name[0] === '#') { p.put(x + i, y + j, name); continue; }
+        // (A tile drawn at half size takes the average of each 2x2 block.)
+        const tx = Math.min(15, sx + i * step), ty = Math.min(15, sy + (flip ? rh - 1 - j : j) * step), d = tile(name), c = [0, 0, 0, 0];
+        for (let b = 0; b < step; b++) for (let a = 0; a < step; a++) { const o = (Math.min(15, ty + b) * 16 + Math.min(15, tx + a)) * 4; for (let q = 0; q < 4; q++) c[q] += d[o + q] / (step * step); }
+        p.put(x + i, y + j, [c[0], c[1], c[2]], c[3]);
+      }
+    }
+  }
+  sheetCache.set(k, p.d);
+  return p.d;
+}
+
 export function drawBlockTexture(name, seed) {
+  const sh = name.match(/^(\w+)_sheet_(\d+)$/);
+  if (sh && SHEETS[sh[1]]) {
+    const d = paintSheet(sh[1]), w = SHEETS[sh[1]][0], t = Number(sh[2]), cols = w / 16, x0 = (t % cols) * 16, y0 = Math.floor(t / cols) * 16, out = new Uint8ClampedArray(N * N * 4);
+    for (let y = 0; y < 16; y++) out.set(d.subarray(((y0 + y) * w + x0) * 4, ((y0 + y) * w + x0 + 16) * 4), y * 16 * 4);
+    return out;
+  }
   const p = new Painter(N, N, seed);
   if (G[name]) G[name](p);
   else if (EXTRA_BLOCK_TEX[name]) EXTRA_BLOCK_TEX[name](p, n => drawBlockTexture(n, seed));

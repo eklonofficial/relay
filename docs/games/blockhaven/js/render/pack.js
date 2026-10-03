@@ -1,6 +1,7 @@
 // Resource packs: Java Edition style packs (.zip with assets/minecraft/textures/... and
 // assets/minecraft/sounds/...). The bundled defaults and player-selected packs use the same
 // matching path; a player's pack stays in this browser (IndexedDB) and is never uploaded.
+import { SHEETS } from '../data/blocks.js?v=mush3vnf';
 
 const DB = 'blockhaven-packs', STORE = 'packs', KEY = 'active';
 
@@ -154,7 +155,21 @@ const TINTED = name => (/^leaves_/.test(name) && !/cherry|azalea/.test(name)) ||
 // Animated strips are recorded in anims (layer -> { frames, order }) for the renderer to play.
 export async function applyBlockTextures(zip, names, layers, anims = null) {
   let n = 0;
+  const sheets = new Map();
   await Promise.all(names.map(async (name, i) => {
+    // A tile of a block-entity sheet (data/blocks.js SHEETS): cut from the pack's entity texture,
+    // scaled to Java's size for it (high-resolution packs come down to it).
+    const sh = name.match(/^(\w+)_sheet_(\d+)$/);
+    if (sh && SHEETS[sh[1]]) {
+      const [w, , path] = SHEETS[sh[1]];
+      if (!sheets.has(path)) sheets.set(path, zip.bytes(`assets/minecraft/textures/${path}.png`).then(b => b && decodeImage(b)).catch(() => null));
+      const bmp = await sheets.get(path);
+      if (!bmp) return;
+      const k = bmp.width / w, cols = w / 16, t = Number(sh[2]);
+      overlay(layers[i], to16(bmp, (t % cols) * 16 * k, Math.floor(t / cols) * 16 * k, 16 * k, 16 * k));
+      n++;
+      return;
+    }
     const mc = packTextureName(name);
     if (!mc || mc[0] === '#') return;
     const bytes = await zip.bytes(`assets/minecraft/textures/block/${mc}.png`);
