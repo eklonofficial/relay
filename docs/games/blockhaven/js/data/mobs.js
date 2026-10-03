@@ -1,8 +1,9 @@
 // Mob roster: stats, AI archetype, drops, box models and procedural skins.
 // Model space: 1 unit = 1/16 block, feet at y=0, the mob faces -Z.
-import { D, pal, shade as shadeHex } from '../render/mobtex.js?v=mush3ph6';
-import { villagerModel as jVillager, witchModel as jWitch, illagerModel as jIllager, piglinModel as jPiglin, zombieVillagerModel as jZombieVillager } from '../entity/javamodels.js?v=mush3ph6';
-import { playerModel as javaPlayerModel, mobHumanoid } from '../entity/humanoid.js?v=mush3ph6';
+import { D, pal, shade as shadeHex } from '../render/mobtex.js?v=mush3qz5';
+import { pigModel as jPig, cowModel as jCow, sheepModel as jSheep, sheepFurModel as jSheepFur, chickenModel as jChicken, wolfModel as jWolf, foxModel as jFox, polarBearModel as jPolarBear, goatModel as jGoat, llamaModel as jLlama, horseModel as jHorse } from '../entity/animals.js?v=mush3qz5';
+import { villagerModel as jVillager, witchModel as jWitch, illagerModel as jIllager, piglinModel as jPiglin, zombieVillagerModel as jZombieVillager } from '../entity/javamodels.js?v=mush3qz5';
+import { playerModel as javaPlayerModel, mobHumanoid } from '../entity/humanoid.js?v=mush3qz5';
 
 const box = (o, s, style, extra = {}) => ({ o, s, style, ...extra });
 const part = (pivot, boxes, extra = {}) => ({ pivot, boxes, ...extra });
@@ -648,6 +649,37 @@ mob('ender_dragon', {
     return { anim: 'dragon', eye: 36, parts };
   },
 });
+
+// The animals on Java's models (entity/animals.js): each keeps its painted look, taken off its
+// old box model part by part, and names the pack image(s) that replace it.
+const fromOld = (old, build, texture, more = () => ({})) => () => {
+  const m = old(), s = (n, i = 0) => m.parts[n] && m.parts[n].boxes[i] && m.parts[n].boxes[i].style;
+  return build({ head: s('head'), body: s('body'), leg: s('leg0'), ...more(s) }, texture);
+};
+MOBS.pig.model = fromOld(MOBS.pig.model, jPig, 'entity/pig/pig', s => ({ snout: s('head', 1) }));
+MOBS.cow.model = fromOld(MOBS.cow.model, jCow, 'entity/cow/cow', s => ({ horn: s('head', 1), udder: s('body') }));
+MOBS.mooshroom.model = fromOld(MOBS.mooshroom.model, jCow, 'entity/cow/red_mooshroom', s => ({ horn: s('head'), udder: s('body') }));
+{
+  const sheepOld = MOBS.sheep.model;
+  MOBS.sheep.model = fromOld(sheepOld, jSheep, 'entity/sheep/sheep');
+  // SheepFurLayer: the wool, tinted by the sheep's colour and gone once sheared.
+  MOBS.sheep.overlay = () => { const w = sheepOld().parts.body.boxes[1].style; return jSheepFur({ head: w, body: w, leg: w }); };
+}
+// (Java's chicken leg is a 3x3 box whose texture is clear but for a thin stalk and the toes.)
+const chickenLeg = S('#f0a020', 'flat', { sides: (p, x, y, w, h) => { for (let j = 0; j < h - 1; j++) for (let i = 0; i < w; i++) if (i !== (w >> 1)) p.put(x + i, y + j, '#000000', 0); }, front: (p, x, y, w, h) => { for (let j = 0; j < h - 1; j++) for (let i = 0; i < w; i++) if (i !== (w >> 1)) p.put(x + i, y + j, '#000000', 0); }, top: (p, x, y, w, h) => p.rect(x, y, w, h, '#000000', 0) });
+MOBS.chicken.model = fromOld(MOBS.chicken.model, jChicken, 'entity/chicken', s => ({ head: s('head'), beak: s('head', 1), wattle: s('head', 2), wing: s('wingR'), leg: chickenLeg }));
+{
+  const wolfOld = MOBS.wolf.model;
+  MOBS.wolf.model = fromOld(wolfOld, jWolf, 'entity/wolf/wolf', s => ({ mane: s('body', 1), muzzle: s('head', 1), ear: s('head', 2), tail: s('tail') }));
+  // A tame wolf and an angry one wear their own textures (WolfRenderer.getTextureLocation).
+  MOBS.wolf.variants = { tame: 'entity/wolf/wolf_tame', angry: 'entity/wolf/wolf_angry' };
+}
+MOBS.fox.model = fromOld(MOBS.fox.model, jFox, 'entity/fox/fox', s => ({ nose: s('head', 1), ear: s('head', 2), tail: s('tail') }));
+MOBS.polar_bear.model = fromOld(MOBS.polar_bear.model, jPolarBear, 'entity/bear/polarbear', s => ({ muzzle: s('head', 1), ear: s('head') }));
+MOBS.goat.model = fromOld(MOBS.goat.model, jGoat, 'entity/goat/goat', s => ({ ear: s('head'), horn: s('head', 1), goatee: s('head', 3) }));
+MOBS.llama.model = fromOld(MOBS.llama.model, jLlama, 'entity/llama/creamy', s => ({ snout: s('head', 1), ear: s('head', 2) }));
+MOBS.horse.model = fromOld(MOBS.horse.model, (st, t) => jHorse(st, t), 'entity/horse/horse_brown', s => ({ neck: s('head'), head: s('head', 1), mouth: s('head', 2), ear: s('head', 3), mane: s('head', 5), tail: s('tail') }));
+MOBS.donkey.model = fromOld(MOBS.donkey.model, (st, t) => jHorse(st, t, true), 'entity/horse/donkey', s => ({ neck: s('head'), head: s('head', 1), mouth: s('head', 2), ear: s('head', 3), mane: s('head', 5), tail: s('tail') }));
 
 MOBS.villager.professionModel = prof => villagerModel(PROFESSION_COLORS[prof] || '#6a4a3a', PROF_DECOR[prof] || null, undefined, undefined,
   ['entity/villager/villager', 'entity/villager/type/plains', `entity/villager/profession/${prof}`])();
