@@ -2,7 +2,7 @@
 // WolfModel, GoatModel, FoxModel, HorseModel, DonkeyModel, LlamaModel) with their texture offsets, and
 // their setupAnim poses. Java coordinates (y down from the model's top, feet at 24), turned into ours
 // as in entity/humanoid.js; a part with a parent sits relative to it.
-import { jbox, pivot } from './humanoid.js?v=mush3q82';
+import { jbox, pivot } from './humanoid.js?v=mush3qz5';
 
 const PI = Math.PI;
 const child = (x, y, z) => [-x, -y, z];
@@ -11,13 +11,13 @@ const P = (pv, boxes, extra = {}) => ({ pivot: pv, boxes, ...extra });
 // The model wrapper: Java texture size (for packs), pack image(s), our pose kind.
 const model = (anim, parts, texSize, texture, extra = {}) => ({ java: true, tex: [64, 64], texSize, anim, texture, parts, ...extra });
 
-// QuadrupedModel.createBodyMesh: head, a body lying along z, four legs `legH` tall (left legs mirrored).
+// QuadrupedModel.createBodyMesh: head, a body lying along z, four legs `legH` tall, all from one texture.
 function quadruped(legH, st, k = 0) {
-  const leg = (x, z, right) => P(pivot(x, 24 - legH, z), [jbox(0, 16, -2, 0, -2, 4, legH, 4, k, right ? { style: st.leg } : { mirror: true })]);
+  const leg = (x, z) => P(pivot(x, 24 - legH, z), [jbox(0, 16, -2, 0, -2, 4, legH, 4, k, { style: st.leg })]);
   return {
     head: P(pivot(0, 18 - legH, -6), [jbox(0, 0, -4, -4, -8, 8, 8, 8, k, { style: st.head })]),
     body: P(pivot(0, 17 - legH, 2), [jbox(28, 8, -5, -10, -7, 10, 16, 8, k, { style: st.body })], { rot: rot(PI / 2, 0, 0) }),
-    rightHindLeg: leg(-3, 7, true), leftHindLeg: leg(3, 7, false), rightFrontLeg: leg(-3, -5, true), leftFrontLeg: leg(3, -5, false),
+    rightHindLeg: leg(-3, 7), leftHindLeg: leg(3, 7), rightFrontLeg: leg(-3, -5), leftFrontLeg: leg(3, -5),
   };
 }
 
@@ -30,11 +30,11 @@ export function pigModel(st, texture = 'entity/pig/pig') {
 
 // CowModel (cows, mooshrooms): horns on the head, an udder under the body, 12-tall legs.
 export function cowModel(st, texture = 'entity/cow/cow') {
-  const leg = (x, z, right) => P(pivot(x, 12, z), [jbox(0, 16, -2, 0, -2, 4, 12, 4, 0, right ? { style: st.leg } : { mirror: true })]);
+  const leg = (x, z) => P(pivot(x, 12, z), [jbox(0, 16, -2, 0, -2, 4, 12, 4, 0, { style: st.leg })]);
   return model('jquadruped', {
     head: P(pivot(0, 4, -8), [jbox(0, 0, -4, -4, -6, 8, 8, 6, 0, { style: st.head }), jbox(22, 0, -5, -5, -4, 1, 3, 1, 0, { style: st.horn }), jbox(22, 0, 4, -5, -4, 1, 3, 1, 0, { style: st.horn })]),
     body: P(pivot(0, 5, 2), [jbox(18, 4, -6, -10, -7, 12, 18, 10, 0, { style: st.body }), jbox(52, 0, -2, 2, -8, 4, 6, 1, 0, { style: st.udder })], { rot: rot(PI / 2, 0, 0) }),
-    rightHindLeg: leg(-4, 7, true), leftHindLeg: leg(4, 7, false), rightFrontLeg: leg(-4, -6, true), leftFrontLeg: leg(4, -6, false),
+    rightHindLeg: leg(-4, 7), leftHindLeg: leg(4, 7), rightFrontLeg: leg(-4, -6), leftFrontLeg: leg(4, -6),
   }, [64, 32], texture);
 }
 
@@ -98,7 +98,7 @@ export function polarBearModel(st, texture = 'entity/bear/polarbear') {
 // hind legs and long front legs, each with its own texture.
 export function goatModel(st, texture = 'entity/goat/goat') {
   return model('jquadruped', {
-    head: P(pivot(1, 14, 0), [jbox(2, 61, -6, -11, -10, 5, 2, 1, 0, { style: st.ear }), jbox(2, 61, 2, -11, -10, 5, 2, 1, 0, { mirror: true }), jbox(23, 52, -0.5, -3, -14, 0, 7, 5, 0, { style: st.goatee })]),
+    head: P(pivot(1, 14, 0), [jbox(2, 61, -6, -11, -10, 3, 2, 1, 0, { style: st.ear }), jbox(2, 61, 2, -11, -10, 3, 2, 1, 0, { mirror: true }), jbox(23, 52, -0.5, -3, -14, 0, 7, 5, 0, { style: st.goatee, mirror: true })]),
     leftHorn: P(child(0, 0, 0), [jbox(12, 55, -0.01, -16, -10, 2, 7, 2, 0, { style: st.horn })], { parent: 'head' }),
     rightHorn: P(child(0, 0, 0), [jbox(12, 55, -2.99, -16, -10, 2, 7, 2, 0, { style: st.horn })], { parent: 'head' }),
     nose: P(child(0, -8, -8), [jbox(34, 46, -3, -4, -8, 5, 7, 10, 0, { style: st.head })], { parent: 'head', rot: rot(0.9599, 0, 0) }),
@@ -148,11 +148,11 @@ export function horseModel(st, texture = 'entity/horse/horse_brown', donkey = fa
 
 // LlamaModel (128x64): a tall neck-and-head with a snout and ears, a body, long legs.
 export function llamaModel(st, texture = 'entity/llama/creamy') {
-  const leg = (x, z, right) => P(pivot(x, 10, z), [jbox(29, 29, -2, 0, -2, 4, 14, 4, 0, right ? { style: st.leg } : { style: st.leg })]);
+  const leg = (x, z) => P(pivot(x, 10, z), [jbox(29, 29, -2, 0, -2, 4, 14, 4, 0, { style: st.leg })]);
   return model('jquadruped', {
     head: P(pivot(0, 7, -6), [jbox(0, 0, -2, -14, -10, 4, 4, 9, 0, { style: st.snout || st.head }), jbox(0, 14, -4, -16, -6, 8, 18, 6, 0, { style: st.head }), jbox(17, 0, -4, -19, -4, 3, 3, 2, 0, { style: st.ear }), jbox(17, 0, 1, -19, -4, 3, 3, 2, 0, { style: st.ear })]),
     body: P(pivot(0, 5, 2), [jbox(29, 0, -6, -10, -7, 12, 18, 10, 0, { style: st.body })], { rot: rot(PI / 2, 0, 0) }),
-    rightHindLeg: leg(-3.5, 6, true), leftHindLeg: leg(3.5, 6, false), rightFrontLeg: leg(-3.5, -5, true), leftFrontLeg: leg(3.5, -5, false),
+    rightHindLeg: leg(-3.5, 6), leftHindLeg: leg(3.5, 6), rightFrontLeg: leg(-3.5, -5), leftFrontLeg: leg(3.5, -5),
   }, [128, 64], texture, { headStill: true });
 }
 

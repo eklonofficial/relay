@@ -1,5 +1,5 @@
 // Villager trade tables: [level, buy, buy2?, sell, maxUses, xp]. Emerald economy like the original.
-import { randomBookEnchant, ENCHANTS } from '../data/enchantments.js?v=mush3q82';
+import { randomBookEnchant, ENCHANTS } from '../data/enchantments.js?v=mush3qz5';
 const E = n => ({ key: 'emerald', count: n });
 const K = (key, count = 1) => ({ key, count });
 // Librarians sell a random enchanted book (rolled when the trade unlocks): 2 + rand(5 + 10*level)

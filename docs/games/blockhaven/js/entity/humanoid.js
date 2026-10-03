@@ -31,7 +31,7 @@ export function playerModel(st = {}, slim = false) {
 }
 
 // HumanoidArmorModel: the humanoid mesh on a 64x32 armor texture, every box inflated by 1 (the outer
-// layer: helmet, chestplate, boots) or 0.5 (the inner layer: leggings). The left limbs reuse the
+// layer: helmet, chestplate, boots) or 0.5 (the inner layer: leggings), the legs 0.1 less. The left limbs reuse the
 // right ones' texture, mirrored. Which parts show depends on the piece (see ARMOR_PARTS).
 export function armorModel(inner, st = {}) {
   const k = inner ? 0.5 : 1, part = (pv, boxes) => ({ pivot: pv, boxes });
@@ -42,8 +42,8 @@ export function armorModel(inner, st = {}) {
       body: part(pivot(0, 0, 0), [jbox(16, 16, -4, 0, -2, 8, 12, 4, k, { style: st.body })]),
       rightArm: part(pivot(-5, 2, 0), [jbox(40, 16, -3, -2, -2, 4, 12, 4, k, { style: st.arm })]),
       leftArm: part(pivot(5, 2, 0), [jbox(40, 16, -1, -2, -2, 4, 12, 4, k, { mirror: true })]),
-      rightLeg: part(pivot(-1.9, 12, 0), [jbox(0, 16, -2, 0, -2, 4, 12, 4, k, { style: st.leg })]),
-      leftLeg: part(pivot(1.9, 12, 0), [jbox(0, 16, -2, 0, -2, 4, 12, 4, k, { mirror: true })]),
+      rightLeg: part(pivot(-1.9, 12, 0), [jbox(0, 16, -2, 0, -2, 4, 12, 4, k - 0.1, { style: st.leg })]),
+      leftLeg: part(pivot(1.9, 12, 0), [jbox(0, 16, -2, 0, -2, 4, 12, 4, k - 0.1, { mirror: true })]),
     },
   };
 }

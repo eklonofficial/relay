@@ -18,11 +18,11 @@ test('each animal names its pack texture and Java texture size', () => {
   assert.deepEqual(MOBS.wolf.variants, { tame: 'entity/wolf/wolf_tame', angry: 'entity/wolf/wolf_angry' });
 });
 
-test('QuadrupedModel layout: pig snout, cow horns and udder, mirrored left legs', () => {
+test('QuadrupedModel layout: pig snout, cow horns and udder, unmirrored legs', () => {
   const pig = MOBS.pig.model(), cow = MOBS.cow.model();
   assert.equal(pig.parts.head.boxes[1].uv.join(), '16,16');
   assert.equal(cow.parts.head.boxes.length, 3); assert.equal(cow.parts.body.boxes[1].uv.join(), '52,0');
-  assert.equal(cow.parts.leftHindLeg.boxes[0].mirror, true);
+  assert.ok(!cow.parts.leftHindLeg.boxes[0].mirror, 'every leg uses the same texture, unmirrored (1.20.1)');
   assert.ok(Math.abs(cow.parts.body.rot[0] + Math.PI / 2) < 1e-9, 'body lies along the animal');
 });
 
