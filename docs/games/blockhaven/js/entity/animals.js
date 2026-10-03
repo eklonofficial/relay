@@ -2,14 +2,14 @@
 // WolfModel, GoatModel, FoxModel, HorseModel, DonkeyModel, LlamaModel) with their texture offsets, and
 // their setupAnim poses. Java coordinates (y down from the model's top, feet at 24), turned into ours
 // as in entity/humanoid.js; a part with a parent sits relative to it.
-import { jbox, pivot } from './humanoid.js?v=mush3qz5';
+import { jbox, pivot } from './humanoid.js?v=mush3rqf';
 
 const PI = Math.PI;
-const child = (x, y, z) => [-x, -y, z];
-const rot = (x, y, z) => [-x, -y, z];
-const P = (pv, boxes, extra = {}) => ({ pivot: pv, boxes, ...extra });
+export const child = (x, y, z) => [-x, -y, z];
+export const rot = (x, y, z) => [-x, -y, z];
+export const P = (pv, boxes, extra = {}) => ({ pivot: pv, boxes, ...extra });
 // The model wrapper: Java texture size (for packs), pack image(s), our pose kind.
-const model = (anim, parts, texSize, texture, extra = {}) => ({ java: true, tex: [64, 64], texSize, anim, texture, parts, ...extra });
+export const model = (anim, parts, texSize, texture, extra = {}) => ({ java: true, tex: [64, 64], texSize, anim, texture, parts, ...extra });
 
 // QuadrupedModel.createBodyMesh: head, a body lying along z, four legs `legH` tall, all from one texture.
 function quadruped(legH, st, k = 0) {
@@ -159,7 +159,7 @@ export function llamaModel(st, texture = 'entity/llama/creamy') {
 // ---------------- poses ----------------
 // st: { limbSwing, limbAmt, age (ticks), headPitch, headYaw (Java's signs), sitting, angry, tamed, health,
 //   flap (chicken wing angle), eat (sheep grazing 0-1) }
-const toOurs = (parts, model) => {
+export const toOurs = (parts, model) => {
   const poses = {}, pivots = {};
   for (const [k, p] of Object.entries(parts)) {
     poses[k] = [-p.rx, -p.ry, p.rz];
@@ -167,7 +167,7 @@ const toOurs = (parts, model) => {
   }
   return { poses, pivots };
 };
-const R = (rx = 0, ry = 0, rz = 0) => ({ rx, ry, rz });
+export const R = (rx = 0, ry = 0, rz = 0) => ({ rx, ry, rz });
 
 // QuadrupedModel.setupAnim: head look, diagonal leg pairs swinging together (and the llama's head
 // staying level, the sheep's dipping to graze).

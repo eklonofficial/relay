@@ -2,8 +2,8 @@
 // scripted camera shots — villages, mob parades, a forest fire, a night battle with explosions,
 // caves, a Nether fortress, the End and the Wither. Every shot is set up behind a fade while its
 // chunks stream in, then the camera follows smooth eased paths. Esc exits, Space skips.
-import { B, st, DIM } from './data/blocks.js?v=mush3qz5';
-import { surfaceDocument as document } from './surface.js?v=mush3qz5';
+import { B, st, DIM } from './data/blocks.js?v=mush3rqf';
+import { surfaceDocument as document } from './surface.js?v=mush3rqf';
 
 const $ = id => document.getElementById(id);
 const ease = x => x * x * (3 - 2 * x);
