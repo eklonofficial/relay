@@ -1,7 +1,7 @@
 // Resource packs: Java Edition style packs (.zip with assets/minecraft/textures/... and
 // assets/minecraft/sounds/...). The bundled defaults and player-selected packs use the same
 // matching path; a player's pack stays in this browser (IndexedDB) and is never uploaded.
-import { SHEETS } from '../data/blocks.js?v=mush3vnf';
+import { SHEETS } from '../data/blocks.js?v=muso40ud';
 
 const DB = 'blockhaven-packs', STORE = 'packs', KEY = 'active';
 
@@ -269,7 +269,7 @@ export const SOUND_FILES = {
   bow: 'random/bow', arrow_hit: 'random/bowhit', explode: 'random/explode', fuse: 'random/fuse', fizz: 'random/fizz', fire: 'fire/fire', ignite: 'fire/ignite',
   door_open: 'random/door_open', door_close: 'random/door_close', chest_open: 'random/chestopen', chest_close: 'random/chestclosed', glass: 'random/glass',
   splash: 'random/splash', swim: 'liquid/swim', break_item: 'random/break', click: 'random/click', rs_click: 'random/click', piston_out: 'tile/piston/out',
-  piston_in: 'tile/piston/in', thunder: 'ambient/weather/thunder', anvil: 'random/anvil_land', portal: 'portal/portal', portal_travel: 'portal/travel',
+  piston_in: 'tile/piston/in', thunder: 'ambient/weather/thunder', rain: 'ambient/weather/rain', rain_above: 'ambient/weather/rain', anvil: 'random/anvil_land', portal: 'portal/portal', portal_travel: 'portal/travel',
   teleport: 'mob/endermen/portal', throw: 'random/bow', firework: 'fireworks/launch', firework_blast: 'fireworks/blast', totem: 'item/totem/use_totem',
   shield_block: 'item/shield/block', xbow_shoot: 'item/crossbow/shoot', xbow_load: 'item/crossbow/loading_end', xbow_start: 'item/crossbow/loading_start', xbow_mid: 'item/crossbow/loading_middle',
   equip: 'item/armor/equip_generic', sweep: 'entity/player/attack/sweep', crit: 'entity/player/attack/crit', attack: 'entity/player/attack/strong',

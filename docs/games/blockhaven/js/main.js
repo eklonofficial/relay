@@ -1,45 +1,49 @@
 // Blockhaven bootstrap: assets, menus, input, camera, frame loop.
-import './page.js?v=mush3vnf';
-import { surfaceDocument as document } from './surface.js?v=mush3vnf';
-import { registerApp } from './veil.js?v=mush3vnf';
-import { movementSamples } from './util/pointer.js?v=mush3vnf';
-import { ask, tell } from './dialog.js?v=mush3vnf';
-import { Demo, DEMO_SEED } from './demo.js?v=mush3vnf';
-import { armorLayerModel, armorLayer, ARMOR_MATERIALS, LEATHER_COLOR, elytraModel } from './data/armor.js?v=mush3vnf';
-import { humanoidPose, processSkin } from './entity/humanoid.js?v=mush3vnf';
-import { TEXTURES, TEX, B, BLOCKS, DIM, DIM_NAMES, SHAPE_OF, SHAPE, props, HEIGHT } from './data/blocks.js?v=mush3vnf';
-import { I, ITEMS } from './data/items.js?v=mush3vnf';
-import { MOBS, PROFESSIONS, playerModel, saddleModel, PLAYER_SKINS } from './data/mobs.js?v=mush3vnf';
-import { Net, cleanCode, cleanName, cleanKey, cleanChat, chatLine, MAX_PLAYERS, wakeRelays, diagnoseNetwork } from './net/net.js?v=mush3vnf';
-import { NameTags } from './net/nametags.js?v=mush3vnf';
-import { BIOMES } from './gen/biomes.js?v=mush3vnf';
-import { generateBlockTextures, drawBlockTexture } from './render/blocktex.js?v=mush3vnf';
-import { generateItemTextures, ITEM_LAYER, FX_LAYER, ITEM_LAYER_COUNT, flatTexFor } from './render/itemtex.js?v=mush3vnf';
-import { Zip, storedPack, savePack, removePack, applyBlockTextures, applyItemTextures, applyArmorTextures, readEntityTexture, indexSounds } from './render/pack.js?v=mush3vnf';
-import { packModel, paintModel, ENTITY, texFactor, faceRects } from './render/mobtex.js?v=mush3vnf';
-import { buildMipChain } from './render/atlas.js?v=mush3vnf';
-import { Renderer, Batch } from './render/renderer.js?v=mush3vnf';
-import { World, UNLOADED } from './world/world.js?v=mush3vnf';
-import { createGenerator } from './gen/index.js?v=mush3vnf';
-import { Game } from './game/game.js?v=mush3vnf';
-import { Interact, crossbowCharge } from './game/interact.js?v=mush3vnf';
-import { SpawnPrep, STATUS_COLOR } from './game/spawnprep.js?v=mush3vnf';
-import { splash } from './splash.js?v=mush3vnf';
-import { Commands } from './game/commands.js?v=mush3vnf';
-import { GUI, HUD } from './game/ui.js?v=mush3vnf';
-import { buildIcons, hudSprites } from './game/icons.js?v=mush3vnf';
-import { Sound } from './game/audio.js?v=mush3vnf';
-import { buildLogo, buttonTexture, dirtTexture, iconDataURL } from './render/logo.js?v=mush3vnf';
-import { computeEnv } from './game/env.js?v=mush3vnf';
-import { guideSections } from './game/guide.js?v=mush3vnf';
-import { listWorlds, loadWorld, saveWorld, deleteWorld } from './game/storage.js?v=mush3vnf';
-import { importJavaWorld, exportJavaWorld } from './game/javaworld.js?v=mush3vnf';
-import { drawModel, rootMatrix, M } from './entity/entity.js?v=mush3vnf';
-import { itemMesh, emitItemMesh, clearItemMeshes } from './entity/itemmesh.js?v=mush3vnf';
-import { Lightning, billboard } from './entity/objects.js?v=mush3vnf';
-import { compose, translation, rotationX, rotationY, rotationZ, scaling, forward, mat4 } from './core/math.js?v=mush3vnf';
-import { hasGlint } from './data/enchantments.js?v=mush3vnf';
-import { BarrelRoll } from './game/barrelroll.js?v=mush3vnf';
+import './page.js?v=muso40ud';
+import { surfaceDocument as document } from './surface.js?v=muso40ud';
+import { registerApp } from './veil.js?v=muso40ud';
+import { movementSamples } from './util/pointer.js?v=muso40ud';
+import { ask, tell } from './dialog.js?v=muso40ud';
+import { Demo, DEMO_SEED } from './demo.js?v=muso40ud';
+import { armorLayerModel, armorLayer, ARMOR_MATERIALS, LEATHER_COLOR, elytraModel } from './data/armor.js?v=muso40ud';
+import { humanoidPose, processSkin } from './entity/humanoid.js?v=muso40ud';
+import { TEXTURES, TEX, B, BLOCKS, DIM, DIM_NAMES, SHAPE_OF, SHAPE, props, HEIGHT, STATE, VARIANT_MASK } from './data/blocks.js?v=muso40ud';
+import { I, ITEMS } from './data/items.js?v=muso40ud';
+import { MOBS, PROFESSIONS, playerModel, saddleModel, PLAYER_SKINS } from './data/mobs.js?v=muso40ud';
+import { Net, cleanCode, cleanName, cleanKey, cleanChat, chatLine, MAX_PLAYERS, wakeRelays, diagnoseNetwork } from './net/net.js?v=muso40ud';
+import { NameTags } from './net/nametags.js?v=muso40ud';
+import { BIOMES } from './gen/biomes.js?v=muso40ud';
+import { generateBlockTextures, drawBlockTexture } from './render/blocktex.js?v=muso40ud';
+import { generateItemTextures, ITEM_LAYER, FX_LAYER, ITEM_LAYER_COUNT, flatTexFor } from './render/itemtex.js?v=muso40ud';
+import { Zip, storedPack, savePack, removePack, applyBlockTextures, applyItemTextures, applyArmorTextures, readEntityTexture, indexSounds } from './render/pack.js?v=muso40ud';
+import { packModel, paintModel, ENTITY, texFactor, faceRects } from './render/mobtex.js?v=muso40ud';
+import { buildMipChain } from './render/atlas.js?v=muso40ud';
+import { Renderer, Batch } from './render/renderer.js?v=muso40ud';
+import { generateWeatherTextures, readWeatherTextures } from './render/weathertex.js?v=muso40ud';
+import { precipitationAt, precipitationHeight } from './game/weather.js?v=muso40ud';
+import { JavaRandom } from './core/jrandom.js?v=muso40ud';
+import { collisionBoxes } from './data/shapes.js?v=muso40ud';
+import { World, UNLOADED } from './world/world.js?v=muso40ud';
+import { createGenerator } from './gen/index.js?v=muso40ud';
+import { Game } from './game/game.js?v=muso40ud';
+import { Interact, crossbowCharge } from './game/interact.js?v=muso40ud';
+import { SpawnPrep, STATUS_COLOR } from './game/spawnprep.js?v=muso40ud';
+import { splash } from './splash.js?v=muso40ud';
+import { Commands } from './game/commands.js?v=muso40ud';
+import { GUI, HUD } from './game/ui.js?v=muso40ud';
+import { buildIcons, hudSprites } from './game/icons.js?v=muso40ud';
+import { Sound } from './game/audio.js?v=muso40ud';
+import { buildLogo, buttonTexture, dirtTexture, iconDataURL } from './render/logo.js?v=muso40ud';
+import { computeEnv } from './game/env.js?v=muso40ud';
+import { guideSections } from './game/guide.js?v=muso40ud';
+import { listWorlds, loadWorld, saveWorld, deleteWorld } from './game/storage.js?v=muso40ud';
+import { importJavaWorld, exportJavaWorld } from './game/javaworld.js?v=muso40ud';
+import { drawModel, rootMatrix, M } from './entity/entity.js?v=muso40ud';
+import { itemMesh, emitItemMesh, clearItemMeshes } from './entity/itemmesh.js?v=muso40ud';
+import { Lightning, billboard } from './entity/objects.js?v=muso40ud';
+import { compose, translation, rotationX, rotationY, rotationZ, scaling, forward, mat4 } from './core/math.js?v=muso40ud';
+import { hasGlint } from './data/enchantments.js?v=muso40ud';
+import { BarrelRoll } from './game/barrelroll.js?v=muso40ud';
 
 const $ = id => document.getElementById(id);
 // Resolves after the page has painted what was just put on screen.
@@ -180,13 +184,15 @@ class App {
     // Other models a mob switches to (the pufferfish puffing up).
     for (const [k, d] of Object.entries(MOBS)) for (const [v, f] of Object.entries(d.forms || {})) addSkin(`${k}_${v}`, f(), seed++);
     this.renderer.setEntityTextures(buildMipChain(skins, ENTITY, 8), skins.length);
+    this.weatherTex = generateWeatherTextures();
+    this.renderer.setWeatherTextures(this.weatherTex);
     this.loadCustomSkin();
     splash.progress(0.6);
     this.icons = buildIcons(this.blockTex, this.itemTex);
     this.sprites = hudSprites();
     this.sound = new Sound();
     this.sound.volume = settings.volume / 100; this.sound.music = settings.music / 100;
-    this.batches = { mobs: new Batch(), mobsClear: new Batch(), items: new Batch(), itemFx: new Batch(), blockParticles: new Batch(), hand: new Batch() };
+    this.batches = { weather: new Batch(), mobs: new Batch(), mobsClear: new Batch(), items: new Batch(), itemFx: new Batch(), blockParticles: new Batch(), hand: new Batch() };
     this.nametags = new NameTags($('nametags'));
     this.bindSettings(); this.bindMenus(); this.bindInput();
     $('splash').textContent = SPLASHES[Math.floor(Math.random() * SPLASHES.length)];
@@ -780,6 +786,9 @@ class App {
       for (const path of [].concat(model.texture)) px = (await readEntityTexture(zip, path, model.texSize && model.texSize.map(v => v / k), px)) || px;
       if (px) { const layer = this.mobLayers.get(key); this.skinPixels[layer] = px; this.renderer.setEntityLayer(layer, px); }
     }
+    // Rain and snow from the pack's textures/environment.
+    const wt = await readWeatherTextures(zip);
+    if (wt.some(Boolean)) { this.weatherTex = this.weatherTex.map((d, i) => wt[i] || d); this.renderer.setWeatherTextures(this.weatherTex); }
     // Worn armor from the pack's textures/models/armor.
     for (const [mat, l, px] of await applyArmorTextures(zip, Object.keys(ARMOR_MATERIALS), LEATHER_COLOR)) {
       const layer = this.mobLayers.get(`armor_${mat}_${l}`);
@@ -1268,7 +1277,7 @@ class App {
     const cam = this.camera(dt);
     const f = forward(cam.yaw, cam.pitch);
     const rain = g.dim === 0 ? g.weather.rain : 0;
-    g.env = computeEnv(g.dim, g.dayTime, f, rain, g.dim === 0 ? g.weather.thunder : 0, settings.brightness / 100 + (g.stats.effects.night_vision ? 4 : 0));
+    g.env = computeEnv(g.dim, g.dayTime, f, rain, g.dim === 0 ? g.weather.thunder * g.weather.rain : 0, settings.brightness / 100 + (g.stats.effects.night_vision ? 4 : 0));
     const env = g.env;
     const camBlock = g.world.getBlock(cam.pos[0], cam.pos[1], cam.pos[2]);
     const medium = g.mode === 'spectator' && SHAPE_OF[camBlock] === SHAPE.CUBE ? 0 : camBlock === B.WATER ? 1 : camBlock === B.LAVA ? 2 : 0;
@@ -1304,7 +1313,7 @@ class App {
     g.rs.render(ctx, (x, y, z) => { const l = g.world.lightAt(x, y, z); return Math.max(Math.pow(0.8, 15 - l.sky) * g.env.skyLight[0], Math.pow(0.82, 15 - l.blk) * 1.1, g.env.ambient[0]); });
     if (this.view > 0 && g.alive && g.mode !== 'spectator') this.drawPlayerModel(ctx);
     else if (p.rockets.length && g.alive) this.rocketSparks(this.rocketAt(p.renderPos || p.pos, p.yaw, g.inv.held && g.inv.held.key, g.inv.offhand.get(0) && g.inv.offhand.get(0).key), this.wings || (this.wings = { x: 0.2617994, y: 0, z: -0.2617994 }));
-    if (rain > 0.05) this.drawWeather(ctx, cam, rain);
+    if (rain > 0) this.drawWeather(cam, rain, dt);
     // Elytra wind: speed squared (blocks/tick) over 4, silent for the first second of a glide, then
     // fading in over the next; above 0.8 it also rises in pitch.
     // (Every frame, not only in the rain.)
@@ -1328,7 +1337,7 @@ class App {
       blockModels: ctx.blockModels,
       solidBatches: [{ batch: B_.mobs, tex: 'mob' }, { batch: B_.items, tex: 'item' }, { batch: B_.blockParticles, tex: 'block' }],
       // (See-through mob layers, like a slime's outer jelly: Java's entityTranslucent.)
-      blendBatches: [{ batch: B_.mobsClear, tex: 'mob' }, { batch: B_.itemFx, tex: 'item' }],
+      blendBatches: [{ batch: B_.weather, tex: 'weather', alphaTest: 0.01, noCull: true }, { batch: B_.mobsClear, tex: 'mob' }, { batch: B_.itemFx, tex: 'item' }],
       hand, post: { hurt: this.post.hurt, flash: this.post.flash + (g.stats.fire > 0 && this.view === 0 ? 0.03 : 0), portal: this.portalEffect, dark: this.post.dark, saturation: 1.1 },
     });
     if (this.net && !this.hudHidden) this.nametags.update(cam, this.fovCur, this.net.remotePlayers(), g.world); else this.nametags.clear();
@@ -1478,40 +1487,85 @@ class App {
     state.sparkTick = tick;
     if (g.particles.enabled()) g.particles.fx('spark', at, 1, 0.05, 0.3);
   }
-  drawWeather(ctx, cam, rain) {
-    const g = this.game, w = g.world;
-    const snowy = b => { const bm = BIOMES[b]; return bm && bm.temp < 0.15; };
-    const layerRain = this.fxLayer('rain'), layerSnow = this.fxLayer('snow');
-    const R = 12, t = this.time;
-    const cx = Math.floor(cam.pos[0]), cz = Math.floor(cam.pos[2]);
-    for (let dz = -R; dz <= R; dz++) for (let dx = -R; dx <= R; dx++) {
-      if (dx * dx + dz * dz > R * R) continue;
-      const x = cx + dx, z = cz + dz;
-      const h = ((x * 73856093) ^ (z * 19349663)) >>> 0;
-      if ((h & 3) !== 0 && dx * dx + dz * dz > 25) continue;
-      const top = w.heightAt(x, z);
-      if (top < 0) continue;
-      const y0 = Math.max(top + 1, cam.pos[1] - 10), y1 = cam.pos[1] + 12;
-      if (y1 <= y0) continue;
-      const snow = snowy(w.biomeAt(x, z)) || top > 170;
-      const bx = x + (h % 97) / 97, bz = z + ((h >> 8) % 89) / 89;
-      if (snow) {
-        for (let k = 0; k < 3; k++) {
-          const yy = y1 - ((t * 1.5 + (h >> 4) % 20 + k * 7) % (y1 - y0 + 0.01));
-          const wob = Math.sin(t + k + h) * 0.3;
-          const s = 0.12, r = ctx.camRight, u = ctx.camUp;
-          const c = (a, b) => [bx + wob + (r[0] * a + u[0] * b) * s, yy + (r[1] * a + u[1] * b) * s, bz + (r[2] * a + u[2] * b) * s];
-          ctx.itemFx.quad([c(-1, -1), c(-1, 1), c(1, 1), c(1, -1)], [0, 0, 1, 1], layerSnow, [1, 1, 1, rain]);
-        }
-      } else {
-        const len = 1.4, yy = y1 - ((t * 14 + (h >> 4) % 30) % (y1 - y0 + 0.01));
-        if (yy - len < y0) continue;
-        const r = ctx.camRight, s = 0.05;
-        ctx.itemFx.quad([[bx - r[0] * s, yy - len, bz - r[2] * s], [bx - r[0] * s, yy, bz - r[2] * s], [bx + r[0] * s, yy, bz + r[2] * s], [bx + r[0] * s, yy - len, bz + r[2] * s]], [0, 0, 1, 1], layerRain, [0.8, 0.85, 1, rain * 0.7]);
-        if (Math.random() < 0.004 * rain && top + 1 > cam.pos[1] - 10) g.particles.fx('splash', [bx, top + 1.05, bz], 1, 0.05, 0.6);
+  // LevelRenderer.renderSnowAndRain: in every column within 10 blocks, a sheet of rain or snow
+  // (by the biome there and its height) turned to face the camera, from the motion-blocking height
+  // (or 10 below the camera) to 10 above it; rain streams down 3-4 sheets of texture a second,
+  // snow drifts slowly with its own sway, both fading toward the edge. Plus tickRain once a tick.
+  drawWeather(cam, rain, dt) {
+    const DRY_PRECIP = b => !precipitationAt(b, 0, 64, 0);
+    const g = this.game, w = g.world, batch = this.batches.weather, L = 10, R = 16;
+    this.weatherTicks = (this.weatherTicks || 0) + dt * 20;
+    const ticks = Math.floor(this.weatherTicks), partial = this.weatherTicks - ticks, f1 = this.weatherTicks;
+    while ((this.rainTick ?? ticks) < ticks) { this.rainTick = (this.rainTick ?? ticks) + 1; this.tickRain(cam, rain, this.rainTick); }
+    this.rainTick = ticks;
+    const cx = Math.floor(cam.pos[0]), cy = Math.floor(cam.pos[1]), cz = Math.floor(cam.pos[2]);
+    const cols = this.rainCols || (this.rainCols = new Map());
+    if (cols.size > 6000) cols.clear();
+    const lightAt = (x, y, z, snow) => {
+      const l = w.lightAt(x, y, z), sky = snow ? (l.sky * 3 + 15) / 4 : l.sky, blk = snow ? (l.blk * 3 + 15) / 4 : l.blk;
+      return [0, 1, 2].map(i => Math.max(Math.pow(0.8, 15 - sky) * g.env.skyLight[i], Math.pow(0.82, 15 - blk), g.env.ambient[i]));
+    };
+    for (let z = cz - L; z <= cz + L; z++) for (let x = cx - L; x <= cx + L; x++) {
+      const dx = x - cx, dz = z - cz, len = Math.hypot(dx, dz);
+      if (!len) continue; // (Java's table has no direction for the camera's own column)
+      const biome = w.biomeAt(x, z), top = precipitationHeight(w, x, z);
+      if (top < 0 || DRY_PRECIP(biome)) continue;
+      const y0 = Math.max(cy - L, top), y1 = Math.max(cy + L, top);
+      if (y0 === y1) continue;
+      const kind = precipitationAt(biome, x, y0, z);
+      if (!kind) continue;
+      // The column's own random numbers, as Java seeds them.
+      const key = x * 65536 + z;
+      let rs = cols.get(key);
+      if (!rs) {
+        const r = new JavaRandom(BigInt((Math.imul(Math.imul(x, x), 3121) + Math.imul(x, 45238971)) ^ (Math.imul(Math.imul(z, z), 418711) + Math.imul(z, 13761))));
+        rs = { f: r.nextFloat(), d1: r.nextDouble(), g1: r.nextGaussian(), d2: r.nextDouble(), g2: r.nextGaussian() };
+        // (For snow the same seed gives nextDouble, nextGaussian, nextDouble, nextGaussian.)
+        const r2 = new JavaRandom(BigInt((Math.imul(Math.imul(x, x), 3121) + Math.imul(x, 45238971)) ^ (Math.imul(Math.imul(z, z), 418711) + Math.imul(z, 13761))));
+        rs.s = [r2.nextDouble(), r2.nextGaussian(), r2.nextDouble(), r2.nextGaussian()];
+        cols.set(key, rs);
       }
+      const hx = -dz / len * 0.5, hz = dx / len * 0.5, d = len / L, ly = Math.max(top, cy);
+      const P = (sx, y) => [x + 0.5 + sx * hx, y, z + 0.5 + sx * hz];
+      let uv, alpha, light, layer;
+      if (kind === 'rain') {
+        const i3 = (ticks + Math.imul(Math.imul(x, x), 3121) + Math.imul(x, 45238971) + Math.imul(Math.imul(z, z), 418711) + Math.imul(z, 13761)) & 31;
+        const f2 = -(i3 + partial) / 32 * (3 + rs.f);
+        uv = [[0, y1 * 0.25 + f2], [1, y1 * 0.25 + f2], [1, y0 * 0.25 + f2], [0, y0 * 0.25 + f2]];
+        alpha = ((1 - d * d) * 0.5 + 0.5) * rain; light = lightAt(x, ly, z, false); layer = 0;
+      } else {
+        const f5 = -((ticks & 511) + partial) / 512, f6 = rs.s[0] + f1 * 0.01 * rs.s[1], f7 = rs.s[2] + f1 * rs.s[3] * 0.001;
+        uv = [[f6, y1 * 0.25 + f5 + f7], [1 + f6, y1 * 0.25 + f5 + f7], [1 + f6, y0 * 0.25 + f5 + f7], [f6, y0 * 0.25 + f5 + f7]];
+        alpha = ((1 - d * d) * 0.3 + 0.5) * rain; light = lightAt(x, ly, z, true); layer = 1;
+      }
+      batch.quadUV([P(-1, y1), P(1, y1), P(1, y0), P(-1, y0)], uv, layer, [light[0], light[1], light[2], alpha]);
     }
-    this.sound.setRain(rain * (g.world.lightAt(cam.pos[0], cam.pos[1], cam.pos[2]).sky / 15));
+  }
+  // LevelRenderer.tickRain: up to 100 drops a tick (by the rain squared) land on the tops of the
+  // blocks within 10 of the camera where it rains, splashing (or smoking on lava, magma and lit
+  // campfires), and every few ticks one of them is heard, muffled when it falls on a roof above you.
+  tickRain(cam, rain, tick) {
+    const g = this.game, w = g.world, r = new JavaRandom(BigInt(tick) * 312987231n);
+    const cx = Math.floor(cam.pos[0]), cy = Math.floor(cam.pos[1]), cz = Math.floor(cam.pos[2]);
+    let hit = null;
+    const n = Math.floor(100 * rain * rain);
+    for (let j = 0; j < n; j++) {
+      const x = cx + r.nextInt(21) - 10, z = cz + r.nextInt(21) - 10, top = precipitationHeight(w, x, z);
+      if (top <= 0 || top > cy + 10 || top < cy - 10) continue;
+      if (precipitationAt(w.biomeAt(x, z), x, top, z) !== 'rain') continue;
+      hit = [x, top - 1, z];
+      const d0 = r.nextDouble(), d1 = r.nextDouble(), id = w.getBlock(x, top - 1, z), m = w.getMeta(x, top - 1, z);
+      let h = 0;
+      for (const b of collisionBoxes(id, m)) if (d0 >= b[0] && d0 <= b[3] && d1 >= b[2] && d1 <= b[5]) h = Math.max(h, b[4]);
+      if (id === B.WATER || id === B.LAVA) h = Math.max(h, 0.9);
+      const mag = STATE.magma_block, hot = id === B.LAVA || id === B.CAMPFIRE || (id === mag[0] && (m & VARIANT_MASK[id]) === mag[1]);
+      g.particles.fx(hot ? 'smoke' : 'splash', [x + d0, top - 1 + h, z + d1], 1, 0, hot ? 0.02 : 0.3);
+    }
+    if (hit && r.nextInt(3) < (this.rainSoundTime = (this.rainSoundTime || 0) + 1) - 1) {
+      this.rainSoundTime = 0;
+      const above = hit[1] > cy + 1 && precipitationHeight(w, cam.pos[0], cam.pos[2]) > Math.floor(cam.pos[1]);
+      this.sound.play(above ? 'rain_above' : 'rain', [hit[0] + 0.5, hit[1] + 0.5, hit[2] + 0.5], above ? 0.1 : 0.2, above ? 0.5 : 1);
+    }
   }
 
   // First-person hand, following Minecraft's held-item renderer: the arm offset, the swing arc

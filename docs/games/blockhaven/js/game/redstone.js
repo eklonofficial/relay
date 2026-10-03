@@ -7,11 +7,12 @@
 //  - Redstone wire keeps the original algorithm, including its order-of-updates quirks
 //    (a Java HashSet walk), so locational behaviour matches too.
 // Only the host (or a single player) simulates; everyone else receives the block changes.
-import { B, BLOCKS, SOLID, OPAQUE, SHAPE_OF, SHAPE, props, VARIANT_MASK } from '../data/blocks.js?v=mush3vnf';
-import { I, maxStack } from '../data/items.js?v=mush3vnf';
-import { UNLOADED, posKey } from '../world/world.js?v=mush3vnf';
-import { blockDrops } from './drops.js?v=mush3vnf';
-import { DIR6_OF_2D, DIR2D_OF_6, OPP6 } from '../data/orient.js?v=mush3vnf';
+import { B, BLOCKS, SOLID, OPAQUE, SHAPE_OF, SHAPE, props, VARIANT_MASK } from '../data/blocks.js?v=muso40ud';
+import { timeOfDay, skyDarken } from './weather.js?v=muso40ud';
+import { I, maxStack } from '../data/items.js?v=muso40ud';
+import { UNLOADED, posKey } from '../world/world.js?v=muso40ud';
+import { blockDrops } from './drops.js?v=muso40ud';
+import { DIR6_OF_2D, DIR2D_OF_6, OPP6 } from '../data/orient.js?v=muso40ud';
 
 // ---- directions (Java order) ----
 const DOWN = 0, UP = 1, NORTH = 2, SOUTH = 3, WEST = 4, EAST = 5;
@@ -910,17 +911,8 @@ export class Redstone {
     if ((m & 15) !== i) this.setBlock(x, y, z, S(ID(s), (m & ~15) | i), 3);
     void g;
   }
-  timeOfDay() {
-    const t = this.g.dayTime * 24000;
-    const d0 = ((t / 24000 - 0.25) % 1 + 1) % 1, d1 = 0.5 - Math.cos(d0 * Math.PI) / 2;
-    return (d0 * 2 + d1) / 3;
-  }
-  skyDarken() {
-    const g = this.g, w = g.weather || { rain: 0, thunder: 0 };
-    const d0 = 1 - (w.rain || 0) * 5 / 16, d1 = 1 - (w.thunder || 0) * 5 / 16;
-    const d2 = 0.5 + 2 * Math.max(-0.25, Math.min(0.25, Math.cos(this.timeOfDay() * Math.PI * 2)));
-    return Math.floor((1 - d2 * d0 * d1) * 11);
-  }
+  timeOfDay() { return timeOfDay(this.g.dayTime); }
+  skyDarken() { return skyDarken(this.g.dayTime, this.g.weather || {}); }
 
   // ---------------- pistons ----------------
   pistonPowered(x, y, z, facing) {
