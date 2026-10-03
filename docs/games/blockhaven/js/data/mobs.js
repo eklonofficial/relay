@@ -1,11 +1,12 @@
 // Mob roster: stats, AI archetype, drops, box models and procedural skins.
 // Model space: 1 unit = 1/16 block, feet at y=0, the mob faces -Z.
-import { D, pal, shade as shadeHex } from '../render/mobtex.js?v=mush3shv';
-import { pigModel as jPig, cowModel as jCow, sheepModel as jSheep, sheepFurModel as jSheepFur, chickenModel as jChicken, wolfModel as jWolf, foxModel as jFox, polarBearModel as jPolarBear, goatModel as jGoat, llamaModel as jLlama, horseModel as jHorse } from '../entity/animals.js?v=mush3shv';
-import { creeperModel as jCreeper, spiderModel as jSpider, endermanModel as jEnderman, slimeModel as jSlime, slimeOuterModel as jSlimeOuter, magmaCubeModel as jMagma, silverfishModel as jSilverfish, endermiteModel as jEndermite, blazeModel as jBlaze, ghastModel as jGhast, phantomModel as jPhantom } from '../entity/monsters.js?v=mush3shv';
-import { ironGolemModel as jIronGolem, snowGolemModel as jSnowGolem, hoglinModel as jHoglin, striderModel as jStrider, ravagerModel as jRavager } from '../entity/beasts.js?v=mush3shv';
-import { villagerModel as jVillager, witchModel as jWitch, illagerModel as jIllager, piglinModel as jPiglin, zombieVillagerModel as jZombieVillager } from '../entity/javamodels.js?v=mush3shv';
-import { playerModel as javaPlayerModel, mobHumanoid } from '../entity/humanoid.js?v=mush3shv';
+import { D, pal, shade as shadeHex } from '../render/mobtex.js?v=mush3t9n';
+import { pigModel as jPig, cowModel as jCow, sheepModel as jSheep, sheepFurModel as jSheepFur, chickenModel as jChicken, wolfModel as jWolf, foxModel as jFox, polarBearModel as jPolarBear, goatModel as jGoat, llamaModel as jLlama, horseModel as jHorse } from '../entity/animals.js?v=mush3t9n';
+import { creeperModel as jCreeper, spiderModel as jSpider, endermanModel as jEnderman, slimeModel as jSlime, slimeOuterModel as jSlimeOuter, magmaCubeModel as jMagma, silverfishModel as jSilverfish, endermiteModel as jEndermite, blazeModel as jBlaze, ghastModel as jGhast, phantomModel as jPhantom } from '../entity/monsters.js?v=mush3t9n';
+import { ironGolemModel as jIronGolem, snowGolemModel as jSnowGolem, hoglinModel as jHoglin, striderModel as jStrider, ravagerModel as jRavager } from '../entity/beasts.js?v=mush3t9n';
+import { squidModel as jSquid, codModel as jCod, salmonModel as jSalmon, tropicalFishModel as jTropical, pufferfishModel as jPuffer, guardianModel as jGuardian, dolphinModel as jDolphin, turtleModel as jTurtle, axolotlModel as jAxolotl } from '../entity/aquatic.js?v=mush3t9n';
+import { villagerModel as jVillager, witchModel as jWitch, illagerModel as jIllager, piglinModel as jPiglin, zombieVillagerModel as jZombieVillager } from '../entity/javamodels.js?v=mush3t9n';
+import { playerModel as javaPlayerModel, mobHumanoid } from '../entity/humanoid.js?v=mush3t9n';
 
 const box = (o, s, style, extra = {}) => ({ o, s, style, ...extra });
 const part = (pivot, boxes, extra = {}) => ({ pivot, boxes, ...extra });
@@ -718,6 +719,35 @@ MOBS.strider.model = fromOld(MOBS.strider.model, jStrider, 'entity/strider/strid
 // StriderRenderer: its cold (out of lava) skin, and the saddle, which SaddleLayer draws over it.
 MOBS.strider.variants = { cold: 'entity/strider/strider_cold', saddle: 'entity/strider/strider_saddle' };
 MOBS.ravager.model = fromOld(MOBS.ravager.model, jRavager, 'entity/illager/ravager', s => ({ horn: s('head', 1) }));
+
+// Water mobs (entity/aquatic.js).
+MOBS.squid.model = fromOld(MOBS.squid.model, jSquid, 'entity/squid/squid', s => ({ tentacle: s('t0') }));
+MOBS.glow_squid.model = fromOld(MOBS.glow_squid.model, jSquid, 'entity/squid/glow_squid', s => ({ tentacle: s('t0') }));
+{
+  // Fish: the eye on the head, the fins see-through membrane.
+  const fish = (col, fin) => ({ head: S(col, 'belly', { front: D.bar(shadeHex(col, 0.6), 0.75, 99), sides: D.sideEye({ c: '#f0f0e8', pupil: K, y: 0.25, from: 0, ew: 1 }) }), body: S(col, 'belly', { sides: D.patches(shadeHex(col, 0.8), 2, 0.8) }), fin: S(fin, 'membrane') });
+  MOBS.cod.model = () => jCod(fish('#a8906a', '#8a7454'));
+  MOBS.salmon.model = () => jSalmon(fish('#a83a3a', '#6a8a9a'));
+  // Tropical fish (TropicalFishRenderer): a white body tinted by its base colour, and the pattern
+  // (TropicalFishPatternLayer) over it in the pattern colour. This one is a 'kob': orange, white stripes.
+  const white = fish('#f4f4f0', '#e8e8e4'), stripes = (p, x, y, w, h) => { for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) if ((i + 1) % 3) p.put(x + i, y + j, '#ffffff', 0); };
+  const pattern = { body: S('#f4f4f0', 'flat', { all: stripes }), fin: S('#f4f4f0', 'flat', { all: stripes }) };
+  MOBS.tropical_fish.model = () => ({ ...jTropical(white, 'entity/fish/tropical_a'), tint: [0.976, 0.502, 0.114] });
+  MOBS.tropical_fish.overlay = () => ({ ...jTropical(pattern, 'entity/fish/tropical_a_pattern_1', false, 0.008), tint: [0.976, 1, 0.996] });
+  // Pufferfish: deflated, and the two puffed-up models it swells into (PufferfishRenderer).
+  const puffOld = MOBS.pufferfish.model(), body = puffOld.parts.body.boxes[0].style;
+  const puff = { body, fin: puffOld.parts.tail.boxes[0].style, eye: S('#f4f4f0', 'flat', { all: (p, x, y) => p.put(x, y, K) }) };
+  MOBS.pufferfish.model = () => jPuffer(puff, 0);
+  MOBS.pufferfish.forms = { mid: () => jPuffer(puff, 1), big: () => jPuffer(puff, 2) };
+}
+{
+  const guardian = (old, texture) => fromOld(old, jGuardian, texture, s => ({ spike: s('body', 1), tail: s('tail'), fin: s('tail', 3), eye: S('#f0ecd8', 'flat', { all: D.rect(0.25, 0, 0.5, 1, '#8a2a1a') }) }));
+  MOBS.guardian.model = guardian(MOBS.guardian.model, 'entity/guardian');
+  MOBS.elder_guardian.model = guardian(MOBS.elder_guardian.model, 'entity/guardian_elder');
+}
+MOBS.dolphin.model = fromOld(MOBS.dolphin.model, jDolphin, 'entity/dolphin', s => ({ fin: s('body', 1), nose: s('head', 1), tail: s('tail') }));
+MOBS.turtle.model = fromOld(MOBS.turtle.model, jTurtle, 'entity/turtle/big_sea_turtle', s => ({ belly: s('body', 1) }));
+MOBS.axolotl.model = fromOld(MOBS.axolotl.model, jAxolotl, 'entity/axolotl/axolotl_lucy', s => ({ fin: s('body', 1), gills: s('head', 1) }));
 
 MOBS.villager.professionModel = prof => villagerModel(PROFESSION_COLORS[prof] || '#6a4a3a', PROF_DECOR[prof] || null, undefined, undefined,
   ['entity/villager/villager', 'entity/villager/type/plains', `entity/villager/profession/${prof}`])();
