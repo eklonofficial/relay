@@ -6,8 +6,8 @@
 //  - Generator version: terrain and structure blocks regenerate from the seed on every load, so
 //    new structures appear by themselves. Chunks first visited under an older version are marked
 //    so their newer structures also receive their chest loot and mobs (see gen/versions.js).
-import { BLOCKS, B, STATE, VARIANT_MASK } from '../data/blocks.js?v=murpnhgy';
-import { GEN_VERSION } from '../gen/versions.js?v=murpnhgy';
+import { BLOCKS, B, STATE, VARIANT_MASK } from '../data/blocks.js?v=mush3nyu';
+import { GEN_VERSION } from '../gen/versions.js?v=mush3nyu';
 
 export const SAVE_VERSION = 3;
 export const blockPalette = () => Array.from({ length: BLOCKS.length }, (_, i) => (BLOCKS[i] ? BLOCKS[i].key : null));

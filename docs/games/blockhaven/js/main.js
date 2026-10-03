@@ -1,44 +1,45 @@
 // Blockhaven bootstrap: assets, menus, input, camera, frame loop.
-import './page.js?v=murpnhgy';
-import { surfaceDocument as document } from './surface.js?v=murpnhgy';
-import { registerApp } from './veil.js?v=murpnhgy';
-import { movementSamples } from './util/pointer.js?v=murpnhgy';
-import { ask, tell } from './dialog.js?v=murpnhgy';
-import { Demo, DEMO_SEED } from './demo.js?v=murpnhgy';
-import { armorModel, armorSkinKey, ARMOR_MATERIALS, ARMOR_PIECES, elytraModel } from './data/armor.js?v=murpnhgy';
-import { TEXTURES, TEX, B, BLOCKS, DIM, DIM_NAMES, SHAPE_OF, SHAPE, props, HEIGHT } from './data/blocks.js?v=murpnhgy';
-import { I, ITEMS } from './data/items.js?v=murpnhgy';
-import { MOBS, PROFESSIONS, playerModel, saddleModel, PLAYER_SKINS } from './data/mobs.js?v=murpnhgy';
-import { Net, cleanCode, cleanName, cleanKey, cleanChat, chatLine, MAX_PLAYERS, wakeRelays, diagnoseNetwork } from './net/net.js?v=murpnhgy';
-import { NameTags } from './net/nametags.js?v=murpnhgy';
-import { BIOMES } from './gen/biomes.js?v=murpnhgy';
-import { generateBlockTextures, drawBlockTexture } from './render/blocktex.js?v=murpnhgy';
-import { generateItemTextures, ITEM_LAYER, FX_LAYER, ITEM_LAYER_COUNT, flatTexFor } from './render/itemtex.js?v=murpnhgy';
-import { Zip, storedPack, savePack, removePack, applyBlockTextures, applyItemTextures, indexSounds } from './render/pack.js?v=murpnhgy';
-import { packModel, paintModel, SKIN, faceRects } from './render/mobtex.js?v=murpnhgy';
-import { buildMipChain } from './render/atlas.js?v=murpnhgy';
-import { Renderer, Batch } from './render/renderer.js?v=murpnhgy';
-import { World, UNLOADED } from './world/world.js?v=murpnhgy';
-import { createGenerator } from './gen/index.js?v=murpnhgy';
-import { Game } from './game/game.js?v=murpnhgy';
-import { Interact, crossbowCharge } from './game/interact.js?v=murpnhgy';
-import { SpawnPrep, STATUS_COLOR } from './game/spawnprep.js?v=murpnhgy';
-import { splash } from './splash.js?v=murpnhgy';
-import { Commands } from './game/commands.js?v=murpnhgy';
-import { GUI, HUD } from './game/ui.js?v=murpnhgy';
-import { buildIcons, hudSprites } from './game/icons.js?v=murpnhgy';
-import { Sound } from './game/audio.js?v=murpnhgy';
-import { buildLogo, buttonTexture, dirtTexture, iconDataURL } from './render/logo.js?v=murpnhgy';
-import { computeEnv } from './game/env.js?v=murpnhgy';
-import { guideSections } from './game/guide.js?v=murpnhgy';
-import { listWorlds, loadWorld, saveWorld, deleteWorld } from './game/storage.js?v=murpnhgy';
-import { importJavaWorld, exportJavaWorld } from './game/javaworld.js?v=murpnhgy';
-import { drawModel, rootMatrix, M } from './entity/entity.js?v=murpnhgy';
-import { itemMesh, emitItemMesh, clearItemMeshes } from './entity/itemmesh.js?v=murpnhgy';
-import { Lightning, billboard } from './entity/objects.js?v=murpnhgy';
-import { compose, translation, rotationX, rotationY, rotationZ, scaling, forward, mat4 } from './core/math.js?v=murpnhgy';
-import { hasGlint } from './data/enchantments.js?v=murpnhgy';
-import { BarrelRoll } from './game/barrelroll.js?v=murpnhgy';
+import './page.js?v=mush3nyu';
+import { surfaceDocument as document } from './surface.js?v=mush3nyu';
+import { registerApp } from './veil.js?v=mush3nyu';
+import { movementSamples } from './util/pointer.js?v=mush3nyu';
+import { ask, tell } from './dialog.js?v=mush3nyu';
+import { Demo, DEMO_SEED } from './demo.js?v=mush3nyu';
+import { armorLayerModel, armorLayer, ARMOR_MATERIALS, LEATHER_COLOR, elytraModel } from './data/armor.js?v=mush3nyu';
+import { humanoidPose, processSkin } from './entity/humanoid.js?v=mush3nyu';
+import { TEXTURES, TEX, B, BLOCKS, DIM, DIM_NAMES, SHAPE_OF, SHAPE, props, HEIGHT } from './data/blocks.js?v=mush3nyu';
+import { I, ITEMS } from './data/items.js?v=mush3nyu';
+import { MOBS, PROFESSIONS, playerModel, saddleModel, PLAYER_SKINS } from './data/mobs.js?v=mush3nyu';
+import { Net, cleanCode, cleanName, cleanKey, cleanChat, chatLine, MAX_PLAYERS, wakeRelays, diagnoseNetwork } from './net/net.js?v=mush3nyu';
+import { NameTags } from './net/nametags.js?v=mush3nyu';
+import { BIOMES } from './gen/biomes.js?v=mush3nyu';
+import { generateBlockTextures, drawBlockTexture } from './render/blocktex.js?v=mush3nyu';
+import { generateItemTextures, ITEM_LAYER, FX_LAYER, ITEM_LAYER_COUNT, flatTexFor } from './render/itemtex.js?v=mush3nyu';
+import { Zip, storedPack, savePack, removePack, applyBlockTextures, applyItemTextures, applyArmorTextures, indexSounds } from './render/pack.js?v=mush3nyu';
+import { packModel, paintModel, SKIN, faceRects } from './render/mobtex.js?v=mush3nyu';
+import { buildMipChain } from './render/atlas.js?v=mush3nyu';
+import { Renderer, Batch } from './render/renderer.js?v=mush3nyu';
+import { World, UNLOADED } from './world/world.js?v=mush3nyu';
+import { createGenerator } from './gen/index.js?v=mush3nyu';
+import { Game } from './game/game.js?v=mush3nyu';
+import { Interact, crossbowCharge } from './game/interact.js?v=mush3nyu';
+import { SpawnPrep, STATUS_COLOR } from './game/spawnprep.js?v=mush3nyu';
+import { splash } from './splash.js?v=mush3nyu';
+import { Commands } from './game/commands.js?v=mush3nyu';
+import { GUI, HUD } from './game/ui.js?v=mush3nyu';
+import { buildIcons, hudSprites } from './game/icons.js?v=mush3nyu';
+import { Sound } from './game/audio.js?v=mush3nyu';
+import { buildLogo, buttonTexture, dirtTexture, iconDataURL } from './render/logo.js?v=mush3nyu';
+import { computeEnv } from './game/env.js?v=mush3nyu';
+import { guideSections } from './game/guide.js?v=mush3nyu';
+import { listWorlds, loadWorld, saveWorld, deleteWorld } from './game/storage.js?v=mush3nyu';
+import { importJavaWorld, exportJavaWorld } from './game/javaworld.js?v=mush3nyu';
+import { drawModel, rootMatrix, M } from './entity/entity.js?v=mush3nyu';
+import { itemMesh, emitItemMesh, clearItemMeshes } from './entity/itemmesh.js?v=mush3nyu';
+import { Lightning, billboard } from './entity/objects.js?v=mush3nyu';
+import { compose, translation, rotationX, rotationY, rotationZ, scaling, forward, mat4 } from './core/math.js?v=mush3nyu';
+import { hasGlint } from './data/enchantments.js?v=mush3nyu';
+import { BarrelRoll } from './game/barrelroll.js?v=mush3nyu';
 
 const $ = id => document.getElementById(id);
 // Resolves after the page has painted what was just put on screen.
@@ -158,17 +159,22 @@ class App {
     // Mob skins (one 64x64 layer per mob, villager profession and the player).
     this.mobModels = new Map(); this.mobLayers = new Map();
     const skins = [];
-    const addSkin = (key, model, seed) => { packModel(model); this.mobModels.set(key, model); this.mobLayers.set(key, skins.length); skins.push(paintModel(model, seed)); };
+    const addSkin = (key, model, seed) => { if (!model.java) packModel(model); this.mobModels.set(key, model); this.mobLayers.set(key, skins.length); skins.push(paintModel(model, seed)); };
     let seed = 1;
     for (const [k, d] of Object.entries(MOBS)) addSkin(k, d.model(), seed++);
     for (const p of PROFESSIONS) addSkin(`villager_${p}`, MOBS.villager.professionModel(p), seed++);
     PLAYER_SKINS.forEach((_, i) => addSkin(`player_${i}`, playerModel(i), 777 + i * 31));
-    this.mobModels.set('player', this.mobModels.get('player_0'));
+    // The player's own Minecraft skin (Options > Skin), shown as the first default until one is loaded.
+    addSkin('player_custom', playerModel(0), 777);
+    this.mobModels.set('player_wide', playerModel(0)); this.mobModels.set('player_slim', playerModel(0, true));
     this.skinPixels = skins;
     addSkin('saddle', saddleModel(), 778);
     addSkin('elytra', elytraModel(), 779);
-    for (const mat of Object.keys(ARMOR_MATERIALS)) for (const piece of ARMOR_PIECES) for (const thin of [false, true]) addSkin(`armor_${mat}_${piece}${thin ? '_thin' : ''}`, armorModel(mat, piece, thin), seed++);
+    // Two armor layers per material, as Java's textures/models/armor/<material>_layer_1 and _2.
+    for (const mat of Object.keys(ARMOR_MATERIALS)) for (const l of [1, 2]) addSkin(`armor_${mat}_${l}`, armorLayerModel(mat, l), seed++);
+    this.mobModels.set('armor_outer', this.mobModels.get('armor_iron_1')); this.mobModels.set('armor_inner', this.mobModels.get('armor_iron_2'));
     this.renderer.setEntityTextures(buildMipChain(skins, SKIN, 7), skins.length);
+    this.loadCustomSkin();
     splash.progress(0.6);
     this.icons = buildIcons(this.blockTex, this.itemTex);
     this.sprites = hudSprites();
@@ -223,7 +229,28 @@ class App {
   itemPixels(key) { const l = ITEM_LAYER[key]; return l === undefined ? this.itemTex[FX_LAYER.blank] : this.itemTex[l]; }
   fxLayer(name) { return FX_LAYER[name] ?? FX_LAYER.blank; }
   mobModel(key) { return this.mobModels.get(key) || this.mobModels.get('pig'); }
-  mobLayer(key) { return this.mobLayers.get(key === 'player' ? `player_${settings.skin | 0}` : key) ?? 0; }
+  mobLayer(key) { return this.mobLayers.get(key === 'player' ? (this.customSkin ? 'player_custom' : `player_${settings.skin | 0}`) : key) ?? 0; }
+  // The local player's model: slim (Alex) arms for a skin chosen as slim, otherwise the classic ones.
+  playerModelOf() { return this.mobModel(this.customSkin && settings.skinSlim ? 'player_slim' : 'player_wide'); }
+  // A Minecraft skin from this computer (64x64, or a classic 64x32), kept in this browser's settings
+  // as a data URL and turned into Java's layout (processSkin) for the player_custom layer.
+  async loadCustomSkin() {
+    this.customSkin = false;
+    if (!settings.skinData || !settings.useSkin) return;
+    try {
+      // Decoded here rather than fetched: the page's connect-src does not cover data: URLs.
+      const bin = atob(settings.skinData.slice(settings.skinData.indexOf(',') + 1)), bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      const bmp = await createImageBitmap(new Blob([bytes], { type: 'image/png' }));
+      const c = document.createElement('canvas'); c.width = bmp.width; c.height = bmp.height;
+      const x = c.getContext('2d'); x.drawImage(bmp, 0, 0);
+      const px = processSkin(new Uint8ClampedArray(x.getImageData(0, 0, bmp.width, bmp.height).data.buffer), bmp.width, bmp.height);
+      const layer = this.mobLayers.get('player_custom');
+      this.skinPixels[layer] = px;
+      this.renderer.setEntityLayer(layer, px);
+      this.customSkin = true;
+    } catch (e) { console.warn('skin failed', e); }
+  }
   // Renders an item through a 3x4 world matrix whose unit square is the item's size.
   renderItemAt(ctx, key, m, light) {
     const it = I[key];
@@ -510,25 +537,49 @@ class App {
   renderSkinPicker() {
     const box = $('mp-skins');
     box.textContent = '';
-    PLAYER_SKINS.forEach(([label], i) => {
+    const pick = (label, key, on, select) => {
       const b = document.createElement('button');
-      b.className = `mp-skin${(settings.skin | 0) === i ? ' on' : ''}`;
-      b.appendChild(this.skinPreview(i));
+      b.className = `mp-skin${on ? ' on' : ''}`;
+      b.appendChild(this.skinPreview(key));
       const t = document.createElement('span'); t.textContent = label; b.appendChild(t);
-      b.addEventListener('click', () => { this.sound.click(); settings.skin = i; store(SETTINGS_KEY, settings); this.renderSkinPicker(); });
+      b.addEventListener('click', () => { this.sound.click(); select(); });
       box.appendChild(b);
+    };
+    PLAYER_SKINS.forEach(([label], i) => pick(label, `player_${i}`, !this.customSkin && (settings.skin | 0) === i, () => {
+      settings.skin = i; settings.useSkin = false; store(SETTINGS_KEY, settings); this.loadCustomSkin().then(() => this.renderSkinPicker());
+    }));
+    // Your own skin: choosing it again (or before one is loaded) asks for the PNG.
+    const file = document.createElement('input'); file.type = 'file'; file.accept = 'image/png'; file.hidden = true; box.appendChild(file);
+    file.addEventListener('change', async () => {
+      const f = file.files && file.files[0];
+      if (!f) return;
+      if (f.size > 64 * 1024) { this.mpStatus('That file is too big to be a skin.', 'err'); return; }
+      const data = await new Promise((ok, bad) => { const r = new FileReader(); r.onload = () => ok(r.result); r.onerror = bad; r.readAsDataURL(f); });
+      const prev = [settings.skinData, settings.useSkin];
+      settings.skinData = data; settings.useSkin = true;
+      await this.loadCustomSkin();
+      if (!this.customSkin) { [settings.skinData, settings.useSkin] = prev; await this.loadCustomSkin(); this.mpStatus('That image is not a Minecraft skin (64x64 or 64x32 pixels).', 'err'); }
+      else store(SETTINGS_KEY, settings);
+      this.renderSkinPicker();
     });
+    // Your own skin: a row under the defaults (use it, its arm width, load another).
+    const row = document.createElement('div'); row.className = 'row'; box.appendChild(row);
+    const btn = (text, on, fn) => { const b = document.createElement('button'); b.className = `small${on ? ' on' : ''}`; b.textContent = text; b.addEventListener('click', () => { this.sound.click(); fn(); }); row.appendChild(b); return b; };
+    if (settings.skinData) btn(this.customSkin ? 'Your Skin ✓' : 'Your Skin', this.customSkin, () => { settings.useSkin = true; store(SETTINGS_KEY, settings); this.loadCustomSkin().then(() => this.renderSkinPicker()); });
+    if (this.customSkin) btn(`Arms: ${settings.skinSlim ? 'Slim' : 'Classic'}`, false, () => { settings.skinSlim = !settings.skinSlim; store(SETTINGS_KEY, settings); this.renderSkinPicker(); });
+    btn(settings.skinData ? 'Change Skin...' : 'Load Your Skin...', false, () => file.click()).title = 'A Minecraft skin PNG (64x64, or a classic 64x32)';
   }
-  skinPreview(i) {
+  // Front view of a skin (by layer key), cut out of its texture like the original's skin preview.
+  skinPreview(key) {
     const src = document.createElement('canvas'); src.width = src.height = SKIN;
     const img = src.getContext('2d').createImageData(SKIN, SKIN);
-    img.data.set(this.skinPixels[this.mobLayers.get(`player_${i}`)]);
+    img.data.set(this.skinPixels[this.mobLayers.get(key)]);
     src.getContext('2d').putImageData(img, 0, 0);
     const out = document.createElement('canvas'); out.width = 16; out.height = 32;
     const x = out.getContext('2d'); x.imageSmoothingEnabled = false;
-    const model = this.mobModels.get(`player_${i}`);
-    const put = (partName, dx, dy, dw, dh) => { const b = model.parts[partName].boxes[0], [u, v, w, h] = faceRects(b).front; x.drawImage(src, u, v, w, h, dx, dy, dw, dh); };
-    put('head', 4, 0, 8, 8); put('body', 4, 8, 8, 12); put('rightArm', 0, 8, 4, 12); put('leftArm', 12, 8, 4, 12); put('rightLeg', 4, 20, 4, 12); put('leftLeg', 8, 20, 4, 12);
+    const model = this.mobModels.get(key === 'player_custom' && settings.skinSlim ? 'player_slim' : 'player_wide'), aw = model.slim ? 3 : 4;
+    const put = (partName, k, dx, dy, dw, dh) => { const b = model.parts[partName].boxes[k], [u, v, w, h] = faceRects(b).front; x.drawImage(src, u, v, w, h, dx, dy, dw, dh); };
+    for (const k of [0, 1]) { put('head', k, 4, 0, 8, 8); put('body', k, 4, 8, 8, 12); put('rightArm', k, 4 - aw, 8, aw, 12); put('leftArm', k, 12, 8, aw, 12); put('rightLeg', k, 4, 20, 4, 12); put('leftLeg', k, 8, 20, 4, 12); }
     return out;
   }
   async joinWorld() {
@@ -712,6 +763,11 @@ class App {
   async applyPack(zip, soundOverlay = false) {
     if (!this.blockAnims) this.blockAnims = new Map();
     const nb = await applyBlockTextures(zip, TEXTURES, this.blockTex, this.blockAnims);
+    // Worn armor from the pack's textures/models/armor.
+    for (const [mat, l, px] of await applyArmorTextures(zip, Object.keys(ARMOR_MATERIALS), LEATHER_COLOR)) {
+      const layer = this.mobLayers.get(`armor_${mat}_${l}`);
+      this.skinPixels[layer] = px; this.renderer.setEntityLayer(layer, px);
+    }
     if (nb) { this.renderer.setBlockTextures(buildMipChain(this.blockTex), TEXTURES.length); this.renderer.setAnimations(this.blockAnims); }
     const entries = [];
     for (const it of ITEMS) if (ITEM_LAYER[it.key] !== undefined) entries.push([it.key, ITEM_LAYER[it.key], it.block ? flatTexFor(it) : null]);
@@ -734,7 +790,7 @@ class App {
     this.packName = p ? p.name : null;
     this.updatePackButton();
     try {
-      const response = await fetch('assets/default-pack.zip?v=20261001-splash', { credentials: 'omit', referrerPolicy: 'no-referrer' });
+      const response = await fetch('assets/default-pack.zip?v=STAMP-splash', { credentials: 'omit', referrerPolicy: 'no-referrer' });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const zip = await Zip.open(await response.blob());
       const stats = await this.applyPack(zip);
@@ -1232,6 +1288,15 @@ class App {
     if (this.view > 0 && g.alive && g.mode !== 'spectator') this.drawPlayerModel(ctx);
     else if (p.rockets.length && g.alive) this.rocketSparks(this.rocketAt(p.renderPos || p.pos, p.yaw, g.inv.held && g.inv.held.key, g.inv.offhand.get(0) && g.inv.offhand.get(0).key), this.wings || (this.wings = { x: 0.2617994, y: 0, z: -0.2617994 }));
     if (rain > 0.05) this.drawWeather(ctx, cam, rain);
+    // Elytra wind: speed squared (blocks/tick) over 4, silent for the first second of a glide, then
+    // fading in over the next; above 0.8 it also rises in pitch.
+    // (Every frame, not only in the rain.)
+    let wind = 0;
+    if (p.gliding && g.alive) {
+      const v2 = (p.vel[0] ** 2 + p.vel[1] ** 2 + p.vel[2] ** 2) / 400, gt = p.glideTicks || 0;
+      wind = gt < 20 ? 0 : Math.min(1, v2 / 4) * Math.min(1, (gt - 20) / 20);
+    }
+    this.sound.setWind(wind, wind > 0.8 ? 1 + (wind - 0.8) : 1);
     // Hand.
     let hand = null;
     if (this.view === 0 && !this.hudHidden && g.alive && g.mode !== 'spectator') hand = this.buildHand(dt, cam);
@@ -1250,20 +1315,52 @@ class App {
     });
     if (this.net && !this.hudHidden) this.nametags.update(cam, this.fovCur, this.net.remotePlayers(), g.world); else this.nametags.clear();
     if (this.wantThumb) { this.wantThumb = false; }
+    // The inventory's player, after the frame so it never disturbs the world's draw state.
+    const pv = this.gui && this.gui.isOpen && this.gui.preview;
+    if (pv && pv.canvas.isConnected) this.renderInventoryPlayer(pv);
   }
 
-  drawPlayerModel(ctx) {
+  drawPlayerModel(ctx) { this.drawHumanoid(ctx, this.playerState()); }
+  // The local player as drawHumanoid takes it (the world view and the inventory preview).
+  playerState() {
     const g = this.game, p = g.player;
-    this.drawHumanoid(ctx, {
+    return {
       pos: p.renderPos || p.pos, yaw: p.yaw, pitch: p.pitch, walk: p.bobPhase * 1.6, walkAmt: p.bobAmount, swing: this.interact.swing,
-      sneaking: p.sneaking, riding: !!g.riding, gliding: p.gliding, vel: p.vel, layer: this.mobLayer('player'), flash: this.post.hurt > 0.5 ? 0.6 : 0,
+      sneaking: p.sneaking, riding: !!g.riding, gliding: p.gliding, vel: p.vel, layer: this.mobLayer('player'), model: this.playerModelOf(), flash: this.post.hurt > 0.5 ? 0.6 : 0,
       glideTicks: p.gliding ? (p.glideTicks || 0) + (p.tickAcc || 0) * 20 : 0, roll: this.dabr.active ? this.dabr.roll : null, crawling: p.crawling,
       rockets: p.rockets.length, wings: this.wings || (this.wings = { x: 0.2617994, y: 0, z: -0.2617994 }), dt: this.frameDt || 0,
       armor: g.inv.armor.slots.map(s => s && s.key), held: g.inv.held && g.inv.held.key, off: g.inv.offhand.get(0) && g.inv.offhand.get(0).key,
       bow: this.interact.using === 'bow', trident: this.interact.using === 'trident', blocking: g.blocking,
       xbowCharge: this.interact.using === 'crossbow' ? Math.min(1, this.interact.useT / crossbowCharge(this.game.inv.held)) : -1,
       xbowHold: !this.interact.using && g.inv.held && g.inv.held.key === 'crossbow' && !!(g.inv.held.tag && g.inv.held.tag.loaded),
+    };
+  }
+  // InventoryScreen.renderEntityInInventoryFollowsMouse: the player in its box, its body turned up to
+  // 20 degrees and its head 40 towards the pointer, tilted up to 20 degrees as the pointer rises or
+  // falls, lit evenly; drawn offscreen and copied into the box's canvas.
+  renderInventoryPlayer(pv) {
+    const g = this.game, c = pv.canvas, r = c.getBoundingClientRect();
+    if (!r.width || !g.alive) return;
+    const dpr = window.devicePixelRatio || 1, W = Math.max(1, Math.round(r.width * dpr)), H = Math.max(1, Math.round(r.height * dpr));
+    if (c.width !== W || c.height !== H) { c.width = W; c.height = H; }
+    // Before the pointer has moved over the screen its place is unknown: face straight out, as Java
+    // does with the pointer on the player.
+    const k = r.width / pv.w, mx = Number.isFinite(this.gui.mx) ? (this.gui.mx - r.left) / k : pv.fx, my = Number.isFinite(this.gui.my) ? (this.gui.my - r.top) / k : pv.fy - pv.eye;
+    const f = Math.atan((pv.fx - mx) / 40), f1 = Math.atan((pv.fy - pv.eye - my) / 40), D2R = Math.PI / 180;
+    if (!this.pvBatches) this.pvBatches = { mobs: new Batch(), items: new Batch() };
+    const B_ = this.pvBatches; B_.mobs.reset(); B_.items.reset();
+    const ctx = { mobs: B_.mobs, items: B_.items, itemFx: B_.items, blockModels: [], camPos: [0, 0, 10], camRight: [1, 0, 0], camUp: [0, 1, 0], labels: [] };
+    this.drawHumanoid(ctx, {
+      ...this.playerState(), pos: [0, 0, 0], yaw: Math.PI - f * 20 * D2R, pitch: f1 * 20 * D2R, headYaw: f * 20 * D2R,
+      pre: M.rx(-f1 * 20 * D2R), light: 1, flash: 0, rockets: 0, wings: this.pvWings || (this.pvWings = { x: 0.2617994, y: 0, z: -0.2617994 }),
     });
+    // Orthographic: `scale` GUI px a block, the feet at (fx, fy) in the box, depth +-4 blocks.
+    const sx = 2 * pv.scale / pv.w, sy = 2 * pv.scale / pv.h;
+    const vp = new Float32Array([sx, 0, 0, 0, 0, sy, 0, 0, 0, 0, -0.125, 0, 2 * pv.fx / pv.w - 1, 1 - 2 * pv.fy / pv.h, 0, 1]);
+    const px = this.renderer.renderPreview([{ batch: B_.mobs, tex: 'mob' }, { batch: B_.items, tex: 'item' }], W, H, vp, { env: g.env, time: this.time, blockModels: ctx.blockModels });
+    const img = new ImageData(W, H), row = W * 4;
+    for (let y = 0; y < H; y++) img.data.set(px.subarray((H - 1 - y) * row, (H - y) * row), y * row);
+    c.getContext('2d').putImageData(img, 0, 0);
   }
   drawRemotePlayer(ctx, rp) {
     this.drawHumanoid(ctx, {
@@ -1278,20 +1375,23 @@ class App {
   // A player model in any pose: walking, sneaking, riding, gliding, drawing a bow, blocking.
   drawHumanoid(ctx, s) {
     const g = this.game;
-    const model = this.mobModel('player');
-    const sw = Math.sin(s.walk) * 0.9 * s.walkAmt;
-    const swing = Math.sin(s.swing * Math.PI) * 1.4;
-    const poses = { head: [s.pitch, 0, 0], rightLeg: [sw, 0, 0], leftLeg: [-sw, 0, 0], rightArm: [-sw * 0.8 + swing, 0, 0], leftArm: [sw * 0.8, 0, 0] };
-    if (s.riding) { poses.rightLeg = [1.35, -0.25, 0]; poses.leftLeg = [1.35, 0.25, 0]; poses.rightArm = [0.55 + swing, 0, 0]; poses.leftArm = [0.55, 0, 0]; }
-    if (s.bow) { poses.rightArm = [1.45 + s.pitch, -0.1, 0]; poses.leftArm = [1.45 + s.pitch, 0.45, 0]; }
-    // Crossbow poses (AnimationUtils.animateCrossbowCharge / animateCrossbowHold).
-    if (s.xbowCharge >= 0) { const f = s.xbowCharge; poses.rightArm = [0.9708, -0.8, 0]; poses.leftArm = [0.9708 + (Math.PI / 2 - 0.9708) * f, 0.4 + 0.45 * f, 0]; }
-    else if (s.xbowHold) { poses.rightArm = [Math.PI / 2 + s.pitch - 0.1, -0.3, 0]; poses.leftArm = [1.5 + s.pitch, 0.6, 0]; }
-    if (s.blocking) poses.leftArm = [0.9, 0.55, 0];
-    if (s.trident) poses.rightArm = [2.8, -0.2, 0];
+    const model = s.model || this.mobModel('player_wide');
+    // PlayerRenderer.getArmPose: what each hand is doing, and HumanoidModel.setupAnim's pose for it.
+    let right = s.held ? 'item' : 'empty', left = s.off ? 'item' : 'empty', using = null;
+    if (s.bow) { right = 'bow'; using = 'right'; }
+    else if (s.trident) { right = 'spear'; using = 'right'; }
+    else if (s.xbowCharge >= 0) { right = 'xbow_charge'; using = 'right'; }
+    else if (s.xbowHold) right = 'xbow_hold';
+    if (s.blocking) { if (s.held === 'shield') { right = 'block'; using = 'right'; } else { left = 'block'; using = 'left'; } }
+    const { poses, pivots } = humanoidPose({
+      limbSwing: (s.walk || 0) / 0.6662, limbAmt: s.walkAmt || 0, age: (s.age ?? this.time * 20), headPitch: -(s.pitch || 0), headYaw: s.headYaw || 0,
+      attack: s.swing || 0, crouching: s.sneaking, riding: s.riding, rightPose: right, leftPose: left, using,
+      fallFlying: s.gliding ? s.glideTicks || 0 : 0, vel: s.vel ? s.vel.map(v => v / 20) : null, swim: s.crawling ? 1 : 0, xbowCharge: Math.max(0, s.xbowCharge),
+    });
+    poses.pivots = pivots;
     const lp = s.pos;
-    const light = g.world.lightAt(lp[0], lp[1] + 1, lp[2]);
-    const b = Math.max(Math.pow(0.8, 15 - light.sky) * g.env.skyLight[0], Math.pow(0.82, 15 - light.blk), g.env.ambient[0]);
+    const light = s.light ? null : g.world.lightAt(lp[0], lp[1] + 1, lp[2]);
+    const b = s.light || Math.max(Math.pow(0.8, 15 - light.sky) * g.env.skyLight[0], Math.pow(0.82, 15 - light.blk), g.env.ambient[0]);
     const sneak = s.sneaking ? M.chain(M.t(0, -2, 0), M.rx(0)) : null;
     // Gliding (LivingEntityRenderer.setupRotations): over the first 10 ticks the body tips about the
     // feet until it lies along the view, then banks by the angle between its motion and its facing;
@@ -1307,11 +1407,10 @@ class App {
         const d0 = v[0] * v[0] + v[2] * v[2], d1 = fx * fx + fz * fz;
         if (d0 > 0 && d1 > 0) glide = M.mul(glide, M.ry(Math.sign(v[0] * fz - v[2] * fx) * Math.acos(Math.max(-1, Math.min(1, (v[0] * fx + v[2] * fz) / Math.sqrt(d0 * d1))))));
       }
-      // HumanoidModel: the head looks ahead of the lying body; at speed the limbs hang still.
-      if (s.gliding && gt > 4) poses.head = [Math.PI / 4, 0, 0];
-      if (s.gliding) poses.rightArm = poses.leftArm = poses.rightLeg = poses.leftLeg = [0, 0, 0];
     }
-    const root = rootMatrix(lp, s.yaw, 1, glide || sneak), flash = s.flash || 0;
+    let root = rootMatrix(lp, s.yaw, 1, glide || sneak);
+    if (s.pre) root = M.mul(s.pre, root);
+    const flash = s.flash || 0;
     const mats = drawModel(ctx.mobs, model, s.layer, root, poses, [b, b, b], flash);
     const armor = s.armor || [];
     if (armor[1] === 'elytra') {
@@ -1337,12 +1436,14 @@ class App {
       billboard(ctx.items, ctx, rp[0], rp[1] + 0.12, rp[2], 0.5, this.itemLayer('firework_rocket'), [b, b, b, 1]);
       this.rocketSparks(rp, s.wings);
     }
+    // HumanoidArmorLayer: each piece's layer on the armor model, posed exactly like the body.
     for (const key of armor) {
-      const sk = key && armorSkinKey(key);
-      if (sk) drawModel(ctx.mobs, this.mobModel(sk), this.mobLayer(sk), root, poses, [b, b, b], flash);
+      const a = key && armorLayer(key);
+      if (a) drawModel(ctx.mobs, this.mobModel(a.model), this.mobLayer(a.skin), root, { ...poses, hide: a.hide }, [b, b, b], flash);
     }
-    if (s.held && I[s.held] && mats.rightArm) this.renderItemAt(ctx, s.held, M.chain(mats.rightArm, M.t(-3, -10, -1), M.rx(-Math.PI / 2), M.s(10)), [b, b, b]);
-    if (s.off && I[s.off] && mats.leftArm) this.renderItemAt(ctx, s.off, M.chain(mats.leftArm, M.t(3, -10, -1), M.rx(-Math.PI / 2), M.s(10)), [b, b, b]);
+    // Items at the hands (the arm boxes sit a pixel out from their pivots, as in Java).
+    if (s.held && I[s.held] && mats.rightArm) this.renderItemAt(ctx, s.held, M.chain(mats.rightArm, M.t(-2, -10, -1), M.rx(-Math.PI / 2), M.s(10)), [b, b, b]);
+    if (s.off && I[s.off] && mats.leftArm) this.renderItemAt(ctx, s.off, M.chain(mats.leftArm, M.t(2, -10, -1), M.rx(-Math.PI / 2), M.s(10)), [b, b, b]);
   }
 
   // LivingEntity.getHandHoldingItemAngle: a rocket rides 80 degrees off the facing on the side of
@@ -1393,14 +1494,6 @@ class App {
       }
     }
     this.sound.setRain(rain * (g.world.lightAt(cam.pos[0], cam.pos[1], cam.pos[2]).sky / 15));
-    // Elytra wind: speed squared (blocks/tick) over 4, silent for the first second of a glide, then
-    // fading in over the next; above 0.8 it also rises in pitch.
-    let wind = 0;
-    if (p.gliding && g.alive) {
-      const v2 = (p.vel[0] ** 2 + p.vel[1] ** 2 + p.vel[2] ** 2) / 400, gt = p.glideTicks || 0;
-      wind = gt < 20 ? 0 : Math.min(1, v2 / 4) * Math.min(1, (gt - 20) / 20);
-    }
-    this.sound.setWind(wind, wind > 0.8 ? 1 + (wind - 0.8) : 1);
   }
 
   // First-person hand, following Minecraft's held-item renderer: the arm offset, the swing arc
@@ -1538,16 +1631,16 @@ class App {
       return { batch, batchTex: 'item', light };
     }
     // Empty hand: Minecraft's renderArmFirstPerson stack (blocks and degrees), then the arm model
-    // in its own space: our arm box (hand at y -10, outer face +x) turned into the original's
-    // (hand at y +12, shoulder pivot at x -5).
+    // (arm and sleeve) in its own space: our arm box turned 180 degrees about z is the original's
+    // (hand at y +12), at its shoulder pivot (-5, 2).
     const DR = Math.PI / 180, f2 = -0.3 * Math.sin(sf * Math.PI), f3 = 0.4 * Math.sin(sf * Math.PI * 2), f4 = -0.4 * Math.sin(f * Math.PI);
     const f5 = Math.sin(f * f * Math.PI), f6 = Math.sin(sf * Math.PI);
-    const model = this.mobModel('player'), arm = { tex: model.tex, parts: { rightArm: { pivot: [0, 0, 0], boxes: model.parts.rightArm.boxes } } };
+    const model = this.playerModelOf(), arm = { java: true, tex: model.tex, parts: { rightArm: { pivot: [0, 0, 0], boxes: model.parts.rightArm.boxes } } };
     const root = M.chain(sway,
       M.t(f2 + 0.64, f3 - 0.6 - equip * 0.6, f4 - 0.72),
       M.ry(45 * DR), M.ry(f6 * 70 * DR), M.rz(-f5 * 20 * DR),
       M.t(-1, 3.6, 3.5), M.rz(120 * DR), M.rx(200 * DR), M.ry(-135 * DR), M.t(5.6, 0, 0),
-      M.s(1 / 16), M.t(-6, 2, 0), M.rz(Math.PI));
+      M.s(1 / 16), M.t(-5, 2, 0), M.rz(Math.PI));
     drawModel(batch, arm, this.mobLayer('player'), root, {}, [light, light, light], 0);
     return { batch, batchTex: 'mob', light };
   }

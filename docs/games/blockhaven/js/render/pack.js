@@ -182,6 +182,35 @@ export async function applyBlockTextures(zip, names, layers, anims = null) {
   }));
   return n;
 }
+// Armor layers (textures/models/armor/<material>_layer_<1|2>.png, 64x32 in Java's armor layout, or a
+// multiple of it), as 64x64 entity layers with the image in the top half. Leather is greyscale in
+// Java and tinted by its dye, so it is tinted with `leather` ([r, g, b]) and its overlay laid on top.
+// Returns [[material, layer, pixels]] for the files the pack has.
+export async function applyArmorTextures(zip, materials, leather) {
+  const read = async name => {
+    const bytes = await zip.bytes(`assets/minecraft/textures/models/armor/${name}.png`);
+    if (!bytes) return null;
+    const bmp = await decodeImage(bytes);
+    const c = document.createElement('canvas'); c.width = c.height = 64;
+    const ctx = c.getContext('2d'); ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(bmp, 0, 0, bmp.width, bmp.width / 2, 0, 0, 64, 32);
+    return new Uint8ClampedArray(ctx.getImageData(0, 0, 64, 64).data);
+  };
+  const out = [];
+  await Promise.all(materials.flatMap(mat => [1, 2].map(async l => {
+    try {
+      const px = await read(`${mat === 'golden' ? 'gold' : mat}_layer_${l}`);
+      if (!px) return;
+      if (mat === 'leather') {
+        for (let i = 0; i < px.length; i += 4) for (let k = 0; k < 3; k++) px[i + k] = px[i + k] * leather[k] / 255;
+        const over = await read(`leather_layer_${l}_overlay`);
+        if (over) for (let i = 0; i < px.length; i += 4) if (over[i + 3] > 127) for (let k = 0; k < 4; k++) px[i + k] = over[i + k];
+      }
+      out.push([mat, l, px]);
+    } catch { /* unreadable image: keep ours */ }
+  })));
+  return out;
+}
 // Replaces item sprites; `entries` is [[layerName, layerIndex, blockTextureFallback]].
 export async function applyItemTextures(zip, entries, layers) {
   let n = 0;

@@ -1,8 +1,8 @@
-import { CHUNK, TEX, DIM } from '../data/blocks.js?v=murpnhgy';
-import { meshSingleBlock, STRIDE } from '../mesh/mesher.js?v=murpnhgy';
-import * as S from './shaders.js?v=murpnhgy';
-import { uploadArray, updateLayer } from './atlas.js?v=murpnhgy';
-import { mat4, perspective, multiply, invert, viewMatrix, frustumPlanes, boxVisible } from '../core/math.js?v=murpnhgy';
+import { CHUNK, TEX, DIM } from '../data/blocks.js?v=mush3nyu';
+import { meshSingleBlock, STRIDE } from '../mesh/mesher.js?v=mush3nyu';
+import * as S from './shaders.js?v=mush3nyu';
+import { uploadArray, updateLayer } from './atlas.js?v=mush3nyu';
+import { mat4, perspective, multiply, invert, viewMatrix, frustumPlanes, boxVisible } from '../core/math.js?v=mush3nyu';
 
 // Graphics presets: 0 Disabled, 1 Regular, 2 High, 3 PC.
 export const QUALITY = [
@@ -140,6 +140,8 @@ export class Renderer {
     }
   }
   setEntityTextures(chain, count) { this.entityTex = uploadArray(this.gl, chain, count); }
+  // Replaces one 64x64 entity layer (a player's own skin, a pack's armor), mipmaps and all.
+  setEntityLayer(layer, pixels) { updateLayer(this.gl, this.entityTex, layer, pixels, 64, 7); }
   setItemTextures(chain, count) { this.itemTex = uploadArray(this.gl, chain, count); }
   texFor(kind) { return kind === 'block' ? this.blockTex : kind === 'item' ? this.itemTex : this.entityTex; }
 
@@ -350,6 +352,53 @@ export class Renderer {
     return n;
   }
 
+  // A model drawn on its own into a small transparent image (the inventory's player preview), read
+  // back as RGBA rows from the bottom up. list: [{ batch, tex }]; s: { env, time }.
+  renderPreview(list, w, h, viewProj, s) {
+    const gl = this.gl;
+    if (!this.pv || this.pv.w !== w || this.pv.h !== h) {
+      if (this.pv) { gl.deleteFramebuffer(this.pv.f); gl.deleteTexture(this.pv.c); gl.deleteTexture(this.pv.d); }
+      const c = this.colorTexture(w, h), d = this.depthTexture(w, h, false);
+      this.pv = { w, h, c, d, f: this.fbo(c, d), px: new Uint8Array(w * h * 4) };
+    }
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this.pv.f);
+    gl.viewport(0, 0, w, h);
+    gl.clearColor(0, 0, 0, 0);
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    gl.enable(gl.DEPTH_TEST); gl.depthFunc(gl.LEQUAL); gl.depthMask(true);
+    gl.disable(gl.CULL_FACE); gl.disable(gl.BLEND);
+    const e = this.entity;
+    gl.useProgram(e.p);
+    this.setEnv(e.u, s, 1e6, 2e6, [0, 0, 0], 0);
+    gl.uniformMatrix4fv(e.u.uViewProj, false, viewProj);
+    gl.uniform1i(e.u.uTex, 0);
+    gl.activeTexture(gl.TEXTURE0);
+    for (const b of list) { const tx = this.texFor(b.tex); if (tx) this.drawBatch(b.batch, tx, 0.1, false); }
+    // Blocks held in a hand, as the main pass draws block models.
+    if (s.blockModels && s.blockModels.length) {
+      const t = this.terrain, env = s.env;
+      gl.useProgram(t.p);
+      this.setEnv(t.u, s, 1e6, 2e6, [0, 0, 0], 0);
+      gl.uniformMatrix4fv(t.u.uViewProj, false, viewProj);
+      gl.uniform1i(t.u.uTex, 0); gl.uniform1f(t.u.uAlpha, 1);
+      this.bindShadow(t.u, false, null, 0);
+      gl.bindTexture(gl.TEXTURE_2D_ARRAY, this.blockTex);
+      for (const bm of s.blockModels) {
+        const m = this.blockModel(bm.id, bm.meta);
+        if (!m) continue;
+        gl.uniformMatrix4fv(t.u.uModel, false, bm.matrix);
+        gl.uniform3f(t.u.uChunk, 0, 0, 0);
+        const L = bm.light ?? 1;
+        gl.uniform3f(t.u.uSkyLight, env.skyLight[0] * L, env.skyLight[1] * L, env.skyLight[2] * L);
+        gl.bindVertexArray(m.vao);
+        gl.drawElements(gl.TRIANGLES, m.quads * 6, gl.UNSIGNED_INT, 0);
+      }
+      gl.uniformMatrix4fv(t.u.uModel, false, IDENTITY);
+    }
+    gl.readPixels(0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, this.pv.px);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    return this.pv.px;
+  }
   drawBatch(batch, tex, alphaTest, blend) {
     if (!batch || !batch.quads) return;
     const gl = this.gl;

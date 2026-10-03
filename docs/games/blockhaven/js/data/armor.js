@@ -1,10 +1,13 @@
-// Worn-armor models: inflated boxes that share part names and pivots with the humanoid body,
-// so they follow every pose (walking, swinging, sneaking) automatically. One painted skin per
-// material and piece; `thin` matches skeleton-style limbs.
-import { D, pal } from '../render/mobtex.js?v=murpnhgy';
+// Worn armor as Java draws it (HumanoidArmorLayer): two layers per material on Java's armor model
+// (entity/humanoid.js). Layer 1 (the helmet, chestplate and boots) sits 1 px out from the body,
+// layer 2 (the leggings) half a pixel; each is one 64x32 texture in Java's layout, so a resource
+// pack's textures/models/armor/<material>_layer_<n>.png replaces it directly. Without a pack the
+// layers are painted here, clear wherever the real textures are clear.
+import { D, pal } from '../render/mobtex.js?v=mush3nyu';
+import { armorModel as javaArmorModel, armorHide } from '../entity/humanoid.js?v=mush3nyu';
 
 export const ARMOR_MATERIALS = {
-  leather: { c: '#8e5a34', pattern: 'noise', trim: '#6a4024' },
+  leather: { c: '#a06540', pattern: 'noise', trim: '#7a4a2c' },
   chainmail: { c: '#a4a6ae', pattern: 'scales', trim: '#6e7078' },
   iron: { c: '#d6d6d6', pattern: 'noise', trim: '#9a9a9a' },
   golden: { c: '#f2cc3a', pattern: 'noise', trim: '#c89a1c' },
@@ -13,39 +16,40 @@ export const ARMOR_MATERIALS = {
   turtle: { c: '#4aa246', pattern: 'scales', trim: '#2e6a2c' },
 };
 export const ARMOR_PIECES = ['helmet', 'chestplate', 'leggings', 'boots'];
+// Java's default leather colour (DyeableLeatherItem.DEFAULT_LEATHER_COLOR), which tints the
+// greyscale leather layers of a pack.
+export const LEATHER_COLOR = [0xa0, 0x65, 0x40];
 
-const box = (o, s, style, extra = {}) => ({ o, s, style, ...extra });
-const part = (pivot, boxes) => ({ pivot, boxes });
-// Transparent pixels (visor opening, open bottoms).
+// Transparent pixels: a share of a face (rows or a rectangle), or the whole face.
 const clear = (rx, ry, rw, rh) => (p, x, y, w, h) => p.rect(x + Math.floor(rx * w), y + Math.floor(ry * h), Math.max(1, Math.round(rw * w)), Math.max(1, Math.round(rh * h)), '#000000', 0);
 const clearAll = (p, x, y, w, h) => p.rect(x, y, w, h, '#000000', 0);
+const rows = (from, to) => clear(0, from, 1, to - from);
 
-export function armorModel(material, piece, thin = false) {
+// The painted layers of one material: layer 1 (helmet head, chestplate body and shoulders, boots)
+// and layer 2 (leggings: the belt and legs). Left limbs share the right ones' pixels, as in Java.
+export function armorLayerModel(material, layer) {
   const m = ARMOR_MATERIALS[material] || ARMOR_MATERIALS.iron;
   const st = decor => ({ pal: pal(m.c, 0.1), pattern: m.pattern, decor });
-  const limb = thin ? 2 : 4, armX = thin ? 5 : 6, legX = 2;
   const edge = D.frame(m.trim);
-  const parts = {};
-  switch (piece) {
-    case 'helmet':
-      parts.head = part([0, 24, 0], [box([-4, 0, -4], [8, 8, 8], st({ front: D.all(edge, clear(0.125, 0.45, 0.75, 0.55)), all: edge, bottom: clearAll }), { inflate: 1 })]);
-      break;
-    case 'chestplate':
-      parts.body = part([0, 12, 0], [box([-4, 0, -2], [8, 12, 4], st({ all: edge, top: clear(0.25, 0.25, 0.5, 0.5), bottom: clearAll }), { inflate: 1 })]);
-      parts.rightArm = part([armX, 22, 0], [box([-limb / 2, -6, -limb / 2], [limb, 8, limb], st({ all: D.band(0.85, 1, m.trim), bottom: clearAll }), { inflate: 1 })]);
-      parts.leftArm = part([-armX, 22, 0], [box([-limb / 2, -6, -limb / 2], [limb, 8, limb], st({ all: D.band(0.85, 1, m.trim), bottom: clearAll }), { inflate: 1, mirror: true })]);
-      break;
-    case 'leggings':
-      parts.body = part([0, 12, 0], [box([-4, 0, -2], [8, 4, 4], st({ all: D.band(0, 0.3, m.trim), top: clearAll }), { inflate: 0.5 })]);
-      parts.rightLeg = part([legX, 12, 0], [box([-limb / 2, -9, -limb / 2], [limb, 9, limb], st({ bottom: clearAll }), { inflate: 0.5 })]);
-      parts.leftLeg = part([-legX, 12, 0], [box([-limb / 2, -9, -limb / 2], [limb, 9, limb], st({ bottom: clearAll }), { inflate: 0.5, mirror: true })]);
-      break;
-    case 'boots':
-      parts.rightLeg = part([legX, 12, 0], [box([-limb / 2, -12, -limb / 2], [limb, 5, limb], st({ all: D.band(0, 0.25, m.trim), top: clearAll }), { inflate: 1 })]);
-      parts.leftLeg = part([-legX, 12, 0], [box([-limb / 2, -12, -limb / 2], [limb, 5, limb], st({ all: D.band(0, 0.25, m.trim), top: clearAll }), { inflate: 1, mirror: true })]);
-      break;
-  }
-  return { anim: 'biped', parts, eye: 0 };
+  if (layer === 1) return javaArmorModel(false, {
+    head: st({ front: D.all(edge, clear(0.125, 0.45, 0.75, 0.55)), all: edge, bottom: clearAll }),
+    body: st({ all: edge, top: clear(0.25, 0.25, 0.5, 0.5), bottom: clearAll }),
+    arm: st({ all: D.all(D.band(0.35, 0.45, m.trim), rows(0.45, 1)), top: edge, bottom: clearAll }),
+    leg: st({ all: D.all(rows(0, 0.6), D.band(0.6, 0.7, m.trim)), top: clearAll, bottom: edge }),
+  });
+  return javaArmorModel(true, {
+    body: st({ all: D.all(rows(0, 0.67), D.band(0.67, 0.78, m.trim)), top: clearAll, bottom: clearAll }),
+    leg: st({ all: rows(0.75, 1), top: clearAll, bottom: clearAll }),
+  });
+}
+
+// Which layer a worn item draws and the parts it shows: { skin, model, hide } (null for things that
+// are not drawn as armor, like elytra or a pumpkin).
+export function armorLayer(itemKey) {
+  const m = /^(leather|chainmail|iron|golden|diamond|netherite|turtle)_(helmet|chestplate|leggings|boots)$/.exec(itemKey);
+  if (!m) return null;
+  const slot = ARMOR_PIECES.indexOf(m[2]), inner = slot === 2;
+  return { skin: `armor_${m[1]}_${inner ? 2 : 1}`, model: inner ? 'armor_inner' : 'armor_outer', hide: armorHide(slot) };
 }
 
 // Elytra wings hang from the shoulders; pose them with wingL / wingR.
@@ -58,10 +62,4 @@ export function elytraModel() {
     wingL: { pivot: [-5, 24, 2], boxes: [{ o: [0, -20, 0], s: [10, 20, 2], inflate: 1, style: mem }] },
     wingR: { pivot: [5, 24, 2], boxes: [{ o: [-10, -20, 0], s: [10, 20, 2], inflate: 1, style: mem, mirror: true }] },
   } };
-}
-
-// Skin key for a worn stack (null for things that are not drawn as armor, like elytra or a pumpkin).
-export function armorSkinKey(itemKey, thin = false) {
-  const m = /^(leather|chainmail|iron|golden|diamond|netherite|turtle)_(helmet|chestplate|leggings|boots)$/.exec(itemKey);
-  return m ? `armor_${m[1]}_${m[2]}${thin ? '_thin' : ''}` : null;
 }

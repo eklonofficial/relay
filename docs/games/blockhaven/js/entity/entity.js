@@ -1,7 +1,7 @@
 // Entity base class, manager and the box-model renderer shared by every mob.
-import { moveEntity } from './physics.js?v=murpnhgy';
-import { B } from '../data/blocks.js?v=murpnhgy';
-import { fluidPush } from '../game/fluid.js?v=murpnhgy';
+import { moveEntity } from './physics.js?v=mush3nyu';
+import { B } from '../data/blocks.js?v=mush3nyu';
+import { fluidPush } from '../game/fluid.js?v=mush3nyu';
 
 let nextId = 1;
 export class Entity {
@@ -104,7 +104,8 @@ export class EntityManager {
 }
 
 // ---------------- box models ----------------
-// A model is { tex: [w, h], parts: { name: { pivot, boxes: [{ o, s, uv, inflate, mirror }], parent } } } in 1/16 block units.
+// A model is { tex: [w, h], java?, parts: { name: { pivot, boxes: [{ o, s, uv, inflate, mirror }], parent } } } in 1/16
+// block units; `java` models unwrap their boxes exactly as Java's ModelPart.Cube does (entity/humanoid.js).
 // Poses: { name: [rx, ry, rz] }. Matrices are row-major 3x4 arrays.
 const mul = (a, b) => [
   a[0] * b[0] + a[1] * b[4] + a[2] * b[8], a[0] * b[1] + a[1] * b[5] + a[2] * b[9], a[0] * b[2] + a[1] * b[6] + a[2] * b[10], a[0] * b[3] + a[1] * b[7] + a[2] * b[11] + a[3],
@@ -128,7 +129,7 @@ const FACE_SHADE = [0.62, 0.62, 1.0, 0.5, 0.8, 0.8];
 const P = [[0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0]];
 
 // Emits one box (in part space) into a batch. uv: texture coords of the MC box unwrap in texels.
-function emitBox(batch, m, box, layer, tw, th, light, alpha) {
+function emitBox(batch, m, box, layer, tw, th, light, alpha, java = false) {
   const [ox, oy, oz] = box.o, [w, h, d] = box.s, inf = box.inflate || 0;
   const x0 = ox - inf, y0 = oy - inf, z0 = oz - inf, x1 = ox + w + inf, y1 = oy + h + inf, z1 = oz + d + inf;
   const c = (i, x, y, z) => { const r = M.apply(m, x, y, z); P[i][0] = r[0]; P[i][1] = r[1]; P[i][2] = r[2]; };
@@ -152,6 +153,26 @@ function emitBox(batch, m, box, layer, tw, th, light, alpha) {
     // -Z front
     [[P[0], P[1], P[2], P[3]], [u + D, v + D, u + D + W, v + D + H], 5],
   ];
+  if (java) {
+    // Java's ModelPart.Cube, corner by corner (our x and y are Java's flipped): the right strip on
+    // the +X side, the bottom flipped, and a mirrored box swapped side for side.
+    if (box.mirror) for (const [a, b] of [[0, 1], [3, 2], [4, 5], [7, 6]]) { const t = P[a]; P[a] = P[b]; P[b] = t; }
+    const U0 = u, U1 = u + D, U2 = u + D + W, U2w = u + D + W + W, U3 = u + D + W + D, U4 = u + D + W + D + W, V0 = v, V1 = v + D, V2 = v + D + H;
+    const J = [
+      [[2, U1, V1], [6, U0, V1], [5, U0, V2], [1, U1, V2], 0],
+      [[7, U3, V1], [3, U2, V1], [0, U2, V2], [4, U3, V2], 1],
+      [[7, U2, V0], [6, U1, V0], [2, U1, V1], [3, U2, V1], 2],
+      [[0, U2w, V1], [1, U2, V1], [5, U2, V0], [4, U2w, V0], 3],
+      [[6, U4, V1], [7, U3, V1], [4, U3, V2], [5, U4, V2], 4],
+      [[3, U2, V1], [2, U1, V1], [1, U1, V2], [0, U2, V2], 5],
+    ];
+    for (const face of J) {
+      const sh = FACE_SHADE[face[4]], col = [light[0] * sh, light[1] * sh, light[2] * sh, alpha];
+      batch.quadUV([P[face[0][0]], P[face[1][0]], P[face[2][0]], P[face[3][0]]], [0, 1, 2, 3].map(k => [U(face[k][1]), V(face[k][2])]), layer, col);
+    }
+    if (box.mirror) for (const [a, b] of [[0, 1], [3, 2], [4, 5], [7, 6]]) { const t = P[a]; P[a] = P[b]; P[b] = t; }
+    return;
+  }
   for (const [pts, r, f] of faces) {
     let [a0, b0, a1, b1] = r;
     if (box.mirror) { const t = a0; a0 = a1; a1 = t; }
@@ -185,7 +206,7 @@ export function drawModel(batch, model, layer, root, poses, light, hurt = 0, alp
     const m = partMatrix(name);
     for (const b of p.boxes) {
       if (b.wool && poses.sheared) continue;
-      emitBox(batch, m, b, layer, tw, th, b.wool && poses.woolColor ? [light[0] * poses.woolColor[0], light[1] * poses.woolColor[1], light[2] * poses.woolColor[2]] : light, a);
+      emitBox(batch, m, b, layer, tw, th, b.wool && poses.woolColor ? [light[0] * poses.woolColor[0], light[1] * poses.woolColor[1], light[2] * poses.woolColor[2]] : light, a, !!model.java);
     }
   }
   return mats;

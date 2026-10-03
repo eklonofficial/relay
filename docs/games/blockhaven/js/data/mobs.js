@@ -1,6 +1,7 @@
 // Mob roster: stats, AI archetype, drops, box models and procedural skins.
 // Model space: 1 unit = 1/16 block, feet at y=0, the mob faces -Z.
-import { D, pal, shade as shadeHex } from '../render/mobtex.js?v=murpnhgy';
+import { D, pal, shade as shadeHex } from '../render/mobtex.js?v=mush3nyu';
+import { playerModel as javaPlayerModel } from '../entity/humanoid.js?v=mush3nyu';
 
 const box = (o, s, style, extra = {}) => ({ o, s, style, ...extra });
 const part = (pivot, boxes, extra = {}) => ({ pivot, boxes, ...extra });
@@ -640,12 +641,13 @@ export const PLAYER_SKINS = [
   ['Ember', '#8a5a3a', '#1a1414', 0.3, '#4a2a14', '#c83a3a', '#2a2a2e', '#e8e8e8'],
   ['Frost', '#f0cfb0', '#e8d890', 0.55, '#3aa8d8', '#7a4ab8', '#8a8a92', '#3a3a44'],
 ];
-export function playerModel(v = 0) {
+export function playerModel(v = 0, slim = false) {
   const [, skin, hair, len, eye, shirt, pants, shoes] = PLAYER_SKINS[v] || PLAYER_SKINS[0];
   // Hair: a ragged fringe over the brow, locks down the sides (longer hair frames the face), full back and crown.
   const hairFx = fn => (p, x, y, w, h, f, st) => fn(p, x, y, w, h, f, { pal: [shadeHex(hair, 0.7), shadeHex(hair, 0.85), hair, shadeHex(hair, 1.15)] });
   const locks = hairFx(D.all(D.band(0, 0.3 + len * 0.55, hair), D.blotch(shadeHex(hair, 0.82), 0.3)));
-  const m = humanoid({
+  // Java's player model (64x64 skin, entity/humanoid.js), so a real skin can take this one's place.
+  return javaPlayerModel({
     head: S(skin, 'noise', {
       front: D.all(D.ragged(0, 0.2, hair), len > 0.5 ? D.at(0, 0.5 + len * 0.3, D.band(0, 1, hair), 0, 0.125) : null, len > 0.5 ? D.at(0, 0.5 + len * 0.3, D.band(0, 1, hair), 0.875, 1) : null,
         eyes({ c: '#f8f8f8', pupil: eye, y: 0.5, gap: 2 }), D.bar(shadeHex(skin, 0.86), 0.625, 2), D.bar(shadeHex(skin, 0.62), 0.78, 2), D.bar(shadeHex(skin, 0.8), 0.78, 4)),
@@ -654,8 +656,7 @@ export function playerModel(v = 0) {
     body: S(shirt, 'cloth', { front: D.all(D.bar(skin, 0, 2), D.band(0.9, 1, shadeHex(shirt, 0.78))), all: D.band(0.9, 1, shadeHex(shirt, 0.78)) }, 0.08),
     arm: S(skin, 'noise', { all: D.all(D.band(0, 0.34, shirt), D.band(0.34, 0.4, shadeHex(shirt, 0.8))), top: D.band(0, 1, shirt) }, 0.06),
     leg: S(pants, 'cloth', { all: D.band(0.84, 1, shoes), top: D.band(0, 1, shadeHex(pants, 0.85)), bottom: D.band(0, 1, shadeHex(shoes, 0.8)) }, 0.08),
-  });
-  return m;
+  }, slim);
 }
 
 // Saddle drawn on top of a saddled horse or donkey (shares the body pivot).
