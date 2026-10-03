@@ -7,12 +7,12 @@
 //  - Redstone wire keeps the original algorithm, including its order-of-updates quirks
 //    (a Java HashSet walk), so locational behaviour matches too.
 // Only the host (or a single player) simulates; everyone else receives the block changes.
-import { B, BLOCKS, SOLID, OPAQUE, SHAPE_OF, SHAPE, props, VARIANT_MASK } from '../data/blocks.js?v=musnlb5a';
-import { timeOfDay, skyDarken } from './weather.js?v=musnlb5a';
-import { I, maxStack } from '../data/items.js?v=musnlb5a';
-import { UNLOADED, posKey } from '../world/world.js?v=musnlb5a';
-import { blockDrops } from './drops.js?v=musnlb5a';
-import { DIR6_OF_2D, DIR2D_OF_6, OPP6 } from '../data/orient.js?v=musnlb5a';
+import { B, BLOCKS, SOLID, OPAQUE, SHAPE_OF, SHAPE, props, VARIANT_MASK } from '../data/blocks.js?v=muso40ud';
+import { timeOfDay, skyDarken } from './weather.js?v=muso40ud';
+import { I, maxStack } from '../data/items.js?v=muso40ud';
+import { UNLOADED, posKey } from '../world/world.js?v=muso40ud';
+import { blockDrops } from './drops.js?v=muso40ud';
+import { DIR6_OF_2D, DIR2D_OF_6, OPP6 } from '../data/orient.js?v=muso40ud';
 
 // ---- directions (Java order) ----
 const DOWN = 0, UP = 1, NORTH = 2, SOUTH = 3, WEST = 4, EAST = 5;

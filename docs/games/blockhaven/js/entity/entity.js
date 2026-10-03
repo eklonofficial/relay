@@ -1,8 +1,8 @@
 // Entity base class, manager and the box-model renderer shared by every mob.
-import { moveEntity } from './physics.js?v=musnlb5a';
-import { B } from '../data/blocks.js?v=musnlb5a';
-import { fluidPush } from '../game/fluid.js?v=musnlb5a';
-import { ENTITY, texFactor } from '../render/mobtex.js?v=musnlb5a';
+import { moveEntity } from './physics.js?v=muso40ud';
+import { B } from '../data/blocks.js?v=muso40ud';
+import { fluidPush } from '../game/fluid.js?v=muso40ud';
+import { ENTITY, texFactor } from '../render/mobtex.js?v=muso40ud';
 
 let nextId = 1;
 export class Entity {

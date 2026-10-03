@@ -7,8 +7,8 @@ const MATERIAL = {
 };
 // Mob voices: [base freq, type, duration, sweep, noise]
 
-import { SOUND_FILES, NOTE_FILES, MOB_DIR, matSound } from '../render/pack.js?v=musnlb5a';
-import { MusicPlayer } from './music.js?v=musnlb5a';
+import { SOUND_FILES, NOTE_FILES, MOB_DIR, matSound } from '../render/pack.js?v=muso40ud';
+import { MusicPlayer } from './music.js?v=muso40ud';
 
 const VOWEL = { a: [[730, 6, 1.2], [1090, 7, 0.9], [2440, 9, 0.3]], o: [[450, 6, 1.2], [800, 7, 0.9], [2800, 9, 0.2]], u: [[320, 6, 1.3], [870, 7, 0.7], [2250, 9, 0.2]] };
 const MOB_VOICE_ALIAS = { polar_bear: 'bear', zombified_piglin: 'zpiglin', wandering_trader: 'villager', pillager: 'illager', vindicator: 'illager', evoker: 'illager', iron_golem: 'golem', snow_golem: 'snowgolem', husk: 'zombie', drowned: 'zombie', zombie_villager: 'zombie', stray: 'skeleton', wither_skeleton: 'skeleton', cave_spider: 'spider', magma_cube: 'slime', mooshroom: 'cow', donkey: 'horse', camel: 'horse', mule: 'horse', endermite: 'silverfish', ender_dragon: 'dragon', glow_squid: 'squid', cod: 'fish', salmon: 'fish', tropical_fish: 'fish', pufferfish: 'fish' };
@@ -125,6 +125,8 @@ export class Sound {
     const T = (a, b, d, l, t) => this.tone(a * pitch, b * pitch, d, l, t, out);
     switch (name) {
       case 'pop': T(900, 1400, 0.08, 0.25, 'sine'); break;
+      // (Without a pack's: a patter of rain, muffled from above.)
+      case 'rain': case 'rain_above': this.pulses(out, { t: 0, count: 6, freq: name === 'rain' ? 2600 : 700, q: 0.7, gain: name === 'rain' ? 0.5 : 0.35, len: 0.25, type: name === 'rain' ? 'highpass' : 'lowpass' }); break;
       case 'xp': T(1500, 2200, 0.1, 0.18, 'sine'); T(2250, 3000, 0.12, 0.08, 'sine'); break;
       case 'levelup': [523, 659, 784, 1046].forEach((f, i) => this.tone(f, f, 0.5, 0.18, 'triangle', out, i * 0.08)); break;
       case 'hurt': this.voice(out, { dur: 0.22, f0: [230 * pitch, 170 * pitch], formants: VOWEL.u, breath: 0.35, gain: 0.34, attack: 0.01 }); this.burst('cloth', 0.08, 0.6, 0.8, pos); break;
@@ -342,17 +344,5 @@ export class Sound {
     this.windGain.gain.setTargetAtTime(volume * 0.4, t, 0.08);
     this.windFilter.frequency.setTargetAtTime(380 * pitch + volume * 520, t, 0.1);
     if (volume <= 0 && this.windSrc) { const src = this.windSrc; this.windSrc = null; this.windGain = null; setTimeout(() => { try { src.stop(); } catch { /* already stopped */ } }, 400); }
-  }
-  // Continuous rain hiss while it rains.
-  setRain(level) {
-    if (!this.ctx) return;
-    if (!this.rainSrc && level > 0) {
-      const c = this.ctx;
-      this.rainSrc = c.createBufferSource(); this.rainSrc.buffer = this.noise; this.rainSrc.loop = true;
-      const f = c.createBiquadFilter(); f.type = 'highpass'; f.frequency.value = 1800;
-      this.rainGain = c.createGain(); this.rainGain.gain.value = 0;
-      this.rainSrc.connect(f).connect(this.rainGain).connect(this.master); this.rainSrc.start();
-    }
-    if (this.rainGain) this.rainGain.gain.value = level * 0.12;
   }
 }
