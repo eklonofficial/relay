@@ -4,7 +4,7 @@
 //                                           and panes, whose connections Java stores in the state)
 // fromJava(name, props) -> state (id | meta << 8); unknown blocks fall back to the closest family
 //                          we have (stairs to stairs, logs to logs, ...), then to stone or air.
-import { BLOCKS, B, STATE, SHAPE, SHAPE_OF, OPAQUE, CROP_STAGES, CROP_AGE_SHIFT, COLORS } from '../data/blocks.js?v=mush3vnf';
+import { BLOCKS, B, STATE, SHAPE, SHAPE_OF, OPAQUE, CROP_STAGES, CROP_AGE_SHIFT, COLORS } from '../data/blocks.js?v=musn9kyc';
 
 const H = ['south', 'west', 'north', 'east'];                       // our 2D facing order
 const D6 = ['down', 'up', 'north', 'south', 'west', 'east'];         // Java's six-way order
@@ -89,13 +89,13 @@ export function toJava(id, m, nb = () => -1) {
     case SHAPE.DOOR: p.facing = H[(m >> 3) & 3]; p.half = m & 64 ? 'upper' : 'lower'; p.open = String(!!(m & 32)); p.powered = String(!!(m & 128)); p.hinge = 'left'; break;
     case SHAPE.TRAPDOOR: p.facing = H[OPP2((m >> 3) & 3)]; p.half = m & 64 ? 'top' : 'bottom'; p.open = String(!!(m & 32)); p.powered = String(!!(m & 128)); p.waterlogged = 'false'; break;
     case SHAPE.LADDER: p.facing = H[OPP2(m & 3)]; p.waterlogged = 'false'; break;
-    case SHAPE.BED: name = 'red_bed'; p.facing = H[m & 3]; p.part = m & 4 ? 'head' : 'foot'; p.occupied = 'false'; break;
+    case SHAPE.BED: p.facing = H[(m >> 4) & 3]; p.part = m & 64 ? 'head' : 'foot'; p.occupied = 'false'; break;
     case SHAPE.LANTERN: p.hanging = String(!!(m & 2)); p.waterlogged = 'false'; break;
     case SHAPE.RAIL: p.shape = m & 1 ? 'east_west' : 'north_south'; p.waterlogged = 'false'; break;
     case SHAPE.SNOW: p.layers = String((m & 7) + 1); break;
     case SHAPE.LIQUID: p.level = String(m & 15); break;
     case SHAPE.CACTUS: case SHAPE.FIRE: p.age = '0'; break;
-    case SHAPE.CHEST: p.facing = H[m & 3]; p.type = 'single'; p.waterlogged = 'false'; break;
+    case SHAPE.CHEST: p.facing = H[m & 3]; p.type = ['single', 'left', 'right'][(m >> 2) & 3] || 'single'; p.waterlogged = 'false'; break;
     case SHAPE.CAMPFIRE: p.facing = 'north'; p.lit = 'true'; p.signal_fire = 'false'; p.waterlogged = 'false'; break;
     case SHAPE.FENCE: case SHAPE.PANE:
       p.north = String(connects(id, nb(0, 0, -1))); p.south = String(connects(id, nb(0, 0, 1)));
@@ -206,7 +206,7 @@ function fallback(name) {
       stairs: isWood ? 'oak_stairs' : 'stone_stairs', slab: isWood ? 'oak_slab' : 'stone_slab', fence: isWood ? 'oak_fence' : 'nether_brick_fence',
       door: isWood ? 'oak_door' : 'iron_door', trapdoor: isWood ? 'oak_trapdoor' : 'iron_trapdoor', button: isWood ? 'oak_button' : 'stone_button',
       pressure_plate: isWood ? 'oak_pressure_plate' : 'stone_pressure_plate', log: 'oak_log', planks: 'oak_planks', leaves: 'oak_leaves',
-      sapling: 'oak_sapling', bed: 'bed', wool: 'white_wool', carpet: 'white_carpet', terracotta: 'terracotta', concrete: 'white_concrete',
+      sapling: 'oak_sapling', bed: 'red_bed', wool: 'white_wool', carpet: 'white_carpet', terracotta: 'terracotta', concrete: 'white_concrete',
     }[suf];
     if (STATE[def]) return [STATE[def], def];
   }
@@ -231,7 +231,6 @@ function resolve(name, p) {
   if (name === 'wall_torch') { st = STATE.torch; key = 'torch'; }
   if (name === 'soul_wall_torch') { st = STATE.soul_torch; key = 'soul_torch'; }
   if (name === 'piston_head') { st = p.type === 'sticky' ? STATE.sticky_piston_head : STATE.piston_head; key = 'piston_head'; }
-  if (/_bed$/.test(name)) { st = STATE.bed; key = 'bed'; }
   if (!st) [st, key] = fallback(name);
   const [id, variant] = st;
   let m = variant;
@@ -242,12 +241,12 @@ function resolve(name, p) {
     case SHAPE.DOOR: m |= h2(p.facing) << 3; if (p.half === 'upper') m |= 64; if (bool(p.open)) m |= 32; if (bool(p.powered)) m |= 128; break;
     case SHAPE.TRAPDOOR: m |= OPP2(h2(p.facing)) << 3; if (p.half === 'top') m |= 64; if (bool(p.open)) m |= 32; if (bool(p.powered)) m |= 128; break;
     case SHAPE.LADDER: m |= OPP2(h2(p.facing)); break;
-    case SHAPE.BED: m = h2(p.facing) | (p.part === 'head' ? 4 : 0); break;
+    case SHAPE.BED: m |= h2(p.facing) << 4 | (p.part === 'head' ? 64 : 0); break;
     case SHAPE.LANTERN: if (bool(p.hanging)) m |= 2; break;
     case SHAPE.RAIL: if (/east_west|ascending_east|ascending_west|south_east|north_west/.test(p.shape || '')) m |= 1; break;
     case SHAPE.SNOW: m |= Math.max(0, Math.min(7, (Number(p.layers) || 1) - 1)); break;
     case SHAPE.LIQUID: m = Number(p.level) & 15; break;
-    case SHAPE.CHEST: m |= h2(p.facing); break;
+    case SHAPE.CHEST: m |= h2(p.facing) | (p.type === 'left' ? 1 : p.type === 'right' ? 2 : 0) << 2; break;
     case SHAPE.CROP: {
       const v = m & 7, max = Math.max(1, CROP_STAGES[v] - 1);
       m |= Math.round((Number(p.age) || 0) / JAVA_CROP_MAX[v] * max) << CROP_AGE_SHIFT;

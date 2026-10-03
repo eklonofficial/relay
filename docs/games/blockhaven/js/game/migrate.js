@@ -6,10 +6,10 @@
 //  - Generator version: terrain and structure blocks regenerate from the seed on every load, so
 //    new structures appear by themselves. Chunks first visited under an older version are marked
 //    so their newer structures also receive their chest loot and mobs (see gen/versions.js).
-import { BLOCKS, B, STATE, VARIANT_MASK } from '../data/blocks.js?v=mush3vnf';
-import { GEN_VERSION } from '../gen/versions.js?v=mush3vnf';
+import { BLOCKS, B, STATE, VARIANT_MASK } from '../data/blocks.js?v=musn9kyc';
+import { GEN_VERSION } from '../gen/versions.js?v=musn9kyc';
 
-export const SAVE_VERSION = 3;
+export const SAVE_VERSION = 4;
 export const blockPalette = () => Array.from({ length: BLOCKS.length }, (_, i) => (BLOCKS[i] ? BLOCKS[i].key : null));
 
 export function migrateWorld(meta) {
@@ -41,6 +41,26 @@ export function migrateWorld(meta) {
         if (fn) list[i] = fn(m);
       }
     }
+  }
+  // Save version 4 gave beds Java's 16 colours: every bed so far was red, with its facing in bits
+  // 0-1 and the head bit 2; now the colour is the variant, facing bits 4-5, the head bit 6. The
+  // old "bed" item is the red one.
+  if ((meta.saveVersion || 1) < 4) {
+    const red = STATE.red_bed[1];
+    for (const d of Object.values(dims)) for (const list of Object.values((d && d.edits) || {})) {
+      for (let i = 1; i < list.length; i += 2) {
+        if ((list[i] & 255) !== B.BED) continue;
+        const m = list[i] >> 8;
+        list[i] = B.BED | (red | (m & 3) << 4 | ((m >> 2) & 1) << 6) << 8;
+      }
+    }
+    const items = o => {
+      if (Array.isArray(o)) { o.forEach(items); return; }
+      if (!o || typeof o !== 'object') return;
+      if (o.key === 'bed' && typeof o.count === 'number') o.key = 'red_bed';
+      for (const v of Object.values(o)) if (v && typeof v === 'object') items(v);
+    };
+    items(meta);
   }
   const gv = meta.genVersion || 1;
   if (gv < GEN_VERSION) {

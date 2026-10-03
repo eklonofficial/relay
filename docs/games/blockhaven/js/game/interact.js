@@ -1,12 +1,13 @@
 // Player actions: mining, placing, using items and blocks, attacking.
-import { meleeDamage, isCrit, knockStrength, isSword, SHIELD_DELAY, SHIELD_DISABLE, enchantDamage, enchLv, sweepDamage } from './combat.js?v=mush3vnf';
-import { B, BLOCKS, SOLID, OPAQUE, SHAPE_OF, SHAPE, props, st, DIM, FACING_SHIFT, AXIS_SHIFT, VARIANT_MASK } from '../data/blocks.js?v=mush3vnf';
-import { I, breakTime } from '../data/items.js?v=mush3vnf';
-import { enchantWithLevels } from '../data/enchantments.js?v=mush3vnf';
-import { collisionBoxes, selectionBoxes } from '../data/shapes.js?v=mush3vnf';
-import { UNLOADED, posKey } from '../world/world.js?v=mush3vnf';
-import { forward } from '../core/math.js?v=mush3vnf';
-import { KIND } from './redstone.js?v=mush3vnf';
+import { meleeDamage, isCrit, knockStrength, isSword, SHIELD_DELAY, SHIELD_DISABLE, enchantDamage, enchLv, sweepDamage } from './combat.js?v=musn9kyc';
+import { B, BLOCKS, SOLID, OPAQUE, SHAPE_OF, SHAPE, props, st, DIM, FACING_SHIFT, AXIS_SHIFT, VARIANT_MASK, CHEST_DIRS, chestType, chestPartner } from '../data/blocks.js?v=musn9kyc';
+import { I, breakTime } from '../data/items.js?v=musn9kyc';
+import { enchantWithLevels } from '../data/enchantments.js?v=musn9kyc';
+import { collisionBoxes, selectionBoxes } from '../data/shapes.js?v=musn9kyc';
+import { UNLOADED, posKey } from '../world/world.js?v=musn9kyc';
+import { forward } from '../core/math.js?v=musn9kyc';
+import { CompoundContainer } from './inventory.js?v=musn9kyc';
+import { KIND } from './redstone.js?v=musn9kyc';
 
 const DIRS = [[0, 1], [-1, 0], [0, -1], [1, 0]];
 export const CROSSBOW_CHARGE = 1.25; // seconds (25 ticks)
@@ -344,7 +345,20 @@ export class Interact {
       case 'enchanting_table': g.gui.openEnchanting(t.x, t.y, t.z); return true;
       case 'anvil': g.gui.openAnvil(t.x, t.y, t.z); return true;
       case 'furnace': { let be = g.blockEntity(t.x, t.y, t.z); if (!be) { be = { type: 'furnace', x: t.x, y: t.y, z: t.z, items: [] }; w.blockEntities.set(posKey(t.x, t.y, t.z), be); } g.containerOf(be, 3); g.gui.openFurnace(be); return true; }
-      case 'chest': { let be = g.blockEntity(t.x, t.y, t.z); if (!be) { be = { type: 'chest', x: t.x, y: t.y, z: t.z, items: [] }; w.blockEntities.set(posKey(t.x, t.y, t.z), be); } g.chestViewer(t.x, t.y, t.z, 1, true); g.gui.openChest(g.containerOf(be, 27), 'Chest', () => g.chestViewer(t.x, t.y, t.z, -1, true)); return true; }
+      case 'chest': {
+        const bes = (a, b, c) => { let be = g.blockEntity(a, b, c); if (!be) { be = { type: 'chest', x: a, y: b, z: c, items: [] }; w.blockEntities.set(posKey(a, b, c), be); } return be; };
+        const m = w.getMeta(t.x, t.y, t.z), d = chestPartner(m), px = d && t.x + d[0], pz = d && t.z + d[1];
+        if (d && w.getBlock(px, t.y, pz) === B.CHEST && chestPartner(w.getMeta(px, t.y, pz))) {
+          // (Both lids lift, and the right half's slots come first.)
+          const right = chestType(m) === 2 ? [t.x, t.z] : [px, pz], left = chestType(m) === 2 ? [px, pz] : [t.x, t.z];
+          const halves = [right, left].map(([a, c]) => g.containerOf(bes(a, t.y, c), 27));
+          g.chestViewer(t.x, t.y, t.z, 1, true); g.chestViewer(px, t.y, pz, 1, true);
+          g.gui.openChest(new CompoundContainer(halves[0], halves[1]), 'Large Chest', () => { g.chestViewer(t.x, t.y, t.z, -1, true); g.chestViewer(px, t.y, pz, -1, true); });
+          return true;
+        }
+        const be = bes(t.x, t.y, t.z);
+        g.chestViewer(t.x, t.y, t.z, 1, true); g.gui.openChest(g.containerOf(be, 27), 'Chest', () => g.chestViewer(t.x, t.y, t.z, -1, true)); return true;
+      }
       case 'misc':
         if (key === 'barrel') { let be = g.blockEntity(t.x, t.y, t.z); if (!be) { be = { type: 'chest', x: t.x, y: t.y, z: t.z, items: [] }; w.blockEntities.set(posKey(t.x, t.y, t.z), be); } g.gui.openChest(g.containerOf(be, 27), 'Barrel'); return true; }
         if (key === 'note_block') { const n = ((m >> 3) + 1) % 25; w.setBlock(t.x, t.y, t.z, id, (m & 7) | (n << 3)); g.sound.tone(220 * Math.pow(2, n / 12), 220 * Math.pow(2, n / 12), 0.8, 0.25, 'triangle'); g.particles.fx('note', [t.x + 0.5, t.y + 1.2, t.z + 0.5], 1, 0, 0, [n / 24, 1 - n / 24, 0.5]); return true; }
@@ -443,8 +457,9 @@ export class Interact {
       case SHAPE.BED: {
         const [dx, dz] = DIRS[look];
         if (!this.canPlaceAt(x + dx, y, z + dz, id) || !SOLID[below]) return;
-        this.commit(x, y, z, id, look, held, false);
-        w.setBlock(x + dx, y, z + dz, id, look | 4);
+        // (meta holds the item's colour already: its variant.)
+        this.commit(x, y, z, id, (meta & 15) | look << 4, held, false);
+        w.setBlock(x + dx, y, z + dz, id, (meta & 15) | look << 4 | 64);
         return;
       }
       case SHAPE.LANTERN: if (n[1] === -1) meta |= 2; break;
@@ -463,6 +478,12 @@ export class Interact {
     if (fs >= 0 && shape !== SHAPE.STAIRS && shape !== SHAPE.DOOR && shape !== SHAPE.TRAPDOOR && shape !== SHAPE.TORCH && shape !== SHAPE.LADDER && shape !== SHAPE.VINE && shape !== SHAPE.BED && shape !== SHAPE.RAIL) meta |= toward << fs;
     if (as >= 0) meta |= (n[0] !== 0 ? 1 : n[2] !== 0 ? 2 : 0) << as;
     if (id === B.CACTUS && [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([a, b]) => SOLID[w.getBlock(x + a, y, z + b)])) return;
+    if (id === B.CHEST && !g.player.sneaking) {
+      const f = meta & 3, single = (a, b) => w.getBlock(a, y, b) === B.CHEST && (w.getMeta(a, y, b) & 15) === f;
+      const [cx, cz] = CHEST_DIRS[(f + 1) & 3], [ax, az] = CHEST_DIRS[(f + 3) & 3];
+      if (single(x + cx, z + cz)) { meta |= 1 << 2; w.setBlock(x + cx, y, z + cz, B.CHEST, f | 2 << 2); }
+      else if (single(x + ax, z + az)) { meta |= 2 << 2; w.setBlock(x + ax, y, z + az, B.CHEST, f | 1 << 2); }
+    }
     this.commit(x, y, z, id, meta, held);
     // Golems: pumpkin on snow/iron bodies.
     if (id === B.PUMPKIN) this.checkGolem(x, y, z);

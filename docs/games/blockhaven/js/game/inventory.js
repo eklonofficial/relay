@@ -1,6 +1,6 @@
 // Item stacks and containers. A stack is { key, count, dmg?, tag? } or null.
-import { I, maxStack } from '../data/items.js?v=mush3vnf';
-import { unbreakingSaves } from './combat.js?v=mush3vnf';
+import { I, maxStack } from '../data/items.js?v=musn9kyc';
+import { unbreakingSaves } from './combat.js?v=musn9kyc';
 
 export const stack = (key, count = 1, extra = {}) => (I[key] ? { key, count, ...extra } : null);
 export const clone = s => (s ? { ...s, tag: s.tag ? { ...s.tag } : undefined } : null);
@@ -46,6 +46,20 @@ export class Container {
   clear() { this.slots.fill(null); this.changed(); }
   toJSON() { return this.slots.map(s => (s ? { ...s } : null)); }
   load(list) { if (Array.isArray(list)) list.forEach((s, i) => { if (i < this.slots.length) this.slots[i] = s && I[s.key] ? s : null; }); this.changed(); }
+}
+
+// Java's CompoundContainer: two containers seen as one (a double chest: the first's slots, then the
+// second's).
+export class CompoundContainer {
+  constructor(a, b) { this.a = a; this.b = b; }
+  get slots() { return [...this.a.slots, ...this.b.slots]; }
+  get size() { return this.a.size + this.b.size; }
+  get(i) { return i < this.a.size ? this.a.get(i) : this.b.get(i - this.a.size); }
+  set(i, s) { if (i < this.a.size) this.a.set(i, s); else this.b.set(i - this.a.size, s); }
+  add(s, from = 0, to = this.size) {
+    const left = s ? this.a.add(s, Math.min(from, this.a.size), Math.min(to, this.a.size)) : 0;
+    return left && to > this.a.size ? this.b.add({ ...s, count: left }, Math.max(0, from - this.a.size), to - this.a.size) : left;
+  }
 }
 
 // Player inventory: 0-8 hotbar, 9-35 main, armor[4] (helmet..boots), offhand.

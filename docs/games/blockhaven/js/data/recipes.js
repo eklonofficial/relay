@@ -1,6 +1,6 @@
 // Crafting (shaped / shapeless) and smelting recipes, with ingredient tags.
-import { WOODS, COLORS, SHAPED_MATERIALS } from './blocks.js?v=mush3vnf';
-import { I } from './items.js?v=mush3vnf';
+import { WOODS, COLORS, SHAPED_MATERIALS } from './blocks.js?v=musn9kyc';
+import { I } from './items.js?v=musn9kyc';
 
 const has = k => !!I[k];
 export const TAGS = {
@@ -52,7 +52,11 @@ shaped(['XX', 'XX'], { X: '#planks' }, 'crafting_table');
 shaped(['XXX', 'X X', 'XXX'], { X: '#planks' }, 'chest');
 shaped(['X X', ' X '], { X: '#planks' }, 'bowl', 4);
 shaped(['X X', 'XXX', 'X X'], { X: 'stick' }, 'ladder', 3);
-shaped(['WWW', 'PPP'], { W: '#wool', P: '#planks' }, 'bed');
+// Beds: three wool of a colour over three planks, or a white bed dyed.
+for (const c of COLORS) {
+  shaped(['WWW', 'PPP'], { W: `${c}_wool`, P: '#planks' }, `${c}_bed`);
+  if (c !== 'white') shapeless(['white_bed', `${c}_dye`], `${c}_bed`);
+}
 shaped(['PPP', 'BBB', 'PPP'], { P: '#planks', B: 'book' }, 'bookshelf');
 shaped([' B ', 'DOD', 'OOO'], { B: 'book', D: 'diamond', O: 'obsidian' }, 'enchanting_table');
 shaped(['III', ' i ', 'iii'], { I: 'iron_block', i: 'iron_ingot' }, 'anvil');

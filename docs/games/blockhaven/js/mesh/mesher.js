@@ -3,11 +3,11 @@
 import {
   CHUNK, HEIGHT, PAD, PS, B, SHAPE, VF, TINT, TEX,
   OPAQUE, SOLID, SHAPE_OF, TRANSLUCENT, EMIT, ATTEN, VFLAGS, CULL_SAME, TINT_OF, WATERLOGGED, VARIANT_MASK,
-  FACING_SHIFT, AXIS_SHIFT, FACE_TEX, CROP_STAGES, CROP_TEX, SHEETS,
-} from '../data/blocks.js?v=mush3vnf';
-import { BIOME_COLORS } from '../gen/biomes.js?v=mush3vnf';
-import { up6, rotY, attach, FACE_OF_DIR6, OPP6, DIR2D_OF_6 } from '../data/orient.js?v=mush3vnf';
-import { MODELS } from '../data/models.js?v=mush3vnf';
+  FACING_SHIFT, AXIS_SHIFT, FACE_TEX, CROP_STAGES, CROP_TEX, SHEETS, COLORS as BED_COLOR,
+} from '../data/blocks.js?v=musn9kyc';
+import { BIOME_COLORS } from '../gen/biomes.js?v=musn9kyc';
+import { up6, rotY, attach, FACE_OF_DIR6, OPP6, DIR2D_OF_6 } from '../data/orient.js?v=musn9kyc';
+import { MODELS } from '../data/models.js?v=musn9kyc';
 
 export const H2 = HEIGHT + 2;
 export const VOLUME_SIZE = PS * PS * H2;
@@ -376,29 +376,35 @@ function jcube(buf, ci, ox, oy, oz, m, sheet, [u, v, x, y, z, w, h, d, mirror = 
 }
 // Quarter turns about the block's middle, from facing south (as rotY).
 const mFacing = f => { let m = mT(0, 0, 0); for (let r = 0; r < f; r++) m = mx([0, 0, -1, 16, 0, 1, 0, 0, 1, 0, 0, 0], m); return m; };
-// ChestRenderer: the base, and the lid and latch on their hinge.
-function chestModel(buf, i, ox, oy, oz, facing, part, flags) {
-  const m = mFacing(facing);
-  if (part !== 'lid') jcube(buf, i, ox, oy, oz, m, 'chest', [0, 19, 1, 0, 1, 14, 10, 14], flags);
+// ChestRenderer: the base, and the lid and latch on their hinge. A half of a double chest (type 1
+// left, 2 right) is 15 wide, out to the side it shares, with half the latch, on its own sheet.
+const CHEST_CUBES = [
+  ['chest', [0, 19, 1, 0, 1, 14, 10, 14], [0, 0, 1, 0, 0, 14, 5, 14], [0, 0, 7, -2, 14, 2, 4, 1]],
+  ['chest_left', [0, 19, 0, 0, 1, 15, 10, 14], [0, 0, 0, 0, 0, 15, 5, 14], [0, 0, 0, -2, 14, 1, 4, 1]],
+  ['chest_right', [0, 19, 1, 0, 1, 15, 10, 14], [0, 0, 1, 0, 0, 15, 5, 14], [0, 0, 15, -2, 14, 1, 4, 1]],
+];
+function chestModel(buf, i, ox, oy, oz, facing, type, part, flags) {
+  const m = mFacing(facing), [sheet, base, lid, lock] = CHEST_CUBES[type] || CHEST_CUBES[0];
+  if (part !== 'lid') jcube(buf, i, ox, oy, oz, m, sheet, base, flags);
   if (part !== 'base') {
     const lm = mx(m, mPose(0, 9, 1));
-    jcube(buf, i, ox, oy, oz, lm, 'chest', [0, 0, 1, 0, 0, 14, 5, 14], flags);
-    jcube(buf, i, ox, oy, oz, lm, 'chest', [0, 0, 7, -2, 14, 2, 4, 1], flags);
+    jcube(buf, i, ox, oy, oz, lm, sheet, lid, flags);
+    jcube(buf, i, ox, oy, oz, lm, sheet, lock, flags);
   }
 }
 const D90 = Math.PI / 2;
 // BedRenderer: the half laid flat (the model stands upright), turned to face its way, legs at the
-// corners.
-function bedModel(buf, i, ox, oy, oz, facing, head, flags) {
+// corners, on its colour's sheet.
+function bedModel(buf, i, ox, oy, oz, facing, head, sheet, flags) {
   const m = mChain(mT(0, 9, 0), mRX(D90), mT(8, 8, 8), mRZ(Math.PI + facing * D90), mT(-8, -8, -8));
   if (head) {
-    jcube(buf, i, ox, oy, oz, m, 'bed', [0, 0, 0, 0, 0, 16, 16, 6], flags);
-    jcube(buf, i, ox, oy, oz, mx(m, mPose(0, 0, 0, D90, 0, D90)), 'bed', [50, 6, 0, 6, 0, 3, 3, 3], flags);
-    jcube(buf, i, ox, oy, oz, mx(m, mPose(0, 0, 0, D90, 0, Math.PI)), 'bed', [50, 18, -16, 6, 0, 3, 3, 3], flags);
+    jcube(buf, i, ox, oy, oz, m, sheet, [0, 0, 0, 0, 0, 16, 16, 6], flags);
+    jcube(buf, i, ox, oy, oz, mx(m, mPose(0, 0, 0, D90, 0, D90)), sheet, [50, 6, 0, 6, 0, 3, 3, 3], flags);
+    jcube(buf, i, ox, oy, oz, mx(m, mPose(0, 0, 0, D90, 0, Math.PI)), sheet, [50, 18, -16, 6, 0, 3, 3, 3], flags);
   } else {
-    jcube(buf, i, ox, oy, oz, m, 'bed', [0, 22, 0, 0, 0, 16, 16, 6], flags);
-    jcube(buf, i, ox, oy, oz, mx(m, mPose(0, 0, 0, D90, 0, 0)), 'bed', [50, 0, 0, 6, -16, 3, 3, 3], flags);
-    jcube(buf, i, ox, oy, oz, mx(m, mPose(0, 0, 0, D90, 0, 3 * D90)), 'bed', [50, 12, -16, 6, -16, 3, 3, 3], flags);
+    jcube(buf, i, ox, oy, oz, m, sheet, [0, 22, 0, 0, 0, 16, 16, 6], flags);
+    jcube(buf, i, ox, oy, oz, mx(m, mPose(0, 0, 0, D90, 0, 0)), sheet, [50, 0, 0, 6, -16, 3, 3, 3], flags);
+    jcube(buf, i, ox, oy, oz, mx(m, mPose(0, 0, 0, D90, 0, 3 * D90)), sheet, [50, 12, -16, 6, -16, 3, 3, 3], flags);
   }
 }
 // SkullBlockRenderer: SkullModel's head on the floor (drawn like a mob's, upside down and mirrored
@@ -791,10 +797,10 @@ function special(bufO, bufT, i, id, m, shape, ox, oy, oz, x, y, z) {
     case SHAPE.CHEST:
       // Meta bit 16: the base only (an open chest in the world, its lid drawn animated); bit 32: the
       // lid and latch only (that animated lid).
-      chestModel(buf, i, ox, oy, oz, m & 3, m & 16 ? 'base' : m & 32 ? 'lid' : 'all', flags);
+      chestModel(buf, i, ox, oy, oz, m & 3, (m >> 2) & 3, m & 16 ? 'base' : m & 32 ? 'lid' : 'all', flags);
       break;
     case SHAPE.BED:
-      bedModel(buf, i, ox, oy, oz, m & 3, (m >> 2) & 1, flags);
+      bedModel(buf, i, ox, oy, oz, (m >> 4) & 3, (m >> 6) & 1, `${BED_COLOR[m & 15]}_bed`, flags);
       break;
     case SHAPE.SKULL:
       skullModel(buf, i, ox, oy, oz, (m >> 1) & 3, m & 1 ? 'wither_skull' : 'skeleton_skull', flags);

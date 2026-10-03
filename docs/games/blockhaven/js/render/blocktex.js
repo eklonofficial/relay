@@ -1,7 +1,7 @@
 // Procedural 16x16 block textures. Every name registered in data/blocks.js must be drawable here.
-import { Painter, ramp, shade, mixHex, hex } from './paint.js?v=mush3vnf';
-import { TEXTURES, COLORS, SHEETS } from '../data/blocks.js?v=mush3vnf';
-import { EXTRA_BLOCK_TEX } from './enchtex.js?v=mush3vnf';
+import { Painter, ramp, shade, mixHex, hex } from './paint.js?v=musn9kyc';
+import { TEXTURES, COLORS, SHEETS } from '../data/blocks.js?v=musn9kyc';
+import { EXTRA_BLOCK_TEX } from './enchtex.js?v=musn9kyc';
 
 const N = 16;
 
@@ -1009,21 +1009,28 @@ const SHEET_ART = {
     [0, 19, 14, 10, 14, { sides: ['chest_side', 1, 6, true], down: ['chest_top', 1, 1], up: ['chest_top', 1, 1] }],
     [0, 0, 2, 4, 1, { all: ['#9a9a9a'] }],
   ],
-  bed: [
-    // (The model stands upright: its north face is the top of the bed, pillow end first.)
-    [0, 0, 16, 16, 6, { north: ['bed_top_head', 0, 0], south: ['planks_oak', 0, 0], sides: ['bed_top_foot', 0, 0], down: ['bed_top_foot', 0, 0], up: ['bed_top_foot', 0, 0] }],
-    [0, 22, 16, 16, 6, { north: ['bed_top_foot', 0, 0], south: ['planks_oak', 0, 0], sides: ['bed_top_foot', 0, 0], down: ['bed_top_foot', 0, 0], up: ['bed_top_foot', 0, 0] }],
-    ...[0, 6, 12, 18].map(v => [50, v, 3, 3, 3, { all: ['planks_oak', 0, 0] }]),
-  ],
+  ...Object.fromEntries(['chest_left', 'chest_right'].map(k => [k, [
+    [0, 0, 15, 5, 14, { sides: ['chest_side', 1, 1, true], down: ['chest_top', 1, 1], up: ['chest_top', 1, 1] }],
+    [0, 19, 15, 10, 14, { sides: ['chest_side', 1, 6, true], down: ['chest_top', 1, 1], up: ['chest_top', 1, 1] }],
+    [0, 0, 1, 4, 1, { all: ['#9a9a9a'] }],
+  ]])),
   skeleton_skull: [[0, 0, 8, 8, 8, { north: ['skeleton_skull_front', 0, 0, false, 2], sides: ['skeleton_skull_side', 0, 0, false, 2], down: ['skeleton_skull_top', 0, 0, false, 2], up: ['skeleton_skull_top', 0, 0, false, 2] }]],
   wither_skull: [[0, 0, 8, 8, 8, { north: ['wither_skull_front', 0, 0, false, 2], sides: ['wither_skull_side', 0, 0, false, 2], down: ['wither_skull_top', 0, 0, false, 2], up: ['wither_skull_top', 0, 0, false, 2] }]],
+};
+// A bed's sheet in its colour: blanket all over, the pillow at the head end of the head half's top
+// (the model stands upright, so its north face is the top of the bed, the head end first), oak
+// planks underneath and for the legs.
+const bedArt = c => {
+  const blanket = ['#' + DYE[c].slice(1)];
+  const half = (v, pillow) => [0, v, 16, 16, 6, { north: pillow ? ['@pillow'] : blanket, south: ['planks_oak', 0, 0], sides: blanket, down: blanket, up: blanket }];
+  return [half(0, true), half(22, false), ...[0, 6, 12, 18].map(v => [50, v, 3, 3, 3, { all: ['planks_oak', 0, 0] }])];
 };
 const sheetCache = new Map();
 function paintSheet(k) {
   if (sheetCache.has(k)) return sheetCache.get(k);
-  const [w, h] = SHEETS[k], p = new Painter(w, h, 7), tiles = new Map();
+  const [w, h] = SHEETS[k], p = new Painter(w, h, 7), tiles = new Map(), bed = k.match(/^(\w+)_bed$/);
   const tile = n => { if (!tiles.has(n)) tiles.set(n, drawBlockTexture(n, 3)); return tiles.get(n); };
-  for (const [u, v, cw, ch, cd, f] of SHEET_ART[k]) {
+  for (const [u, v, cw, ch, cd, f] of bed ? bedArt(bed[1]) : SHEET_ART[k]) {
     // ModelPart.Cube's texture rectangles.
     const rects = { down: [u + cd, v, cw, cd], up: [u + cd + cw, v, cw, cd], west: [u, v + cd, cd, ch], north: [u + cd, v + cd, cw, ch], east: [u + cd + cw, v + cd, cd, ch], south: [u + cd + cw + cd, v + cd, cw, ch] };
     for (const [face, [x, y, rw, rh]] of Object.entries(rects)) {
@@ -1031,7 +1038,13 @@ function paintSheet(k) {
       if (!src) continue;
       const [name, sx = 0, sy = 0, flip = false, step = 1] = src;
       for (let j = 0; j < rh; j++) for (let i = 0; i < rw; i++) {
-        if (name[0] === '#') { p.put(x + i, y + j, name); continue; }
+        // ('#rrggbb': that colour with a little grain; '@pillow': blanket colour with the pillow over its top 7 rows.)
+        if (name[0] === '#' || name === '@pillow') {
+          const pillow = name === '@pillow' && j < 7, edge = pillow && (j === 0 || j === 6 || i === 0 || i === rw - 1);
+          const base = pillow ? (edge ? '#cfcfcf' : '#ececec') : name === '@pillow' ? DYE[bed[1]] : name;
+          p.put(x + i, y + j, mixHex(base, (i * 7 + j * 13) % 5 ? base : '#000000', 0.08));
+          continue;
+        }
         // (A tile drawn at half size takes the average of each 2x2 block.)
         const tx = Math.min(15, sx + i * step), ty = Math.min(15, sy + (flip ? rh - 1 - j : j) * step), d = tile(name), c = [0, 0, 0, 0];
         for (let b = 0; b < step; b++) for (let a = 0; a < step; a++) { const o = (Math.min(15, ty + b) * 16 + Math.min(15, tx + a)) * 4; for (let q = 0; q < 4; q++) c[q] += d[o + q] / (step * step); }
