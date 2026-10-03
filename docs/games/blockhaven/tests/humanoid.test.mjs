@@ -98,3 +98,24 @@ test('a classic 64x32 skin gets its left limbs from the right ones, and the firs
   assert.equal(out[(0 * 64 + 0) * 4 + 3], 255, 'head first layer opaque');
   assert.throws(() => processSkin(new Uint8ClampedArray(16), 2, 2));
 });
+
+const { mobHumanoid } = await load('entity/humanoid.js');
+const { MOBS } = await load('data/mobs.js');
+
+test('mob meshes: zombie mirrors its left limbs, drowned has its own, skeleton limbs are 2 px', () => {
+  const z = mobHumanoid('zombie'), d = mobHumanoid('drowned'), s = mobHumanoid('skeleton');
+  assert.equal(z.parts.leftArm.boxes[0].mirror, true); assert.equal(z.parts.leftArm.boxes[0].uv.join(), '40,16');
+  assert.equal(d.parts.leftArm.boxes[0].uv.join(), '32,48'); assert.equal(d.parts.leftLeg.boxes[0].uv.join(), '16,48');
+  assert.deepEqual(s.parts.rightArm.boxes[0].s, [2, 12, 2]); assert.equal(s.parts.rightLeg.pivot[0], 2);
+  // Each mob names the pack image that replaces its paint, and the stray and drowned get outer layers.
+  assert.equal(MOBS.zombie.model().texture, 'entity/zombie/zombie');
+  assert.equal(MOBS.stray.overlay().texture, 'entity/skeleton/stray_overlay');
+  assert.equal(MOBS.drowned.overlay().parts.body.boxes[0].inflate, 0.25);
+});
+
+test('zombie arms reach out, higher when hunting; a skeleton aims its bow along its gaze', () => {
+  const idle = humanoidPose({ arms: 'zombie' }).poses.rightArm[0], hunting = humanoidPose({ arms: 'zombie', aggressive: true }).poses.rightArm[0];
+  assert.ok(idle > 1.2 && hunting > idle, `${idle} ${hunting}`);
+  const bow = humanoidPose({ arms: 'skeleton', aggressive: true, rightPose: 'bow', headPitch: 0.3 }).poses;
+  assert.ok(Math.abs(bow.rightArm[0] - (Math.PI / 2 - 0.3)) < 0.1, `${bow.rightArm[0]}`);
+});
