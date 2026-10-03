@@ -1,12 +1,13 @@
 // Mob roster: stats, AI archetype, drops, box models and procedural skins.
 // Model space: 1 unit = 1/16 block, feet at y=0, the mob faces -Z.
-import { D, pal, shade as shadeHex } from '../render/mobtex.js?v=mush3t9n';
-import { pigModel as jPig, cowModel as jCow, sheepModel as jSheep, sheepFurModel as jSheepFur, chickenModel as jChicken, wolfModel as jWolf, foxModel as jFox, polarBearModel as jPolarBear, goatModel as jGoat, llamaModel as jLlama, horseModel as jHorse } from '../entity/animals.js?v=mush3t9n';
-import { creeperModel as jCreeper, spiderModel as jSpider, endermanModel as jEnderman, slimeModel as jSlime, slimeOuterModel as jSlimeOuter, magmaCubeModel as jMagma, silverfishModel as jSilverfish, endermiteModel as jEndermite, blazeModel as jBlaze, ghastModel as jGhast, phantomModel as jPhantom } from '../entity/monsters.js?v=mush3t9n';
-import { ironGolemModel as jIronGolem, snowGolemModel as jSnowGolem, hoglinModel as jHoglin, striderModel as jStrider, ravagerModel as jRavager } from '../entity/beasts.js?v=mush3t9n';
-import { squidModel as jSquid, codModel as jCod, salmonModel as jSalmon, tropicalFishModel as jTropical, pufferfishModel as jPuffer, guardianModel as jGuardian, dolphinModel as jDolphin, turtleModel as jTurtle, axolotlModel as jAxolotl } from '../entity/aquatic.js?v=mush3t9n';
-import { villagerModel as jVillager, witchModel as jWitch, illagerModel as jIllager, piglinModel as jPiglin, zombieVillagerModel as jZombieVillager } from '../entity/javamodels.js?v=mush3t9n';
-import { playerModel as javaPlayerModel, mobHumanoid } from '../entity/humanoid.js?v=mush3t9n';
+import { D, pal, shade as shadeHex } from '../render/mobtex.js?v=mush3u38';
+import { pigModel as jPig, cowModel as jCow, sheepModel as jSheep, sheepFurModel as jSheepFur, chickenModel as jChicken, wolfModel as jWolf, foxModel as jFox, polarBearModel as jPolarBear, goatModel as jGoat, llamaModel as jLlama, horseModel as jHorse } from '../entity/animals.js?v=mush3u38';
+import { creeperModel as jCreeper, spiderModel as jSpider, endermanModel as jEnderman, slimeModel as jSlime, slimeOuterModel as jSlimeOuter, magmaCubeModel as jMagma, silverfishModel as jSilverfish, endermiteModel as jEndermite, blazeModel as jBlaze, ghastModel as jGhast, phantomModel as jPhantom } from '../entity/monsters.js?v=mush3u38';
+import { ironGolemModel as jIronGolem, snowGolemModel as jSnowGolem, hoglinModel as jHoglin, striderModel as jStrider, ravagerModel as jRavager } from '../entity/beasts.js?v=mush3u38';
+import { squidModel as jSquid, codModel as jCod, salmonModel as jSalmon, tropicalFishModel as jTropical, pufferfishModel as jPuffer, guardianModel as jGuardian, dolphinModel as jDolphin, turtleModel as jTurtle, axolotlModel as jAxolotl } from '../entity/aquatic.js?v=mush3u38';
+import { rabbitModel as jRabbit, ocelotModel as jOcelot, pandaModel as jPanda, parrotModel as jParrot, batModel as jBat, frogModel as jFrog, camelModel as jCamel } from '../entity/critters.js?v=mush3u38';
+import { villagerModel as jVillager, witchModel as jWitch, illagerModel as jIllager, piglinModel as jPiglin, zombieVillagerModel as jZombieVillager } from '../entity/javamodels.js?v=mush3u38';
+import { playerModel as javaPlayerModel, mobHumanoid } from '../entity/humanoid.js?v=mush3u38';
 
 const box = (o, s, style, extra = {}) => ({ o, s, style, ...extra });
 const part = (pivot, boxes, extra = {}) => ({ pivot, boxes, ...extra });
@@ -748,6 +749,17 @@ MOBS.glow_squid.model = fromOld(MOBS.glow_squid.model, jSquid, 'entity/squid/glo
 MOBS.dolphin.model = fromOld(MOBS.dolphin.model, jDolphin, 'entity/dolphin', s => ({ fin: s('body', 1), nose: s('head', 1), tail: s('tail') }));
 MOBS.turtle.model = fromOld(MOBS.turtle.model, jTurtle, 'entity/turtle/big_sea_turtle', s => ({ belly: s('body', 1) }));
 MOBS.axolotl.model = fromOld(MOBS.axolotl.model, jAxolotl, 'entity/axolotl/axolotl_lucy', s => ({ fin: s('body', 1), gills: s('head', 1) }));
+
+// Small creatures (entity/critters.js). RabbitModel and BatRenderer draw them at 0.6 and 0.35 size.
+MOBS.rabbit.model = fromOld(MOBS.rabbit.model, jRabbit, 'entity/rabbit/brown', s => ({ ear: s('head', 1) }));
+MOBS.rabbit.scale = 0.6;
+MOBS.ocelot.model = fromOld(MOBS.ocelot.model, jOcelot, 'entity/cat/ocelot', s => ({ tail: s('tail') }));
+MOBS.panda.model = fromOld(MOBS.panda.model, jPanda, 'entity/panda/panda');
+MOBS.parrot.model = fromOld(MOBS.parrot.model, jParrot, 'entity/parrot/parrot_red_blue', s => ({ beak: s('head', 1), feather: s('head', 2), wing: s('wingR'), tail: s('tail') }));
+MOBS.bat.model = fromOld(MOBS.bat.model, jBat, 'entity/bat', s => ({ ear: s('head', 1), wing: s('wingR') }));
+MOBS.bat.scale = 0.35;
+MOBS.frog.model = fromOld(MOBS.frog.model, jFrog, 'entity/frog/temperate_frog', s => ({ eye: s('head', 1), tongue: S('#d0505a', 'flat') }));
+MOBS.camel.model = fromOld(MOBS.camel.model, jCamel, 'entity/camel/camel', s => ({ neck: s('neck'), hump: s('body', 1), saddle: S('#6a3a1e', 'cloth', { all: D.band(0.4, 0.6, '#c8a040') }) }));
 
 MOBS.villager.professionModel = prof => villagerModel(PROFESSION_COLORS[prof] || '#6a4a3a', PROF_DECOR[prof] || null, undefined, undefined,
   ['entity/villager/villager', 'entity/villager/type/plains', `entity/villager/profession/${prof}`])();
