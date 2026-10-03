@@ -1,7 +1,7 @@
 // Resource packs: Java Edition style packs (.zip with assets/minecraft/textures/... and
 // assets/minecraft/sounds/...). The bundled defaults and player-selected packs use the same
 // matching path; a player's pack stays in this browser (IndexedDB) and is never uploaded.
-import { SHEETS } from '../data/blocks.js?v=mush3vnf';
+import { SHEETS } from '../data/blocks.js?v=musmwq7w';
 
 const DB = 'blockhaven-packs', STORE = 'packs', KEY = 'active';
 
@@ -201,7 +201,7 @@ export async function applyBlockTextures(zip, names, layers, anims = null) {
 // corner at Java's size for it ([w, h]; a high-resolution pack's image is scaled down to that). With
 // `over`, it is laid over that layer instead (Java's extra passes, like a villager's profession).
 // null if the pack lacks it.
-export async function readEntityTexture(zip, path, size = [64, 64], over = null) {
+export async function readEntityTexture(zip, path, size = [64, 64], over = null, stretch = false) {
   const bytes = await zip.bytes(`assets/minecraft/textures/${path}.png`);
   if (!bytes) return null;
   try {
@@ -209,7 +209,9 @@ export async function readEntityTexture(zip, path, size = [64, 64], over = null)
     const c = document.createElement('canvas'); c.width = c.height = 128;
     const ctx = c.getContext('2d'); ctx.imageSmoothingEnabled = false;
     if (over) ctx.putImageData(new ImageData(new Uint8ClampedArray(over), 128, 128), 0, 0);
-    ctx.drawImage(bmp, 0, 0, size[0], Math.round(bmp.height * size[0] / bmp.width));
+    // (`stretch`: the image fills the layer, for a texture that wraps as it scrolls.)
+    if (stretch) ctx.drawImage(bmp, 0, 0, 128, 128);
+    else ctx.drawImage(bmp, 0, 0, size[0], Math.round(bmp.height * size[0] / bmp.width));
     return new Uint8ClampedArray(ctx.getImageData(0, 0, 128, 128).data);
   } catch { return null; }
 }

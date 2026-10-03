@@ -1,8 +1,8 @@
-import { CHUNK, TEX, DIM } from '../data/blocks.js?v=mush3vnf';
-import { meshSingleBlock, STRIDE } from '../mesh/mesher.js?v=mush3vnf';
-import * as S from './shaders.js?v=mush3vnf';
-import { uploadArray, updateLayer } from './atlas.js?v=mush3vnf';
-import { mat4, perspective, multiply, invert, viewMatrix, frustumPlanes, boxVisible } from '../core/math.js?v=mush3vnf';
+import { CHUNK, TEX, DIM } from '../data/blocks.js?v=musmwq7w';
+import { meshSingleBlock, STRIDE } from '../mesh/mesher.js?v=musmwq7w';
+import * as S from './shaders.js?v=musmwq7w';
+import { uploadArray, updateLayer } from './atlas.js?v=musmwq7w';
+import { mat4, perspective, multiply, invert, viewMatrix, frustumPlanes, boxVisible } from '../core/math.js?v=musmwq7w';
 
 // Graphics presets: 0 Disabled, 1 Regular, 2 High, 3 PC.
 export const QUALITY = [
@@ -373,7 +373,8 @@ export class Renderer {
     gl.uniformMatrix4fv(e.u.uViewProj, false, viewProj);
     gl.uniform1i(e.u.uTex, 0);
     gl.activeTexture(gl.TEXTURE0);
-    for (const b of list) { const tx = this.texFor(b.tex); if (tx) this.drawBatch(b.batch, tx, 0.1, false); }
+    // (A batch may ask to be blended: { blend, additive, wrap, alphaTest }, as in the main pass.)
+    for (const b of list) { const tx = this.texFor(b.tex); if (tx) this.drawBatch(b.batch, tx, b.alphaTest ?? 0.1, !!b.blend, b); }
     // Blocks held in a hand, as the main pass draws block models.
     if (s.blockModels && s.blockModels.length) {
       const t = this.terrain, env = s.env;
@@ -399,7 +400,8 @@ export class Renderer {
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     return this.pv.px;
   }
-  drawBatch(batch, tex, alphaTest, blend) {
+  // opts: { additive (added onto what is behind, as Java's additive transparency), wrap (texture repeats) }
+  drawBatch(batch, tex, alphaTest, blend, opts = {}) {
     if (!batch || !batch.quads) return;
     const gl = this.gl;
     gl.bindVertexArray(this.batchVao);
@@ -407,8 +409,10 @@ export class Renderer {
     gl.bufferData(gl.ARRAY_BUFFER, batch.data.subarray(0, batch.quads * 40), gl.STREAM_DRAW);
     gl.bindTexture(gl.TEXTURE_2D_ARRAY, tex);
     gl.uniform1f(this.entity.u.uAlphaTest, alphaTest);
-    if (blend) { gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA); gl.depthMask(false); }
+    if (blend) { gl.enable(gl.BLEND); if (opts.additive) gl.blendFunc(gl.ONE, gl.ONE); else gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA); gl.depthMask(false); }
+    if (opts.wrap && this.entity.u.uWrap) gl.uniform1f(this.entity.u.uWrap, 1);
     gl.drawElements(gl.TRIANGLES, batch.quads * 6, gl.UNSIGNED_INT, 0);
+    if (opts.wrap && this.entity.u.uWrap) gl.uniform1f(this.entity.u.uWrap, 0);
     if (blend) { gl.disable(gl.BLEND); gl.depthMask(true); }
   }
 
@@ -558,7 +562,7 @@ export class Renderer {
     }
     // Translucent effects: weather, smoke, glints.
     gl.useProgram(e.p);
-    for (const b of s.blendBatches || []) { const tx = this.texFor(b.tex); if (tx) { if (b.additive) { gl.enable(gl.BLEND); } this.drawBatch(b.batch, tx, b.alphaTest ?? 0.02, true); } }
+    for (const b of s.blendBatches || []) { const tx = this.texFor(b.tex); if (tx) this.drawBatch(b.batch, tx, b.alphaTest ?? 0.02, true, b); }
     gl.depthMask(true);
     gl.disable(gl.BLEND);
     gl.enable(gl.CULL_FACE);
