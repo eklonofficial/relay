@@ -2,23 +2,24 @@
 // EnderDragonRenderer draws from a history of the dragon's heading and height (EnderDragon's
 // latency positions): five neck pieces and twelve tail pieces laid end to end along it, the body
 // rolling into turns, the wings beating. Coordinates as in entity/animals.js.
-import { jbox, pivot } from './humanoid.js?v=mush3vnf';
-import { P, child, rot, model, toOurs, R } from './animals.js?v=mush3vnf';
+import { jbox, pivot } from './humanoid.js?v=musmx1xd';
+import { P, child, rot, model, toOurs, R } from './animals.js?v=musmx1xd';
 
 const PI = Math.PI, D2R = PI / 180;
 const wrapDeg = a => { a %= 360; if (a >= 180) a -= 360; if (a < -180) a += 360; return a; };
 
 // WitherBossModel (drawn at twice its size): shoulders, ribcage and tail, three heads.
-export function witherModel(st, texture = 'entity/wither/wither') {
+// (Grown by `k`, it is WitherArmorLayer's, 0.5.)
+export function witherModel(st, texture = 'entity/wither/wither', k = 0) {
   const bone = st.body;
   return model('jwither', {
-    shoulders: P(pivot(0, 0, 0), [jbox(0, 16, -10, 3.9, -0.5, 20, 3, 3, 0, { style: bone })]),
-    ribcage: P(pivot(-2, 6.9, -0.5), [jbox(0, 22, 0, 0, 0, 3, 10, 3, 0, { style: bone }), jbox(24, 22, -4, 1.5, 0.5, 11, 2, 2, 0, { style: bone }),
-      jbox(24, 22, -4, 4, 0.5, 11, 2, 2, 0, { style: bone }), jbox(24, 22, -4, 6.5, 0.5, 11, 2, 2, 0, { style: bone })], { rot: rot(0.20420352, 0, 0) }),
-    tail: P(pivot(-2, 6.9 + Math.cos(0.20420352) * 10, -0.5 + Math.sin(0.20420352) * 10), [jbox(12, 22, 0, 0, 0, 3, 6, 3, 0, { style: bone })], { rot: rot(0.83252203, 0, 0) }),
-    centerHead: P(pivot(0, 0, 0), [jbox(0, 0, -4, -4, -4, 8, 8, 8, 0, { style: st.head })]),
-    rightHead: P(pivot(-8, 4, 0), [jbox(32, 0, -4, -4, -4, 6, 6, 6, 0, { style: st.sideHead || st.head })]),
-    leftHead: P(pivot(10, 4, 0), [jbox(32, 0, -4, -4, -4, 6, 6, 6, 0, { style: st.sideHead || st.head })]),
+    shoulders: P(pivot(0, 0, 0), [jbox(0, 16, -10, 3.9, -0.5, 20, 3, 3, k, { style: bone })]),
+    ribcage: P(pivot(-2, 6.9, -0.5), [jbox(0, 22, 0, 0, 0, 3, 10, 3, k, { style: bone }), jbox(24, 22, -4, 1.5, 0.5, 11, 2, 2, k, { style: bone }),
+      jbox(24, 22, -4, 4, 0.5, 11, 2, 2, k, { style: bone }), jbox(24, 22, -4, 6.5, 0.5, 11, 2, 2, k, { style: bone })], { rot: rot(0.20420352, 0, 0) }),
+    tail: P(pivot(-2, 6.9 + Math.cos(0.20420352) * 10, -0.5 + Math.sin(0.20420352) * 10), [jbox(12, 22, 0, 0, 0, 3, 6, 3, k, { style: bone })], { rot: rot(0.83252203, 0, 0) }),
+    centerHead: P(pivot(0, 0, 0), [jbox(0, 0, -4, -4, -4, 8, 8, 8, k, { style: st.head })]),
+    rightHead: P(pivot(-8, 4, 0), [jbox(32, 0, -4, -4, -4, 6, 6, 6, k, { style: st.sideHead || st.head })]),
+    leftHead: P(pivot(10, 4, 0), [jbox(32, 0, -4, -4, -4, 6, 6, 6, k, { style: st.sideHead || st.head })]),
   }, [64, 64], texture);
 }
 

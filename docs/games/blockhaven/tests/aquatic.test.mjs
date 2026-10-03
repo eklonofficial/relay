@@ -14,8 +14,11 @@ test('each water mob names its pack texture and Java texture size', () => {
     const m = MOBS[k].model();
     assert.ok(m.java, k); assert.equal(m.texture, tex, k); assert.deepEqual(m.texSize, [w, h], k);
   }
-  assert.equal(MOBS.tropical_fish.overlay().texture, 'entity/fish/tropical_a_pattern_1');
-  assert.ok(MOBS.tropical_fish.model().tint, 'tinted by its base colour');
+  const tf = MOBS.tropical_fish;
+  assert.equal(tf.forms.large().texture, 'entity/fish/tropical_b');
+  assert.equal(tf.forms.pattern_b6().texture, 'entity/fish/tropical_b_pattern_6');
+  assert.equal(tf.common.length, 22);
+  for (let i = 0; i < 50; i++) { const [p, b, c] = tf.pickFish(); assert.ok(p >= 0 && p < 12 && b >= 0 && b < 16 && c >= 0 && c < 16); }
   assert.equal(MOBS.pufferfish.forms.big().puff, 2);
 });
 

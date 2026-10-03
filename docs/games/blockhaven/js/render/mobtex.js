@@ -1,5 +1,5 @@
 // Mob skins: packs every model box into a 64x64 layer (MC-style box unwrap) and paints its faces.
-import { Painter, shade, mixHex } from './paint.js?v=mush3vnf';
+import { Painter, shade, mixHex } from './paint.js?v=musmx1xd';
 
 export const SKIN = 64;
 // Every entity texture layer is ENTITY pixels square: Java's textures (64x32 up to 128x128) sit in its
@@ -45,6 +45,7 @@ export function faceRects(b) {
 // Paint styles. A style is { pal: [4 colours dark..light], pattern?, decor?: { face: fn(p, x, y, w, h, face, st) } }.
 // Faces: 'front' is -Z (the mob's face, drawn unmirrored); on 'right' (-X) column 0 touches the front, on 'left' (+X) the last column does.
 export function paintModel(model, seed) {
+  if (model.fill) return paintSwirl(model.swirlColor || [120, 160, 255]);
   const k = texFactor(model), p = new Painter(ENTITY * k, ENTITY * k, seed);
   p.n1 = p.valueNoise(22); p.n2 = p.valueNoise(9);   // ~3px and ~7px clumps, sampled in skin coordinates
   for (const part of Object.values(model.parts)) {
@@ -69,6 +70,16 @@ export function paintModel(model, seed) {
   return out;
 }
 
+// An energy swirl (creeper_armor, wither_armor) for a model that wraps its texture over the whole
+// layer: bright crossing bands on black, which adds nothing where it is dark.
+function paintSwirl([r, g, b]) {
+  const d = new Uint8ClampedArray(ENTITY * ENTITY * 4), w = (2 * Math.PI) / ENTITY;
+  for (let y = 0; y < ENTITY; y++) for (let x = 0; x < ENTITY; x++) {
+    const v = Math.max(0, Math.sin((x + y) * w * 3) * 0.6 + Math.sin((x - 2 * y) * w * 2) * 0.5 - 0.2), o = (y * ENTITY + x) * 4;
+    d[o] = r * v; d[o + 1] = g * v; d[o + 2] = b * v; d[o + 3] = 255;
+  }
+  return d;
+}
 const tone = (v, a, b, c) => v < a ? 0 : v < b ? 1 : v < c ? 2 : 3;
 // Fills one face with its pattern: clumped (2-3px) palette noise, lit from the top, darker underneath.
 function fillFace(p, x, y, w, h, st, face) {

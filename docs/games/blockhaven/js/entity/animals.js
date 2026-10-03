@@ -2,7 +2,7 @@
 // WolfModel, GoatModel, FoxModel, HorseModel, DonkeyModel, LlamaModel) with their texture offsets, and
 // their setupAnim poses. Java coordinates (y down from the model's top, feet at 24), turned into ours
 // as in entity/humanoid.js; a part with a parent sits relative to it.
-import { jbox, pivot } from './humanoid.js?v=mush3vnf';
+import { jbox, pivot } from './humanoid.js?v=musmx1xd';
 
 const PI = Math.PI;
 export const child = (x, y, z) => [-x, -y, z];
