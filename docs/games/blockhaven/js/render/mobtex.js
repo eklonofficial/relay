@@ -1,7 +1,10 @@
 // Mob skins: packs every model box into a 64x64 layer (MC-style box unwrap) and paints its faces.
-import { Painter, shade, mixHex } from './paint.js?v=mush3opu';
+import { Painter, shade, mixHex } from './paint.js?v=mush3ph6';
 
 export const SKIN = 64;
+// Every entity texture layer is ENTITY pixels square: Java's textures (64x32 up to 128x128) sit in its
+// top-left corner at their own size, and texture coordinates are measured against the layer.
+export const ENTITY = 128;
 
 // Shelf-pack box unwraps; shrinks texel density until everything fits. The face box (head part, box 0) keeps up to 1.5x the
 // density of the rest (never above 1:1) so faces stay readable on big mobs.
@@ -39,7 +42,7 @@ export function faceRects(b) {
 // Paint styles. A style is { pal: [4 colours dark..light], pattern?, decor?: { face: fn(p, x, y, w, h, face, st) } }.
 // Faces: 'front' is -Z (the mob's face, drawn unmirrored); on 'right' (-X) column 0 touches the front, on 'left' (+X) the last column does.
 export function paintModel(model, seed) {
-  const p = new Painter(SKIN, SKIN, seed);
+  const p = new Painter(ENTITY, ENTITY, seed);
   p.n1 = p.valueNoise(22); p.n2 = p.valueNoise(9);   // ~3px and ~7px clumps, sampled in skin coordinates
   for (const part of Object.values(model.parts)) {
     for (const b of part.boxes) {
@@ -47,12 +50,15 @@ export function paintModel(model, seed) {
       if (!st) continue;
       const rects = faceRects(b);
       for (const [face, [x, y, w, h]] of Object.entries(rects)) {
+        // Each face paints only its own rectangle, so decorations can't spill onto a neighbour's pixels.
+        p.clip = [x, y, w, h];
         fillFace(p, x, y, w, h, st, face);
         const d = st.decor && (st.decor[face] || (face === 'top' || face === 'bottom' ? st.decor.caps : face !== 'front' ? st.decor.sides : null) || st.decor.all);
         if (d) d(p, x, y, w, h, face, st);
       }
     }
   }
+  p.clip = null;
   return p.d;
 }
 

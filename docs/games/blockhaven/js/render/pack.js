@@ -182,21 +182,24 @@ export async function applyBlockTextures(zip, names, layers, anims = null) {
   }));
   return n;
 }
-// An entity texture (assets/minecraft/textures/<path>.png) as a 64x64 entity layer: scaled so it is
-// 64 wide (high-resolution packs), a 64x32 image filling the top half. null if the pack lacks it.
-export async function readEntityTexture(zip, path) {
+// An entity texture (assets/minecraft/textures/<path>.png) as a 128x128 entity layer, drawn in its top-left
+// corner at Java's size for it ([w, h]; a high-resolution pack's image is scaled down to that). With
+// `over`, it is laid over that layer instead (Java's extra passes, like a villager's profession).
+// null if the pack lacks it.
+export async function readEntityTexture(zip, path, size = [64, 64], over = null) {
   const bytes = await zip.bytes(`assets/minecraft/textures/${path}.png`);
   if (!bytes) return null;
   try {
     const bmp = await decodeImage(bytes);
-    const c = document.createElement('canvas'); c.width = c.height = 64;
+    const c = document.createElement('canvas'); c.width = c.height = 128;
     const ctx = c.getContext('2d'); ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(bmp, 0, 0, 64, Math.min(64, Math.round(bmp.height * 64 / bmp.width)));
-    return new Uint8ClampedArray(ctx.getImageData(0, 0, 64, 64).data);
+    if (over) ctx.putImageData(new ImageData(new Uint8ClampedArray(over), 128, 128), 0, 0);
+    ctx.drawImage(bmp, 0, 0, size[0], Math.round(bmp.height * size[0] / bmp.width));
+    return new Uint8ClampedArray(ctx.getImageData(0, 0, 128, 128).data);
   } catch { return null; }
 }
 // Armor layers (textures/models/armor/<material>_layer_<1|2>.png, 64x32 in Java's armor layout, or a
-// multiple of it), as 64x64 entity layers with the image in the top half. Leather is greyscale in
+// multiple of it), as entity layers with the image in the top-left corner. Leather is greyscale in
 // Java and tinted by its dye, so it is tinted with `leather` ([r, g, b]) and its overlay laid on top.
 // Returns [[material, layer, pixels]] for the files the pack has.
 export async function applyArmorTextures(zip, materials, leather) {
@@ -204,10 +207,10 @@ export async function applyArmorTextures(zip, materials, leather) {
     const bytes = await zip.bytes(`assets/minecraft/textures/models/armor/${name}.png`);
     if (!bytes) return null;
     const bmp = await decodeImage(bytes);
-    const c = document.createElement('canvas'); c.width = c.height = 64;
+    const c = document.createElement('canvas'); c.width = c.height = 128;
     const ctx = c.getContext('2d'); ctx.imageSmoothingEnabled = false;
     ctx.drawImage(bmp, 0, 0, bmp.width, bmp.width / 2, 0, 0, 64, 32);
-    return new Uint8ClampedArray(ctx.getImageData(0, 0, 64, 64).data);
+    return new Uint8ClampedArray(ctx.getImageData(0, 0, 128, 128).data);
   };
   const out = [];
   await Promise.all(materials.flatMap(mat => [1, 2].map(async l => {

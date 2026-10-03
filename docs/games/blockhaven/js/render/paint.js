@@ -1,5 +1,5 @@
 // Tiny pixel-art toolkit shared by the block, item and mob texture generators.
-import { mulberry32 } from '../core/noise.js?v=mush3opu';
+import { mulberry32 } from '../core/noise.js?v=mush3ph6';
 
 export const hex = h => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
 export const toHex = c => '#' + c.map(v => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, '0')).join('');
@@ -17,7 +17,8 @@ export class Painter {
   rand(n) { return Math.floor(this.r() * n); }
   chance(p) { return this.r() < p; }
   pick(a) { return a[this.rand(a.length)]; }
-  inb(x, y) { return x >= 0 && y >= 0 && x < this.w && y < this.h; }
+  // In the image, and inside the clip rectangle [x, y, w, h] when one is set (a model face being painted).
+  inb(x, y) { const c = this.clip; return x >= 0 && y >= 0 && x < this.w && y < this.h && (!c || (x >= c[0] && y >= c[1] && x < c[0] + c[2] && y < c[1] + c[3])); }
   put(x, y, c, a = 255) {
     if (!this.inb(x, y)) return;
     const i = (y * this.w + x) * 4, v = typeof c === 'string' ? hex(c) : c;

@@ -17,7 +17,7 @@ function faces(model, partName, boxIndex = 0) {
   for (let q = 0; q < b.quads; q++) {
     const v = k => Array.from(b.data.subarray((q * 4 + k) * 10, (q * 4 + k) * 10 + 5));
     const p = [0, 1, 2, 3].map(v), mid = [0, 1, 2].map(a => p.reduce((s, c) => s + c[a], 0) / 4);
-    const us = p.map(c => c[3] * 64), vs = p.map(c => c[4] * 64);
+    const us = p.map(c => c[3] * 128), vs = p.map(c => c[4] * 128); // texels against the 128-px entity layer
     out.push({ mid, rect: [Math.min(...us), Math.min(...vs), Math.max(...us), Math.max(...vs)], p });
   }
   return out;
@@ -38,7 +38,7 @@ test('the head unwraps as Java: face at (8,8), the right side (+X here) at (0,8)
 test('the front of the head reads left to right as seen from the front', () => {
   // Seen from the front (-Z), the viewer's left is +X: that edge takes u = 8.
   const front = facing(faces(playerModel(), 'head'), 2, -1);
-  const left = front.p.filter(c => c[0] > 0).map(c => Math.round(c[3] * 64));
+  const left = front.p.filter(c => c[0] > 0).map(c => Math.round(c[3] * 128));
   assert.deepEqual([...new Set(left)], [8]);
 });
 

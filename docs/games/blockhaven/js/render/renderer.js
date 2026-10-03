@@ -1,8 +1,8 @@
-import { CHUNK, TEX, DIM } from '../data/blocks.js?v=mush3opu';
-import { meshSingleBlock, STRIDE } from '../mesh/mesher.js?v=mush3opu';
-import * as S from './shaders.js?v=mush3opu';
-import { uploadArray, updateLayer } from './atlas.js?v=mush3opu';
-import { mat4, perspective, multiply, invert, viewMatrix, frustumPlanes, boxVisible } from '../core/math.js?v=mush3opu';
+import { CHUNK, TEX, DIM } from '../data/blocks.js?v=mush3ph6';
+import { meshSingleBlock, STRIDE } from '../mesh/mesher.js?v=mush3ph6';
+import * as S from './shaders.js?v=mush3ph6';
+import { uploadArray, updateLayer } from './atlas.js?v=mush3ph6';
+import { mat4, perspective, multiply, invert, viewMatrix, frustumPlanes, boxVisible } from '../core/math.js?v=mush3ph6';
 
 // Graphics presets: 0 Disabled, 1 Regular, 2 High, 3 PC.
 export const QUALITY = [
@@ -140,8 +140,8 @@ export class Renderer {
     }
   }
   setEntityTextures(chain, count) { this.entityTex = uploadArray(this.gl, chain, count); }
-  // Replaces one 64x64 entity layer (a player's own skin, a pack's armor), mipmaps and all.
-  setEntityLayer(layer, pixels) { updateLayer(this.gl, this.entityTex, layer, pixels, 64, 7); }
+  // Replaces one 128x128 entity layer (a player's own skin, a pack's armor), mipmaps and all.
+  setEntityLayer(layer, pixels) { updateLayer(this.gl, this.entityTex, layer, pixels, 128, 8); }
   setItemTextures(chain, count) { this.itemTex = uploadArray(this.gl, chain, count); }
   texFor(kind) { return kind === 'block' ? this.blockTex : kind === 'item' ? this.itemTex : this.entityTex; }
 
