@@ -1,8 +1,8 @@
-import { CHUNK, TEX, DIM } from '../data/blocks.js?v=mutb2tbl';
-import { meshSingleBlock, STRIDE } from '../mesh/mesher.js?v=mutb2tbl';
-import * as S from './shaders.js?v=mutb2tbl';
-import { uploadArray, updateLayer, uploadLayerChain, buildMipChain } from './atlas.js?v=mutb2tbl';
-import { mat4, perspective, multiply, invert, viewMatrix, frustumPlanes, boxVisible } from '../core/math.js?v=mutb2tbl';
+import { CHUNK, TEX, DIM } from '../data/blocks.js?v=mutbpf5j';
+import { meshSingleBlock, STRIDE } from '../mesh/mesher.js?v=mutbpf5j';
+import * as S from './shaders.js?v=mutbpf5j';
+import { uploadArray, updateLayer, uploadLayerChain, buildMipChain } from './atlas.js?v=mutbpf5j';
+import { mat4, perspective, multiply, invert, viewMatrix, frustumPlanes, boxVisible } from '../core/math.js?v=mutbpf5j';
 
 // Graphics presets: 0 Disabled, 1 Regular, 2 High, 3 PC.
 export const QUALITY = [
@@ -90,6 +90,8 @@ export class Renderer {
     const gl = canvas.getContext('webgl2', { antialias: false, alpha: false, depth: true, powerPreference: 'high-performance', preserveDrawingBuffer: false, desynchronized: !!opts.lowLatency });
     if (!gl) throw new Error('WebGL 2 is not available in this browser.');
     this.gl = gl;
+    gl.getExtension('KHR_parallel_shader_compile');
+    this.unlinked = [];
     // A desynchronized canvas shows its buffer while it is being drawn, so frames must only ever
     // reach it whole, in the final full-screen pass.
     this.frontBuffer = !!gl.getContextAttributes().desynchronized;
@@ -135,27 +137,38 @@ export class Renderer {
     this.scale = 1;
   }
 
+  // Shaders are compiled and linked here but only checked in finishPrograms: asking for a status
+  // waits for the compiler, and with KHR_parallel_shader_compile it works in the background
+  // while start-up carries on (painting textures, starting workers).
   program(vsSrc, fsSrc) {
     const gl = this.gl;
-    const compile = (type, src) => {
-      const s = gl.createShader(type);
-      gl.shaderSource(s, src);
-      gl.compileShader(s);
-      if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s) + '\n' + src.split('\n').map((l, i) => `${i + 1}: ${l}`).join('\n'));
-      return s;
-    };
+    const shader = (type, src) => { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); return s; };
+    const vs = shader(gl.VERTEX_SHADER, vsSrc), fs = shader(gl.FRAGMENT_SHADER, fsSrc);
     const p = gl.createProgram();
-    gl.attachShader(p, compile(gl.VERTEX_SHADER, vsSrc));
-    gl.attachShader(p, compile(gl.FRAGMENT_SHADER, fsSrc));
+    gl.attachShader(p, vs); gl.attachShader(p, fs);
     gl.linkProgram(p);
-    if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p));
-    const u = {};
-    const n = gl.getProgramParameter(p, gl.ACTIVE_UNIFORMS);
-    for (let i = 0; i < n; i++) {
-      const info = gl.getActiveUniform(p, i);
-      u[info.name.replace(/\[0\]$/, '')] = gl.getUniformLocation(p, info.name);
+    const prog = { p, u: null };
+    this.unlinked.push({ prog, vs, fs, vsSrc, fsSrc });
+    return prog;
+  }
+  // Waits for the shaders, throws the compiler's message if one failed, and reads the uniforms.
+  // Called by App.init, and before drawing in case nobody has.
+  finishPrograms() {
+    const gl = this.gl;
+    for (const { prog, vs, fs, vsSrc, fsSrc } of this.unlinked.splice(0)) {
+      const p = prog.p;
+      if (!gl.getProgramParameter(p, gl.LINK_STATUS)) {
+        for (const [s, src] of [[vs, vsSrc], [fs, fsSrc]]) if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s) + '\n' + src.split('\n').map((l, i) => `${i + 1}: ${l}`).join('\n'));
+        throw new Error(gl.getProgramInfoLog(p));
+      }
+      const u = {};
+      const n = gl.getProgramParameter(p, gl.ACTIVE_UNIFORMS);
+      for (let i = 0; i < n; i++) {
+        const info = gl.getActiveUniform(p, i);
+        u[info.name.replace(/\[0\]$/, '')] = gl.getUniformLocation(p, info.name);
+      }
+      prog.u = u;
     }
-    return { p, u };
   }
 
   setBlockTextures(chain, count) { if (this.blockTex) this.gl.deleteTexture(this.blockTex); this.blockTex = uploadArray(this.gl, chain, count); this.animShown = new Map(); }
@@ -495,6 +508,7 @@ export class Renderer {
   // finished, so reading them never stalls the frame; returns null until a picture is ready.
   renderPreview(list, w, h, viewProj, s) {
     const gl = this.gl;
+    if (this.unlinked.length) this.finishPrograms();
     if (!this.pv || this.pv.w !== w || this.pv.h !== h) {
       if (this.pv) { gl.deleteFramebuffer(this.pv.f); gl.deleteTexture(this.pv.c); gl.deleteTexture(this.pv.d); gl.deleteBuffer(this.pv.pbo); if (this.pv.fence) gl.deleteSync(this.pv.fence); }
       const c = this.colorTexture(w, h), d = this.depthTexture(w, h, false), pbo = gl.createBuffer();
@@ -581,6 +595,7 @@ export class Renderer {
 
   render(s) {
     const gl = this.gl;
+    if (this.unlinked.length) this.finishPrograms();
     const w = this.width, h = this.height;
     const M = this.mats || (this.mats = { proj: mat4(), vp: mat4(), ivp: mat4() });
     const proj = perspective(M.proj, s.fov * Math.PI / 180, w / h, 0.05, 1200);

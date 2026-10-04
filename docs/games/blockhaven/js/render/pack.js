@@ -1,7 +1,7 @@
 // Resource packs: Java Edition style packs (.zip with assets/minecraft/textures/... and
 // assets/minecraft/sounds/...). The bundled defaults and player-selected packs use the same
 // matching path; a player's pack stays in this browser (IndexedDB) and is never uploaded.
-import { SHEETS } from '../data/blocks.js?v=mutb2tbl';
+import { SHEETS } from '../data/blocks.js?v=mutbpf5j';
 
 const DB = 'blockhaven-packs', STORE = 'packs', KEY = 'active';
 
@@ -111,10 +111,14 @@ async function decodeImage(bytes) {
   const bmp = await createImageBitmap(new Blob([bytes], { type: 'image/png' }));
   return bmp;
 }
+// Canvases that are read back are kept in memory (willReadFrequently): a GPU canvas makes every
+// read wait for the GPU, which at start-up is busy drawing the title screen.
+const readable = (w, h) => { const c = document.createElement('canvas'); c.width = w; c.height = h; return c.getContext('2d', { willReadFrequently: true }); };
+let ctx16 = null;
 // The top square of an image (animated textures are vertical strips), scaled to 16x16.
 function to16(bmp, sx = 0, sy = 0, sw = bmp.width, sh = Math.min(bmp.width, bmp.height)) {
-  const c = document.createElement('canvas'); c.width = c.height = 16;
-  const ctx = c.getContext('2d'); ctx.imageSmoothingEnabled = false;
+  const ctx = ctx16 || (ctx16 = readable(16, 16));
+  ctx.clearRect(0, 0, 16, 16); ctx.imageSmoothingEnabled = false;
   ctx.drawImage(bmp, sx, sy, sw, sh, 0, 0, 16, 16);
   return ctx.getImageData(0, 0, 16, 16).data;
 }

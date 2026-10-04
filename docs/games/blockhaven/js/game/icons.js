@@ -1,8 +1,8 @@
 // Inventory icons as data URLs: isometric cubes for blocks, crisp sprites for items.
-import { ITEMS } from '../data/items.js?v=mutb2tbl';
-import { FACE_TEX, VARIANT_MASK, TINT_OF, TINT, SHAPE_OF, SHAPE, TRANSLUCENT } from '../data/blocks.js?v=mutb2tbl';
-import { ITEM_LAYER, FX_LAYER } from '../render/itemtex.js?v=mutb2tbl';
-import { ANVIL_BOXES } from '../data/shapes.js?v=mutb2tbl';
+import { ITEMS } from '../data/items.js?v=mutbpf5j';
+import { FACE_TEX, VARIANT_MASK, TINT_OF, TINT, SHAPE_OF, SHAPE, TRANSLUCENT } from '../data/blocks.js?v=mutbpf5j';
+import { ITEM_LAYER, FX_LAYER } from '../render/itemtex.js?v=mutbpf5j';
+import { ANVIL_BOXES } from '../data/shapes.js?v=mutbpf5j';
 
 // Several boxes (in block pixels) drawn in the same isometric view as the cube icons, bottom first.
 // The top face of the highest box uses the block's top texture; every other face uses the sides.
@@ -25,9 +25,14 @@ function isoBoxes(ctx, S, boxes, top, left, right, sideTop) {
 
 const TINTS = { [TINT.GRASS]: [124, 189, 107], [TINT.FOLIAGE]: [72, 181, 24], [TINT.WATER]: [63, 118, 228] };
 
+// The face images: a few canvases written again for every icon instead of new ones each time
+// (thousands of small canvases, each its own GPU texture, made building the icons slow).
+const faces = [];
+let faceN = 0;
 function faceCanvas(data, tint, shade) {
-  const c = document.createElement('canvas');
-  c.width = c.height = 16;
+  let c = faces[faceN];
+  if (!c) { c = faces[faceN] = document.createElement('canvas'); c.width = c.height = 16; }
+  faceN++;
   const ctx = c.getContext('2d');
   const img = ctx.createImageData(16, 16);
   for (let i = 0; i < 256; i++) {
@@ -46,6 +51,7 @@ export function buildIcons(blockTex, itemTex) {
   canvas.width = canvas.height = S;
   const ctx = canvas.getContext('2d');
   for (const it of ITEMS) {
+    faceN = 0;
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, S, S);
     ctx.imageSmoothingEnabled = false;
@@ -83,6 +89,7 @@ export function buildIcons(blockTex, itemTex) {
   }
   // Item states shown in slots (a loaded crossbow).
   for (const name of ['crossbow_arrow', 'crossbow_firework']) {
+    faceN = 0;
     ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, S, S);
     const c = faceCanvas(itemTex[FX_LAYER[name]], null, 1);
     ctx.setTransform(S / 16, 0, 0, S / 16, 0, 0); ctx.drawImage(c, 0, 0);
