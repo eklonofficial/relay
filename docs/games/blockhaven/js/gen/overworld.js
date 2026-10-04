@@ -1,11 +1,11 @@
 // Overworld generator: climate-driven biomes, 3D density terrain, noise + worm caves, underground
 // biomes, ores, surface rules, trees and vegetation. World types: 'default', 'wild' (amplified,
 // floating islands, stone pillars and arches) and 'flat'.
-import { Simplex, hash2, hash3, mulberry32 } from '../core/noise.js?v=mut7vbyz';
-import { B, st, CHUNK, HEIGHT, SEA, COLORS } from '../data/blocks.js?v=mut7vbyz';
-import { BI, OCEANS, COLD } from './biomes.js?v=mut7vbyz';
-import { ChunkBuilder, CI } from './chunk.js?v=mut7vbyz';
-import * as T from './trees.js?v=mut7vbyz';
+import { Simplex, hash2, hash3, mulberry32 } from '../core/noise.js?v=mut8woro';
+import { B, st, CHUNK, HEIGHT, SEA, COLORS } from '../data/blocks.js?v=mut8woro';
+import { BI, OCEANS, COLD } from './biomes.js?v=mut8woro';
+import { ChunkBuilder, CI, columnTops } from './chunk.js?v=mut8woro';
+import * as T from './trees.js?v=mut8woro';
 
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
@@ -289,12 +289,17 @@ export function createOverworld(seed, type = 'default') {
     return false;
   }
 
-  function wormCarve(w) {
-    const R = 8;
-    const x0 = w.ox, z0 = w.oz, x1 = x0 + CHUNK, z1 = z0 + CHUNK;
-    for (let sz = w.cz - R; sz <= w.cz + R; sz++) for (let sx = w.cx - R; sx <= w.cx + R; sx++) {
-      const r = mulberry32((Math.imul(sx, 341873128) ^ Math.imul(sz, 132897987) ^ seed) >>> 0);
-      if (r() > 0.14) continue;
+  // Cave worms (and ravines) starting in chunk (sx, sz): each a path of steps [px, py, pz, rad, ry]
+  // with its bounding box. A path depends only on the seed and its start, so it is walked once and
+  // kept: every chunk carves the worms of the 17x17 chunks around it.
+  const wormCache = new Map();
+  function wormsFrom(sx, sz) {
+    const key = (sx + 0x200000) * 0x400000 + (sz + 0x200000);
+    let list = wormCache.get(key);
+    if (list) return list;
+    list = [];
+    const r = mulberry32((Math.imul(sx, 341873128) ^ Math.imul(sz, 132897987) ^ seed) >>> 0);
+    if (r() <= 0.14) {
       const count = 1 + Math.floor(r() * 3);
       for (let k = 0; k < count; k++) {
         const ravine = r() < 0.07;
@@ -302,12 +307,33 @@ export function createOverworld(seed, type = 'default') {
         let yaw = r() * Math.PI * 2, pitch = (r() - 0.5) * (ravine ? 0.1 : 0.5);
         const len = ravine ? 70 + r() * 50 : 60 + r() * 110, base = ravine ? 2.2 + r() * 2 : 1.4 + r() * 2.4;
         let dyaw = 0, dpitch = 0;
+        const steps = [];
+        let bx0 = Infinity, bz0 = Infinity, bx1 = -Infinity, bz1 = -Infinity;
         for (let s = 0; s < len; s++) {
           const rad = base * (0.6 + Math.sin(s / len * Math.PI) * 0.8);
           const ry = ravine ? rad * 3.2 : rad * 0.8;
           px += Math.cos(yaw) * Math.cos(pitch); pz += Math.sin(yaw) * Math.cos(pitch); py += Math.sin(pitch);
           pitch *= ravine ? 0.7 : 0.92; pitch += dpitch * 0.1; yaw += dyaw * 0.1;
           dpitch = dpitch * 0.9 + (r() - r()) * r() * 2; dyaw = dyaw * 0.75 + (r() - r()) * r() * 4;
+          steps.push(px, py, pz, rad, ry);
+          bx0 = Math.min(bx0, px - rad - 1); bx1 = Math.max(bx1, px + rad + 1); bz0 = Math.min(bz0, pz - rad - 1); bz1 = Math.max(bz1, pz + rad + 1);
+        }
+        list.push({ steps: Float64Array.from(steps), bx0, bz0, bx1, bz1 });
+      }
+    }
+    if (wormCache.size >= 8192) wormCache.delete(wormCache.keys().next().value);
+    wormCache.set(key, list);
+    return list;
+  }
+  function wormCarve(w) {
+    const R = 8;
+    const x0 = w.ox, z0 = w.oz, x1 = x0 + CHUNK, z1 = z0 + CHUNK;
+    for (let sz = w.cz - R; sz <= w.cz + R; sz++) for (let sx = w.cx - R; sx <= w.cx + R; sx++) {
+      for (const worm of wormsFrom(sx, sz)) {
+        if (worm.bx1 < x0 || worm.bx0 > x1 || worm.bz1 < z0 || worm.bz0 > z1) continue;
+        const st = worm.steps;
+        for (let o = 0; o < st.length; o += 5) {
+          const px = st[o], py = st[o + 1], pz = st[o + 2], rad = st[o + 3], ry = st[o + 4];
           if (px + rad + 1 < x0 || px - rad - 1 > x1 || pz + rad + 1 < z0 || pz - rad - 1 > z1) continue;
           for (let y = Math.max(5, Math.floor(py - ry)); y <= Math.min(HEIGHT - 2, Math.ceil(py + ry)); y++) {
             for (let z = Math.max(z0, Math.floor(pz - rad)); z < Math.min(z1, Math.ceil(pz + rad) + 1); z++) {
@@ -473,12 +499,7 @@ export function createOverworld(seed, type = 'default') {
     }
 
     // Surface rules, walking down each column so overhangs and islands get soil too.
-    const tops = new Int16Array(256);
-    for (let z = 0; z < CHUNK; z++) for (let x = 0; x < CHUNK; x++) {
-      let y = HEIGHT - 1;
-      while (y > 0 && (ids[CI(x, y, z)] === B.AIR)) y--;
-      tops[x + z * 16] = y;
-    }
+    const tops = columnTops(ids, new Int16Array(256));
     for (let z = 0; z < CHUNK; z++) for (let x = 0; x < CHUNK; x++) {
       const c = cols[x + z * 16], biome = c.biome;
       const hx0 = tops[Math.max(0, x - 1) + z * 16], hx1 = tops[Math.min(15, x + 1) + z * 16];
@@ -550,19 +571,11 @@ export function createOverworld(seed, type = 'default') {
     springs(w, r, tops, cols);
 
     // Heightmap after carving.
-    for (let z = 0; z < CHUNK; z++) for (let x = 0; x < CHUNK; x++) {
-      let y = HEIGHT - 1;
-      while (y > 0 && ids[CI(x, y, z)] === B.AIR) y--;
-      w.heights[x + z * 16] = y;
-    }
+    columnTops(ids, w.heights);
     trees(w, cols);
     vegetation(w, r, cols);
     snowAndIce(w, cols);
-    for (let z = 0; z < CHUNK; z++) for (let x = 0; x < CHUNK; x++) {
-      let y = HEIGHT - 1;
-      while (y > 0 && ids[CI(x, y, z)] === B.AIR) y--;
-      w.heights[x + z * 16] = y;
-    }
+    columnTops(ids, w.heights);
     animals(w, r, cols);
     return w;
   }

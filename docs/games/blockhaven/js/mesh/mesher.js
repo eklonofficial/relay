@@ -4,10 +4,10 @@ import {
   CHUNK, HEIGHT, PAD, PS, B, SHAPE, VF, TINT, TEX,
   OPAQUE, SOLID, SHAPE_OF, TRANSLUCENT, EMIT, ATTEN, VFLAGS, CULL_SAME, TINT_OF, WATERLOGGED, VARIANT_MASK,
   FACING_SHIFT, AXIS_SHIFT, FACE_TEX, CROP_STAGES, CROP_TEX, SHEETS,
-} from '../data/blocks.js?v=mut7vbyz';
-import { BIOME_COLORS } from '../gen/biomes.js?v=mut7vbyz';
-import { up6, rotY, attach, FACE_OF_DIR6, OPP6, DIR2D_OF_6 } from '../data/orient.js?v=mut7vbyz';
-import { MODELS } from '../data/models.js?v=mut7vbyz';
+} from '../data/blocks.js?v=mut8woro';
+import { BIOME_COLORS } from '../gen/biomes.js?v=mut8woro';
+import { up6, rotY, attach, FACE_OF_DIR6, OPP6, DIR2D_OF_6 } from '../data/orient.js?v=mut8woro';
+import { MODELS } from '../data/models.js?v=mut8woro';
 
 export const H2 = HEIGHT + 2;
 export const VOLUME_SIZE = PS * PS * H2;
@@ -33,6 +33,8 @@ const UVF = [
   (x, y, z) => [16 - z, 16 - y], (x, y, z) => [z, 16 - y], (x, y, z) => [x, z],
   (x, y, z) => [x, 16 - z], (x, y, z) => [x, 16 - y], (x, y, z) => [16 - x, 16 - y],
 ];
+// UVF at a full block's corners, per face and corner (FACE_CORNERS order): the same every time.
+const CUBE_UV = FACE_CORNERS.map((cs, f) => cs.map(c => UVF[f](c[0] * 16, c[1] * 16, c[2] * 16)));
 // One 90° turn about Y (+Z -> -X -> -Z -> +X) maps faces like this.
 const ROT_FACE = [4, 5, 2, 3, 1, 0];
 // facing index (0 +Z, 1 -X, 2 -Z, 3 +X) -> face index
@@ -42,9 +44,16 @@ export const FACING_DIR = [[0, 1], [-1, 0], [0, -1], [1, 0]];
 // ---- volume addressing (reconfigured for single-block models) ----
 let S = PS, SS = PS * PS, HH = H2;
 let FO = [];
+// Per column (x + z * S): which volume edges it is on (1 x = 0, 2 x = S - 1, 4 z = 0, 8 z = S - 1).
+let EDGE = null;
 function setStride(s, h) {
+  const same = s === S && EDGE;
   S = s; SS = s * s; HH = h;
   FO = NORMALS.map(n => n[0] + n[2] * S + n[1] * SS);
+  if (!same) {
+    EDGE = new Uint8Array(SS);
+    for (let z = 0; z < s; z++) for (let x = 0; x < s; x++) EDGE[x + z * s] = (x === 0 ? 1 : 0) | (x === s - 1 ? 2 : 0) | (z === 0 ? 4 : 0) | (z === s - 1 ? 8 : 0);
+  }
 }
 setStride(PS, H2);
 
@@ -60,13 +69,13 @@ function flood(light, head, tail) {
     const i = q[head]; head = (head + 1) & QMASK;
     const l = light[i];
     if (l <= 1) continue;
-    const x = i % S, z = ((i / S) | 0) % S, y = (i / SS) | 0;
+    const y = (i / SS) | 0, e = EDGE[i - y * SS];
     for (let k = 0; k < 6; k++) {
       let n;
-      if (k === 0) { if (x === 0) continue; n = i - 1; }
-      else if (k === 1) { if (x === S - 1) continue; n = i + 1; }
-      else if (k === 2) { if (z === 0) continue; n = i - S; }
-      else if (k === 3) { if (z === S - 1) continue; n = i + S; }
+      if (k === 0) { if (e & 1) continue; n = i - 1; }
+      else if (k === 1) { if (e & 2) continue; n = i + 1; }
+      else if (k === 2) { if (e & 4) continue; n = i - S; }
+      else if (k === 3) { if (e & 8) continue; n = i + S; }
       else if (k === 4) { if (y <= 1) continue; n = i - SS; }
       else { if (y >= HH - 1) continue; n = i + SS; }
       const id = vol[n];
@@ -122,6 +131,8 @@ class VB {
   result() { return this.u8.buffer.slice(0, this.quads * 4 * STRIDE); }
 }
 
+const SOLID_VB = new VB(4096), CUTOUT_VB = new VB(1024), TRANS_VB = new VB(1024);
+
 // Staging for one quad; positions in pixels relative to the chunk origin.
 const QX = new Float32Array(4), QY = new Float32Array(4), QZ = new Float32Array(4);
 const QU = new Uint8Array(4), QV = new Uint8Array(4), QA = new Uint8Array(4), QL = new Uint8Array(4), QB = new Int32Array(4);
@@ -147,10 +158,11 @@ const cellLight = i => (skyL[i] << 4) | blkL[i];
 
 // ---------------- tints ----------------
 let tints = null; // per centre column: grass rgb, foliage rgb, water rgb (blended)
+const tintAcc = new Float32Array(9);
 function computeTints(biomes, blendR) {
   tints = new Uint8Array(CHUNK * CHUNK * 9);
   for (let z = 0; z < CHUNK; z++) for (let x = 0; x < CHUNK; x++) {
-    const acc = new Float32Array(9);
+    const acc = tintAcc.fill(0);
     let n = 0;
     for (let dz = -blendR; dz <= blendR; dz++) for (let dx = -blendR; dx <= blendR; dx++) {
       const b = biomes[(x + PAD + dx) + (z + PAD + dz) * PS];
@@ -486,7 +498,7 @@ function cube(buf, i, id, m, ox, oy, oz) {
     for (let k = 0; k < 4; k++) {
       const c = cs[k], cr = co[k];
       QX[k] = ox + c[0] * 16; QY[k] = oy + c[1] * 16; QZ[k] = oz + c[2] * 16;
-      let [u, v] = UVF[f](c[0] * 16, c[1] * 16, c[2] * 16);
+      let u = CUBE_UV[f][k][0], v = CUBE_UV[f][k][1];
       if (rot) { const t = u; u = v; v = 16 - t; }
       QU[k] = u; QV[k] = v;
       const A = i + cr[0], Bc = i + cr[1], C = i + cr[2];
@@ -511,7 +523,7 @@ function cubeFaces(buf, i, layers, rots, flags, ox, oy, oz) {
     for (let k = 0; k < 4; k++) {
       const c = cs[k], cr = co[k];
       QX[k] = ox + c[0] * 16; QY[k] = oy + c[1] * 16; QZ[k] = oz + c[2] * 16;
-      let [u, v] = UVF[f](c[0] * 16, c[1] * 16, c[2] * 16);
+      let u = CUBE_UV[f][k][0], v = CUBE_UV[f][k][1];
       for (let r = 0; r < rot; r++) { const t = u; u = v; v = 16 - t; }
       QU[k] = u; QV[k] = v;
       const A = i + cr[0], Bc = i + cr[1], C = i + cr[2];
@@ -1000,7 +1012,9 @@ export function meshChunk(job) {
   // Java's chunk render types: full opaque cubes (and lava) are `solid` and drawn without an alpha
   // test, so the GPU can reject hidden pixels before shading them; everything else that isn't
   // translucent is `cutout` (leaves, plants, glass, rails, torches and other shaped blocks).
-  const solid = new VB(4096), cutout = new VB(1024), trans = new VB(1024);
+  // Staging buffers are kept between chunks (a worker meshes many); the results are copies.
+  const solid = SOLID_VB, cutout = CUTOUT_VB, trans = TRANS_VB;
+  solid.quads = cutout.quads = trans.quads = 0;
   // Quads come out bottom-up, so 16-tall sections are contiguous ranges (drawn with per-section culling).
   const secS = new Int32Array(17), secC = new Int32Array(17), secT = new Int32Array(17);
   for (let y = 1; y <= maxY; y++) {

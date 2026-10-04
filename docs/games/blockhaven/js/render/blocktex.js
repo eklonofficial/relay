@@ -1,7 +1,7 @@
 // Procedural 16x16 block textures. Every name registered in data/blocks.js must be drawable here.
-import { Painter, ramp, shade, mixHex, hex } from './paint.js?v=mut7vbyz';
-import { TEXTURES, COLORS, SHEETS } from '../data/blocks.js?v=mut7vbyz';
-import { EXTRA_BLOCK_TEX } from './enchtex.js?v=mut7vbyz';
+import { Painter, ramp, shade, mixHex, hex } from './paint.js?v=mut8woro';
+import { TEXTURES, COLORS, SHEETS } from '../data/blocks.js?v=mut8woro';
+import { EXTRA_BLOCK_TEX } from './enchtex.js?v=mut8woro';
 
 const N = 16;
 
