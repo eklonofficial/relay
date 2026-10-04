@@ -7,6 +7,12 @@ const native = globalThis.document;
 const assets = new Map();
 let textLayouts = new WeakMap();
 let dirty = true, animated = false;
+// Partial repaints: when only animations change (an enchantment glint, a fading overlay, the
+// inventory's player canvas, a caret), just the area around them is cleared and drawn again.
+// Each element's painted extent (its subtree, padded for shadows and overhangs) is kept from
+// the last full paint; layout cannot have changed since, or the surface would be dirty.
+let extents = new WeakMap(), live = new Set(), clipRect = null, lastSize = '', lastClip = null, lastTargets = [];
+const PAD = 8;
 const hints = new WeakMap();
 let hint = '', hintTimer, pointer = { x: 0, y: 0 };
 function captureHints(node) {
@@ -165,13 +171,13 @@ function localRect(r, matrix) {
   return {x:p.x,y:p.y,width:w,height:h};
 }
 function textNode(ctx, node, s, matrix) {
-  if (!node.textContent.trim()) return;
+  if (!node.textContent.trim()) return null;
   const range = native.createRange();
   range.selectNodeContents(node);
   const bounds = range.getBoundingClientRect();
   const key = [node.textContent,s.font,s.letterSpacing,bounds.x,bounds.y,bounds.width,bounds.height,matrix.toString()].join('|');
   const cached = textLayouts.get(node);
-  if (cached?.key === key) { for (const line of cached.lines) text(ctx,line.value,s,line.x,line.y); return; }
+  if (cached?.key === key) { for (const line of cached.lines) text(ctx,line.value,s,line.x,line.y); return bounds; }
   // Range supplies browser wrapping, bidi, spacing and mixed inline layout.
   // Group characters sharing one line to preserve kerning and avoid per-glyph paint.
   let line = '', left = 0, top = 0;
@@ -187,6 +193,7 @@ function textNode(ctx, node, s, matrix) {
   }
   flush();
   textLayouts.set(node,{key,lines});
+  return bounds;
 }
 function pseudo(ctx, el, name, parent) {
   const s = styleOf(el, name);
@@ -220,11 +227,15 @@ function control(ctx, el, s, r) {
     const a = ctx.measureText(value.slice(0, el.selectionStart)).width, b = ctx.measureText(value.slice(0, el.selectionEnd)).width;
     if (a !== b) { ctx.fillStyle = 'rgba(90,130,255,.4)'; ctx.fillRect(x + a, top, b - a, px(s.fontSize)); }
     else if (performance.now() % 1000 < 500) { ctx.fillStyle = s.color; ctx.fillRect(x + a, top, 1, px(s.fontSize)); }
-    animated = true;
+    animated = true; live.add(el);
   }
   ctx.restore();
 }
 function draw(ctx, el, inherited = new DOMMatrix()) {
+  if (clipRect) {
+    const e = extents.get(el);
+    if (e && (e.x1 < clipRect.x0 || e.x0 > clipRect.x1 || e.y1 < clipRect.y0 || e.y0 > clipRect.y1)) return null; // (unknown extent: draw it)
+  }
   const s = styleOf(el), bounds = el.getBoundingClientRect();
   const own = s.transform === 'none' ? new DOMMatrix() : new DOMMatrix(s.transform);
   const matrix = inherited.multiply(own);
@@ -232,20 +243,21 @@ function draw(ctx, el, inherited = new DOMMatrix()) {
   matrix.e = bounds.x - Math.min(0,matrix.a*w) - Math.min(0,matrix.c*h);
   matrix.f = bounds.y - Math.min(0,matrix.b*w) - Math.min(0,matrix.d*h);
   const r = {x:0,y:0,width:w,height:h,right:w,bottom:h};
-  if (s.display === 'none' || s.visibility === 'hidden' || (!r.width && !r.height)) return;
+  if (s.display === 'none' || s.visibility === 'hidden' || (!r.width && !r.height)) return null;
+  const ext = { x0: bounds.left - PAD, y0: bounds.top - PAD, x1: bounds.right + PAD, y1: bounds.bottom + PAD };
   ctx.save();
   const dpr = Math.min(2, devicePixelRatio || 1);
   ctx.setTransform(dpr*matrix.a,dpr*matrix.b,dpr*matrix.c,dpr*matrix.d,dpr*matrix.e,dpr*matrix.f);
   ctx.imageSmoothingEnabled = s.imageRendering !== 'pixelated';
   ctx.globalAlpha *= Number(s.opacity);
-  if (!ctx.globalAlpha) { ctx.restore(); return; }
+  if (!ctx.globalAlpha) { ctx.restore(); extents.set(el, ext); return ext; }
   if (s.mixBlendMode !== 'normal') ctx.globalCompositeOperation = s.mixBlendMode;
   if (s.filter !== 'none') ctx.filter = s.filter;
   box(ctx, s, r);
   if (/hidden|scroll|auto/.test(s.overflow)) { ctx.beginPath(); ctx.rect(r.x, r.y, r.width, r.height); ctx.clip(); }
   pseudo(ctx, el, '::before', r);
   if (el.tagName === 'IMG' && el.complete && el.naturalWidth) { ctx.imageSmoothingEnabled = s.imageRendering !== 'pixelated'; ctx.drawImage(el, r.x, r.y, r.width, r.height); }
-  else if (el.tagName === 'CANVAS') { ctx.imageSmoothingEnabled = s.imageRendering !== 'pixelated'; ctx.drawImage(el, r.x, r.y, r.width, r.height); animated = true; }
+  else if (el.tagName === 'CANVAS') { ctx.imageSmoothingEnabled = s.imageRendering !== 'pixelated'; ctx.drawImage(el, r.x, r.y, r.width, r.height); animated = true; live.add(el); }
   else if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') control(ctx, el, s, r);
   else if (el.tagName === 'svg') {
     const key = new XMLSerializer().serializeToString(el).replace(/currentColor/g, s.color);
@@ -257,8 +269,14 @@ function draw(ctx, el, inherited = new DOMMatrix()) {
     // Position stacking within each layout container (tabs, tooltip, cursor).
     children.sort((a, b) => (a.nodeType === 1 ? px(styleOf(a).zIndex) : 0) - (b.nodeType === 1 ? px(styleOf(b).zIndex) : 0));
     for (const child of children) {
-      if (child.nodeType === 1) draw(ctx, child, matrix);
-      else if (child.nodeType === 3) textNode(ctx, child, s, matrix);
+      if (child.nodeType === 1) {
+        const c = draw(ctx, child, matrix);
+        if (c) { ext.x0 = Math.min(ext.x0, c.x0); ext.y0 = Math.min(ext.y0, c.y0); ext.x1 = Math.max(ext.x1, c.x1); ext.y1 = Math.max(ext.y1, c.y1); }
+      } else if (child.nodeType === 3) {
+        // Text can run past its element's box.
+        const t = textNode(ctx, child, s, matrix);
+        if (t && (t.width || t.height)) { ext.x0 = Math.min(ext.x0, t.left - PAD); ext.y0 = Math.min(ext.y0, t.top - PAD); ext.x1 = Math.max(ext.x1, t.right + PAD); ext.y1 = Math.max(ext.y1, t.bottom + PAD); }
+      }
     }
   }
   pseudo(ctx, el, '::after', r);
@@ -268,16 +286,50 @@ function draw(ctx, el, inherited = new DOMMatrix()) {
     ctx.fillStyle = '#c0c0c0'; ctx.fillRect(r.right - width, r.y + (r.height - height) * el.scrollTop / (el.scrollHeight - el.clientHeight), width, height);
   }
   ctx.restore();
+  if (!clipRect) extents.set(el, ext);
+  return ext;
 }
 export function paint() {
   if (!context) return;
-  dirty = animated = false;
-  animated = layout.getAnimations({subtree:true}).some(a => a.playState === 'running');
+  const running = layout.getAnimations({subtree:true}).filter(a => a.playState === 'running');
+  // Last paint's animated elements too: one that just finished still needs its final look drawn.
+  const targets = [...new Set([...running.map(a => a.effect && a.effect.target).filter(Boolean), ...lastTargets])];
+  lastTargets = running.map(a => a.effect && a.effect.target).filter(Boolean);
   const dpr = Math.min(2, devicePixelRatio || 1), w = Math.round(innerWidth * dpr), h = Math.round(innerHeight * dpr);
+  const size = `${w}x${h}x${innerWidth}x${innerHeight}`;
+  let clip = null;
+  if (!dirty && size === lastSize) {
+    // Only animations moved: the union of their areas now and as last painted (text and children
+    // included), the live canvases and carets, and last frame's area (anything that moved away).
+    const add = (x0, y0, x1, y1) => { clip = clip ? { x0: Math.min(clip.x0, x0), y0: Math.min(clip.y0, y0), x1: Math.max(clip.x1, x1), y1: Math.max(clip.y1, y1) } : { x0, y0, x1, y1 }; };
+    for (const el of [...targets, ...live]) {
+      if (!el.isConnected) continue;
+      const b = el.getBoundingClientRect(), e = extents.get(el);
+      if (b.width || b.height) add(b.left - PAD, b.top - PAD, b.right + PAD, b.bottom + PAD);
+      if (e) add(e.x0, e.y0, e.x1, e.y1);
+    }
+    if (clip && lastClip) add(lastClip.x0, lastClip.y0, lastClip.x1, lastClip.y1);
+    if (clip) clip = { x0: Math.floor(clip.x0), y0: Math.floor(clip.y0), x1: Math.ceil(clip.x1), y1: Math.ceil(clip.y1) };
+  }
+  lastClip = clip;
+  dirty = false;
+  animated = running.length > 0;
   if (output.width !== w || output.height !== h) { output.width = w; output.height = h; }
-  context.setTransform(dpr, 0, 0, dpr, 0, 0); context.clearRect(0, 0, innerWidth, innerHeight);
+  lastSize = size;
+  context.setTransform(dpr, 0, 0, dpr, 0, 0);
+  if (clip) {
+    context.save();
+    context.beginPath(); context.rect(clip.x0, clip.y0, clip.x1 - clip.x0, clip.y1 - clip.y0); context.clip();
+    context.clearRect(clip.x0, clip.y0, clip.x1 - clip.x0, clip.y1 - clip.y0);
+    clipRect = clip;
+  } else {
+    context.clearRect(0, 0, innerWidth, innerHeight);
+    live = new Set();
+  }
   const children = [...layout.children].sort((a, b) => px(styleOf(a).zIndex) - px(styleOf(b).zIndex));
-  for (const child of children) draw(context, child);
+  try { for (const child of children) draw(context, child); } finally { clipRect = null; }
+  if (clip) context.restore();
+  if (live.size) animated = true;
   if (hint) {
     const s = getComputedStyle(host); context.font = `${s.fontSize} ${s.fontFamily}`;
     const width = Math.min(innerWidth - 16, context.measureText(hint).width + 16), height = px(s.fontSize) + 12;

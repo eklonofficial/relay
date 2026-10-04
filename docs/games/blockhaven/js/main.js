@@ -1,45 +1,46 @@
 // Blockhaven bootstrap: assets, menus, input, camera, frame loop.
-import './page.js?v=mush3vnf';
-import { surfaceDocument as document } from './surface.js?v=mush3vnf';
-import { registerApp } from './veil.js?v=mush3vnf';
-import { movementSamples } from './util/pointer.js?v=mush3vnf';
-import { ask, tell } from './dialog.js?v=mush3vnf';
-import { Demo, DEMO_SEED } from './demo.js?v=mush3vnf';
-import { armorLayerModel, armorLayer, ARMOR_MATERIALS, LEATHER_COLOR, elytraModel } from './data/armor.js?v=mush3vnf';
-import { humanoidPose, processSkin } from './entity/humanoid.js?v=mush3vnf';
-import { TEXTURES, TEX, B, BLOCKS, DIM, DIM_NAMES, SHAPE_OF, SHAPE, props, HEIGHT } from './data/blocks.js?v=mush3vnf';
-import { I, ITEMS } from './data/items.js?v=mush3vnf';
-import { MOBS, PROFESSIONS, playerModel, saddleModel, PLAYER_SKINS } from './data/mobs.js?v=mush3vnf';
-import { Net, cleanCode, cleanName, cleanKey, cleanChat, chatLine, MAX_PLAYERS, wakeRelays, diagnoseNetwork } from './net/net.js?v=mush3vnf';
-import { NameTags } from './net/nametags.js?v=mush3vnf';
-import { BIOMES } from './gen/biomes.js?v=mush3vnf';
-import { generateBlockTextures, drawBlockTexture } from './render/blocktex.js?v=mush3vnf';
-import { generateItemTextures, ITEM_LAYER, FX_LAYER, ITEM_LAYER_COUNT, flatTexFor } from './render/itemtex.js?v=mush3vnf';
-import { Zip, storedPack, savePack, removePack, applyBlockTextures, applyItemTextures, applyArmorTextures, readEntityTexture, indexSounds } from './render/pack.js?v=mush3vnf';
-import { packModel, paintModel, ENTITY, texFactor, faceRects } from './render/mobtex.js?v=mush3vnf';
-import { buildMipChain } from './render/atlas.js?v=mush3vnf';
-import { Renderer, Batch } from './render/renderer.js?v=mush3vnf';
-import { World, UNLOADED } from './world/world.js?v=mush3vnf';
-import { createGenerator } from './gen/index.js?v=mush3vnf';
-import { Game } from './game/game.js?v=mush3vnf';
-import { Interact, crossbowCharge } from './game/interact.js?v=mush3vnf';
-import { SpawnPrep, STATUS_COLOR } from './game/spawnprep.js?v=mush3vnf';
-import { splash } from './splash.js?v=mush3vnf';
-import { Commands } from './game/commands.js?v=mush3vnf';
-import { GUI, HUD } from './game/ui.js?v=mush3vnf';
-import { buildIcons, hudSprites } from './game/icons.js?v=mush3vnf';
-import { Sound } from './game/audio.js?v=mush3vnf';
-import { buildLogo, buttonTexture, dirtTexture, iconDataURL } from './render/logo.js?v=mush3vnf';
-import { computeEnv } from './game/env.js?v=mush3vnf';
-import { guideSections } from './game/guide.js?v=mush3vnf';
-import { listWorlds, loadWorld, saveWorld, deleteWorld } from './game/storage.js?v=mush3vnf';
-import { importJavaWorld, exportJavaWorld } from './game/javaworld.js?v=mush3vnf';
-import { drawModel, rootMatrix, M } from './entity/entity.js?v=mush3vnf';
-import { itemMesh, emitItemMesh, clearItemMeshes } from './entity/itemmesh.js?v=mush3vnf';
-import { Lightning, billboard } from './entity/objects.js?v=mush3vnf';
-import { compose, translation, rotationX, rotationY, rotationZ, scaling, forward, mat4 } from './core/math.js?v=mush3vnf';
-import { hasGlint } from './data/enchantments.js?v=mush3vnf';
-import { BarrelRoll } from './game/barrelroll.js?v=mush3vnf';
+import './page.js?v=mut7vbyz';
+import { surfaceDocument as document } from './surface.js?v=mut7vbyz';
+import { registerApp } from './veil.js?v=mut7vbyz';
+import { movementSamples } from './util/pointer.js?v=mut7vbyz';
+import { ask, tell } from './dialog.js?v=mut7vbyz';
+import { Demo, DEMO_SEED } from './demo.js?v=mut7vbyz';
+import { armorLayerModel, armorLayer, ARMOR_MATERIALS, LEATHER_COLOR, elytraModel } from './data/armor.js?v=mut7vbyz';
+import { humanoidPose, processSkin } from './entity/humanoid.js?v=mut7vbyz';
+import { TEXTURES, TEX, B, BLOCKS, DIM, DIM_NAMES, SHAPE_OF, SHAPE, props, HEIGHT } from './data/blocks.js?v=mut7vbyz';
+import { I, ITEMS } from './data/items.js?v=mut7vbyz';
+import { MOBS, PROFESSIONS, playerModel, saddleModel, PLAYER_SKINS } from './data/mobs.js?v=mut7vbyz';
+import { Net, cleanCode, cleanName, cleanKey, cleanChat, chatLine, MAX_PLAYERS, wakeRelays, diagnoseNetwork } from './net/net.js?v=mut7vbyz';
+import { NameTags } from './net/nametags.js?v=mut7vbyz';
+import { BIOMES } from './gen/biomes.js?v=mut7vbyz';
+import { generateBlockTextures, drawBlockTexture } from './render/blocktex.js?v=mut7vbyz';
+import { cloudTexture } from './render/cloudtex.js?v=mut7vbyz';
+import { generateItemTextures, ITEM_LAYER, FX_LAYER, ITEM_LAYER_COUNT, flatTexFor } from './render/itemtex.js?v=mut7vbyz';
+import { Zip, storedPack, savePack, removePack, applyBlockTextures, applyItemTextures, applyArmorTextures, readEntityTexture, readCloudTexture, indexSounds } from './render/pack.js?v=mut7vbyz';
+import { packModel, paintModel, ENTITY, texFactor, faceRects } from './render/mobtex.js?v=mut7vbyz';
+import { buildMipChain } from './render/atlas.js?v=mut7vbyz';
+import { Renderer, Batch } from './render/renderer.js?v=mut7vbyz';
+import { World, UNLOADED } from './world/world.js?v=mut7vbyz';
+import { createGenerator } from './gen/index.js?v=mut7vbyz';
+import { Game } from './game/game.js?v=mut7vbyz';
+import { Interact, crossbowCharge } from './game/interact.js?v=mut7vbyz';
+import { SpawnPrep, STATUS_COLOR } from './game/spawnprep.js?v=mut7vbyz';
+import { splash } from './splash.js?v=mut7vbyz';
+import { Commands } from './game/commands.js?v=mut7vbyz';
+import { GUI, HUD } from './game/ui.js?v=mut7vbyz';
+import { buildIcons, hudSprites } from './game/icons.js?v=mut7vbyz';
+import { Sound } from './game/audio.js?v=mut7vbyz';
+import { buildLogo, buttonTexture, dirtTexture, iconDataURL } from './render/logo.js?v=mut7vbyz';
+import { computeEnv } from './game/env.js?v=mut7vbyz';
+import { guideSections } from './game/guide.js?v=mut7vbyz';
+import { listWorlds, loadWorld, saveWorld, deleteWorld } from './game/storage.js?v=mut7vbyz';
+import { importJavaWorld, exportJavaWorld } from './game/javaworld.js?v=mut7vbyz';
+import { drawModel, rootMatrix, M } from './entity/entity.js?v=mut7vbyz';
+import { itemMesh, emitItemMesh, clearItemMeshes } from './entity/itemmesh.js?v=mut7vbyz';
+import { Lightning, billboard } from './entity/objects.js?v=mut7vbyz';
+import { compose, translation, rotationX, rotationY, rotationZ, scaling, forward, mat4 } from './core/math.js?v=mut7vbyz';
+import { hasGlint } from './data/enchantments.js?v=mut7vbyz';
+import { BarrelRoll } from './game/barrelroll.js?v=mut7vbyz';
 
 const $ = id => document.getElementById(id);
 // Resolves after the page has painted what was just put on screen.
@@ -51,8 +52,10 @@ const store = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } ca
 const LOW_END = /CrOS/.test(navigator.userAgent) || (navigator.deviceMemory && navigator.deviceMemory <= 4) || (navigator.hardwareConcurrency || 8) <= 4;
 const settings = Object.assign({
   renderDistance: LOW_END ? 6 : 8, fov: 70, sensitivity: 100, brightness: 50, volume: 60, music: 40,
-  bobbing: true, clouds: true, autoJump: true, particles: true, dynamicRes: true, barrelRoll: true, barrelRollYaw: false, graphics: LOW_END ? 1 : 2, rawInput: true, lowLatency: !LOW_END,
+  bobbing: true, clouds: 'fancy', autoJump: true, particles: true, dynamicRes: true, barrelRoll: true, barrelRollYaw: false, graphics: LOW_END ? 1 : 2, rawInput: true, lowLatency: !LOW_END,
 }, load(SETTINGS_KEY) || {});
+// Clouds were on/off; now Java's Fancy / Fast / OFF, plus the soft shader clouds.
+if (typeof settings.clouds === 'boolean') settings.clouds = settings.clouds ? 'fancy' : 'off';
 // Minecraft's default FOV is 70; move anyone still on our old default (75) over once.
 if (!settings.fovMigrated) { if (settings.fov === 75) settings.fov = 70; settings.fovMigrated = true; store(SETTINGS_KEY, settings); }
 const SPLASHES = ['Random ahh edition!', 'Also try Minecraft!', 'Now with elytra!', 'Saddle up!', 'Now with the Nether!', 'Also try the End!', 'Creepers included!', '60 mobs!', 'Villagers will trade!', 'Wild worlds are wild!', 'Custom pixels!', 'Craft everything!', 'Spectator mode!', 'Runs on Chromebooks!', 'Mind the lava!', 'Floating islands!'];
@@ -152,6 +155,7 @@ class App {
     // Textures.
     this.blockTex = generateBlockTextures();
     this.renderer.setBlockTextures(buildMipChain(this.blockTex), TEXTURES.length);
+    this.renderer.setCloudTexture(cloudTexture());
     splash.progress(0.4);
     this.itemTex = generateItemTextures();
     this.renderer.setItemTextures(buildMipChain(this.itemTex), this.itemTex.length);
@@ -786,6 +790,8 @@ class App {
       this.skinPixels[layer] = px; this.renderer.setEntityLayer(layer, px);
     }
     if (nb) { this.renderer.setBlockTextures(buildMipChain(this.blockTex), TEXTURES.length); this.renderer.setAnimations(this.blockAnims); }
+    const clouds = await readCloudTexture(zip);
+    if (clouds) this.renderer.setCloudTexture(clouds);
     const entries = [];
     for (const it of ITEMS) if (ITEM_LAYER[it.key] !== undefined) entries.push([it.key, ITEM_LAYER[it.key], it.block ? flatTexFor(it) : null]);
     for (const f of ['bow_pulling_0', 'bow_pulling_1', 'bow_pulling_2', 'crossbow_pulling_0', 'crossbow_pulling_1', 'crossbow_pulling_2', 'crossbow_arrow', 'crossbow_firework', 'fishing_rod_cast']) if (FX_LAYER[f] !== undefined) entries.push([f, FX_LAYER[f], null]);
@@ -842,7 +848,9 @@ class App {
     bind('set-vol', 'volume', 'Master Volume', vol, unmute);
     bind('set-music', 'music', 'Music', vol, unmute);
     cycle($('set-gfx'), 'Graphics', [[0, 'Fast'], [1, 'Regular'], [2, 'High'], [3, 'PC']], () => Number(settings.graphics), v => { settings.graphics = v; this.applyGraphics(); store(SETTINGS_KEY, settings); });
-    for (const [id, k, label] of [['set-bob', 'bobbing', 'View Bobbing'], ['set-clouds', 'clouds', 'Clouds'], ['set-autojump', 'autoJump', 'Auto-Jump'], ['set-particles', 'particles', 'Particles'], ['set-dynres', 'dynamicRes', 'Dynamic Resolution'], ['set-raw', 'rawInput', 'Raw Input'], ['set-lowlat', 'lowLatency', 'Low Latency'], ['set-dabr', 'barrelRoll', 'Barrel Roll Flight'], ['set-dabryaw', 'barrelRollYaw', 'Flight: Mouse Yaws']]) {
+    // Java's Fancy (3D) and Fast (flat) clouds, or the soft clouds drawn into the sky.
+    cycle($('set-clouds'), 'Clouds', [['fancy', 'Fancy'], ['fast', 'Fast'], ['soft', 'Soft'], ['off', 'OFF']], () => settings.clouds, v => { settings.clouds = v; store(SETTINGS_KEY, settings); });
+    for (const [id, k, label] of [['set-bob', 'bobbing', 'View Bobbing'], ['set-autojump', 'autoJump', 'Auto-Jump'], ['set-particles', 'particles', 'Particles'], ['set-dynres', 'dynamicRes', 'Dynamic Resolution'], ['set-raw', 'rawInput', 'Raw Input'], ['set-lowlat', 'lowLatency', 'Low Latency'], ['set-dabr', 'barrelRoll', 'Barrel Roll Flight'], ['set-dabryaw', 'barrelRollYaw', 'Flight: Mouse Yaws']]) {
       toggle($(id), label, () => !!settings[k], async v => {
         settings[k] = v; if (this.game) this.game.player.autoJump = settings.autoJump;
         if (k === 'lowLatency') { store(SETTINGS_KEY, settings); if (await ask('Low Latency changes how the game draws to the screen and applies after a reload. Reload now?')) location.reload(); }
@@ -1179,7 +1187,7 @@ class App {
     this.panoWorld.update(pano.pos[0], pano.pos[2], panoRadius);
     if (!this.booted) this.bootProgress(panoRadius);
     const env = computeEnv(0, 0.07, forward(pano.yaw, -0.15), 0, 0, settings.brightness / 100);
-    this.renderer.render({ camPos: pano.pos, yaw: pano.yaw, pitch: -0.15, roll: 0, fov: 75, time: this.time, env, medium: 0, renderDistance: Math.min(settings.renderDistance, LOW_END ? 5 : 7), clouds: settings.clouds, chunks: this.panoWorld.chunks.values(), dim: 0, post: { saturation: 1.1 } });
+    this.renderer.render({ camPos: pano.pos, yaw: pano.yaw, pitch: -0.15, roll: 0, fov: 75, time: this.time, env, medium: 0, renderDistance: Math.min(settings.renderDistance, LOW_END ? 5 : 7), clouds: settings.clouds, dayTime: 0.07, chunks: this.panoWorld.chunks.values(), dim: 0, post: { saturation: 1.1 } });
   }
   // LevelLoadingScreen.renderChunks: one pixel per chunk here, scaled to 2x2 GUI px by CSS; a chunk
   // with no status yet is black.
@@ -1283,12 +1291,25 @@ class App {
     for (const b of Object.values(B_)) b.reset();
     const right = [Math.cos(cam.yaw), 0, -Math.sin(cam.yaw)];
     const up = [Math.sin(cam.yaw) * Math.sin(cam.pitch), Math.cos(cam.pitch), Math.cos(cam.yaw) * Math.sin(cam.pitch)];
-    const ctx = { camPos: cam.pos, camRight: right, camUp: up, mobs: B_.mobs, mobsClear: B_.mobsClear, items: B_.items, itemFx: B_.itemFx, blockParticles: B_.blockParticles, blockModels: [], labels: [] };
+    // The camera's view cone (the frustum's corners plus 2 degrees) for skipping what is off screen.
+    const tanV = Math.tan((this.fovCur / 2 + 2) * Math.PI / 180), aspect = this.renderer.width / Math.max(1, this.renderer.height);
+    const coneA = Math.atan(tanV * Math.sqrt(1 + aspect * aspect)), cx = cam.pos[0], cy = cam.pos[1], cz = cam.pos[2];
+    const inView = (x, y, z, r) => {
+      const dx = x - cx, dy = y - cy, dz = z - cz, d = Math.sqrt(dx * dx + dy * dy + dz * dz);
+      if (d <= r) return true;
+      const cos = (dx * f[0] + dy * f[1] + dz * f[2]) / d;
+      return Math.acos(Math.max(-1, Math.min(1, cos))) <= coneA + Math.asin(r / d);
+    };
+    const ctx = { camPos: cam.pos, camRight: right, camUp: up, mobs: B_.mobs, mobsClear: B_.mobsClear, items: B_.items, itemFx: B_.itemFx, blockParticles: B_.blockParticles, blockModels: [], labels: [], inView };
     const maxD2 = (settings.renderDistance * 16) ** 2;
     for (const e of g.entities.list) {
       if (e.dead || e.frozen) continue;
       const dx = e.pos[0] - cam.pos[0], dz = e.pos[2] - cam.pos[2];
       if (dx * dx + dz * dz > Math.min(maxD2, e.mobType === 'ender_dragon' || e.mobType === 'ghast' ? 1e9 : 80 * 80)) continue;
+      // Off screen: mobs (unless they draw beams or bursts or spawn flames from their render), dropped
+      // items and XP orbs. The radius is generous: held items, wings and tails stick out of the box.
+      if ((e.isLiving ? !e.def.laser && !e.beam && e.def.kind !== 'boss' && e.mobType !== 'ghast' && !(e.fire > 0) : e.type === 'item' || e.type === 'xp')
+        && !inView(e.pos[0], e.pos[1] + e.h / 2, e.pos[2], Math.max(e.h, e.hw * 2) * 1.5 + 1)) continue;
       e.render(ctx);
     }
     g.particles.render(ctx);
@@ -1323,7 +1344,7 @@ class App {
     this.post.flash = Math.max(0, this.post.flash - dt * 3);
     this.renderer.render({
       camPos: cam.pos, yaw: cam.yaw, pitch: cam.pitch, roll: cam.roll, fov: this.fovCur, time: this.time, env, medium, wind: rain,
-      renderDistance: settings.renderDistance, clouds: settings.clouds && g.dim === 0, chunks: g.world.chunks.values(), dim: g.dim, rain,
+      renderDistance: settings.renderDistance, clouds: g.dim === 0 ? settings.clouds : 'off', dayTime: g.dayTime, thunder: g.dim === 0 ? g.weather.thunder : 0, chunks: g.world.chunks.values(), dim: g.dim, rain,
       target: target && this.mode === 'play' ? target : null, crack: stage >= 0 && target ? { ...target, stage } : null,
       blockModels: ctx.blockModels,
       solidBatches: [{ batch: B_.mobs, tex: 'mob' }, { batch: B_.items, tex: 'item' }, { batch: B_.blockParticles, tex: 'block' }],
@@ -1375,8 +1396,11 @@ class App {
     // Orthographic: `scale` GUI px a block, the feet at (fx, fy) in the box, depth +-4 blocks.
     const sx = 2 * pv.scale / pv.w, sy = 2 * pv.scale / pv.h;
     const vp = new Float32Array([sx, 0, 0, 0, 0, sy, 0, 0, 0, 0, -0.125, 0, 2 * pv.fx / pv.w - 1, 1 - 2 * pv.fy / pv.h, 0, 1]);
+    // The pixels come back a frame later (read without stalling the GPU), and only when this size.
     const px = this.renderer.renderPreview([{ batch: B_.mobs, tex: 'mob' }, { batch: B_.items, tex: 'item' }], W, H, vp, { env: g.env, time: this.time, blockModels: ctx.blockModels });
-    const img = new ImageData(W, H), row = W * 4;
+    if (!px) return;
+    if (!this.pvImg || this.pvImg.width !== W || this.pvImg.height !== H) this.pvImg = new ImageData(W, H);
+    const img = this.pvImg, row = W * 4;
     for (let y = 0; y < H; y++) img.data.set(px.subarray((H - 1 - y) * row, (H - y) * row), y * row);
     c.getContext('2d').putImageData(img, 0, 0);
   }
@@ -1676,7 +1700,10 @@ class App {
     const boss = $('boss');
     boss.classList.toggle('hidden', !g.bossBar);
     if (g.bossBar) { boss.querySelector('.n').textContent = g.bossBar.name; const bar = boss.querySelector('.b div'); bar.style.width = `${g.bossBar.frac * 100}%`; bar.style.background = g.bossBar.color || ''; }
-    $('onfire').style.opacity = g.stats.fire > 0 && this.view === 0 && g.alive && g.survivalLike ? 1 : 0;
+    const burning = g.stats.fire > 0 && this.view === 0 && g.alive && g.survivalLike;
+    this.fireShownT = burning ? 0.3 : Math.max(0, (this.fireShownT || 0) - dt); // through the 0.25 s fade-out
+    $('onfire').style.opacity = burning ? 1 : 0;
+    $('onfire').classList.toggle('on', this.fireShownT > 0);
     const act = $('action');
     if (g.mode === 'spectator') { act.textContent = 'Spectator mode — fly through blocks · scroll to change speed · /gamemode to leave'; act.style.opacity = this.specHintT === undefined || this.specHintT > 0 ? 1 : 0; this.specHintT = (this.specHintT ?? 6) - dt; }
     else if (this.actionT > 0) { this.actionT -= dt; act.textContent = this.actionText; act.style.opacity = Math.min(1, this.actionT); this.specHintT = undefined; }
@@ -1691,11 +1718,11 @@ class App {
         const b = BIOMES[g.world.biomeAt(pos[0], pos[2])];
         const facing = ['south (+Z)', 'west (-X)', 'north (-Z)', 'east (+X)'][((Math.round(-p.yaw / (Math.PI / 2)) % 4) + 6) % 4];
         const hours = Math.floor((g.dayTime * 24 + 6) % 24), mins = Math.floor((g.dayTime * 1440) % 60);
-        $('debug').textContent = `Blockhaven  ${this.fps} fps  (${Math.round(this.renderScale * 100)}% res)\n` +
+        $('debug').textContent = `Blockhaven  ${this.fps} fps  ${(1000 / Math.max(1, this.fps)).toFixed(1)} ms  (${Math.round(this.renderScale * 100)}% res)\n` +
           `XYZ: ${pos[0].toFixed(2)} / ${pos[1].toFixed(2)} / ${pos[2].toFixed(2)}   Facing: ${facing}\n` +
           `Chunk: ${Math.floor(pos[0] / 16)} ${Math.floor(pos[2] / 16)}   Biome: ${b ? b.name : '?'}   Dimension: ${DIM_NAMES[g.dim]}\n` +
           `Light: sky ${l.sky} block ${l.blk}   Day ${g.day + 1} ${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}   ${g.weather.rain > 0.5 ? (g.weather.thunder > 0.5 ? 'Thunder' : 'Rain') : 'Clear'}\n` +
-          `Chunks: ${g.world.chunks.size} loaded, ${this.renderer.stats.chunks} drawn   Quads: ${this.renderer.stats.quads.toLocaleString()}   Entities: ${g.entities.list.length}\n` +
+          `Chunks: ${g.world.chunks.size} loaded, ${this.renderer.stats.chunks} drawn   Quads: ${this.renderer.stats.quads.toLocaleString()}   Draws: ${this.renderer.stats.draws}   Entities: ${g.entities.list.length}\n` +
           `Mode: ${g.mode}${g.hardcore ? ' (hardcore)' : ''}   Difficulty: ${g.difficulty}   Seed: ${g.seed}\n` +
           `Mouse: ${this.mouseRate()} samples/s via ${this.mouseStats.src || '-'}   Raw input: ${this.rawInput === true ? 'on' : this.rawInput === false ? 'off' : '?'}   Low latency: ${settings.lowLatency ? 'on' : 'off'}` +
           (t ? `\nTarget: ${props(t.id, t.meta).name} @ ${t.x} ${t.y} ${t.z}` : this.interact.entityTarget ? `\nTarget: ${this.interact.entityTarget.displayName || this.interact.entityTarget.type} (${Math.ceil(this.interact.entityTarget.health || 0)} HP)` : '');

@@ -180,7 +180,9 @@
       radial-gradient(ellipse 8% 62% at 62% 100%, rgba(255,235,140,0.7), rgba(255,130,25,0.45) 45%, transparent 70%),
       radial-gradient(ellipse 11% 88% at 78% 100%, rgba(255,225,120,0.8), rgba(255,120,20,0.5) 45%, transparent 70%),
       radial-gradient(ellipse 9% 72% at 94% 100%, rgba(255,235,140,0.85), rgba(255,140,30,0.55) 45%, transparent 70%);
-    animation: flick 0.45s steps(4) infinite; image-rendering: pixelated; }
+    animation: flick 0.45s steps(4) infinite paused; image-rendering: pixelated; }
+  /* Flickers only while shown (and fading out): a running animation repaints the whole interface every frame. */
+  #onfire.on { animation-play-state: running; }
   @keyframes flick { 0% { transform: scale(1, 1); } 25% { transform: scale(1.02, 1.1); } 50% { transform: scale(0.99, 0.94); } 75% { transform: scale(1.01, 1.05); } 100% { transform: scale(1, 1); } }
   #demo { position: fixed; inset: 0; pointer-events: none; z-index: 20; }
   #demo .bar { position: absolute; left: 0; right: 0; height: 9vh; background: #000; }
@@ -279,7 +281,7 @@
   .glint { position: absolute; left: calc(var(--u) * var(--o)); top: calc(var(--u) * var(--o)); width: calc(var(--u) * 16); height: calc(var(--u) * 16); pointer-events: none;
     -webkit-mask-size: 100% 100%; mask-size: 100% 100%; mix-blend-mode: screen; opacity: 0.75;
     background: linear-gradient(115deg, transparent 20%, rgba(170,90,255,0.75) 32%, rgba(220,160,255,0.85) 38%, transparent 50%, transparent 70%, rgba(150,80,240,0.6) 80%, transparent 90%) 0 0 / 300% 300%;
-    animation: glint 3s linear infinite; }
+    animation: glint 3s steps(180) infinite; } /* 60 positions a second, each rasterised once and reused */
   @keyframes glint { from { background-position: 100% 100%; } to { background-position: 0% 0%; } }
   #tooltip .t-red { color: #ff5555; } #tooltip .t-ench { color: #aaaaaa; } #tooltip .t-curse { color: #ff5555; } #tooltip .t-aqua { color: #55ffff; } #tooltip .t-yellow { color: #ffff55; }
   .ti { --o: 0; position: absolute; top: calc(var(--u) * 2); width: calc(var(--u) * 16); height: calc(var(--u) * 16); }
@@ -359,7 +361,7 @@
 <body>
 <div id="boot"><canvas id="boot-canvas"></canvas></div>
 <!-- data-modules: how many modules the page loads, kept up to date by tools/stamp.mjs (the splash's download progress) -->
-<script type="module" id="boot-script" src="js/splash.js?v=mush3vnf" data-modules="89"></script>
+<script type="module" id="boot-script" src="js/splash.js?v=mut7vbyz" data-modules="90"></script>
 <canvas id="game"></canvas>
 
 <div id="demo" class="hidden">
@@ -541,7 +543,7 @@
 </div>
 
 <div id="error" class="screen dirt hidden"></div>
-<script defer src="net-config.js?v=mush3vnf"></script>
-<script type="module" src="js/main.js?v=mush3vnf"></script>
+<script defer src="net-config.js?v=mut7vbyz"></script>
+<script type="module" src="js/main.js?v=mut7vbyz"></script>
 </body>
 </html>
