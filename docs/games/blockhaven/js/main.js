@@ -1,46 +1,46 @@
 // Blockhaven bootstrap: assets, menus, input, camera, frame loop.
-import './page.js?v=mut8woro';
-import { surfaceDocument as document } from './surface.js?v=mut8woro';
-import { registerApp } from './veil.js?v=mut8woro';
-import { movementSamples } from './util/pointer.js?v=mut8woro';
-import { ask, tell } from './dialog.js?v=mut8woro';
-import { Demo, DEMO_SEED } from './demo.js?v=mut8woro';
-import { armorLayerModel, armorLayer, ARMOR_MATERIALS, LEATHER_COLOR, elytraModel } from './data/armor.js?v=mut8woro';
-import { humanoidPose, processSkin } from './entity/humanoid.js?v=mut8woro';
-import { TEXTURES, TEX, B, BLOCKS, DIM, DIM_NAMES, SHAPE_OF, SHAPE, props, HEIGHT } from './data/blocks.js?v=mut8woro';
-import { I, ITEMS } from './data/items.js?v=mut8woro';
-import { MOBS, PROFESSIONS, playerModel, saddleModel, PLAYER_SKINS } from './data/mobs.js?v=mut8woro';
-import { Net, cleanCode, cleanName, cleanKey, cleanChat, chatLine, MAX_PLAYERS, wakeRelays, diagnoseNetwork } from './net/net.js?v=mut8woro';
-import { NameTags } from './net/nametags.js?v=mut8woro';
-import { BIOMES } from './gen/biomes.js?v=mut8woro';
-import { generateBlockTextures, drawBlockTexture } from './render/blocktex.js?v=mut8woro';
-import { cloudTexture } from './render/cloudtex.js?v=mut8woro';
-import { generateItemTextures, ITEM_LAYER, FX_LAYER, ITEM_LAYER_COUNT, flatTexFor } from './render/itemtex.js?v=mut8woro';
-import { Zip, storedPack, savePack, removePack, applyBlockTextures, applyItemTextures, applyArmorTextures, readEntityTexture, readCloudTexture, indexSounds } from './render/pack.js?v=mut8woro';
-import { packModel, paintModel, ENTITY, texFactor, faceRects } from './render/mobtex.js?v=mut8woro';
-import { buildMipChain } from './render/atlas.js?v=mut8woro';
-import { Renderer, Batch } from './render/renderer.js?v=mut8woro';
-import { World, UNLOADED } from './world/world.js?v=mut8woro';
-import { createGenerator } from './gen/index.js?v=mut8woro';
-import { Game } from './game/game.js?v=mut8woro';
-import { Interact, crossbowCharge } from './game/interact.js?v=mut8woro';
-import { SpawnPrep, STATUS_COLOR } from './game/spawnprep.js?v=mut8woro';
-import { splash } from './splash.js?v=mut8woro';
-import { Commands } from './game/commands.js?v=mut8woro';
-import { GUI, HUD } from './game/ui.js?v=mut8woro';
-import { buildIcons, hudSprites } from './game/icons.js?v=mut8woro';
-import { Sound } from './game/audio.js?v=mut8woro';
-import { buildLogo, buttonTexture, dirtTexture, iconDataURL } from './render/logo.js?v=mut8woro';
-import { computeEnv } from './game/env.js?v=mut8woro';
-import { guideSections } from './game/guide.js?v=mut8woro';
-import { listWorlds, loadWorld, saveWorld, deleteWorld } from './game/storage.js?v=mut8woro';
-import { importJavaWorld, exportJavaWorld } from './game/javaworld.js?v=mut8woro';
-import { drawModel, rootMatrix, M } from './entity/entity.js?v=mut8woro';
-import { itemMesh, emitItemMesh, clearItemMeshes } from './entity/itemmesh.js?v=mut8woro';
-import { Lightning, billboard } from './entity/objects.js?v=mut8woro';
-import { compose, translation, rotationX, rotationY, rotationZ, scaling, forward, mat4 } from './core/math.js?v=mut8woro';
-import { hasGlint } from './data/enchantments.js?v=mut8woro';
-import { BarrelRoll } from './game/barrelroll.js?v=mut8woro';
+import './page.js?v=mutb2tbl';
+import { surfaceDocument as document } from './surface.js?v=mutb2tbl';
+import { registerApp } from './veil.js?v=mutb2tbl';
+import { movementSamples } from './util/pointer.js?v=mutb2tbl';
+import { ask, tell } from './dialog.js?v=mutb2tbl';
+import { Demo, DEMO_SEED } from './demo.js?v=mutb2tbl';
+import { armorLayerModel, armorLayer, ARMOR_MATERIALS, LEATHER_COLOR, elytraModel } from './data/armor.js?v=mutb2tbl';
+import { humanoidPose, processSkin } from './entity/humanoid.js?v=mutb2tbl';
+import { TEXTURES, TEX, B, BLOCKS, DIM, DIM_NAMES, SHAPE_OF, SHAPE, props, HEIGHT } from './data/blocks.js?v=mutb2tbl';
+import { I, ITEMS } from './data/items.js?v=mutb2tbl';
+import { MOBS, PROFESSIONS, playerModel, saddleModel, PLAYER_SKINS } from './data/mobs.js?v=mutb2tbl';
+import { Net, cleanCode, cleanName, cleanKey, cleanChat, chatLine, MAX_PLAYERS, wakeRelays, diagnoseNetwork } from './net/net.js?v=mutb2tbl';
+import { NameTags } from './net/nametags.js?v=mutb2tbl';
+import { BIOMES } from './gen/biomes.js?v=mutb2tbl';
+import { generateBlockTextures, drawBlockTexture } from './render/blocktex.js?v=mutb2tbl';
+import { cloudTexture } from './render/cloudtex.js?v=mutb2tbl';
+import { generateItemTextures, ITEM_LAYER, FX_LAYER, ITEM_LAYER_COUNT, flatTexFor } from './render/itemtex.js?v=mutb2tbl';
+import { Zip, storedPack, savePack, removePack, applyBlockTextures, applyItemTextures, applyArmorTextures, readEntityTexture, readCloudTexture, indexSounds } from './render/pack.js?v=mutb2tbl';
+import { packModel, paintModel, ENTITY, texFactor, faceRects } from './render/mobtex.js?v=mutb2tbl';
+import { buildMipChain } from './render/atlas.js?v=mutb2tbl';
+import { Renderer, Batch } from './render/renderer.js?v=mutb2tbl';
+import { World, UNLOADED } from './world/world.js?v=mutb2tbl';
+import { createGenerator } from './gen/index.js?v=mutb2tbl';
+import { Game } from './game/game.js?v=mutb2tbl';
+import { Interact, crossbowCharge } from './game/interact.js?v=mutb2tbl';
+import { SpawnPrep, STATUS_COLOR } from './game/spawnprep.js?v=mutb2tbl';
+import { splash } from './splash.js?v=mutb2tbl';
+import { Commands } from './game/commands.js?v=mutb2tbl';
+import { GUI, HUD } from './game/ui.js?v=mutb2tbl';
+import { buildIcons, hudSprites } from './game/icons.js?v=mutb2tbl';
+import { Sound } from './game/audio.js?v=mutb2tbl';
+import { buildLogo, buttonTexture, dirtTexture, iconDataURL } from './render/logo.js?v=mutb2tbl';
+import { computeEnv } from './game/env.js?v=mutb2tbl';
+import { guideSections } from './game/guide.js?v=mutb2tbl';
+import { listWorlds, loadWorld, saveWorld, deleteWorld } from './game/storage.js?v=mutb2tbl';
+import { importJavaWorld, exportJavaWorld } from './game/javaworld.js?v=mutb2tbl';
+import { drawModel, rootMatrix, M } from './entity/entity.js?v=mutb2tbl';
+import { itemMesh, emitItemMesh, clearItemMeshes } from './entity/itemmesh.js?v=mutb2tbl';
+import { Lightning, billboard } from './entity/objects.js?v=mutb2tbl';
+import { compose, translation, rotationX, rotationY, rotationZ, scaling, forward, mat4 } from './core/math.js?v=mutb2tbl';
+import { hasGlint } from './data/enchantments.js?v=mutb2tbl';
+import { BarrelRoll } from './game/barrelroll.js?v=mutb2tbl';
 
 const $ = id => document.getElementById(id);
 // Resolves after the page has painted what was just put on screen.
@@ -1260,7 +1260,8 @@ class App {
       this.mouse.leftClicked = this.mouse.rightClicked = false;
       if (this.gui.isOpen) this.gui.update();
       this.saveT += dt;
-      if (this.saveT > 45) { this.saveT = 0; this.saveGame(); }
+      // Autosave between frames when the browser has a moment (or after 2 s), not in the middle of one.
+      if (this.saveT > 45) { this.saveT = 0; if (window.requestIdleCallback) requestIdleCallback(() => this.saveGame(), { timeout: 2000 }); else this.saveGame(); }
     }
     if (this.sleeping) {
       this.sleeping.t += dt;

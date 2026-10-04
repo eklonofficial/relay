@@ -2,6 +2,7 @@
 // An entity has pos (feet centre), vel, hw (half width), h (height), onGround, stepHeight.
 const EPS = 1e-5;
 const boxes = [];
+const MOVE = [0, 0, 0]; // sweep's result, read straight away
 
 function sweep(world, e, dx, dy, dz) {
   const hw = e.hw, h = e.h, p = e.pos;
@@ -30,7 +31,8 @@ function sweep(world, e, dx, dy, dz) {
     if (dz > 0 && b[2] >= az1 - EPS) dz = Math.min(dz, b[2] - az1);
     else if (dz < 0 && b[5] <= az0 + EPS) dz = Math.max(dz, b[5] - az0);
   }
-  return [dx, dy, dz];
+  MOVE[0] = dx; MOVE[1] = dy; MOVE[2] = dz;
+  return MOVE;
 }
 
 // Moves the entity by (dx,dy,dz) and updates onGround / collision flags. Returns true if anything blocked.
@@ -46,23 +48,23 @@ export function moveEntity(world, e, dx, dy, dz) {
       dz = Math.abs(dz) < step ? 0 : dz - Math.sign(dz) * step;
     }
   }
-  let [mx, my, mz] = sweep(world, e, dx, dy, dz);
+  const m0 = sweep(world, e, dx, dy, dz), mx = m0[0], my = m0[1], mz = m0[2];
   const blockedH = Math.abs(mx - dx) > 1e-7 || Math.abs(mz - dz) > 1e-7;
   const stepH = e.stepHeight ?? 0.6;
   if (blockedH && stepH > 0 && (e.onGround || (dy < 0 && Math.abs(my - dy) > 1e-7))) {
     // Try stepping up.
-    const saved = e.pos.slice();
-    const [, uy] = sweep(world, e, 0, stepH, 0);
+    const s0 = e.pos[0], s1 = e.pos[1], s2 = e.pos[2];
+    const uy = sweep(world, e, 0, stepH, 0)[1];
     e.pos[1] += uy;
-    const [sx, , sz] = sweep(world, e, dx, 0, dz);
+    const m = sweep(world, e, dx, 0, dz), sx = m[0], sz = m[2];
     e.pos[0] += sx; e.pos[2] += sz;
-    const [, dy2] = sweep(world, e, 0, -uy, 0);
+    const dy2 = sweep(world, e, 0, -uy, 0)[1];
     e.pos[1] += dy2;
     if (sx * sx + sz * sz > mx * mx + mz * mz + 1e-6) {
       e.onGround = true; e.collidedH = false; e.stepped = true;
       return true;
     }
-    e.pos[0] = saved[0]; e.pos[1] = saved[1]; e.pos[2] = saved[2];
+    e.pos[0] = s0; e.pos[1] = s1; e.pos[2] = s2;
   }
   e.pos[0] += mx; e.pos[1] += my; e.pos[2] += mz;
   e.collidedH = blockedH;

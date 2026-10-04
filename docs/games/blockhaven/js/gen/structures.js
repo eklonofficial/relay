@@ -4,12 +4,12 @@
 // written into every chunk it overlaps (ChunkBuilder clips writes), so they span chunk borders
 // seamlessly. Planning must never read the chunk, only the terrain functions, so every chunk
 // sees the same plan.
-import { hash2, hash3, mulberry32 } from '../core/noise.js?v=mut8woro';
-import { B, st, DIM, SEA, CHUNK, COLORS, CROP_AGE_SHIFT } from '../data/blocks.js?v=mut8woro';
-import { BI, OCEANS } from './biomes.js?v=mut8woro';
-import { NETHER_LAVA } from './nether.js?v=mut8woro';
-import { END_OUTER_R } from './end.js?v=mut8woro';
-import { randomBookEnchant, enchantWithLevels } from '../data/enchantments.js?v=mut8woro';
+import { hash2, hash3, mulberry32 } from '../core/noise.js?v=mutb2tbl';
+import { B, st, DIM, SEA, CHUNK, COLORS, CROP_AGE_SHIFT } from '../data/blocks.js?v=mutb2tbl';
+import { BI, OCEANS } from './biomes.js?v=mutb2tbl';
+import { NETHER_LAVA } from './nether.js?v=mutb2tbl';
+import { END_OUTER_R } from './end.js?v=mutb2tbl';
+import { randomBookEnchant, enchantWithLevels } from '../data/enchantments.js?v=mutb2tbl';
 
 const DIRS = [[0, 1], [-1, 0], [0, -1], [1, 0]]; // +z, -x, -z, +x (same as placement code)
 const S = k => st(k);

@@ -1,9 +1,9 @@
 // Block simulation: liquids, gravity, support, random ticks (crops, saplings, grass, fire, cacti).
-import { B, BLOCKS, SOLID, OPAQUE, SHAPE_OF, SHAPE, CROP_STAGES, CROP_AGE_SHIFT, WATERLOGGED, props, st, DIM } from '../data/blocks.js?v=mut8woro';
-import { amountAt, heightAt, isWater, sameFluid } from './fluid.js?v=mut8woro';
-import { UNLOADED } from '../world/world.js?v=mut8woro';
-import * as T from '../gen/trees.js?v=mut8woro';
-import { KIND } from './redstone.js?v=mut8woro';
+import { B, BLOCKS, SOLID, OPAQUE, SHAPE_OF, SHAPE, CROP_STAGES, CROP_AGE_SHIFT, WATERLOGGED, props, st, DIM } from '../data/blocks.js?v=mutb2tbl';
+import { amountAt, heightAt, isWater, sameFluid } from './fluid.js?v=mutb2tbl';
+import { UNLOADED } from '../world/world.js?v=mutb2tbl';
+import * as T from '../gen/trees.js?v=mutb2tbl';
+import { KIND } from './redstone.js?v=mutb2tbl';
 
 const NB4 = [[1, 0], [-1, 0], [0, 1], [0, -1]];
 const k3 = (x, y, z) => `${x},${y},${z}`;
@@ -24,17 +24,20 @@ function flameOf(id) {
   return v;
 }
 const DIRS6 = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]];
+const SELF_AND_6 = [[0, 0, 0], ...DIRS6];
 
 const NEEDS_GROUND = new Set([SHAPE.CROSS, SHAPE.CROP, SHAPE.CARPET, SHAPE.SNOW, SHAPE.RAIL, SHAPE.DOOR, SHAPE.FIRE, SHAPE.CAMPFIRE]);
 
 export class Sim {
-  constructor(game) { this.game = game; this.queue = new Map(); this.time = 0; this.fires = new Map(); }
+  // queue: scheduled block updates by position; nextAt: no update in it is due before then (so a
+  // frame with nothing due skips looking through it).
+  constructor(game) { this.game = game; this.queue = new Map(); this.nextAt = Infinity; this.time = 0; this.fires = new Map(); }
   get world() { return this.game.world; }
   schedule(x, y, z, delay) {
     const key = k3(x, y, z);
     const at = this.time + delay;
     const cur = this.queue.get(key);
-    if (!cur || cur.at > at) this.queue.set(key, { x, y, z, at });
+    if (!cur || cur.at > at) { this.queue.set(key, { x, y, z, at }); if (at < this.nextAt) this.nextAt = at; }
   }
   isLiquid(id) { return id === B.WATER || id === B.LAVA; }
   delayFor(id) { return id === B.LAVA ? (this.game.dim === DIM.NETHER ? 0.5 : 1.5) : 0.25; }
@@ -42,7 +45,7 @@ export class Sim {
   // Called for every block change.
   onChange(x, y, z) {
     if (this.world.getBlock(x, y, z) === B.FIRE) this.trackFire(x, y, z); else this.fires.delete(k3(x, y, z));
-    for (const [dx, dy, dz] of [[0, 0, 0], [1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]]) {
+    for (const [dx, dy, dz] of SELF_AND_6) {
       const id = this.world.getBlock(x + dx, y + dy, z + dz);
       if (id === UNLOADED) continue;
       if (id === B.LAVA && this.lavaReact(x + dx, y + dy, z + dz)) continue; // neighborChanged reacts at once
@@ -58,7 +61,14 @@ export class Sim {
     this.time += dt;
     let budget = 400;
     const due = [];
-    for (const [key, u] of this.queue) { if (u.at <= this.time) { due.push(u); this.queue.delete(key); if (due.length >= budget) break; } }
+    if (this.nextAt <= this.time) {
+      let next = Infinity, full = false;
+      for (const [key, u] of this.queue) {
+        if (u.at <= this.time) { due.push(u); this.queue.delete(key); if (due.length >= budget) { full = true; break; } }
+        else if (u.at < next) next = u.at;
+      }
+      this.nextAt = full ? -Infinity : next;
+    }
     for (const u of due) this.tick(u.x, u.y, u.z);
     this.fireTicks();
     this.randomTicks(dt);

@@ -1,11 +1,11 @@
 // Overworld generator: climate-driven biomes, 3D density terrain, noise + worm caves, underground
 // biomes, ores, surface rules, trees and vegetation. World types: 'default', 'wild' (amplified,
 // floating islands, stone pillars and arches) and 'flat'.
-import { Simplex, hash2, hash3, mulberry32 } from '../core/noise.js?v=mut8woro';
-import { B, st, CHUNK, HEIGHT, SEA, COLORS } from '../data/blocks.js?v=mut8woro';
-import { BI, OCEANS, COLD } from './biomes.js?v=mut8woro';
-import { ChunkBuilder, CI, columnTops } from './chunk.js?v=mut8woro';
-import * as T from './trees.js?v=mut8woro';
+import { Simplex, hash2, hash3, mulberry32 } from '../core/noise.js?v=mutb2tbl';
+import { B, st, CHUNK, HEIGHT, SEA, COLORS } from '../data/blocks.js?v=mutb2tbl';
+import { BI, OCEANS, COLD } from './biomes.js?v=mutb2tbl';
+import { ChunkBuilder, CI, columnTops } from './chunk.js?v=mutb2tbl';
+import * as T from './trees.js?v=mutb2tbl';
 
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
