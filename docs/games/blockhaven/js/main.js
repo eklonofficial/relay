@@ -1,45 +1,46 @@
 // Blockhaven bootstrap: assets, menus, input, camera, frame loop.
-import './page.js?v=mut6b6gv';
-import { surfaceDocument as document } from './surface.js?v=mut6b6gv';
-import { registerApp } from './veil.js?v=mut6b6gv';
-import { movementSamples } from './util/pointer.js?v=mut6b6gv';
-import { ask, tell } from './dialog.js?v=mut6b6gv';
-import { Demo, DEMO_SEED } from './demo.js?v=mut6b6gv';
-import { armorLayerModel, armorLayer, ARMOR_MATERIALS, LEATHER_COLOR, elytraModel } from './data/armor.js?v=mut6b6gv';
-import { humanoidPose, processSkin } from './entity/humanoid.js?v=mut6b6gv';
-import { TEXTURES, TEX, B, BLOCKS, DIM, DIM_NAMES, SHAPE_OF, SHAPE, props, HEIGHT } from './data/blocks.js?v=mut6b6gv';
-import { I, ITEMS } from './data/items.js?v=mut6b6gv';
-import { MOBS, PROFESSIONS, playerModel, saddleModel, PLAYER_SKINS } from './data/mobs.js?v=mut6b6gv';
-import { Net, cleanCode, cleanName, cleanKey, cleanChat, chatLine, MAX_PLAYERS, wakeRelays, diagnoseNetwork } from './net/net.js?v=mut6b6gv';
-import { NameTags } from './net/nametags.js?v=mut6b6gv';
-import { BIOMES } from './gen/biomes.js?v=mut6b6gv';
-import { generateBlockTextures, drawBlockTexture } from './render/blocktex.js?v=mut6b6gv';
-import { generateItemTextures, ITEM_LAYER, FX_LAYER, ITEM_LAYER_COUNT, flatTexFor } from './render/itemtex.js?v=mut6b6gv';
-import { Zip, storedPack, savePack, removePack, applyBlockTextures, applyItemTextures, applyArmorTextures, readEntityTexture, indexSounds } from './render/pack.js?v=mut6b6gv';
-import { packModel, paintModel, ENTITY, texFactor, faceRects } from './render/mobtex.js?v=mut6b6gv';
-import { buildMipChain } from './render/atlas.js?v=mut6b6gv';
-import { Renderer, Batch } from './render/renderer.js?v=mut6b6gv';
-import { World, UNLOADED } from './world/world.js?v=mut6b6gv';
-import { createGenerator } from './gen/index.js?v=mut6b6gv';
-import { Game } from './game/game.js?v=mut6b6gv';
-import { Interact, crossbowCharge } from './game/interact.js?v=mut6b6gv';
-import { SpawnPrep, STATUS_COLOR } from './game/spawnprep.js?v=mut6b6gv';
-import { splash } from './splash.js?v=mut6b6gv';
-import { Commands } from './game/commands.js?v=mut6b6gv';
-import { GUI, HUD } from './game/ui.js?v=mut6b6gv';
-import { buildIcons, hudSprites } from './game/icons.js?v=mut6b6gv';
-import { Sound } from './game/audio.js?v=mut6b6gv';
-import { buildLogo, buttonTexture, dirtTexture, iconDataURL } from './render/logo.js?v=mut6b6gv';
-import { computeEnv } from './game/env.js?v=mut6b6gv';
-import { guideSections } from './game/guide.js?v=mut6b6gv';
-import { listWorlds, loadWorld, saveWorld, deleteWorld } from './game/storage.js?v=mut6b6gv';
-import { importJavaWorld, exportJavaWorld } from './game/javaworld.js?v=mut6b6gv';
-import { drawModel, rootMatrix, M } from './entity/entity.js?v=mut6b6gv';
-import { itemMesh, emitItemMesh, clearItemMeshes } from './entity/itemmesh.js?v=mut6b6gv';
-import { Lightning, billboard } from './entity/objects.js?v=mut6b6gv';
-import { compose, translation, rotationX, rotationY, rotationZ, scaling, forward, mat4 } from './core/math.js?v=mut6b6gv';
-import { hasGlint } from './data/enchantments.js?v=mut6b6gv';
-import { BarrelRoll } from './game/barrelroll.js?v=mut6b6gv';
+import './page.js?v=mut7vbyz';
+import { surfaceDocument as document } from './surface.js?v=mut7vbyz';
+import { registerApp } from './veil.js?v=mut7vbyz';
+import { movementSamples } from './util/pointer.js?v=mut7vbyz';
+import { ask, tell } from './dialog.js?v=mut7vbyz';
+import { Demo, DEMO_SEED } from './demo.js?v=mut7vbyz';
+import { armorLayerModel, armorLayer, ARMOR_MATERIALS, LEATHER_COLOR, elytraModel } from './data/armor.js?v=mut7vbyz';
+import { humanoidPose, processSkin } from './entity/humanoid.js?v=mut7vbyz';
+import { TEXTURES, TEX, B, BLOCKS, DIM, DIM_NAMES, SHAPE_OF, SHAPE, props, HEIGHT } from './data/blocks.js?v=mut7vbyz';
+import { I, ITEMS } from './data/items.js?v=mut7vbyz';
+import { MOBS, PROFESSIONS, playerModel, saddleModel, PLAYER_SKINS } from './data/mobs.js?v=mut7vbyz';
+import { Net, cleanCode, cleanName, cleanKey, cleanChat, chatLine, MAX_PLAYERS, wakeRelays, diagnoseNetwork } from './net/net.js?v=mut7vbyz';
+import { NameTags } from './net/nametags.js?v=mut7vbyz';
+import { BIOMES } from './gen/biomes.js?v=mut7vbyz';
+import { generateBlockTextures, drawBlockTexture } from './render/blocktex.js?v=mut7vbyz';
+import { cloudTexture } from './render/cloudtex.js?v=mut7vbyz';
+import { generateItemTextures, ITEM_LAYER, FX_LAYER, ITEM_LAYER_COUNT, flatTexFor } from './render/itemtex.js?v=mut7vbyz';
+import { Zip, storedPack, savePack, removePack, applyBlockTextures, applyItemTextures, applyArmorTextures, readEntityTexture, readCloudTexture, indexSounds } from './render/pack.js?v=mut7vbyz';
+import { packModel, paintModel, ENTITY, texFactor, faceRects } from './render/mobtex.js?v=mut7vbyz';
+import { buildMipChain } from './render/atlas.js?v=mut7vbyz';
+import { Renderer, Batch } from './render/renderer.js?v=mut7vbyz';
+import { World, UNLOADED } from './world/world.js?v=mut7vbyz';
+import { createGenerator } from './gen/index.js?v=mut7vbyz';
+import { Game } from './game/game.js?v=mut7vbyz';
+import { Interact, crossbowCharge } from './game/interact.js?v=mut7vbyz';
+import { SpawnPrep, STATUS_COLOR } from './game/spawnprep.js?v=mut7vbyz';
+import { splash } from './splash.js?v=mut7vbyz';
+import { Commands } from './game/commands.js?v=mut7vbyz';
+import { GUI, HUD } from './game/ui.js?v=mut7vbyz';
+import { buildIcons, hudSprites } from './game/icons.js?v=mut7vbyz';
+import { Sound } from './game/audio.js?v=mut7vbyz';
+import { buildLogo, buttonTexture, dirtTexture, iconDataURL } from './render/logo.js?v=mut7vbyz';
+import { computeEnv } from './game/env.js?v=mut7vbyz';
+import { guideSections } from './game/guide.js?v=mut7vbyz';
+import { listWorlds, loadWorld, saveWorld, deleteWorld } from './game/storage.js?v=mut7vbyz';
+import { importJavaWorld, exportJavaWorld } from './game/javaworld.js?v=mut7vbyz';
+import { drawModel, rootMatrix, M } from './entity/entity.js?v=mut7vbyz';
+import { itemMesh, emitItemMesh, clearItemMeshes } from './entity/itemmesh.js?v=mut7vbyz';
+import { Lightning, billboard } from './entity/objects.js?v=mut7vbyz';
+import { compose, translation, rotationX, rotationY, rotationZ, scaling, forward, mat4 } from './core/math.js?v=mut7vbyz';
+import { hasGlint } from './data/enchantments.js?v=mut7vbyz';
+import { BarrelRoll } from './game/barrelroll.js?v=mut7vbyz';
 
 const $ = id => document.getElementById(id);
 // Resolves after the page has painted what was just put on screen.
@@ -51,8 +52,10 @@ const store = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } ca
 const LOW_END = /CrOS/.test(navigator.userAgent) || (navigator.deviceMemory && navigator.deviceMemory <= 4) || (navigator.hardwareConcurrency || 8) <= 4;
 const settings = Object.assign({
   renderDistance: LOW_END ? 6 : 8, fov: 70, sensitivity: 100, brightness: 50, volume: 60, music: 40,
-  bobbing: true, clouds: true, autoJump: true, particles: true, dynamicRes: true, barrelRoll: true, barrelRollYaw: false, graphics: LOW_END ? 1 : 2, rawInput: true, lowLatency: !LOW_END,
+  bobbing: true, clouds: 'fancy', autoJump: true, particles: true, dynamicRes: true, barrelRoll: true, barrelRollYaw: false, graphics: LOW_END ? 1 : 2, rawInput: true, lowLatency: !LOW_END,
 }, load(SETTINGS_KEY) || {});
+// Clouds were on/off; now Java's Fancy / Fast / OFF, plus the soft shader clouds.
+if (typeof settings.clouds === 'boolean') settings.clouds = settings.clouds ? 'fancy' : 'off';
 // Minecraft's default FOV is 70; move anyone still on our old default (75) over once.
 if (!settings.fovMigrated) { if (settings.fov === 75) settings.fov = 70; settings.fovMigrated = true; store(SETTINGS_KEY, settings); }
 const SPLASHES = ['Random ahh edition!', 'Also try Minecraft!', 'Now with elytra!', 'Saddle up!', 'Now with the Nether!', 'Also try the End!', 'Creepers included!', '60 mobs!', 'Villagers will trade!', 'Wild worlds are wild!', 'Custom pixels!', 'Craft everything!', 'Spectator mode!', 'Runs on Chromebooks!', 'Mind the lava!', 'Floating islands!'];
@@ -152,6 +155,7 @@ class App {
     // Textures.
     this.blockTex = generateBlockTextures();
     this.renderer.setBlockTextures(buildMipChain(this.blockTex), TEXTURES.length);
+    this.renderer.setCloudTexture(cloudTexture());
     splash.progress(0.4);
     this.itemTex = generateItemTextures();
     this.renderer.setItemTextures(buildMipChain(this.itemTex), this.itemTex.length);
@@ -786,6 +790,8 @@ class App {
       this.skinPixels[layer] = px; this.renderer.setEntityLayer(layer, px);
     }
     if (nb) { this.renderer.setBlockTextures(buildMipChain(this.blockTex), TEXTURES.length); this.renderer.setAnimations(this.blockAnims); }
+    const clouds = await readCloudTexture(zip);
+    if (clouds) this.renderer.setCloudTexture(clouds);
     const entries = [];
     for (const it of ITEMS) if (ITEM_LAYER[it.key] !== undefined) entries.push([it.key, ITEM_LAYER[it.key], it.block ? flatTexFor(it) : null]);
     for (const f of ['bow_pulling_0', 'bow_pulling_1', 'bow_pulling_2', 'crossbow_pulling_0', 'crossbow_pulling_1', 'crossbow_pulling_2', 'crossbow_arrow', 'crossbow_firework', 'fishing_rod_cast']) if (FX_LAYER[f] !== undefined) entries.push([f, FX_LAYER[f], null]);
@@ -842,7 +848,9 @@ class App {
     bind('set-vol', 'volume', 'Master Volume', vol, unmute);
     bind('set-music', 'music', 'Music', vol, unmute);
     cycle($('set-gfx'), 'Graphics', [[0, 'Fast'], [1, 'Regular'], [2, 'High'], [3, 'PC']], () => Number(settings.graphics), v => { settings.graphics = v; this.applyGraphics(); store(SETTINGS_KEY, settings); });
-    for (const [id, k, label] of [['set-bob', 'bobbing', 'View Bobbing'], ['set-clouds', 'clouds', 'Clouds'], ['set-autojump', 'autoJump', 'Auto-Jump'], ['set-particles', 'particles', 'Particles'], ['set-dynres', 'dynamicRes', 'Dynamic Resolution'], ['set-raw', 'rawInput', 'Raw Input'], ['set-lowlat', 'lowLatency', 'Low Latency'], ['set-dabr', 'barrelRoll', 'Barrel Roll Flight'], ['set-dabryaw', 'barrelRollYaw', 'Flight: Mouse Yaws']]) {
+    // Java's Fancy (3D) and Fast (flat) clouds, or the soft clouds drawn into the sky.
+    cycle($('set-clouds'), 'Clouds', [['fancy', 'Fancy'], ['fast', 'Fast'], ['soft', 'Soft'], ['off', 'OFF']], () => settings.clouds, v => { settings.clouds = v; store(SETTINGS_KEY, settings); });
+    for (const [id, k, label] of [['set-bob', 'bobbing', 'View Bobbing'], ['set-autojump', 'autoJump', 'Auto-Jump'], ['set-particles', 'particles', 'Particles'], ['set-dynres', 'dynamicRes', 'Dynamic Resolution'], ['set-raw', 'rawInput', 'Raw Input'], ['set-lowlat', 'lowLatency', 'Low Latency'], ['set-dabr', 'barrelRoll', 'Barrel Roll Flight'], ['set-dabryaw', 'barrelRollYaw', 'Flight: Mouse Yaws']]) {
       toggle($(id), label, () => !!settings[k], async v => {
         settings[k] = v; if (this.game) this.game.player.autoJump = settings.autoJump;
         if (k === 'lowLatency') { store(SETTINGS_KEY, settings); if (await ask('Low Latency changes how the game draws to the screen and applies after a reload. Reload now?')) location.reload(); }
@@ -1179,7 +1187,7 @@ class App {
     this.panoWorld.update(pano.pos[0], pano.pos[2], panoRadius);
     if (!this.booted) this.bootProgress(panoRadius);
     const env = computeEnv(0, 0.07, forward(pano.yaw, -0.15), 0, 0, settings.brightness / 100);
-    this.renderer.render({ camPos: pano.pos, yaw: pano.yaw, pitch: -0.15, roll: 0, fov: 75, time: this.time, env, medium: 0, renderDistance: Math.min(settings.renderDistance, LOW_END ? 5 : 7), clouds: settings.clouds, chunks: this.panoWorld.chunks.values(), dim: 0, post: { saturation: 1.1 } });
+    this.renderer.render({ camPos: pano.pos, yaw: pano.yaw, pitch: -0.15, roll: 0, fov: 75, time: this.time, env, medium: 0, renderDistance: Math.min(settings.renderDistance, LOW_END ? 5 : 7), clouds: settings.clouds, dayTime: 0.07, chunks: this.panoWorld.chunks.values(), dim: 0, post: { saturation: 1.1 } });
   }
   // LevelLoadingScreen.renderChunks: one pixel per chunk here, scaled to 2x2 GUI px by CSS; a chunk
   // with no status yet is black.
@@ -1336,7 +1344,7 @@ class App {
     this.post.flash = Math.max(0, this.post.flash - dt * 3);
     this.renderer.render({
       camPos: cam.pos, yaw: cam.yaw, pitch: cam.pitch, roll: cam.roll, fov: this.fovCur, time: this.time, env, medium, wind: rain,
-      renderDistance: settings.renderDistance, clouds: settings.clouds && g.dim === 0, chunks: g.world.chunks.values(), dim: g.dim, rain,
+      renderDistance: settings.renderDistance, clouds: g.dim === 0 ? settings.clouds : 'off', dayTime: g.dayTime, thunder: g.dim === 0 ? g.weather.thunder : 0, chunks: g.world.chunks.values(), dim: g.dim, rain,
       target: target && this.mode === 'play' ? target : null, crack: stage >= 0 && target ? { ...target, stage } : null,
       blockModels: ctx.blockModels,
       solidBatches: [{ batch: B_.mobs, tex: 'mob' }, { batch: B_.items, tex: 'item' }, { batch: B_.blockParticles, tex: 'block' }],

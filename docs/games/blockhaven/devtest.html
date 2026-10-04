@@ -8,6 +8,7 @@
 //              finish; the result (ms) lands in window.bench { cpu (time to submit), avg, p95, max,
 //              frames, draws, quads }
 //   dark, flash  post effects (0..1)
+//   clouds=fancy|fast|soft|off (default fancy)
 // window.ready turns true when the world around the camera is generated, meshed and uploaded;
 // window.capture() then returns the next frame's pixels (RGBA, bottom row first) as base64.
 import { TEXTURES, DIM } from './js/data/blocks.js';
@@ -18,6 +19,7 @@ import { World } from './js/world/world.js';
 import { computeEnv } from './js/game/env.js';
 import { forward } from './js/core/math.js';
 import { Zip, applyBlockTextures } from './js/render/pack.js';
+import { cloudTexture } from './js/render/cloudtex.js';
 const q = new URLSearchParams(location.search);
 const num = (k, d) => (q.has(k) ? Number(q.get(k)) : d);
 const seed = num('seed', 2024), type = q.get('type') || 'default', dim = num('dim', 0);
@@ -29,6 +31,7 @@ const r = new Renderer(document.getElementById('c'));
 r.setQuality(num('preset', 1));
 const tex = generateBlockTextures();
 r.setBlockTextures(buildMipChain(tex), TEXTURES.length);
+r.setCloudTexture(cloudTexture());
 if (q.get('pack') === '1') {
   const zip = await Zip.open(await (await fetch('assets/default-pack.zip')).blob());
   const anims = new Map();
@@ -38,6 +41,7 @@ if (q.get('pack') === '1') {
 }
 const world = new World({ seed, dim, worldType: type, callbacks: { onMesh: (c, m) => r.uploadChunk(c, m), onUnload: c => r.freeChunk(c) } });
 window.errors = [];
+window.renderer = r; // for poking at from the console or a test
 window.ready = false;
 let calm = 0, captureWanted = null, bench = null;
 window.capture = () => new Promise(res => { captureWanted = res; });
@@ -52,7 +56,7 @@ function frame(now) {
   if (bench) cam[3] = bench.yaw0 + Math.PI * 2 * Math.min(1, (now - bench.start) / (benchSecs * 1000));
   const env = computeEnv(dim, time, forward(cam[3], cam[4]), 0, 0);
   const a = performance.now();
-  r.render({ camPos: cam.slice(0, 3), yaw: cam[3], pitch: cam[4], roll: 0, fov: 75, time: t, env, medium, renderDistance: rd, clouds: q.get('clouds') !== '0', chunks: world.chunks.values(), dim, post });
+  r.render({ camPos: cam.slice(0, 3), yaw: cam[3], pitch: cam[4], roll: 0, fov: 75, time: t, env, medium, renderDistance: rd, clouds: q.get('clouds') || 'fancy', dayTime: time, chunks: world.chunks.values(), dim, post });
   if (bench) {
     bench.cpu.push(performance.now() - a);
     gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, one); // waits for the GPU to finish the frame

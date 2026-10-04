@@ -1,4 +1,4 @@
-import { VF } from '../data/blocks.js?v=mut6b6gv';
+import { VF } from '../data/blocks.js?v=mut7vbyz';
 
 const HEADER = `#version 300 es
 precision highp float;
@@ -727,5 +727,49 @@ void main() {
   c = mix(c, vec3(0.7, 0.0, 0.0), uHurt * smoothstep(0.2, 0.75, length(dd)) * 0.8);
   c *= 1.0 - uDark;
   outColor = vec4(clamp(c, 0.0, 1.0), 1.0);
+}
+`;
+
+// Java's clouds (LevelRenderer.renderClouds): cells of the cloud map 12 blocks wide and 4 tall, at
+// the camera with the part of a cell it has drifted past as uShift, Java's (-f3, f4, -f5). Drawn
+// as the position_tex_color_normal shader does: texture times colour, under 0.1 alpha discarded,
+// with the terrain's cylindrical linear fog measured the way Java's fog_distance measures it.
+export const CLOUD_VS = HEADER + `
+layout(location = 0) in vec3 aPos;
+layout(location = 1) in vec2 aUV;
+layout(location = 2) in float aShade;
+uniform mat4 uViewProj;
+uniform vec3 uCamPos;
+uniform vec3 uShift;
+uniform vec2 uUVOff;
+out vec2 vUV;
+out float vShade;
+out float vDist;
+out vec3 vWorld;
+void main() {
+  vec3 rel = vec3((aPos.x + uShift.x) * 12.0, aPos.y + uShift.y, (aPos.z + uShift.z) * 12.0);
+  vWorld = uCamPos + rel;
+  vUV = aUV + uUVOff;
+  vShade = aShade;
+  vDist = max(length(vec3(rel.x, uShift.y, rel.z)), length(vec3(uShift.x * 12.0, rel.y, uShift.z * 12.0)));
+  gl_Position = uViewProj * vec4(vWorld, 1.0);
+}
+`;
+export const CLOUD_FS = HEADER + LIGHTING + `
+uniform highp sampler2D uCloudTex;
+uniform vec3 uCloudColor;
+uniform vec2 uCloudFog;
+in vec2 vUV;
+in float vShade;
+in float vDist;
+in vec3 vWorld;
+out vec4 outColor;
+void main() {
+  vec4 c = texture(uCloudTex, vUV) * vec4(uCloudColor * vShade, 0.8);
+  if (c.a < 0.1) discard;
+  vec3 col = c.rgb;
+  if (uMedium > 0.5) col = applyFog(col, vWorld);
+  else if (vDist > uCloudFog.x) col = mix(col, uFogColor, vDist < uCloudFog.y ? smoothstep(uCloudFog.x, uCloudFog.y, vDist) : 1.0);
+  outColor = vec4(col, c.a);
 }
 `;

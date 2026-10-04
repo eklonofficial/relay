@@ -1,7 +1,7 @@
 // Resource packs: Java Edition style packs (.zip with assets/minecraft/textures/... and
 // assets/minecraft/sounds/...). The bundled defaults and player-selected packs use the same
 // matching path; a player's pack stays in this browser (IndexedDB) and is never uploaded.
-import { SHEETS } from '../data/blocks.js?v=mut6b6gv';
+import { SHEETS } from '../data/blocks.js?v=mut7vbyz';
 
 const DB = 'blockhaven-packs', STORE = 'packs', KEY = 'active';
 
@@ -211,6 +211,17 @@ export async function readEntityTexture(zip, path, size = [64, 64], over = null)
     if (over) ctx.putImageData(new ImageData(new Uint8ClampedArray(over), 128, 128), 0, 0);
     ctx.drawImage(bmp, 0, 0, size[0], Math.round(bmp.height * size[0] / bmp.width));
     return new Uint8ClampedArray(ctx.getImageData(0, 0, 128, 128).data);
+  } catch { return null; }
+}
+// The cloud map (textures/environment/clouds.png) at the pack's own size: { w, h, data } or null.
+export async function readCloudTexture(zip) {
+  const bytes = await zip.bytes('assets/minecraft/textures/environment/clouds.png');
+  if (!bytes) return null;
+  try {
+    const bmp = await decodeImage(bytes);
+    const c = document.createElement('canvas'); c.width = bmp.width; c.height = bmp.height;
+    const ctx = c.getContext('2d'); ctx.drawImage(bmp, 0, 0);
+    return { w: bmp.width, h: bmp.height, data: new Uint8Array(ctx.getImageData(0, 0, bmp.width, bmp.height).data.buffer) };
   } catch { return null; }
 }
 // Armor layers (textures/models/armor/<material>_layer_<1|2>.png, 64x32 in Java's armor layout, or a
