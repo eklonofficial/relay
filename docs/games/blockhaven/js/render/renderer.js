@@ -1,8 +1,8 @@
-import { CHUNK, TEX, DIM } from '../data/blocks.js?v=mush3vnf';
-import { meshSingleBlock, STRIDE } from '../mesh/mesher.js?v=mush3vnf';
-import * as S from './shaders.js?v=mush3vnf';
-import { uploadArray, updateLayer } from './atlas.js?v=mush3vnf';
-import { mat4, perspective, multiply, invert, viewMatrix, frustumPlanes, boxVisible } from '../core/math.js?v=mush3vnf';
+import { CHUNK, TEX, DIM } from '../data/blocks.js?v=mut6b6gv';
+import { meshSingleBlock, STRIDE } from '../mesh/mesher.js?v=mut6b6gv';
+import * as S from './shaders.js?v=mut6b6gv';
+import { uploadArray, updateLayer, uploadLayerChain, buildMipChain } from './atlas.js?v=mut6b6gv';
+import { mat4, perspective, multiply, invert, viewMatrix, frustumPlanes, boxVisible } from '../core/math.js?v=mut6b6gv';
 
 // Graphics presets: 0 Disabled, 1 Regular, 2 High, 3 PC.
 export const QUALITY = [
@@ -14,6 +14,9 @@ export const QUALITY = [
 
 const MAX_QUADS = 1 << 18;
 const IDENTITY = mat4();
+// Opaque terrain passes: [program, chunk mesh, its section table].
+const OPAQUE_PASSES = [['terrainSolid', 'solid', 'secS'], ['terrain', 'cutout', 'secC']];
+const byDrawDist = (a, b) => a.drawDist - b.drawDist;
 
 // Growable float batch of quads: pos(3) uv+layer(3) colour(4).
 export class Batch {
@@ -25,10 +28,9 @@ export class Batch {
     this.ensure();
     const d = this.data;
     let o = this.quads * 40;
-    const U = [uv[0], uv[0], uv[2], uv[2]], V = [uv[3], uv[1], uv[1], uv[3]];
     for (let k = 0; k < 4; k++) {
       d[o++] = p[k][0]; d[o++] = p[k][1]; d[o++] = p[k][2];
-      d[o++] = U[k]; d[o++] = V[k]; d[o++] = layer;
+      d[o++] = k < 2 ? uv[0] : uv[2]; d[o++] = k === 0 || k === 3 ? uv[3] : uv[1]; d[o++] = layer;
       d[o++] = c[0]; d[o++] = c[1]; d[o++] = c[2]; d[o++] = c[3];
     }
     this.quads++;
@@ -53,15 +55,21 @@ export class Renderer {
     const gl = canvas.getContext('webgl2', { antialias: false, alpha: false, depth: true, powerPreference: 'high-performance', preserveDrawingBuffer: false, desynchronized: !!opts.lowLatency });
     if (!gl) throw new Error('WebGL 2 is not available in this browser.');
     this.gl = gl;
+    // A desynchronized canvas shows its buffer while it is being drawn, so frames must only ever
+    // reach it whole, in the final full-screen pass.
+    this.frontBuffer = !!gl.getContextAttributes().desynchronized;
     this.canvas = canvas;
-    this.stats = { chunks: 0, quads: 0 };
+    this.stats = { chunks: 0, quads: 0, draws: 0 };
+    this.draws = 0;
     this.terrain = this.program(S.TERRAIN_VS, S.TERRAIN_FS);
+    this.terrainSolid = this.program(S.TERRAIN_VS, S.TERRAIN_SOLID_FS);
     this.liquid = this.program(S.TERRAIN_VS, S.LIQUID_FS);
     this.sky = this.program(S.SKY_VS, S.SKY_FS);
     this.entity = this.program(S.ENTITY_VS, S.ENTITY_FS);
     this.line = this.program(S.LINE_VS, S.LINE_FS);
     this.post = this.program(S.POST_VS, S.POST_FS);
     this.shadowProg = this.program(S.TERRAIN_VS, S.SHADOW_FS);
+    this.shadowSolid = this.program(S.TERRAIN_VS, S.SHADOW_SOLID_FS);
     this.bloomProg = this.program(S.POST_VS, S.BLOOM_FS);
     this.godProg = this.program(S.POST_VS, S.GOD_FS);
     this.quality = 1;
@@ -77,15 +85,6 @@ export class Renderer {
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.quadIndex);
     gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, idx, gl.STATIC_DRAW);
     this.emptyVao = gl.createVertexArray();
-
-    this.batchVao = gl.createVertexArray();
-    this.batchVbo = gl.createBuffer();
-    gl.bindVertexArray(this.batchVao);
-    gl.bindBuffer(gl.ARRAY_BUFFER, this.batchVbo);
-    gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 40, 0);
-    gl.enableVertexAttribArray(1); gl.vertexAttribPointer(1, 3, gl.FLOAT, false, 40, 12);
-    gl.enableVertexAttribArray(2); gl.vertexAttribPointer(2, 4, gl.FLOAT, false, 40, 24);
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.quadIndex);
 
     this.lineVao = gl.createVertexArray();
     this.lineVbo = gl.createBuffer();
@@ -126,7 +125,8 @@ export class Renderer {
   setBlockTextures(chain, count) { if (this.blockTex) this.gl.deleteTexture(this.blockTex); this.blockTex = uploadArray(this.gl, chain, count); this.animShown = new Map(); }
   // Animated block textures (layer -> { frames, order: [{ i, t }] }): each shows the frame due at
   // this client tick, uploaded only when it changes (like Java's TextureAtlas animation ticks).
-  setAnimations(anims) { this.anims = anims; this.animShown = new Map(); }
+  // Each frame's mip chain is built the first time it shows and kept, so steady animation is only uploads.
+  setAnimations(anims) { this.anims = anims; this.animShown = new Map(); this.animChains = new Map(); }
   animate(tick) {
     if (!this.anims || !this.blockTex) return;
     for (const [layer, a] of this.anims) {
@@ -136,7 +136,9 @@ export class Renderer {
       const f = a.order[k].i;
       if (this.animShown.get(layer) === f) continue;
       this.animShown.set(layer, f);
-      updateLayer(this.gl, this.blockTex, layer, a.frames[f]);
+      let chains = this.animChains.get(a);
+      if (!chains) this.animChains.set(a, chains = []);
+      uploadLayerChain(this.gl, this.blockTex, layer, chains[f] || (chains[f] = buildMipChain([a.frames[f]])));
     }
   }
   setEntityTextures(chain, count) { this.entityTex = uploadArray(this.gl, chain, count); }
@@ -186,29 +188,50 @@ export class Renderer {
       this.shadowFbo = this.fbo(null, this.shadowTex);
     }
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-    this.width = 0; // force target rebuild
+    this.freeTargets();
   }
 
   resize(w, h) {
     if (w === this.width && h === this.height) return;
-    const gl = this.gl;
     this.width = w; this.height = h;
     this.canvas.width = w; this.canvas.height = h;
+    this.freeTargets();
+  }
+  // Offscreen targets are made the first time a frame needs them: the scene copy only for water
+  // reflections, the quarter-size ones only for god rays and bloom. When no effect needs the
+  // scene as a texture (the Fast preset, in the open air), it is drawn straight to the screen.
+  freeTargets() {
+    const gl = this.gl;
     for (const f of [this.sceneFbo, this.copyFbo, this.bloomFboA, this.bloomFboB, this.godFboA, this.godFboB]) if (f) gl.deleteFramebuffer(f);
     for (const t of [this.sceneTex, this.sceneDepth, this.copyTex, this.copyDepth, this.bloomA, this.bloomB, this.godA, this.godB]) if (t) gl.deleteTexture(t);
-    this.sceneTex = this.colorTexture(w, h);
-    this.sceneDepth = this.depthTexture(w, h, false);
-    this.sceneFbo = this.fbo(this.sceneTex, this.sceneDepth);
-    this.copyTex = this.colorTexture(w, h);
-    this.copyDepth = this.depthTexture(w, h, false);
-    this.copyFbo = this.fbo(this.copyTex, this.copyDepth);
-    const bw = Math.max(1, w >> 2), bh = Math.max(1, h >> 2);
-    this.bloomSize = [bw, bh];
-    this.bloomA = this.colorTexture(bw, bh); this.bloomB = this.colorTexture(bw, bh);
-    this.bloomFboA = this.fbo(this.bloomA, null); this.bloomFboB = this.fbo(this.bloomB, null);
-    this.godA = this.colorTexture(bw, bh); this.godB = this.colorTexture(bw, bh);
-    this.godFboA = this.fbo(this.godA, null); this.godFboB = this.fbo(this.godB, null);
-    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    this.sceneFbo = this.copyFbo = this.bloomFboA = this.bloomFboB = this.godFboA = this.godFboB = null;
+    this.sceneTex = this.sceneDepth = this.copyTex = this.copyDepth = this.bloomA = this.bloomB = this.godA = this.godB = null;
+  }
+  sceneTarget() {
+    if (!this.sceneFbo) {
+      this.sceneTex = this.colorTexture(this.width, this.height);
+      this.sceneDepth = this.depthTexture(this.width, this.height, false);
+      this.sceneFbo = this.fbo(this.sceneTex, this.sceneDepth);
+    }
+    return this.sceneFbo;
+  }
+  copyTarget() {
+    if (!this.copyFbo) {
+      this.copyTex = this.colorTexture(this.width, this.height);
+      this.copyDepth = this.depthTexture(this.width, this.height, false);
+      this.copyFbo = this.fbo(this.copyTex, this.copyDepth);
+    }
+    return this.copyFbo;
+  }
+  quarterTargets() {
+    if (!this.godFboA) {
+      const bw = Math.max(1, this.width >> 2), bh = Math.max(1, this.height >> 2);
+      this.bloomSize = [bw, bh];
+      this.bloomA = this.colorTexture(bw, bh); this.bloomB = this.colorTexture(bw, bh);
+      this.bloomFboA = this.fbo(this.bloomA, null); this.bloomFboB = this.fbo(this.bloomB, null);
+      this.godA = this.colorTexture(bw, bh); this.godB = this.colorTexture(bw, bh);
+      this.godFboA = this.fbo(this.godA, null); this.godFboB = this.fbo(this.godB, null);
+    }
   }
 
   // Renders opaque terrain depth from the sun for shadow mapping. Returns the shadow matrix.
@@ -241,24 +264,25 @@ export class Renderer {
     gl.clear(gl.DEPTH_BUFFER_BIT);
     gl.enable(gl.DEPTH_TEST); gl.depthMask(true); gl.disable(gl.CULL_FACE);
     gl.enable(gl.POLYGON_OFFSET_FILL); gl.polygonOffset(1.5, 3);
-    const p = this.shadowProg;
-    gl.useProgram(p.p);
-    gl.uniformMatrix4fv(p.u.uViewProj, false, vp);
-    gl.uniformMatrix4fv(p.u.uModel, false, IDENTITY);
-    if (p.u.uTime) gl.uniform1f(p.u.uTime, s.time);
-    if (p.u.uWind) gl.uniform1f(p.u.uWind, s.wind || 0);
-    gl.uniform1i(p.u.uTex, 0);
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D_ARRAY, this.blockTex);
-    for (const c2 of visibleChunks) {
-      const m = c2.gpu && c2.gpu.opaque;
-      if (!m) continue;
-      const x0 = c2.cx * CHUNK, z0 = c2.cz * CHUNK;
-      if (Math.abs(x0 + 8 - c[0]) > R + 24 || Math.abs(z0 + 8 - c[2]) > R + 24) continue;
-      if (!boxVisible(planes, x0, -1, z0, x0 + CHUNK, c2.maxY + 2, z0 + CHUNK)) continue;
-      gl.uniform3f(p.u.uChunk, x0, 0, z0);
-      gl.bindVertexArray(m.vao);
-      this.drawSections(m, c2.gpu.secO, c2, planes);
+    for (const [p, part, sec] of [[this.shadowSolid, 'solid', 'secS'], [this.shadowProg, 'cutout', 'secC']]) {
+      gl.useProgram(p.p);
+      gl.uniformMatrix4fv(p.u.uViewProj, false, vp);
+      gl.uniformMatrix4fv(p.u.uModel, false, IDENTITY);
+      if (p.u.uTime) gl.uniform1f(p.u.uTime, s.time);
+      if (p.u.uWind) gl.uniform1f(p.u.uWind, s.wind || 0);
+      if (p.u.uTex) gl.uniform1i(p.u.uTex, 0);
+      for (const c2 of visibleChunks) {
+        const m = c2.gpu && c2.gpu[part];
+        if (!m) continue;
+        const x0 = c2.cx * CHUNK, z0 = c2.cz * CHUNK;
+        if (Math.abs(x0 + 8 - c[0]) > R + 24 || Math.abs(z0 + 8 - c[2]) > R + 24) continue;
+        if (!boxVisible(planes, x0, -1, z0, x0 + CHUNK, c2.maxY + 2, z0 + CHUNK)) continue;
+        gl.uniform3f(p.u.uChunk, x0, 0, z0);
+        gl.bindVertexArray(m.vao);
+        this.drawTopDown(m, c2.gpu[sec], c2, planes);
+      }
     }
     gl.disable(gl.POLYGON_OFFSET_FILL);
     gl.enable(gl.CULL_FACE);
@@ -295,14 +319,15 @@ export class Renderer {
   }
   freeMesh(m) { if (m) { this.gl.deleteVertexArray(m.vao); this.gl.deleteBuffer(m.vbo); } }
   uploadChunk(c, r) {
-    if (!c.gpu) c.gpu = { opaque: null, trans: null };
-    c.gpu.opaque = this.makeMesh(r.opaque, r.opaqueQuads, c.gpu.opaque);
+    if (!c.gpu) c.gpu = { solid: null, cutout: null, trans: null };
+    c.gpu.solid = this.makeMesh(r.solid, r.solidQuads, c.gpu.solid);
+    c.gpu.cutout = this.makeMesh(r.cutout, r.cutoutQuads, c.gpu.cutout);
     c.gpu.trans = this.makeMesh(r.trans, r.transQuads, c.gpu.trans);
-    c.gpu.secO = r.secO; c.gpu.secT = r.secT;
+    c.gpu.secS = r.secS; c.gpu.secC = r.secC; c.gpu.secT = r.secT;
   }
   freeChunk(c) {
     if (!c.gpu) return;
-    this.freeMesh(c.gpu.opaque); this.freeMesh(c.gpu.trans);
+    this.freeMesh(c.gpu.solid); this.freeMesh(c.gpu.cutout); this.freeMesh(c.gpu.trans);
     c.gpu = null;
   }
   // Cached single-block model, lit at full sky; light is applied through uniforms per draw.
@@ -335,32 +360,60 @@ export class Renderer {
     if (u.uFlicker) gl.uniform1f(u.uFlicker, Math.sin(s.time * 11) * 0.5 + Math.sin(s.time * 7.3) * 0.5);
   }
 
-  // Draws only the 16-tall sections of a chunk mesh that are inside the frustum.
-  drawSections(m, sec, c, planes) {
+  // Draws only the 16-tall sections of a chunk mesh that are inside the frustum, merging runs of
+  // neighbouring sections into one draw. Translucent meshes are laid out bottom-up (sec[s] is
+  // section s, k = s); opaque ones top-down (sec[k] is section 15 - k), drawn from k0 to k1.
+  drawSections(m, sec, c, planes, topDown = false, k0 = 0, k1 = 16) {
     const gl = this.gl;
-    if (!sec) { gl.drawElements(gl.TRIANGLES, m.quads * 6, gl.UNSIGNED_INT, 0); return m.quads; }
     const x0 = c.cx * CHUNK, z0 = c.cz * CHUNK;
     let start = -1, end = -1, n = 0;
-    const flush = () => { if (start >= 0 && end > start) { gl.drawElements(gl.TRIANGLES, (end - start) * 6, gl.UNSIGNED_INT, start * 24); n += end - start; } start = -1; };
-    for (let s = 0; s < 16; s++) {
-      const a = sec[s], b = Math.min(sec[s + 1], m.quads);
-      if (b <= a) continue;
-      if (boxVisible(planes, x0, s * 16 - 1, z0, x0 + CHUNK, s * 16 + 17, z0 + CHUNK)) { if (start < 0) start = a; end = b; }
-      else flush();
+    for (let k = k0; k <= k1; k++) {
+      let visible = false;
+      if (k < k1) {
+        const a = sec[k], b = Math.min(sec[k + 1], m.quads);
+        if (b <= a) continue;
+        const s = topDown ? 15 - k : k;
+        visible = boxVisible(planes, x0, s * 16 - 1, z0, x0 + CHUNK, s * 16 + 17, z0 + CHUNK);
+        if (visible) { if (start < 0) start = a; end = b; }
+      }
+      if (!visible && start >= 0) {
+        gl.drawElements(gl.TRIANGLES, (end - start) * 6, gl.UNSIGNED_INT, start * 24);
+        n += end - start; this.draws++; start = -1;
+      }
     }
-    flush();
     return n;
+  }
+  // Opaque meshes: the camera's section and those below it first (the ground under the player
+  // hides the caves beneath it), then the sections above.
+  drawTopDown(m, sec, c, planes, camY = Infinity) {
+    const split = 15 - Math.max(0, Math.min(15, Math.floor(camY / 16)));
+    return this.drawSections(m, sec, c, planes, true, split, 16) + (split > 0 ? this.drawSections(m, sec, c, planes, true, 0, split) : 0);
   }
 
   // A model drawn on its own into a small transparent image (the inventory's player preview), read
   // back as RGBA rows from the bottom up. list: [{ batch, tex }]; s: { env, time }.
+  // The pixels are copied into a buffer on the GPU and picked up a frame later once the GPU has
+  // finished, so reading them never stalls the frame; returns null until a picture is ready.
   renderPreview(list, w, h, viewProj, s) {
     const gl = this.gl;
     if (!this.pv || this.pv.w !== w || this.pv.h !== h) {
-      if (this.pv) { gl.deleteFramebuffer(this.pv.f); gl.deleteTexture(this.pv.c); gl.deleteTexture(this.pv.d); }
-      const c = this.colorTexture(w, h), d = this.depthTexture(w, h, false);
-      this.pv = { w, h, c, d, f: this.fbo(c, d), px: new Uint8Array(w * h * 4) };
+      if (this.pv) { gl.deleteFramebuffer(this.pv.f); gl.deleteTexture(this.pv.c); gl.deleteTexture(this.pv.d); gl.deleteBuffer(this.pv.pbo); if (this.pv.fence) gl.deleteSync(this.pv.fence); }
+      const c = this.colorTexture(w, h), d = this.depthTexture(w, h, false), pbo = gl.createBuffer();
+      gl.bindBuffer(gl.PIXEL_PACK_BUFFER, pbo);
+      gl.bufferData(gl.PIXEL_PACK_BUFFER, w * h * 4, gl.STREAM_READ);
+      gl.bindBuffer(gl.PIXEL_PACK_BUFFER, null);
+      this.pv = { w, h, c, d, f: this.fbo(c, d), px: new Uint8Array(w * h * 4), pbo, fence: null };
     }
+    const pv = this.pv;
+    let out = null;
+    if (pv.fence && gl.getSyncParameter(pv.fence, gl.SYNC_STATUS) === gl.SIGNALED) {
+      gl.deleteSync(pv.fence); pv.fence = null;
+      gl.bindBuffer(gl.PIXEL_PACK_BUFFER, pv.pbo);
+      gl.getBufferSubData(gl.PIXEL_PACK_BUFFER, 0, pv.px);
+      gl.bindBuffer(gl.PIXEL_PACK_BUFFER, null);
+      out = pv.px;
+    }
+    if (pv.fence) return out; // the GPU hasn't finished the last one yet
     gl.bindFramebuffer(gl.FRAMEBUFFER, this.pv.f);
     gl.viewport(0, 0, w, h);
     gl.clearColor(0, 0, 0, 0);
@@ -395,42 +448,67 @@ export class Renderer {
       }
       gl.uniformMatrix4fv(t.u.uModel, false, IDENTITY);
     }
-    gl.readPixels(0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, this.pv.px);
+    gl.bindBuffer(gl.PIXEL_PACK_BUFFER, pv.pbo);
+    gl.readPixels(0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, 0);
+    gl.bindBuffer(gl.PIXEL_PACK_BUFFER, null);
+    pv.fence = gl.fenceSync(gl.SYNC_GPU_COMMANDS_COMPLETE, 0);
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-    return this.pv.px;
+    return out;
   }
+  // Every batch has its own vertex buffer: refilling one shared buffer several times a frame
+  // makes drivers wait for (or copy around) the draws still using it.
   drawBatch(batch, tex, alphaTest, blend) {
     if (!batch || !batch.quads) return;
     const gl = this.gl;
-    gl.bindVertexArray(this.batchVao);
-    gl.bindBuffer(gl.ARRAY_BUFFER, this.batchVbo);
+    if (!batch.vao) {
+      batch.vao = gl.createVertexArray(); batch.vbo = gl.createBuffer();
+      gl.bindVertexArray(batch.vao);
+      gl.bindBuffer(gl.ARRAY_BUFFER, batch.vbo);
+      gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 40, 0);
+      gl.enableVertexAttribArray(1); gl.vertexAttribPointer(1, 3, gl.FLOAT, false, 40, 12);
+      gl.enableVertexAttribArray(2); gl.vertexAttribPointer(2, 4, gl.FLOAT, false, 40, 24);
+      gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.quadIndex);
+    }
+    gl.bindVertexArray(batch.vao);
+    gl.bindBuffer(gl.ARRAY_BUFFER, batch.vbo);
     gl.bufferData(gl.ARRAY_BUFFER, batch.data.subarray(0, batch.quads * 40), gl.STREAM_DRAW);
     gl.bindTexture(gl.TEXTURE_2D_ARRAY, tex);
     gl.uniform1f(this.entity.u.uAlphaTest, alphaTest);
     if (blend) { gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA); gl.depthMask(false); }
     gl.drawElements(gl.TRIANGLES, batch.quads * 6, gl.UNSIGNED_INT, 0);
+    this.draws++;
     if (blend) { gl.disable(gl.BLEND); gl.depthMask(true); }
   }
 
   render(s) {
     const gl = this.gl;
     const w = this.width, h = this.height;
-    const proj = perspective(mat4(), s.fov * Math.PI / 180, w / h, 0.05, 1200);
+    const M = this.mats || (this.mats = { proj: mat4(), vp: mat4(), ivp: mat4() });
+    const proj = perspective(M.proj, s.fov * Math.PI / 180, w / h, 0.05, 1200);
     const view = s.view || viewMatrix(s.camPos, s.yaw, s.pitch, s.roll);
-    const viewProj = multiply(mat4(), proj, view);
-    const invViewProj = invert(mat4(), viewProj);
+    const viewProj = multiply(M.vp, proj, view);
+    const invViewProj = invert(M.ivp, viewProj);
     const planes = frustumPlanes(viewProj);
     const fogFar = s.dim === DIM.NETHER ? Math.min(s.renderDistance * CHUNK - 4, 90) : s.renderDistance * CHUNK - 4;
     const fogNear = s.dim === DIM.NETHER ? 10 : fogFar * (s.rain ? 0.3 : 0.55);
     const env = s.env;
     const Q = QUALITY[this.quality];
-    const allChunks = [...s.chunks];
+    const fx = s.post || {};
+    this.draws = 0;
+    const allChunks = this.allChunks || (this.allChunks = []);
+    allChunks.length = 0;
+    for (const c of s.chunks) allChunks.push(c);
     const sunUp = s.dim === DIM.OVERWORLD ? Math.max(0, Math.min(1, (env.sunDir[1] - 0.04) * 5)) * (1 - (s.rain || 0) * 0.7) : 0;
     let shadowMat = null;
     if (Q.shadow && this.shadowFbo && sunUp > 0) shadowMat = this.shadowPass(s, allChunks);
     this.shadowStrength = shadowMat ? 0.42 * sunUp : 0;
+    // Only the presets above Fast and a few passing effects (underwater wobble, portal swirl,
+    // flashes, the sleeping fade) need the finished scene as a texture; otherwise it is drawn
+    // straight to the screen, saving a full-screen copy every frame (unless the canvas is
+    // desynchronized: it would show the frame half drawn).
+    const direct = !this.frontBuffer && this.quality === 0 && !(s.medium > 0.5 && s.medium < 1.5) && !(fx.portal > 0) && !(fx.flash > 0) && !(fx.dark > 0);
 
-    gl.bindFramebuffer(gl.FRAMEBUFFER, this.sceneFbo);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, direct ? null : this.sceneTarget());
     gl.viewport(0, 0, w, h);
     gl.clearColor(env.fogColor[0], env.fogColor[1], env.fogColor[2], 1);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
@@ -443,32 +521,43 @@ export class Renderer {
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D_ARRAY, this.blockTex);
 
-    const visible = [];
+    // Chunks in view, nearest first. In the open air nothing is drawn past the end of the fog:
+    // chunks kept loaded just beyond the render distance would only show as fog-coloured shapes.
+    const visible = this.visible || (this.visible = []);
+    visible.length = 0;
+    const cx = s.camPos[0], cz = s.camPos[2], far2 = s.medium === 0 ? fogFar * fogFar : Infinity;
     for (const c of allChunks) {
       if (!c.gpu) continue;
       const x0 = c.cx * CHUNK, z0 = c.cz * CHUNK;
+      const nx = Math.max(x0 - cx, 0, cx - x0 - CHUNK), nz = Math.max(z0 - cz, 0, cz - z0 - CHUNK);
+      if (nx * nx + nz * nz > far2) continue;
       if (!boxVisible(planes, x0, -1, z0, x0 + CHUNK, c.maxY + 2, z0 + CHUNK)) continue;
-      const dx = x0 + 8 - s.camPos[0], dz = z0 + 8 - s.camPos[2];
-      visible.push([c, dx * dx + dz * dz]);
+      const dx = x0 + 8 - cx, dz = z0 + 8 - cz;
+      c.drawDist = dx * dx + dz * dz;
+      visible.push(c);
     }
-    visible.sort((a, b) => a[1] - b[1]);
+    visible.sort(byDrawDist);
 
-    const t = this.terrain;
-    gl.useProgram(t.p);
-    this.setEnv(t.u, s, fogNear, fogFar);
-    gl.uniformMatrix4fv(t.u.uViewProj, false, viewProj);
-    gl.uniformMatrix4fv(t.u.uModel, false, IDENTITY);
-    gl.uniform1i(t.u.uTex, 0);
-    gl.uniform1f(t.u.uAlpha, 1);
-    this.bindShadow(t.u, !!shadowMat, shadowMat, this.shadowStrength);
+    // Opaque terrain: solid blocks with no alpha test first, then the cut-out ones.
     let quads = 0;
-    for (const [c] of visible) {
-      const m = c.gpu.opaque;
-      if (!m) continue;
-      gl.uniform3f(t.u.uChunk, c.cx * CHUNK, 0, c.cz * CHUNK);
-      gl.bindVertexArray(m.vao);
-      quads += this.drawSections(m, c.gpu.secO, c, planes);
+    for (const [t, part, sec] of OPAQUE_PASSES) {
+      const p = this[t];
+      gl.useProgram(p.p);
+      this.setEnv(p.u, s, fogNear, fogFar);
+      gl.uniformMatrix4fv(p.u.uViewProj, false, viewProj);
+      gl.uniformMatrix4fv(p.u.uModel, false, IDENTITY);
+      gl.uniform1i(p.u.uTex, 0);
+      gl.uniform1f(p.u.uAlpha, 1);
+      this.bindShadow(p.u, !!shadowMat, shadowMat, this.shadowStrength);
+      for (const c of visible) {
+        const m = c.gpu[part];
+        if (!m) continue;
+        gl.uniform3f(p.u.uChunk, c.cx * CHUNK, 0, c.cz * CHUNK);
+        gl.bindVertexArray(m.vao);
+        quads += this.drawTopDown(m, c.gpu[sec], c, planes, s.camPos[1]);
+      }
     }
+    const t = this.terrain;
 
     // Dropped/falling blocks and other block models (lit via sky-light uniform scaling).
     if (s.blockModels && s.blockModels.length) {
@@ -516,16 +605,17 @@ export class Renderer {
     gl.depthMask(true);
 
     // Snapshot the opaque scene for water reflections/refraction, only when water is in view.
-    const anyWater = visible.some(([c]) => c.gpu.trans);
-    const ssr = Q.ssr > 0 && s.medium === 0 && anyWater;
+    let anyWater = false;
+    for (const c of visible) if (c.gpu.trans) { anyWater = true; break; }
+    const ssr = Q.ssr > 0 && s.medium === 0 && anyWater && !direct;
     if (ssr) {
+      const copy = this.copyTarget();
       gl.bindFramebuffer(gl.READ_FRAMEBUFFER, this.sceneFbo);
-      gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, this.copyFbo);
+      gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, copy);
       gl.blitFramebuffer(0, 0, w, h, 0, 0, w, h, gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT, gl.NEAREST);
       gl.bindFramebuffer(gl.FRAMEBUFFER, this.sceneFbo);
     }
     // Translucent terrain, back to front.
-    gl.useProgram(e.p);
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
     gl.depthMask(false);
@@ -550,7 +640,7 @@ export class Renderer {
     gl.uniform1i(l.u.uOpaque, 4); gl.uniform1i(l.u.uOpaqueDepth, 5);
     gl.bindTexture(gl.TEXTURE_2D_ARRAY, this.blockTex);
     for (let i = visible.length - 1; i >= 0; i--) {
-      const c = visible[i][0], m = c.gpu.trans;
+      const c = visible[i], m = c.gpu.trans;
       if (!m) continue;
       gl.uniform3f(l.u.uChunk, c.cx * CHUNK, 0, c.cz * CHUNK);
       gl.bindVertexArray(m.vao);
@@ -626,6 +716,7 @@ export class Renderer {
     }
     // God rays: trace at quarter resolution, blur once, composite in the post pass.
     if (sun[2] > 0.001) {
+      this.quarterTargets();
       const [bw, bh] = this.bloomSize, gp = this.godProg, bp = this.bloomProg;
       gl.viewport(0, 0, bw, bh);
       gl.bindFramebuffer(gl.FRAMEBUFFER, this.godFboA);
@@ -644,6 +735,7 @@ export class Renderer {
       gl.activeTexture(gl.TEXTURE0);
     }
     if (Q.bloom) {
+      this.quarterTargets();
       const bp = this.bloomProg, [bw, bh] = this.bloomSize;
       gl.useProgram(bp.p);
       gl.viewport(0, 0, bw, bh);
@@ -655,7 +747,11 @@ export class Renderer {
     }
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.viewport(0, 0, w, h);
-    const p = this.post, fx = s.post || {};
+    if (direct) {
+      this.stats.chunks = visible.length; this.stats.quads = quads; this.stats.draws = this.draws;
+      return;
+    }
+    const p = this.post;
     gl.useProgram(p.p);
     gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, this.sceneTex);
     gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, this.sceneDepth);
@@ -677,8 +773,7 @@ export class Renderer {
     gl.uniform1f(p.u.uSaturation, fx.saturation ?? 1.1);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
 
-    this.stats.chunks = visible.length;
-    this.stats.quads = quads;
+    this.stats.chunks = visible.length; this.stats.quads = quads; this.stats.draws = this.draws;
   }
 
   drawOutline(tg, viewProj) {

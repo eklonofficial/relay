@@ -1,4 +1,4 @@
-import { VF } from '../data/blocks.js?v=mush3vnf';
+import { VF } from '../data/blocks.js?v=mut6b6gv';
 
 const HEADER = `#version 300 es
 precision highp float;
@@ -163,7 +163,10 @@ float shadowVis(vec3 world, vec3 N) {
 }
 `;
 
-export const TERRAIN_FS = HEADER + FLAGS + NOISE + LIGHTING + SHADOW + `
+// Two builds of one terrain shader, after Java's chunk render types: CUTOUT (leaves, plants, glass,
+// fire, the end portal and other shaped blocks) has the alpha test; the solid build has no discard
+// anywhere, so the GPU can depth-test before shading and skip everything hidden behind the ground.
+const terrainFS = cutout => HEADER + (cutout ? '#define CUTOUT\n' : '') + FLAGS + NOISE + LIGHTING + SHADOW + `
 uniform sampler2DArray uTex;
 uniform float uTime;
 uniform float uAlpha;
@@ -185,6 +188,7 @@ void main() {
     outColor = vec4(applyFog(col, vWorld), 1.0);
     return;
   }
+#ifdef CUTOUT
   if (vFlags == F_END_PORTAL) {
     vec3 d = normalize(vWorld - uCamPos);
     vec3 col = vec3(0.02, 0.04, 0.06);
@@ -215,8 +219,11 @@ void main() {
     outColor = vec4(applyFog(c * 1.15, vWorld), 1.0);
     return;
   }
+#endif
   vec4 t = texture(uTex, vUV);
+#ifdef CUTOUT
   if (t.a < 0.5) discard;
+#endif
   vec3 col = t.rgb;
   if (t.a < 0.998) col *= vTint;
   if (vFlags == F_EMISSIVE || vFlags == F_FIRE) col = col * 1.1;
@@ -229,6 +236,8 @@ void main() {
   outColor = vec4(applyFog(col, vWorld), uAlpha);
 }
 `;
+export const TERRAIN_FS = terrainFS(true);
+export const TERRAIN_SOLID_FS = terrainFS(false);
 
 export const LIQUID_FS = HEADER + FLAGS + NOISE + SKY + LIGHTING + `
 uniform sampler2DArray uTex;
@@ -479,9 +488,11 @@ void main() {
   float sun = squareDisc(dir, uSunDir, 0.055);
   col += uSunColor * sun * 5.0 * clear;
   float moon = squareDisc(dir, -uSunDir, 0.04);
-  vec3 md = dir * 30.0;
-  float craters = 0.75 + 0.25 * vnoise(vec2(dot(md, vec3(1, 0, 0)), dot(md, vec3(0, 1, 0))) * 3.0);
-  col += vec3(0.8, 0.85, 1.0) * moon * craters * (0.3 + uNight * 1.2) * clear;
+  if (moon > 0.0) {
+    vec3 md = dir * 30.0;
+    float craters = 0.75 + 0.25 * vnoise(vec2(dot(md, vec3(1, 0, 0)), dot(md, vec3(0, 1, 0))) * 3.0);
+    col += vec3(0.8, 0.85, 1.0) * moon * craters * (0.3 + uNight * 1.2) * clear;
+  }
   col += vec3(0.25, 0.3, 0.45) * pow(max(dot(dir, -uSunDir), 0.0), 60.0) * uNight * clear;
   if (uClouds > 0.5 && dir.y > 0.02) {
     for (int layer = 0; layer < 2; layer++) {
@@ -535,10 +546,12 @@ void main() {
   float va = vColor.a - glint * 2.0;
   float hurt = clamp(va - 1.0, 0.0, 1.0);
   col = mix(col, vec3(0.9, 0.1, 0.05), hurt * 0.55);
-  float band = fract((vUV.x * 0.7 + vUV.y * 0.35) * 1.3 - uTime * 0.35);
-  float band2 = fract((vUV.x * -0.4 + vUV.y * 0.8) * 1.1 - uTime * 0.22);
-  float sheen = smoothstep(0.0, 0.15, band) * smoothstep(0.35, 0.15, band) + 0.6 * smoothstep(0.0, 0.1, band2) * smoothstep(0.25, 0.1, band2);
-  col += vec3(0.42, 0.18, 0.75) * glint * (0.1 + sheen * 0.5);
+  if (glint > 0.5) {
+    float band = fract((vUV.x * 0.7 + vUV.y * 0.35) * 1.3 - uTime * 0.35);
+    float band2 = fract((vUV.x * -0.4 + vUV.y * 0.8) * 1.1 - uTime * 0.22);
+    float sheen = smoothstep(0.0, 0.15, band) * smoothstep(0.35, 0.15, band) + 0.6 * smoothstep(0.0, 0.1, band2) * smoothstep(0.25, 0.1, band2);
+    col += vec3(0.42, 0.18, 0.75) * (0.1 + sheen * 0.5);
+  }
   float alpha = min(va, 1.0) * (t.a < 0.998 && t.a > 0.99 ? 1.0 : t.a);
   outColor = vec4(applyFog(col, vWorld), alpha);
 }
@@ -569,6 +582,10 @@ in vec3 vUV;
 flat in int vFlags;
 out vec4 outColor;
 void main() { if (texture(uTex, vUV).a < 0.5) discard; outColor = vec4(1.0); }
+`;
+export const SHADOW_SOLID_FS = HEADER + `
+out vec4 outColor;
+void main() { outColor = vec4(1.0); }
 `;
 
 export const BLOOM_FS = HEADER + `
