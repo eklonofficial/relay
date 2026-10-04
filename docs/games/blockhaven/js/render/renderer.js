@@ -1,8 +1,8 @@
-import { CHUNK, TEX, DIM } from '../data/blocks.js?v=musyq7i1';
-import { meshSingleBlock, STRIDE } from '../mesh/mesher.js?v=musyq7i1';
-import * as S from './shaders.js?v=musyq7i1';
-import { uploadArray, updateLayer, uploadLayerChain, buildMipChain } from './atlas.js?v=musyq7i1';
-import { mat4, perspective, multiply, invert, viewMatrix, frustumPlanes, boxVisible } from '../core/math.js?v=musyq7i1';
+import { CHUNK, TEX, DIM } from '../data/blocks.js?v=mut6b6gv';
+import { meshSingleBlock, STRIDE } from '../mesh/mesher.js?v=mut6b6gv';
+import * as S from './shaders.js?v=mut6b6gv';
+import { uploadArray, updateLayer, uploadLayerChain, buildMipChain } from './atlas.js?v=mut6b6gv';
+import { mat4, perspective, multiply, invert, viewMatrix, frustumPlanes, boxVisible } from '../core/math.js?v=mut6b6gv';
 
 // Graphics presets: 0 Disabled, 1 Regular, 2 High, 3 PC.
 export const QUALITY = [
@@ -28,10 +28,9 @@ export class Batch {
     this.ensure();
     const d = this.data;
     let o = this.quads * 40;
-    const U = [uv[0], uv[0], uv[2], uv[2]], V = [uv[3], uv[1], uv[1], uv[3]];
     for (let k = 0; k < 4; k++) {
       d[o++] = p[k][0]; d[o++] = p[k][1]; d[o++] = p[k][2];
-      d[o++] = U[k]; d[o++] = V[k]; d[o++] = layer;
+      d[o++] = k < 2 ? uv[0] : uv[2]; d[o++] = k === 0 || k === 3 ? uv[3] : uv[1]; d[o++] = layer;
       d[o++] = c[0]; d[o++] = c[1]; d[o++] = c[2]; d[o++] = c[3];
     }
     this.quads++;

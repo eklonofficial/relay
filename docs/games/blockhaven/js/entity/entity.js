@@ -1,10 +1,11 @@
 // Entity base class, manager and the box-model renderer shared by every mob.
-import { moveEntity } from './physics.js?v=musyq7i1';
-import { B } from '../data/blocks.js?v=musyq7i1';
-import { fluidPush } from '../game/fluid.js?v=musyq7i1';
-import { ENTITY, texFactor } from '../render/mobtex.js?v=musyq7i1';
+import { moveEntity } from './physics.js?v=mut6b6gv';
+import { B } from '../data/blocks.js?v=mut6b6gv';
+import { fluidPush } from '../game/fluid.js?v=mut6b6gv';
+import { ENTITY, texFactor } from '../render/mobtex.js?v=mut6b6gv';
 
 let nextId = 1;
+const LIGHT = { sky: 0, blk: 0 };
 export class Entity {
   constructor(game, type, x, y, z) {
     this.id = nextId++;
@@ -52,7 +53,7 @@ export class Entity {
   center() { return [this.pos[0], this.pos[1] + this.h / 2, this.pos[2]]; }
   // Light multiplier from world light at the entity's head.
   brightness() {
-    const g = this.game, l = g.world.lightAt(this.pos[0], this.pos[1] + Math.min(this.h, 1.5) * 0.7, this.pos[2]);
+    const g = this.game, l = g.world.lightAt(this.pos[0], this.pos[1] + Math.min(this.h, 1.5) * 0.7, this.pos[2], LIGHT);
     const sky = Math.pow(0.8, 15 - l.sky), blk = Math.pow(0.82, 15 - l.blk);
     const s = g.env.skyLight, a = g.env.ambient;
     return [Math.max(s[0] * sky, blk * 1.12, a[0]), Math.max(s[1] * sky, blk * 0.85, a[1]), Math.max(s[2] * sky, blk * 0.56, a[2])];
@@ -129,58 +130,67 @@ export const M = {
 const FACE_SHADE = [0.62, 0.62, 1.0, 0.5, 0.8, 0.8];
 const P = [[0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0]];
 
+// Scratch for emitBox: a box's 8 corners, one face's corners, uvs and colour (quadUV copies them).
+const PT = [null, null, null, null], UV = [[0, 0], [0, 0], [0, 0], [0, 0]], COL = [0, 0, 0, 0];
+const UT = [0, 0, 0, 0, 0, 0], VT = [0, 0, 0];
+// Java's ModelPart.Cube per face (+X -X +Y -Y +Z -Z): four corners as [corner, u column, v row],
+// columns u, u+d, u+d+w, u+d+2w, u+2d+w, u+2d+2w and rows v, v+d, v+d+h.
+const JFACES = [
+  [2, 1, 1, 6, 0, 1, 5, 0, 2, 1, 1, 2],
+  [7, 4, 1, 3, 2, 1, 0, 2, 2, 4, 4, 2],
+  [7, 2, 0, 6, 1, 0, 2, 1, 1, 3, 2, 1],
+  [0, 3, 1, 1, 2, 1, 5, 2, 0, 4, 3, 0],
+  [6, 5, 1, 7, 4, 1, 4, 4, 2, 5, 5, 2],
+  [3, 2, 1, 2, 1, 1, 1, 1, 2, 0, 2, 2],
+];
+const MIRROR = [1, 0, 3, 2, 5, 4, 7, 6]; // a mirrored box swaps its corners side for side
+// The older unwrap: corners per face (entities face -Z in model space, "front" = -Z).
+const FACES = [[1, 5, 6, 2], [4, 0, 3, 7], [3, 2, 6, 7], [0, 1, 5, 4], [5, 4, 7, 6], [0, 1, 2, 3]];
+
 // Emits one box (in part space) into a batch. uv: texture coords of the MC box unwrap in texels.
 function emitBox(batch, m, box, layer, tw, th, light, alpha, java = false) {
-  const [ox, oy, oz] = box.o, [w, h, d] = box.s, inf = box.inflate || 0;
-  const x0 = ox - inf, y0 = oy - inf, z0 = oz - inf, x1 = ox + w + inf, y1 = oy + h + inf, z1 = oz + d + inf;
-  const c = (i, x, y, z) => { const r = M.apply(m, x, y, z); P[i][0] = r[0]; P[i][1] = r[1]; P[i][2] = r[2]; };
-  c(0, x0, y0, z0); c(1, x1, y0, z0); c(2, x1, y1, z0); c(3, x0, y1, z0);
-  c(4, x0, y0, z1); c(5, x1, y0, z1); c(6, x1, y1, z1); c(7, x0, y1, z1);
-  const [u, v] = box.uv, W = box.us ? box.us[0] : w, H = box.us ? box.us[1] : h, D = box.us ? box.us[2] : d;
-  const U = x => x / tw, V = y => y / th;
-  // MC unwrap: top (u+d, v), bottom (u+d+w, v), right (u, v+d), front (u+d, v+d), left (u+d+w, v+d), back (u+2d+w, v+d).
-  // Entities face -Z in model space ("front" = -Z).
-  const faces = [
-    // +X (left side of the mob seen from the front): verts 5,1,2,6 -> uv left
-    [[P[1], P[5], P[6], P[2]], [u + D + W, v + D, u + D + W + D, v + D + H], 0],
-    // -X (right side): 0,4,7,3
-    [[P[4], P[0], P[3], P[7]], [u, v + D, u + D, v + D + H], 1],
-    // +Y top
-    [[P[3], P[2], P[6], P[7]], [u + D, v, u + D + W, v + D], 2],
-    // -Y bottom
-    [[P[0], P[1], P[5], P[4]], [u + D + W, v, u + D + W + W, v + D], 3],
-    // +Z back
-    [[P[5], P[4], P[7], P[6]], [u + D + W + D, v + D, u + D + W + D + W, v + D + H], 4],
-    // -Z front
-    [[P[0], P[1], P[2], P[3]], [u + D, v + D, u + D + W, v + D + H], 5],
-  ];
+  const o = box.o, sz = box.s, inf = box.inflate || 0;
+  const w = sz[0], h = sz[1], d = sz[2];
+  const x0 = o[0] - inf, y0 = o[1] - inf, z0 = o[2] - inf, x1 = o[0] + w + inf, y1 = o[1] + h + inf, z1 = o[2] + d + inf;
+  for (let i = 0; i < 8; i++) {
+    const x = i === 1 || i === 2 || i === 5 || i === 6 ? x1 : x0, y = i === 2 || i === 3 || i === 6 || i === 7 ? y1 : y0, z = i < 4 ? z0 : z1;
+    const p = P[i];
+    p[0] = m[0] * x + m[1] * y + m[2] * z + m[3]; p[1] = m[4] * x + m[5] * y + m[6] * z + m[7]; p[2] = m[8] * x + m[9] * y + m[10] * z + m[11];
+  }
+  const u = box.uv[0], v = box.uv[1], W = box.us ? box.us[0] : w, H = box.us ? box.us[1] : h, D = box.us ? box.us[2] : d;
   if (java) {
     // Java's ModelPart.Cube, corner by corner (our x and y are Java's flipped): the right strip on
     // the +X side, the bottom flipped, and a mirrored box swapped side for side.
-    if (box.mirror) for (const [a, b] of [[0, 1], [3, 2], [4, 5], [7, 6]]) { const t = P[a]; P[a] = P[b]; P[b] = t; }
-    const U0 = u, U1 = u + D, U2 = u + D + W, U2w = u + D + W + W, U3 = u + D + W + D, U4 = u + D + W + D + W, V0 = v, V1 = v + D, V2 = v + D + H;
-    const J = [
-      [[2, U1, V1], [6, U0, V1], [5, U0, V2], [1, U1, V2], 0],
-      [[7, U3, V1], [3, U2, V1], [0, U2, V2], [4, U3, V2], 1],
-      [[7, U2, V0], [6, U1, V0], [2, U1, V1], [3, U2, V1], 2],
-      [[0, U2w, V1], [1, U2, V1], [5, U2, V0], [4, U2w, V0], 3],
-      [[6, U4, V1], [7, U3, V1], [4, U3, V2], [5, U4, V2], 4],
-      [[3, U2, V1], [2, U1, V1], [1, U1, V2], [0, U2, V2], 5],
-    ];
-    for (const face of J) {
-      const sh = FACE_SHADE[face[4]], col = [light[0] * sh, light[1] * sh, light[2] * sh, alpha];
-      batch.quadUV([P[face[0][0]], P[face[1][0]], P[face[2][0]], P[face[3][0]]], [0, 1, 2, 3].map(k => [U(face[k][1]), V(face[k][2])]), layer, col);
+    UT[0] = u / tw; UT[1] = (u + D) / tw; UT[2] = (u + D + W) / tw; UT[3] = (u + D + W + W) / tw; UT[4] = (u + D + W + D) / tw; UT[5] = (u + D + W + D + W) / tw;
+    VT[0] = v / th; VT[1] = (v + D) / th; VT[2] = (v + D + H) / th;
+    const mir = box.mirror;
+    for (let f = 0; f < 6; f++) {
+      const F = JFACES[f], sh = FACE_SHADE[f];
+      COL[0] = light[0] * sh; COL[1] = light[1] * sh; COL[2] = light[2] * sh; COL[3] = alpha;
+      for (let k = 0; k < 4; k++) {
+        PT[k] = P[mir ? MIRROR[F[k * 3]] : F[k * 3]];
+        UV[k][0] = UT[F[k * 3 + 1]]; UV[k][1] = VT[F[k * 3 + 2]];
+      }
+      batch.quadUV(PT, UV, layer, COL);
     }
-    if (box.mirror) for (const [a, b] of [[0, 1], [3, 2], [4, 5], [7, 6]]) { const t = P[a]; P[a] = P[b]; P[b] = t; }
     return;
   }
-  for (const [pts, r, f] of faces) {
-    let [a0, b0, a1, b1] = r;
+  for (let f = 0; f < 6; f++) {
+    let a0, b0, a1, b1;
+    if (f === 0) { a0 = u + D + W; b0 = v + D; a1 = u + D + W + D; b1 = v + D + H; }
+    else if (f === 1) { a0 = u; b0 = v + D; a1 = u + D; b1 = v + D + H; }
+    else if (f === 2) { a0 = u + D; b0 = v; a1 = u + D + W; b1 = v + D; }
+    else if (f === 3) { a0 = u + D + W; b0 = v; a1 = u + D + W + W; b1 = v + D; }
+    else if (f === 4) { a0 = u + D + W + D; b0 = v + D; a1 = u + D + W + D + W; b1 = v + D + H; }
+    else { a0 = u + D; b0 = v + D; a1 = u + D + W; b1 = v + D + H; }
     if (box.mirror) { const t = a0; a0 = a1; a1 = t; }
-    const sh = FACE_SHADE[f];
-    const col = [light[0] * sh, light[1] * sh, light[2] * sh, alpha];
-    const uvs = f === 3 ? [[a1, b0], [a0, b0], [a0, b1], [a1, b1]] : [[a1, b1], [a0, b1], [a0, b0], [a1, b0]];
-    batch.quadUV(pts, uvs.map(q => [U(q[0]), V(q[1])]), layer, col);
+    const sh = FACE_SHADE[f], c = FACES[f];
+    COL[0] = light[0] * sh; COL[1] = light[1] * sh; COL[2] = light[2] * sh; COL[3] = alpha;
+    for (let k = 0; k < 4; k++) PT[k] = P[c[k]];
+    if (f === 3) { UV[0][0] = a1; UV[0][1] = b0; UV[1][0] = a0; UV[1][1] = b0; UV[2][0] = a0; UV[2][1] = b1; UV[3][0] = a1; UV[3][1] = b1; }
+    else { UV[0][0] = a1; UV[0][1] = b1; UV[1][0] = a0; UV[1][1] = b1; UV[2][0] = a0; UV[2][1] = b0; UV[3][0] = a1; UV[3][1] = b0; }
+    for (let k = 0; k < 4; k++) { UV[k][0] = UV[k][0] / tw; UV[k][1] = UV[k][1] / th; }
+    batch.quadUV(PT, UV, layer, COL);
   }
 }
 

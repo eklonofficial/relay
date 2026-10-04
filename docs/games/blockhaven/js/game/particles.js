@@ -1,9 +1,10 @@
 // Particles: block fragments (block texture array) and effect sprites (item texture array).
-import { FACE_TEX, VARIANT_MASK, TINT_OF, SOLID, B } from '../data/blocks.js?v=musyq7i1';
-import { UNLOADED } from '../world/world.js?v=musyq7i1';
-import { billboard } from '../entity/objects.js?v=musyq7i1';
+import { FACE_TEX, VARIANT_MASK, TINT_OF, SOLID, B } from '../data/blocks.js?v=mut6b6gv';
+import { UNLOADED } from '../world/world.js?v=mut6b6gv';
+import { billboard } from '../entity/objects.js?v=mut6b6gv';
 
 const MAX = 1400;
+const LIGHT = { sky: 0, blk: 0 }, WHITE = [1, 1, 1], COLOR = [0, 0, 0, 0], UVR = [0, 0, 0, 0];
 const FX_PROPS = {
   smoke_0: { g: -1.2, life: [1, 2], drag: 0.9, size: 0.18 }, flame: { g: 0, life: [0.5, 1], drag: 0.9, size: 0.14, bright: true },
   heart: { g: -0.6, life: [0.8, 1.2], size: 0.3, bright: true }, crit: { g: 4, life: [0.4, 0.8], size: 0.12, bright: true },
@@ -19,7 +20,9 @@ const FX_PROPS = {
 
 export class Particles {
   constructor(game) { this.game = game; this.list = []; }
-  push(p) { if (this.list.length >= MAX) this.list.shift(); this.list.push(p); }
+  // Past MAX the oldest go, trimmed once per update and render instead of shifting on every push.
+  push(p) { this.list.push(p); }
+  trim() { if (this.list.length > MAX) this.list.splice(0, this.list.length - MAX); }
   enabled() { return this.game.settings.particles !== false; }
 
   // Fragments of a block, e.g. while mining or when broken.
@@ -63,6 +66,7 @@ export class Particles {
   }
   update(dt) {
     const w = this.game.world;
+    this.trim();
     for (const p of this.list) {
       p.vy -= p.g * dt;
       const k = Math.pow(p.drag, dt * 20);
@@ -76,22 +80,32 @@ export class Particles {
       } else { p.x = nx; p.y = ny; p.z = nz; }
       p.life -= dt;
     }
-    this.list = this.list.filter(p => p.life > 0);
+    // Drop the finished ones in place, keeping the order.
+    const l = this.list;
+    let n = 0;
+    for (let i = 0; i < l.length; i++) if (l[i].life > 0) l[n++] = l[i];
+    l.length = n;
   }
   render(ctx) {
     const g = this.game;
+    this.trim();
     for (const p of this.list) {
+      // Only what can be on screen (ctx.inView: the camera's view cone).
+      if (ctx.inView && !ctx.inView(p.x, p.y, p.z, p.size)) continue;
       if (p.kind === 'block') {
-        const l = g.world.lightAt(p.x, p.y, p.z);
+        const l = g.world.lightAt(p.x, p.y, p.z, LIGHT);
         const b = Math.max(Math.pow(0.8, 15 - l.sky) * g.env.skyLight[0], Math.pow(0.82, 15 - l.blk), g.env.ambient[0]);
-        billboard(ctx.blockParticles, ctx, p.x, p.y, p.z, p.size, p.layer, [b * p.tint[0], b * p.tint[1], b * p.tint[2], 1], [p.u, p.v, p.u + 0.25, p.v + 0.25]);
+        COLOR[0] = b * p.tint[0]; COLOR[1] = b * p.tint[1]; COLOR[2] = b * p.tint[2]; COLOR[3] = 1;
+        UVR[0] = p.u; UVR[1] = p.v; UVR[2] = p.u + 0.25; UVR[3] = p.v + 0.25;
+        billboard(ctx.blockParticles, ctx, p.x, p.y, p.z, p.size, p.layer, COLOR, UVR);
       } else {
         let name = p.name;
         if (p.anim) name = p.anim[Math.min(p.anim.length - 1, Math.floor((1 - p.life / p.max) * p.anim.length))];
         const a = Math.min(1, p.life * 3);
-        const c = p.color || [1, 1, 1];
+        const c = p.color || WHITE;
         const bright = p.bright ? 1.1 : 0.9;
-        billboard(ctx.itemFx, ctx, p.x, p.y, p.z, p.size, g.fxLayer(name), [c[0] * bright, c[1] * bright, c[2] * bright, a]);
+        COLOR[0] = c[0] * bright; COLOR[1] = c[1] * bright; COLOR[2] = c[2] * bright; COLOR[3] = a;
+        billboard(ctx.itemFx, ctx, p.x, p.y, p.z, p.size, g.fxLayer(name), COLOR);
       }
     }
   }
