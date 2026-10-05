@@ -1,12 +1,12 @@
 // The 3D scene: sky, sun and shadows, the map, eggs, pickups, the spatula, the roost, effects and
 // the first-person hands. The game canvas (#game) lives outside the compositor so WebGL and pointer
 // lock work natively; this module only draws into it.
-import * as THREE from '../../vendor/three/three.module.js?v=muunvxg7';
-import { buildWorld } from './world.js?v=muunvxg7';
-import { EggAvatar, TEAM_COLORS } from './egg.js?v=muunvxg7';
-import { Effects } from './fx.js?v=muunvxg7';
-import { ViewModel } from './viewmodel.js?v=muunvxg7';
-import { gunModel } from './guns.js?v=muunvxg7';
+import * as THREE from '../../vendor/three/three.module.js?v=muuo146f';
+import { buildWorld } from './world.js?v=muuo146f';
+import { EggAvatar, TEAM_COLORS } from './egg.js?v=muuo146f';
+import { Effects } from './fx.js?v=muuo146f';
+import { ViewModel } from './viewmodel.js?v=muuo146f';
+import { gunModel } from './guns.js?v=muuo146f';
 
 const SKIES = {
   day: { top: 0x2f8fd8, bottom: 0xbfe3f2, sun: 0xfff2d8 },

@@ -7,17 +7,36 @@
 // Bots drive the match through the same input struct as humans (control bits + yaw/pitch), so the
 // simulation holds them to identical movement, fire-rate, spread and damage rules. Difficulty only
 // changes human limits (reaction, aim error, turn speed, leading, decision noise), never knowledge.
-import { CTRL, WEAPONS, PLAYER, GRENADE, PRIMARIES, TICK } from '../sim/tuning.js?v=muunvxg7';
-import { currentSpread, weaponOf, slotOf } from '../sim/combat.js?v=muunvxg7';
-import { forward } from '../sim/movement.js?v=muunvxg7';
-import { EDGE } from './nav.js?v=muunvxg7';
+import { CTRL, WEAPONS, PLAYER, GRENADE, PRIMARIES, TICK } from '../sim/tuning.js?v=muuo146f';
+import { currentSpread, weaponOf, slotOf } from '../sim/combat.js?v=muuo146f';
+import { forward } from '../sim/movement.js?v=muuo146f';
+import { EDGE } from './nav.js?v=muuo146f';
 
-export const DIFFICULTY = {
-  easy: { reaction: 0.6, aimErr: 0.11, turn: 4.5, settle: 6, track: 0.9, lead: 0.3, fovMul: 0.85, discipline: 0.3, strafe: 0.35, jump: 0.02, nade: 0.15, cover: 0.3, hearing: 0.6, flinch: 1.6 },
-  normal: { reaction: 0.36, aimErr: 0.06, turn: 7.5, settle: 9, track: 1.6, lead: 0.7, fovMul: 1, discipline: 0.65, strafe: 0.7, jump: 0.05, nade: 0.45, cover: 0.65, hearing: 0.85, flinch: 1.2 },
-  hard: { reaction: 0.24, aimErr: 0.035, turn: 11, settle: 13, track: 2.5, lead: 0.9, fovMul: 1.1, discipline: 0.85, strafe: 0.9, jump: 0.08, nade: 0.7, cover: 0.85, hearing: 1, flinch: 0.9 },
-  expert: { reaction: 0.16, aimErr: 0.02, turn: 16, settle: 18, track: 3.6, lead: 1, fovMul: 1.15, discipline: 1, strafe: 1, jump: 0.1, nade: 0.9, cover: 1, hearing: 1, flinch: 0.7 },
+// Skill is a number from 0 (a first-time player) to 1 (a top player). Every trait is interpolated
+// between those two anchors; reaction time and aim error interpolate geometrically, since people are
+// spread out on a ratio scale there. Each bot also gets its own small offset per trait, so two bots
+// of the same skill still play differently (one reacts fast but aims loosely, another the reverse).
+const ANCHORS = {
+  reaction: [0.75, 0.13, 'geo'], aimErr: [0.12, 0.012, 'geo'], turn: [3.5, 20], settle: [5, 22], ff: [0.2, 0.98], track: [0.8, 4.5],
+  lead: [0.2, 1], fovMul: [0.8, 1.15], discipline: [0.12, 1], strafe: [0.25, 1], jump: [0.01, 0.1], nade: [0.08, 0.92],
+  cover: [0.2, 0.92], hearing: [0.5, 1], flinch: [1.8, 0.6, 'geo'],
 };
+// A difficulty is a range of skills, not one value: a lobby on Normal has some sharper and some
+// weaker bots, like a lobby of real people. Draws cluster towards the middle of the range.
+export const SKILL_RANGES = { easy: [0.05, 0.35], normal: [0.3, 0.65], hard: [0.55, 0.85], expert: [0.8, 1], mixed: [0.05, 1], public: [0.15, 0.8] };
+export function drawSkill(difficulty, rnd) {
+  if (typeof difficulty === 'number') return Math.max(0, Math.min(1, difficulty));
+  const [lo, hi] = SKILL_RANGES[difficulty] || SKILL_RANGES.normal;
+  return lo + (hi - lo) * (rnd() + rnd()) / 2;
+}
+export function traits(skill, rnd = Math.random, spread = 0.16) {
+  const out = {};
+  for (const [k, [a, b, mode]] of Object.entries(ANCHORS)) {
+    const t = Math.max(0, Math.min(1, skill + (rnd() - 0.5) * spread));
+    out[k] = mode === 'geo' ? a * Math.pow(b / a, t) : a + (b - a) * t;
+  }
+  return out;
+}
 // Where each weapon likes to fight from (units).
 const RANGE = { yolk47: [4, 12], doubleYolker: [0, 4.5], cageFree: [10, 30], yolkzooka: [5, 16], beater: [0, 8], poacher: [14, 45], triBoil: [5, 14], peck9mm: [0, 10] };
 
@@ -27,8 +46,9 @@ const yawTo = (dx, dz) => Math.atan2(-dx, -dz);
 export class Bot {
   constructor(manager, player, difficulty = 'normal', personality = {}) {
     this.mgr = manager; this.m = manager.match; this.p = player; this.nav = manager.nav;
-    this.d = DIFFICULTY[difficulty] || DIFFICULTY.normal;
     this.rnd = manager.rng;
+    this.skill = drawSkill(difficulty, this.rnd);
+    this.d = traits(this.skill, this.rnd);
     this.per = { aggression: 0.3 + this.rnd() * 0.7, patience: this.rnd(), ...personality };
     this.mem = new Map(); // enemy id → { x, y, z, vx, vy, vz, tick, seen, react, firstSeen, hp }
     this.target = null; this.path = null; this.pi = 0; this.goal = null;
@@ -37,7 +57,7 @@ export class Bot {
     this.strafe = 1; this.strafeT = 0; this.ctrl = 0; this.prevFire = false;
     this.thinkT = (player.id * 7) % 9; this.senseT = player.id % 3;
     this.stuckT = 0; this.lastPos = { x: 0, z: 0 }; this.progressT = 0;
-    this.nadeCooldown = 0; this.nadePlan = null; this.burst = 0; this.burstRest = 0;
+    this.nadeCooldown = 0; this.nadePlan = null; this.burst = 0; this.burstRest = 0; this.phase = 'move'; this.phaseT = 0;
     this.spawnDelay = 0; this.lookAround = 0; this.glance = null;
   }
   get body() { return this.p.body; }
@@ -343,7 +363,16 @@ export class Bot {
     if (inFight) {
       const dist = Math.hypot(tq.body.x - b.x, tq.body.z - b.z);
       const sniping = (s.id === 'poacher' || s.id === 'cageFree') && dist > 9;
-      if (sniping && h.reload === 0) { mx = 0; mz = 0; } // stand still to shoot (GDD tip)
+      // Counter-strafing: move a little, stop, shoot while the spread is tight, move again. Weapons that
+      // barely care about movement (the shotgun) or point-blank fights keep moving the whole time.
+      const moveTolerant = (w.moveMod ?? 1) < 0.5 || dist < 3.5;
+      if (--this.phaseT <= 0) {
+        this.phase = this.phase === 'shoot' ? 'move' : 'shoot';
+        const skill = this.d.discipline;
+        this.phaseT = Math.round((this.phase === 'shoot' ? 0.35 + this.rnd() * 0.45 : (0.22 + this.rnd() * 0.35) * (1.4 - skill * 0.5)) / TICK);
+      }
+      const standing = sniping || (!moveTolerant && this.phase === 'shoot' && h.reload === 0 && s.mag > 0);
+      if (standing && h.reload === 0) { mx = 0; mz = 0; }
       else if (this.rnd() < this.d.strafe || this.strafeT > 0) {
         // Strafe across their line of fire, changing direction at irregular intervals.
         if (--this.strafeT <= 0) { this.strafe = this.rnd() < 0.5 ? -1 : 1; this.strafeT = Math.round((0.18 + this.rnd() * 0.5) / TICK); }
@@ -352,13 +381,17 @@ export class Bot {
         mx = mx * (1 - k) + rx * this.strafe * k; mz = mz * (1 - k) + rz * this.strafe * k;
         if (b.onGround > 0 && this.rnd() < this.d.jump * (s.id === 'doubleYolker' ? 2 : 1) && !sniping) ctrl |= CTRL.jump;
       }
-    }
+      this.standing = standing;
+    } else this.standing = false;
     ctrl |= this.moveBits(mx, mz, b.yaw);
     if (move.jump) ctrl |= CTRL.jump;
     if (move.ladder) { ctrl = (ctrl & ~(CTRL.left | CTRL.right | CTRL.down)) | CTRL.up; }
 
     // --- weapons ---
     ctrl |= this.weapons(seeing, tq, tmem, aimingAt);
+    // Reload, swap and melee act on a fresh press (as for a person): tap them, don't hold them, so a
+    // press that came while the gun was still recovering gets another go next tick.
+    ctrl &= ~(this.ctrl & (CTRL.reload | CTRL.swap | CTRL.melee));
     this.ctrl = ctrl;
     m.setInput(me.id, ctrl, this.yaw, this.pitch);
   }
@@ -376,6 +409,12 @@ export class Bot {
   }
   // A damped "hand" on the mouse: fast for big flicks, settling for the last bit, capped speed.
   turn(wy, wp) {
+    // Track a moving aim point the way a player does: match its motion (feed-forward, by skill), then
+    // close the remaining gap with a damped, speed-capped correction.
+    const ffY = this.lastWantYaw === undefined ? 0 : wrap(wy - this.lastWantYaw), ffP = this.lastWantPitch === undefined ? 0 : wp - this.lastWantPitch;
+    this.lastWantYaw = wy; this.lastWantPitch = wp;
+    const ff = Math.abs(ffY) < 0.1 ? this.d.ff : 0; // not on flicks to a new target
+    this.yaw = wrap(this.yaw + ffY * ff); this.pitch += (Math.abs(ffP) < 0.1 ? ffP * ff : 0);
     const dy = wrap(wy - this.yaw), dp = wp - this.pitch, max = this.d.turn * TICK;
     const k = 1 - Math.exp(-this.d.settle * TICK);
     this.yaw = wrap(this.yaw + Math.max(-max, Math.min(max, dy * k)));
@@ -462,10 +501,10 @@ export class Bot {
     // Aim down sights at range with scoped/precise weapons.
     const ads = (w.scoped && !w.rocket && dist > 7) || (dist > far * 0.8 && w.ads < 0.7);
     if (ads) c |= CTRL.scope;
-    if (s.id === 'doubleYolker' && dist > 6.5) return c;
+    if (s.id === 'doubleYolker' && dist > 6.5) { return c; }
     if (w.rocket && dist < w.minRange + 0.6) { return (h.slots.length > 1 && h.swap === 0) ? CTRL.swap : c; }
-    if (dist > w.range * 0.98) return c;
-    if (ads && h.ads === false && w.scoped) return c; // wait for the scope to settle
+    if (dist > w.range * 0.98) { return c; }
+    if (ads && h.ads === false && w.scoped) { return c; } // wait for the scope to settle
     // On target? Compare the aim's angular error with the egg's angular size.
     const offYaw = Math.abs(wrap(this.yaw - aim.yaw)), offPitch = Math.abs(this.pitch - aim.pitch);
     const size = Math.atan2(m.hitR(q), dist);
@@ -474,7 +513,7 @@ export class Bot {
     const tolerance = w.pellets ? size * 3 + 0.08 : size * (1.1 + (1 - this.d.discipline) * 1.5);
     if (off > tolerance) { this.burst = 0; return c; }
     // Snipers wait until they've actually stopped.
-    if ((s.id === 'poacher' || s.id === 'cageFree') && dist > 9 && Math.hypot(b.vx, b.vz) > 0.012 * (2 - this.d.discipline)) return c;
+    if ((s.id === 'poacher' || s.id === 'cageFree') && dist > 9 && Math.hypot(b.vx, b.vz) > 0.012 * (2 - this.d.discipline)) { return c; }
     // Bloom discipline: at range, only shoot when the spread has recovered enough to land.
     const close = dist < 6;
     const bloomOk = close || spread < size * (2.2 + (1 - this.d.discipline) * 4) || w.pellets;

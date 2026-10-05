@@ -1,27 +1,27 @@
 // Shock Shellers: boot, menus, the match flow (home → respawn screen → play → death → respawn) and
 // the frame loop. The simulation runs at a fixed 30 Hz inside the session; rendering interpolates.
-import './page.js?v=muunvxg7';
-import { surfaceDocument as document } from './surface.js?v=muunvxg7';
-import { registerApp } from './veil.js?v=muunvxg7';
-import { tell } from './dialog.js?v=muunvxg7';
-import { splash } from './splash.js?v=muunvxg7';
-import * as THREE from '../vendor/three/three.module.js?v=muunvxg7';
-import { Renderer } from './render/renderer.js?v=muunvxg7';
-import { EggAvatar, SHELL_COLORS, TEAM_COLORS } from './render/egg.js?v=muunvxg7';
-import { gunModel } from './render/guns.js?v=muunvxg7';
-import { Input } from './game/input.js?v=muunvxg7';
-import { Sound } from './game/audio.js?v=muunvxg7';
-import { Hud } from './game/hud.js?v=muunvxg7';
-import { loadSettings, saveSettings, loadProfile, saveProfile } from './game/store.js?v=muunvxg7';
-import { ensureDaily, progress as challengeProgress, claim as claimChallenges } from './game/challenges.js?v=muunvxg7';
-import { HostSession } from './game/session.js?v=muunvxg7';
-import { GuestSession } from './net/guest.js?v=muunvxg7';
-import { pickPublicMap, mapDef, MAPS } from './maps/index.js?v=muunvxg7';
-import { WEAPONS, PRIMARIES, PLAYER, MODE_NAMES, MODE_MENU, ECONOMY, CTRL, TICK } from './sim/tuning.js?v=muunvxg7';
-import { weaponOf, slotOf } from './sim/combat.js?v=muunvxg7';
-import { drawLogo, drawHowTo } from './ui/art.js?v=muunvxg7';
-import { HIT } from './maps/grid.js?v=muunvxg7';
-import { Menus } from './ui/menus.js?v=muunvxg7';
+import './page.js?v=muuo146f';
+import { surfaceDocument as document } from './surface.js?v=muuo146f';
+import { registerApp } from './veil.js?v=muuo146f';
+import { tell } from './dialog.js?v=muuo146f';
+import { splash } from './splash.js?v=muuo146f';
+import * as THREE from '../vendor/three/three.module.js?v=muuo146f';
+import { Renderer } from './render/renderer.js?v=muuo146f';
+import { EggAvatar, SHELL_COLORS, TEAM_COLORS } from './render/egg.js?v=muuo146f';
+import { gunModel } from './render/guns.js?v=muuo146f';
+import { Input } from './game/input.js?v=muuo146f';
+import { Sound } from './game/audio.js?v=muuo146f';
+import { Hud } from './game/hud.js?v=muuo146f';
+import { loadSettings, saveSettings, loadProfile, saveProfile } from './game/store.js?v=muuo146f';
+import { ensureDaily, progress as challengeProgress, claim as claimChallenges } from './game/challenges.js?v=muuo146f';
+import { HostSession } from './game/session.js?v=muuo146f';
+import { GuestSession } from './net/guest.js?v=muuo146f';
+import { pickPublicMap, mapDef, MAPS } from './maps/index.js?v=muuo146f';
+import { WEAPONS, PRIMARIES, PLAYER, MODE_NAMES, MODE_MENU, ECONOMY, CTRL, TICK } from './sim/tuning.js?v=muuo146f';
+import { weaponOf, slotOf } from './sim/combat.js?v=muuo146f';
+import { drawLogo, drawHowTo } from './ui/art.js?v=muuo146f';
+import { HIT } from './maps/grid.js?v=muuo146f';
+import { Menus } from './ui/menus.js?v=muuo146f';
 
 const $ = id => document.getElementById(id);
 const show = (id, on = true) => $(id).classList.toggle('hidden', !on);
@@ -105,7 +105,7 @@ class App {
   // PLAY: host a fresh bot-filled public-style room on a random map for the chosen mode.
   play() {
     const mode = this.profile.mode;
-    this.startMatch({ map: pickPublicMap(mode), mode, options: {}, bots: undefined, difficulty: 'normal', private: false });
+    this.startMatch({ map: pickPublicMap(mode), mode, options: {}, bots: undefined, difficulty: 'public', private: false });
   }
   startMatch(cfg) {
     this.sound.unlock();

@@ -1,17 +1,17 @@
 // Menus and modals (GDD §16–21): home, respawn/pause screen, settings (3 tabs), play with friends,
 // custom matches, profile, shop/inventory, how to play, chat. All markup lives in index.html inside
 // the compositor; this module wires it up and keeps it current.
-import { surfaceDocument as document } from '../surface.js?v=muunvxg7';
-import * as THREE from '../../vendor/three/three.module.js?v=muunvxg7';
-import { ask, tell } from '../dialog.js?v=muunvxg7';
-import { gunModel } from '../render/guns.js?v=muunvxg7';
-import { SHELL_COLORS } from '../render/egg.js?v=muunvxg7';
-import { WEAPONS, PRIMARIES, MODE_NAMES, MODE_MENU, TICK } from '../sim/tuning.js?v=muunvxg7';
-import { ACTIONS, ACTION_NAMES, keyLabel, DEFAULT_KEYS } from '../game/input.js?v=muunvxg7';
-import { DEFAULT_SETTINGS, saveSettings, saveProfile } from '../game/store.js?v=muunvxg7';
-import { ensureDaily, def as challengeDef, reroll, timeLeft } from '../game/challenges.js?v=muunvxg7';
-import { MAPS, mapDef } from '../maps/index.js?v=muunvxg7';
-import { drawHowTo } from './art.js?v=muunvxg7';
+import { surfaceDocument as document } from '../surface.js?v=muuo146f';
+import * as THREE from '../../vendor/three/three.module.js?v=muuo146f';
+import { ask, tell } from '../dialog.js?v=muuo146f';
+import { gunModel } from '../render/guns.js?v=muuo146f';
+import { SHELL_COLORS } from '../render/egg.js?v=muuo146f';
+import { WEAPONS, PRIMARIES, MODE_NAMES, MODE_MENU, TICK } from '../sim/tuning.js?v=muuo146f';
+import { ACTIONS, ACTION_NAMES, keyLabel, DEFAULT_KEYS } from '../game/input.js?v=muuo146f';
+import { DEFAULT_SETTINGS, saveSettings, saveProfile } from '../game/store.js?v=muuo146f';
+import { ensureDaily, def as challengeDef, reroll, timeLeft } from '../game/challenges.js?v=muuo146f';
+import { MAPS, mapDef } from '../maps/index.js?v=muuo146f';
+import { drawHowTo } from './art.js?v=muuo146f';
 
 const $ = id => document.getElementById(id);
 const show = (id, on = true) => $(id).classList.toggle('hidden', !on);
@@ -281,7 +281,7 @@ export class Menus {
     const q = $('cu-search').value.toLowerCase();
     chips('cu-maps', MAPS.filter(m => m.name.toLowerCase().includes(q)).map(m => [m.id, `${m.name} (${m.maxPlayers})`]), m => m === c.map, m => { c.map = m; c.bots = Math.min(c.bots, mapDef(m).maxPlayers - 1); if (!mapDef(m).modes.includes(c.mode)) c.mode = mapDef(m).modes[0]; });
     chips('cu-bots', Array.from({ length: map.maxPlayers }, (_, i) => [i, i ? String(i) : 'None']), n => n === c.bots, n => { c.bots = n; });
-    chips('cu-skill', [['easy', 'Easy'], ['normal', 'Normal'], ['hard', 'Hard'], ['expert', 'Expert']], d => d === c.difficulty, d => { c.difficulty = d; });
+    chips('cu-skill', [['easy', 'Easy'], ['normal', 'Normal'], ['hard', 'Hard'], ['expert', 'Expert'], ['mixed', 'Mixed']], d => d === c.difficulty, d => { c.difficulty = d; });
     const sl = $('cu-sliders'); sl.replaceChildren();
     sl.append(this.slider('Gravity', 0.25, 1, 0.25, () => c.gravity, v => { c.gravity = v; }, v => v + '×'));
     sl.append(this.slider('Damage', 0, 2, 0.25, () => c.damage, v => { c.damage = v; }, v => v + '×'));
