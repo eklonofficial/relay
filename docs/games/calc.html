@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-7b1RSHgZsdiAoETCwybQZTvNkQG7oOBnFmx62SMG1M8='; script-src-attr 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; media-src 'self' data: blob:; connect-src 'self' https: wss: http: ws:; worker-src 'self' blob:; frame-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-prHoFnWQH7VV9JOaWRr1kwssf/OcbIrQVxPV+kkD8kA='; script-src-attr 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; media-src 'self' data: blob:; connect-src 'self' https: wss: http: ws:; worker-src 'self' blob:; frame-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
 <meta name="referrer" content="no-referrer">
 
 
@@ -378,12 +378,13 @@ function removeRow(r, keepFocus) {
   if (keepFocus) rows[Math.max(0, i - 1)].input.focus();
   changed();
 }
-const SECRET = 'y=mx+b';
+const GAMES = { 'y=mx+b': 'blockhaven', 'shock': 'shockshellers' };
 function onKey(e, r) {
   const i = rows.indexOf(r);
   if (e.key === 'Enter') {
     e.preventDefault();
-    if (r.input.value.toLowerCase().replace(/[\s*]/g, '') === SECRET) { launch(); return; }
+    const game = GAMES[r.input.value.toLowerCase().replace(/[\s*]/g, '')];
+    if (game) { launch(game, r); return; }
     const n = rows[i + 1] && !rows[i + 1].input.value ? rows[i + 1] : makeRow('', r);
     renumber(); n.input.focus(); changed();
   } else if (e.key === 'Backspace' && !r.input.value && rows.length > 1 && i > 0) {
@@ -391,17 +392,19 @@ function onKey(e, r) {
   } else if (e.key === 'ArrowUp' && i > 0) { e.preventDefault(); rows[i - 1].input.focus(); }
   else if (e.key === 'ArrowDown' && i < rows.length - 1) { e.preventDefault(); rows[i + 1].input.focus(); }
 }
-// Embedded (the game's quick-hide cover): hand control back to the game instead of navigating.
+// Embedded (a game's quick-hide cover): hand control back to the game instead of navigating.
+// The embedding game is the folder of the parent page; typing another game's expression asks the
+// parent to switch games in the same tab.
 const embedded = window.parent !== window;
-function launch() {
+function launch(game, r) {
   if (embedded) {
-    const r = rows.find(q => q.input.value.toLowerCase().replace(/[\s*]/g, '') === SECRET);
-    if (r) { r.input.blur(); removeRow(r, false); }
-    parent.postMessage({ bh: 'resume' }, location.origin);
+    r.input.blur(); removeRow(r, false);
+    const host = parent.location.pathname.match(/([^/]+)\/[^/]*$/)?.[1];
+    parent.postMessage(game === host ? { bh: 'resume' } : { bh: 'open', game }, location.origin);
     return;
   }
   document.getElementById('veil').classList.add('on');
-  setTimeout(() => { location.href = 'index.html'; }, 380);
+  setTimeout(() => { location.href = game + '/index.html'; }, 380);
 }
 
 // Undo / redo over the whole list.

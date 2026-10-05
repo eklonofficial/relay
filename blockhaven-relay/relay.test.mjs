@@ -44,6 +44,16 @@ test('malformed MQTT packets cannot take down every player',async t=>{
   assert.equal(server.child.exitCode,null,'an invalid publish must close that client, not crash the relay');
   assert.equal((await fetch(server.health)).status,200);
 });
+test('each calculator game may use its own topic root; other roots are refused',async t=>{
+  const server=await launch(t);
+  const ws=new WebSocket(server.url,'mqtt');t.after(()=>ws.terminate());await once(ws,'open');
+  ws.send(Buffer.from([0x10,14,0,4,77,81,84,84,4,2,0,60,0,2,113,97]));await once(ws,'message');
+  const topics=['blockhaven/v1/A/h','shockshellers/v1/A/h','other/v1/A/h'];
+  const body=Buffer.concat([Buffer.from([0,7]),...topics.map(s=>Buffer.concat([Buffer.from([0,s.length]),Buffer.from(s),Buffer.from([0])]))]);
+  ws.send(Buffer.concat([Buffer.from([0x82,body.length]),body]));
+  const [ack]=await deadline(once(ws,'message'));
+  assert.deepEqual([...ack.subarray(4)],[0,0,0x80]);
+});
 test('initial connection waits for a sleeping relay to become available',async()=>{
   const mesh=new Mesh(['ws://test.invalid']);
   let up;

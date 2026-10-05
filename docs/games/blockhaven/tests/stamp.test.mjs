@@ -9,17 +9,19 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const game = fileURLToPath(new URL('..', import.meta.url));
-let dir;
+let dir, top;
 const run = (...args) => spawnSync(process.execPath, [join(dir, 'tools', 'stamp.mjs'), ...args], { encoding: 'utf8' });
 const edit = (rel, fn) => { const p = join(dir, rel); writeFileSync(p, fn(readFileSync(p, 'utf8'))); };
 
 before(() => {
-  dir = mkdtempSync(join(tmpdir(), 'blockhaven-stamp-'));
-  for (const f of ['index.html', 'calc.html', 'vercel.json', 'js', 'tools']) cpSync(join(game, f), join(dir, f), { recursive: true });
+  // Same layout as docs/games: the game folder beside the shared calculator and tools.
+  top = mkdtempSync(join(tmpdir(), 'blockhaven-stamp-')); dir = join(top, 'blockhaven');
+  for (const f of ['index.html', 'js', 'tools']) cpSync(join(game, f), join(dir, f), { recursive: true });
+  for (const f of ['calc.html', 'vercel.json', 'tools']) cpSync(join(game, '..', f), join(top, f), { recursive: true });
   const r = run();
   assert.equal(r.status, 0, r.stderr);
 });
-after(() => rmSync(dir, { recursive: true, force: true }));
+after(() => rmSync(top, { recursive: true, force: true }));
 
 test('--check passes on a freshly stamped tree and changes nothing', () => {
   const before = readFileSync(join(dir, 'js/game/game.js'), 'utf8');

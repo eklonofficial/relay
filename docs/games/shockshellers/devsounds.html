@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Shock Shellers sound test (development only)</title>
+<style>
+  body { font-family: system-ui, sans-serif; background: #0e3440; color: #fff; margin: 24px; }
+  h1 { font-size: 22px; } h2 { font-size: 16px; color: #ffd23f; margin: 18px 0 8px; }
+  .grid { display: flex; flex-wrap: wrap; gap: 8px; }
+  button { background: #1d9ad6; color: #fff; border: 3px solid #0b5b7d; border-radius: 8px; padding: 8px 12px; font-size: 14px; cursor: pointer; }
+  button:active { transform: translateY(2px); }
+  .note { opacity: .8; font-size: 13px; max-width: 760px; line-height: 1.4; }
+</style>
+</head>
+<body>
+<h1>Shock Shellers: sound test</h1>
+<p class="note">Development page (never deployed). Plays every effect in assets/sounds through the game's own audio engine. "Burst" plays an automatic weapon at its real fire rate; "3D" plays the sound circling around you at 6 units. Sources and licences: assets/sounds/SOURCES.md.</p>
+<div id="groups"></div>
+<script type="module">
+import { SOUND_FILES } from './js/game/soundbank.js';
+import { Sound, registerSamples } from './js/game/audio.js';
+import { WEAPONS } from './js/sim/tuning.js';
+registerSamples(SOUND_FILES);
+const snd = new Sound({ volume: 80 });
+const groups = {
+  Weapons: ['yolk47', 'beater', 'triBoil', 'cageFree', 'poacher', 'doubleYolker', 'peck9mm', 'yolkzooka'],
+  'Explosions & grenades': ['explode', 'dud', 'squawk', 'cluck', 'bawk', 'throw', 'bounce'],
+  Eggs: ['crack', 'crackBig', 'splat', 'hitmark'],
+  Hands: ['reload', 'reloaded', 'reloadedLong', 'bolt', 'dry', 'swap', 'melee', 'ammo', 'pickupNade'],
+  Movement: ['step', 'jump', 'land'],
+  'Interface & stingers': ['click', 'pop', 'powerup', 'powerdown', 'challenge', 'respawn', 'shield', 'zone', 'alarm', 'score', 'drop'],
+};
+const root = document.getElementById('groups');
+for (const [title, names] of Object.entries(groups)) {
+  const h = document.createElement('h2'); h.textContent = title; root.append(h);
+  const g = document.createElement('div'); g.className = 'grid'; root.append(g);
+  for (const n of names) {
+    const b = document.createElement('button'); b.textContent = n; b.onclick = () => { snd.unlock(); setTimeout(() => snd.play(n), snd.buffers.size ? 0 : 400); }; g.append(b);
+    if (WEAPONS[n]?.auto || WEAPONS[n]?.burst) {
+      const r = document.createElement('button'); r.textContent = n + ' burst';
+      r.onclick = () => { snd.unlock(); const w = WEAPONS[n], gap = (w.burst ? w.burstGap : w.rof) / 30 * 1000; for (let i = 0; i < (w.burst || 8); i++) setTimeout(() => snd.play(n), i * gap); };
+      g.append(r);
+    }
+    const s = document.createElement('button'); s.textContent = n + ' 3D';
+    s.onclick = () => { snd.unlock(); snd.listener(0, 0, 0, 0); for (let i = 0; i < 6; i++) setTimeout(() => { const a = i / 6 * Math.PI * 2; snd.play(n, [Math.sin(a) * 6, 0, -Math.cos(a) * 6]); }, i * 450); };
+    g.append(s);
+  }
+}
+</script>
+</body>
+</html>

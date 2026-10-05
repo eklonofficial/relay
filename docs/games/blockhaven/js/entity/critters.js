@@ -2,8 +2,8 @@
 // FrogModel, CamelModel) with their texture offsets and poses. The frog and camel animate from Java's
 // keyframe animations (FrogAnimation, CamelAnimation), played as KeyframeAnimations does. Coordinates
 // as in entity/animals.js.
-import { jbox, pivot } from './humanoid.js?v=muujnt14';
-import { P, child, rot, model, toOurs, R } from './animals.js?v=muujnt14';
+import { jbox, pivot } from './humanoid.js?v=muum39sy';
+import { P, child, rot, model, toOurs, R } from './animals.js?v=muum39sy';
 
 const PI = Math.PI;
 

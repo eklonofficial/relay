@@ -6,9 +6,12 @@ import { createServer } from 'node:http';
 import { readFile, mkdir, writeFile } from 'node:fs/promises';
 import { resolve, extname, sep } from 'node:path';
 import { gunzipSync } from 'node:zlib';
+import { readFileSync } from 'node:fs';
+// This game's expression, read from the shared calculator's table (never written here).
+const secret = [...readFileSync(new URL('../../calc.html', import.meta.url), 'utf8').match(/const GAMES = \{([^}]*)\}/)[1].matchAll(/'([^']*)'\s*:\s*'([a-z0-9]+)'/g)].find(m => m[2] === 'blockhaven')[1];
 const dep = process.argv.includes('--dependencies') ? resolve(process.argv[process.argv.indexOf('--dependencies') + 1]) : process.cwd();
 const { chromium } = createRequire(resolve(dep, 'package.json'))('playwright');
-const root = resolve(process.env.SITE_OUTPUT || 'build/site');
+const root = resolve(process.env.SITE_OUTPUT || 'build/games');
 const captures = resolve('build/checks'); await mkdir(captures, { recursive: true });
 const types = { '.html': 'text/html', '.bin': 'application/octet-stream', '.js': 'text/javascript' };
 const server = createServer(async (req, res) => {
@@ -58,7 +61,7 @@ try {
     // Smaller streamed area keeps CI focused on behavior, with the same assets.
     localStorage.setItem('blockhaven.settings.v2', JSON.stringify({ renderDistance: 3, graphics: 0 }));
   });
-  const base = 'http://127.0.0.1:' + server.address().port;
+  const base = 'http://127.0.0.1:' + server.address().port + '/blockhaven';
   await page.goto(base + '/index.html', { waitUntil: 'commit' });
   // Poll readiness independently of Chromium's animation-frame scheduling:
   // software-rendered CI can miss RAF polls while the title panorama is busy.
@@ -161,7 +164,7 @@ try {
   const calculator = page.frames().find(f => f !== page.mainFrame());
   await calculator.waitForFunction(() => !!window.testRoot?.querySelector('input.ex'));
   const calcBox = await calculator.evaluate(() => { const r = window.testRoot.querySelector('input.ex').getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; });
-  await page.mouse.click(calcBox.x, calcBox.y); await page.keyboard.type('y=mx+b'); await page.keyboard.press('Enter');
+  await page.mouse.click(calcBox.x, calcBox.y); await page.keyboard.type(secret); await page.keyboard.press('Enter');
   await page.waitForFunction(() => document.querySelector('iframe').style.display === 'none');
   assert.equal(await page.title(), 'Graphing Calculator');
   assert.equal(await page.locator('link[rel="icon"]').getAttribute('href'), originalIcon);

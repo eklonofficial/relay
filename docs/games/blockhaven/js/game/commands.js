@@ -1,10 +1,10 @@
 // Chat commands (cheats) with Minecraft-style syntax, ~relative coordinates and suggestions.
-import { B, STATE, DIM, BLOCKS } from '../data/blocks.js?v=muujnt14';
-import { setWeather, sample, RAIN_DELAY, RAIN_DURATION, THUNDER_DURATION, parseTime } from './weather.js?v=muujnt14';
-import { I, ITEMS } from '../data/items.js?v=muujnt14';
-import { MOBS } from '../data/mobs.js?v=muujnt14';
-import { BIOMES } from '../gen/biomes.js?v=muujnt14';
-import { ENCHANTS, canEnchant, compatible, enchantsOf, setEnchants, enchantName } from '../data/enchantments.js?v=muujnt14';
+import { B, STATE, DIM, BLOCKS } from '../data/blocks.js?v=muum39sy';
+import { setWeather, sample, RAIN_DELAY, RAIN_DURATION, THUNDER_DURATION, parseTime } from './weather.js?v=muum39sy';
+import { I, ITEMS } from '../data/items.js?v=muum39sy';
+import { MOBS } from '../data/mobs.js?v=muum39sy';
+import { BIOMES } from '../gen/biomes.js?v=muum39sy';
+import { ENCHANTS, canEnchant, compatible, enchantsOf, setEnchants, enchantName } from '../data/enchantments.js?v=muum39sy';
 
 const MODES = { survival: 'survival', s: 'survival', 0: 'survival', creative: 'creative', c: 'creative', 1: 'creative', adventure: 'adventure', a: 'adventure', 2: 'adventure', spectator: 'spectator', sp: 'spectator', 3: 'spectator' };
 const DIMS = { overworld: DIM.OVERWORLD, 'minecraft:overworld': DIM.OVERWORLD, nether: DIM.NETHER, the_nether: DIM.NETHER, 'minecraft:the_nether': DIM.NETHER, end: DIM.END, the_end: DIM.END, 'minecraft:the_end': DIM.END };

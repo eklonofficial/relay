@@ -13,7 +13,9 @@ const http = require('http');
 const { WebSocketServer } = require('ws');
 
 const PORT = Number(process.env.PORT) || 8080;
-const MAX_PACKET = 64 * 1024, MAX_RATE = 400, MAX_CLIENTS = Number(process.env.MAX_CLIENTS) || 2000, PREFIX = 'blockhaven/';
+const MAX_PACKET = 64 * 1024, MAX_RATE = 400, MAX_CLIENTS = Number(process.env.MAX_CLIENTS) || 2000, PREFIXES = ['blockhaven/', 'shockshellers/'];
+// One relay for every calculator game; each game keeps to its own topic root.
+const allowed = topic => PREFIXES.some(p => topic.startsWith(p));
 const ORIGINS = (process.env.ALLOWED_ORIGINS || '').split(',').map(s => s.trim()).filter(Boolean);
 
 const server = http.createServer((req, res) => {
@@ -71,7 +73,7 @@ wss.on('connection', ws => {
           const tl = body.readUInt16BE(p), end = p + 2 + tl;
           if (!tl || end >= body.length || body[end] > 2) { ws.terminate(); return; }
           const topic = body.subarray(p + 2, end).toString(); p = end + 1;
-          if (!topic.startsWith(PREFIX) || /[#+]/.test(topic) || (!mine.has(topic) && mine.size >= 64)) { granted.push(0x80); continue; }
+          if (!allowed(topic) || /[#+]/.test(topic) || (!mine.has(topic) && mine.size >= 64)) { granted.push(0x80); continue; }
           if (!topics.has(topic)) topics.set(topic, new Set());
           topics.get(topic).add(ws); mine.add(topic); granted.push(0);
         }
@@ -81,7 +83,7 @@ wss.on('connection', ws => {
         const tl = body.readUInt16BE(0);
         if (!tl || 2 + tl > body.length) { ws.terminate(); return; }
         const topic = body.subarray(2, 2 + tl).toString();
-        if (!topic.startsWith(PREFIX) || /[#+]/.test(topic)) continue;
+        if (!allowed(topic) || /[#+]/.test(topic)) continue;
         const subs = topics.get(topic);
         if (subs) for (const s of subs) if (s !== ws && s.readyState === 1) s.send(whole);
       } else if (header === 0xc0 && !body.length) ws.send(Buffer.from([0xd0, 0])); // PINGREQ

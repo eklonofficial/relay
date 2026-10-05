@@ -289,6 +289,7 @@
             <button class="game-btn" onclick="switchGame('shellshockers')">🥚 Shell Shockers</button>
             <button class="game-btn" onclick="switchGame('g2048')">🔢 2048</button>
             <button class="game-btn" onclick="switchGame('blockhaven')">⛏️ Blockhaven (Voxel Sandbox)</button>
+            <button class="game-btn" onclick="switchGame('shockshellers')">🍳 Shock Shellers (Egg FPS)</button>
             <button class="game-btn" onclick="switchGame('kartline')">🏁 KARTLINE (2P Karts)</button>
             <button class="game-btn" onclick="switchGame('hexgl')">🏎️ HexGL (3D Racing)</button>
             <button class="game-btn" onclick="switchGame('threefps')">🎯 Shooter (3D FPS)</button>
@@ -436,6 +437,24 @@
             <div style="text-align: center; margin-top: 15px;">
                 <button class="fullscreen-btn" onclick="goFullscreen('frameBlockhaven')">⛶ Fullscreen</button>
                 <a href="games/blockhaven/index.html" target="_blank" rel="noopener"><button>Open in its own tab</button></a>
+            </div>
+        </div>
+
+        <!-- Shock Shellers egg shooter (original) -->
+        <div id="shockshellers" class="game-container">
+            <h2>🍳 Shock Shellers</h2>
+            <div class="instructions">
+                An original egg-shooter built for this site: seven primaries plus a pistol, the whisk and Cluck Bombs,
+                Free For All, Teams, Spatula Snatch and Rule the Roost, with smart bots in every lobby. Share your room code and friends take a bot's place.
+                <strong>WASD</strong> move, <strong>mouse</strong> aim, <strong>left-click</strong> fire, <strong>right-click</strong> aim down sights,
+                <strong>R</strong> reload, <strong>E</strong> swap, <strong>Q</strong> grenade, <strong>V</strong> melee, <strong>Enter</strong> chat.
+            </div>
+            <iframe id="frameShockShellers" data-src="games/shockshellers/index.html" width="100%" height="620"
+                style="border: 2px solid #667eea; border-radius: 5px; background:#0b0f18;"
+                allow="fullscreen" title="Shock Shellers"></iframe>
+            <div style="text-align: center; margin-top: 15px;">
+                <button class="fullscreen-btn" onclick="goFullscreen('frameShockShellers')">⛶ Fullscreen</button>
+                <a href="games/shockshellers/index.html" target="_blank" rel="noopener"><button>Open in its own tab</button></a>
             </div>
         </div>
 
