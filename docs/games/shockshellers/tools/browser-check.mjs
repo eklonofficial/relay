@@ -23,7 +23,7 @@ const server = createServer(async (req, res) => {
 });
 await new Promise(r => server.listen(0, '127.0.0.1', r));
 let browser, page;
-const errors = [], requests = [];
+const errors = [], requests = [], wakes = [];
 try {
   const launch = { headless: true, args: ['--no-proxy-server', '--enable-webgl', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] };
   if (process.env.BROWSER_EXECUTABLE) launch.executablePath = process.env.BROWSER_EXECUTABLE;
@@ -33,7 +33,9 @@ try {
   page.setDefaultTimeout(180000);
   page.on('pageerror', e => errors.push(e.message));
   page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
-  page.on('request', r => { if (/^https?:/.test(r.url())) requests.push(new URL(r.url()).pathname); });
+  // The one outside request the page makes on its own is the wake-up of the project relay (it sleeps
+  // when idle; see net-config.js), so only that exact URL is set aside; anything else is recorded.
+  page.on('request', r => { if (!/^https?:/.test(r.url())) return; const u = new URL(r.url()); if (u.host === 'blockhaven-relay.onrender.com' && u.pathname === '/health') { wakes.push(u.href); return; } requests.push(u.pathname); });
   await page.addInitScript(() => {
     const original = Element.prototype.attachShadow;
     Element.prototype.attachShadow = function (options) { const root = original.call(this, options); if (options.mode === 'closed') window.testRoot = root; return root; };
