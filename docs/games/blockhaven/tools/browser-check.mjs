@@ -106,6 +106,8 @@ try {
   const before = await position();
   await page.keyboard.down('KeyW'); await page.waitForTimeout(1000); await page.keyboard.up('KeyW');
   await page.mouse.move(700, 420); await page.waitForTimeout(500);
+  // As with the heading below: wait for the debug screen to show the new position.
+  await page.waitForFunction(b => { const m = window.testRoot.getElementById('debug').textContent.match(/XYZ: ([\d.-]+) \/ [\d.-]+ \/ ([\d.-]+)/); return m && Math.hypot(m[1] - b[0], m[2] - b[2]) > 0.1; }, before, { timeout: 15000, polling: 100 }).catch(() => {});
   const after = await position();
   assert.ok(Math.hypot(after[0]-before[0],after[2]-before[2]) > 0.1, 'W must move the player, not merely deliver a key event');
   const facing = () => page.evaluate(() => window.testRoot.getElementById('debug').textContent.match(/Facing: (\w+)/)?.[1]);
@@ -118,7 +120,9 @@ try {
     Object.defineProperty(event,'getCoalescedEvents',{value:()=>[{movementX:0,movementY:0}]});
     document.pointerLockElement.dispatchEvent(event);
   }});
-  await page.waitForTimeout(500);
+  // The debug screen refreshes every quarter second of game time, which on a software-rendered
+  // runner (a few frames a second) can take well over a fixed wait: poll for the new heading.
+  await page.waitForFunction(b => window.testRoot.getElementById('debug').textContent.match(/Facing: (\w+)/)?.[1] !== b, beforeLook, { timeout: 15000, polling: 100 }).catch(() => {});
   assert.notEqual(await facing(),beforeLook,'locked pointer input must turn the camera');
   await page.keyboard.press('F3');
   await page.mouse.click(640, 400); await page.keyboard.press('KeyE');

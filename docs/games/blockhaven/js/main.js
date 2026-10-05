@@ -396,10 +396,14 @@ class App {
   async playWorld(id) {
     this.sound.unlock(); this.sound.click();
     this.showLoading('message', 'Reading world data...');
+    // Lock the mouse while this click still counts as a user gesture: the browser refuses pointer
+    // lock a few seconds after the click, and on a slow machine loading takes longer than that.
+    this.requestLock();
     const meta = await loadWorld(id);
     if (!meta) { this.showWorlds(); return; }
     // Java worlds imported before the "beyond the edges" choice existed: ask once.
     if (meta.java && meta.java.beyond === undefined) {
+      if (document.pointerLockElement) document.exitPointerLock(); // the question needs the mouse
       meta.java.beyond = await ask('This world was imported from Java Edition.\n\nOK: generate new terrain around the imported area, so the world goes on forever (it won\'t match the edges of the map).\nCancel: leave empty space around it, as maps are meant to be played.') ? 'terrain' : 'void';
       await saveWorld(meta);
     }
@@ -417,6 +421,7 @@ class App {
     };
     // Setting up the generator and finding spawn blocks the page for a moment: show why first.
     this.showLoading('message', 'Preparing for world creation...');
+    this.requestLock(); // while the click still counts as a gesture (see playWorld)
     await nextPaint();
     this.startGame(meta);
   }
