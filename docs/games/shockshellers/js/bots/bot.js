@@ -7,24 +7,29 @@
 // Bots drive the match through the same input struct as humans (control bits + yaw/pitch), so the
 // simulation holds them to identical movement, fire-rate, spread and damage rules. Difficulty only
 // changes human limits (reaction, aim error, turn speed, leading, decision noise), never knowledge.
-import { CTRL, WEAPONS, PLAYER, GRENADE, PRIMARIES, TICK } from '../sim/tuning.js?v=muvmfsft';
-import { currentSpread, weaponOf, slotOf } from '../sim/combat.js?v=muvmfsft';
-import { forward } from '../sim/movement.js?v=muvmfsft';
-import { STRATEGIES, strategyProfile, choose } from './strategies.js?v=muvmfsft';
-import { EDGE } from './nav.js?v=muvmfsft';
+import { CTRL, WEAPONS, PLAYER, GRENADE, PRIMARIES, TICK } from '../sim/tuning.js?v=muvmvc5o';
+import { currentSpread, weaponOf, slotOf } from '../sim/combat.js?v=muvmvc5o';
+import { forward } from '../sim/movement.js?v=muvmvc5o';
+import { STRATEGIES, strategyProfile, choose } from './strategies.js?v=muvmvc5o';
+import { EDGE } from './nav.js?v=muvmvc5o';
 
 // Skill is a number from 0 (a first-time player) to 1 (a top player). Every trait is interpolated
 // between those two anchors; reaction time and aim error interpolate geometrically, since people are
 // spread out on a ratio scale there. Each bot also gets its own small offset per trait, so two bots
 // of the same skill still play differently (one reacts fast but aims loosely, another the reverse).
 const ANCHORS = {
-  reaction: [0.75, 0.13, 'geo'], aimErr: [0.12, 0.012, 'geo'], turn: [3.5, 20], settle: [5, 22], ff: [0.2, 0.98], track: [0.8, 4.5],
-  lead: [0.2, 1], fovMul: [0.8, 1.15], discipline: [0.12, 1], strafe: [0.25, 1], jump: [0.01, 0.1], nade: [0.08, 0.92],
+  reaction: [0.95, 0.15, 'geo'], aimErr: [0.14, 0.012, 'geo'], turn: [3.5, 20], settle: [5, 22], ff: [0.1, 0.92], track: [0.8, 4.5],
+  // Hand wobble that never settles (radians, typical size): the reason people miss a still egg at range.
+  wobble: [0.035, 0.0035, 'geo'],
+  lead: [0.0, 0.95], fovMul: [0.8, 1.15], discipline: [0.12, 1], strafe: [0.25, 1], jump: [0.01, 0.1], nade: [0.08, 0.92],
   cover: [0.2, 0.92], hearing: [0.5, 1], flinch: [1.8, 0.6, 'geo'],
 };
 // A difficulty is a range of skills, not one value: a lobby on Normal has some sharper and some
 // weaker bots, like a lobby of real people. Draws cluster towards the middle of the range.
-export const SKILL_RANGES = { easy: [0.05, 0.35], normal: [0.3, 0.65], hard: [0.55, 0.85], expert: [0.8, 1], mixed: [0.05, 1], public: [0.15, 0.8] };
+// Normal is an average public-lobby player; Hard a good regular; Expert the top of the leaderboard.
+export const SKILL_RANGES = { easy: [0, 0.22], normal: [0.12, 0.42], hard: [0.38, 0.68], expert: [0.68, 1], mixed: [0, 1], public: [0.05, 0.55] };
+// A standard normal draw (sum of uniforms; good enough for hand noise).
+const gauss = rnd => (rnd() + rnd() + rnd() + rnd() - 2) * 1.732;
 export function drawSkill(difficulty, rnd) {
   if (typeof difficulty === 'number') return Math.max(0, Math.min(1, difficulty));
   const [lo, hi] = SKILL_RANGES[difficulty] || SKILL_RANGES.normal;
@@ -70,7 +75,7 @@ export class Bot {
     this.mem = new Map(); // enemy id → { x, y, z, vx, vy, vz, tick, seen, react, firstSeen, hp }
     this.target = null; this.path = null; this.pi = 0; this.goal = null;
     this.yaw = player.body.yaw; this.pitch = 0; this.yawV = 0; this.pitchV = 0;
-    this.errYaw = 0; this.errPitch = 0;
+    this.errYaw = 0; this.errPitch = 0; this.wobY = 0; this.wobP = 0; this.intendYaw = 0; this.intendPitch = 0;
     this.strafe = 1; this.strafeT = 0; this.ctrl = 0; this.prevFire = false;
     this.thinkT = (player.id * 7) % 9; this.senseT = player.id % 3;
     this.stuckT = 0; this.lastPos = { x: 0, z: 0 }; this.progressT = 0;
@@ -395,7 +400,13 @@ export class Bot {
     if (this.nadePlan) { wantYaw = this.nadePlan.yaw; wantPitch = this.nadePlan.pitch; }
     else if (seeing && tq) {
       const aim = this.aimPoint(tq, tmem, w);
-      wantYaw = aim.yaw + this.errYaw; wantPitch = aim.pitch + this.errPitch; aimingAt = aim;
+      // The hand's wobble (a slow random wander that never settles), bigger when the target slides across
+      // the view or when this egg is moving or in the air.
+      const rel = Math.hypot(tq.body.vx - b.vx, tq.body.vz - b.vz) * 30 / Math.max(1, aim.dist);
+      const amp = this.d.wobble * (1 + Math.min(2.5, rel * 1.5) + Math.hypot(b.vx, b.vz) * 15 + (b.onGround === 0 ? 1.2 : 0));
+      const th = 4 * TICK, sg = amp * Math.sqrt(2 * th);
+      this.wobY += -this.wobY * th + sg * gauss(this.rnd); this.wobP += -this.wobP * th + sg * 0.7 * gauss(this.rnd);
+      wantYaw = aim.yaw + this.errYaw + this.wobY; wantPitch = aim.pitch + this.errPitch + this.wobP; aimingAt = aim;
       // Tracking tightens the error; a change of direction by the target loosens it again.
       const decay = Math.exp(-this.d.track * TICK);
       this.errYaw *= decay; this.errPitch *= decay;
@@ -410,6 +421,7 @@ export class Bot {
       const look = this.lookAhead();
       if (look) { wantYaw = look.yaw; wantPitch = look.pitch; }
     }
+    this.intendYaw = wantYaw; this.intendPitch = wantPitch;
     this.turn(wantYaw, wantPitch);
 
     // --- movement ---
@@ -614,7 +626,9 @@ export class Bot {
     if (dist > w.range * 0.98) { return c; }
     if (ads && h.ads === false && w.scoped) { return c; } // wait for the scope to settle
     // On target? Compare the aim's angular error with the egg's angular size.
-    const offYaw = Math.abs(wrap(this.yaw - aim.yaw)), offPitch = Math.abs(this.pitch - aim.pitch);
+    // Against where it *means* to aim: a person can't see their own error, only whether the crosshair
+    // is where they put it, so errors turn into misses rather than into perfect patience.
+    const offYaw = Math.abs(wrap(this.yaw - this.intendYaw)), offPitch = Math.abs(this.pitch - this.intendPitch);
     const size = Math.atan2(m.hitR(q), dist);
     const off = Math.hypot(offYaw, offPitch);
     const spread = currentSpread(h, w);

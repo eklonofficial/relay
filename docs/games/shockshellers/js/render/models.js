@@ -3,8 +3,8 @@
 // model with its attachment points (muzzle, sight, grip, support) read from the file's empties and its
 // magazine part ("mag") found for reload animation. Development loads the files; the production
 // build inlines them as data: URLs.
-import * as THREE from '../../vendor/three/three.module.js?v=muvmfsft';
-import { GLTFLoader } from '../../vendor/three/GLTFLoader.js?v=muvmfsft';
+import * as THREE from '../../vendor/three/three.module.js?v=muvmvc5o';
+import { GLTFLoader } from '../../vendor/three/GLTFLoader.js?v=muvmvc5o';
 
 const FILES = {
   guns: new URL('../../assets/models/guns.glb', import.meta.url).href,

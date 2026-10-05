@@ -6,8 +6,8 @@
 //             shooting windows, 'always', 'never'), hop ('duel' | 'escape' | 'none'), scope
 // A bot weighs them with its own taste for each (a per-bot profile) and its skill: good players pick
 // what the situation calls for and switch at the right time; weaker ones lean on habits and misjudge.
-import { PLAYER, TICK } from '../sim/tuning.js?v=muvmfsft';
-import { EDGE } from './nav.js?v=muvmfsft';
+import { PLAYER, TICK } from '../sim/tuning.js?v=muvmvc5o';
+import { EDGE } from './nav.js?v=muvmvc5o';
 
 const T = (strafe, stand, hop, ads = false) => ({ strafe, stand, hop, ads });
 const FIGHT = T(true, 'counter', 'duel');
@@ -146,6 +146,8 @@ export function strategyProfile(rnd) {
 
 // Pick the strategy for this moment. Skill sharpens judgement (fit counts for more, habits and noise
 // for less); the current strategy gets a bonus while it is young, so nobody flip-flops.
+const CASUAL = new Set(['push', 'duel', 'hunt', 'roam']);
+const TACTICAL = new Set(['holdAngle', 'coverFight', 'flank', 'ambush', 'perch', 'quickscope', 'kite', 'relocate']);
 export function choose(bot, c) {
   const sk = bot.skill;
   let best = null, bu = -Infinity;
@@ -157,6 +159,9 @@ export function choose(bot, c) {
     if (fit <= 0) continue;
     const noise = Math.exp(gauss(bot.rnd) * (0.45 - 0.37 * sk));
     let u = Math.pow(fit, 0.7 + 1.6 * sk) * aff * Math.pow(bot.pref[s.id] || 1, 1.15 - 0.6 * sk) * noise;
+    // Most real players are casual: they push, chase and roam; holding angles, flanking, ambushes and
+    // perches are what the better ones do. So the tactical plays fade in with skill.
+    u *= CASUAL.has(s.id) ? 1 + 0.8 * (1 - sk) : TACTICAL.has(s.id) ? 0.3 + 0.7 * sk : 1;
     if (s === bot.strategy) u *= c.tick - bot.stratSince < Math.round(1.2 / TICK) ? 1.6 : 1.2;
     if (u > bu) { bu = u; best = s; }
   }
