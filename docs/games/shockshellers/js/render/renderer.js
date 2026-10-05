@@ -1,12 +1,12 @@
 // The 3D scene: sky, sun and shadows, the map, eggs, pickups, the spatula, the roost, effects and
 // the first-person hands. The game canvas (#game) lives outside the compositor so WebGL and pointer
 // lock work natively; this module only draws into it.
-import * as THREE from '../../vendor/three/three.module.js?v=muv6d2vx';
-import { buildWorld } from './world.js?v=muv6d2vx';
-import { EggAvatar, TEAM_COLORS } from './egg.js?v=muv6d2vx';
-import { Effects } from './fx.js?v=muv6d2vx';
-import { ViewModel } from './viewmodel.js?v=muv6d2vx';
-import { gunModel } from './guns.js?v=muv6d2vx';
+import * as THREE from '../../vendor/three/three.module.js?v=muv6kjqg';
+import { buildWorld } from './world.js?v=muv6kjqg';
+import { EggAvatar, TEAM_COLORS } from './egg.js?v=muv6kjqg';
+import { Effects } from './fx.js?v=muv6kjqg';
+import { ViewModel } from './viewmodel.js?v=muv6kjqg';
+import { gunModel } from './guns.js?v=muv6kjqg';
 
 const SKIES = {
   day: { top: 0x2f8fd8, bottom: 0xbfe3f2, sun: 0xfff2d8 },
@@ -75,7 +75,7 @@ export class Renderer {
     this.canvas = canvas;
     this.gl = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance', preserveDrawingBuffer: false });
     this.gl.outputColorSpace = THREE.SRGBColorSpace;
-    this.gl.toneMapping = THREE.ACESFilmicToneMapping; this.gl.toneMappingExposure = 1.2;
+    this.gl.toneMapping = THREE.NeutralToneMapping; this.gl.toneMappingExposure = 1.05;
     this.gl.shadowMap.enabled = true; this.gl.shadowMap.type = THREE.PCFShadowMap;
     this.gl.autoClear = false;
     this.scene = new THREE.Scene();
@@ -83,7 +83,7 @@ export class Renderer {
     this.baseFov = 72;
     this.hemi = new THREE.HemisphereLight(0xe6f2ff, 0xa89878, 1.5); this.scene.add(this.hemi);
     this.sun = new THREE.DirectionalLight(0xffffff, 2.2); this.sun.castShadow = true;
-    this.sun.shadow.mapSize.set(2048, 2048); this.sun.shadow.bias = -0.0006; this.sun.shadow.normalBias = 0.02;
+    this.sun.shadow.mapSize.set(2048, 2048); this.sun.shadow.bias = -0.0006; this.sun.shadow.normalBias = 0.02; this.sun.shadow.radius = 3;
     this.scene.add(this.sun, this.sun.target);
     this.fx = new Effects(this.scene);
     this.view = new ViewModel();

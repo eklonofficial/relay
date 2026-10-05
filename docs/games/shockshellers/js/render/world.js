@@ -1,9 +1,9 @@
 // Turns a map grid into a few merged meshes (one per material family). Faces hidden against full
 // blocks are dropped, and every vertex gets baked ambient occlusion from the cells around it, which
 // gives the soft, lightmapped look of the reference maps without shipping any lightmap.
-import * as THREE from '../../vendor/three/three.module.js?v=muv6d2vx';
-import { PIECES, BOXES, facing } from '../maps/pieces.js?v=muv6d2vx';
-import { worldMaterial, TEX_SCALE } from './materials.js?v=muv6d2vx';
+import * as THREE from '../../vendor/three/three.module.js?v=muv6kjqg';
+import { PIECES, BOXES, facing } from '../maps/pieces.js?v=muv6kjqg';
+import { worldMaterial, TEX_SCALE } from './materials.js?v=muv6kjqg';
 
 class Bucket {
   constructor(mat) { this.mat = mat; this.p = []; this.n = []; this.u = []; this.c = []; this.i = []; this.v = 0; this.s = TEX_SCALE[mat] ?? 0.5; }
@@ -157,11 +157,15 @@ function rotateVisual([x0, y0, z0, x1, y1, z1], ry) {
 const shared = {};
 function buildExtra(e) {
   if (e.kind === 'canopy' || e.kind === 'bush') {
-    shared.leaf ??= new THREE.MeshLambertMaterial({ color: 0x5aa83e, flatShading: true });
+    shared.leaf ??= new THREE.MeshLambertMaterial({ color: 0x7ccc3c });
     const g = new THREE.Group(), r = mulberry(e.seed);
     const parts = e.kind === 'canopy' ? 4 : 2, size = e.kind === 'canopy' ? 0.85 : 0.42;
     for (let k = 0; k < parts; k++) {
-      const geo = new THREE.IcosahedronGeometry(size * (0.75 + r() * 0.45), 0);
+      // A soft, lumpy ball: a subdivided sphere with its surface pushed in and out a little.
+      const geo = new THREE.IcosahedronGeometry(size * (0.75 + r() * 0.45), 3);
+      const pos = geo.attributes.position, v = new THREE.Vector3();
+      for (let i = 0; i < pos.count; i++) { v.fromBufferAttribute(pos, i); const n = 1 + 0.08 * Math.sin(v.x * 7 + k) * Math.sin(v.y * 6) * Math.sin(v.z * 8 + k * 2); pos.setXYZ(i, v.x * n, v.y * n * 0.85, v.z * n); }
+      geo.computeVertexNormals();
       const m = new THREE.Mesh(geo, shared.leaf);
       m.position.set(e.x + (r() - 0.5) * size, e.y + (r() - 0.3) * size * 0.8, e.z + (r() - 0.5) * size);
       m.rotation.set(r() * 3, r() * 3, r() * 3);

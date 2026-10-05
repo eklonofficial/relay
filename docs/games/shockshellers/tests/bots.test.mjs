@@ -26,8 +26,10 @@ function run(minutes, skills, primary, mode = 'ffa', seed = 3) {
 
 test('the nav graph covers the map and is one connected region', () => {
   assert.ok(nav.nodes.length > 300);
-  const main = [...nav.comp].filter(c => c === nav.main).length;
-  assert.ok(main / nav.nodes.length > 0.85, `${main}/${nav.nodes.length}`);
+  // Tiny islands (a crate top, a battlement) are meant to be out of reach; real areas must connect.
+  const size = new Map(); for (const c of nav.comp) size.set(c, (size.get(c) || 0) + 1);
+  const big = [...nav.comp].filter(c => size.get(c) >= 6).length, main = size.get(nav.main);
+  assert.ok(main / big > 0.95, `${main}/${big}`);
   for (const s of map.spawns) assert.equal(nav.comp[nav.nearest(s.x, s.y, s.z)], nav.main, 'every spawn reachable');
 });
 

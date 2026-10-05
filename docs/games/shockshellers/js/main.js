@@ -1,28 +1,28 @@
 // Shock Shellers: boot, menus, the match flow (home → respawn screen → play → death → respawn) and
 // the frame loop. The simulation runs at a fixed 30 Hz inside the session; rendering interpolates.
-import './page.js?v=muv6d2vx';
-import { surfaceDocument as document } from './surface.js?v=muv6d2vx';
-import { registerApp } from './veil.js?v=muv6d2vx';
-import { tell } from './dialog.js?v=muv6d2vx';
-import { splash } from './splash.js?v=muv6d2vx';
-import * as THREE from '../vendor/three/three.module.js?v=muv6d2vx';
-import { Renderer } from './render/renderer.js?v=muv6d2vx';
-import { EggAvatar, SHELL_COLORS, TEAM_COLORS } from './render/egg.js?v=muv6d2vx';
-import { gunModel } from './render/guns.js?v=muv6d2vx';
-import { Input } from './game/input.js?v=muv6d2vx';
-import { SOUND_FILES } from './game/soundbank.js?v=muv6d2vx';
-import { Sound, registerSamples } from './game/audio.js?v=muv6d2vx';
-import { Hud } from './game/hud.js?v=muv6d2vx';
-import { loadSettings, saveSettings, loadProfile, saveProfile } from './game/store.js?v=muv6d2vx';
-import { ensureDaily, progress as challengeProgress, claim as claimChallenges } from './game/challenges.js?v=muv6d2vx';
-import { HostSession } from './game/session.js?v=muv6d2vx';
-import { GuestSession } from './net/guest.js?v=muv6d2vx';
-import { pickPublicMap, mapDef, MAPS } from './maps/index.js?v=muv6d2vx';
-import { WEAPONS, PRIMARIES, PLAYER, MODE_NAMES, MODE_MENU, ECONOMY, CTRL, TICK } from './sim/tuning.js?v=muv6d2vx';
-import { weaponOf, slotOf } from './sim/combat.js?v=muv6d2vx';
-import { drawLogo, drawHowTo } from './ui/art.js?v=muv6d2vx';
-import { HIT } from './maps/grid.js?v=muv6d2vx';
-import { Menus } from './ui/menus.js?v=muv6d2vx';
+import './page.js?v=muv6kjqg';
+import { surfaceDocument as document } from './surface.js?v=muv6kjqg';
+import { registerApp } from './veil.js?v=muv6kjqg';
+import { tell } from './dialog.js?v=muv6kjqg';
+import { splash } from './splash.js?v=muv6kjqg';
+import * as THREE from '../vendor/three/three.module.js?v=muv6kjqg';
+import { Renderer } from './render/renderer.js?v=muv6kjqg';
+import { EggAvatar, SHELL_COLORS, TEAM_COLORS } from './render/egg.js?v=muv6kjqg';
+import { gunModel } from './render/guns.js?v=muv6kjqg';
+import { Input } from './game/input.js?v=muv6kjqg';
+import { SOUND_FILES } from './game/soundbank.js?v=muv6kjqg';
+import { Sound, registerSamples } from './game/audio.js?v=muv6kjqg';
+import { Hud } from './game/hud.js?v=muv6kjqg';
+import { loadSettings, saveSettings, loadProfile, saveProfile } from './game/store.js?v=muv6kjqg';
+import { ensureDaily, progress as challengeProgress, claim as claimChallenges } from './game/challenges.js?v=muv6kjqg';
+import { HostSession } from './game/session.js?v=muv6kjqg';
+import { GuestSession } from './net/guest.js?v=muv6kjqg';
+import { pickPublicMap, mapDef, MAPS } from './maps/index.js?v=muv6kjqg';
+import { WEAPONS, PRIMARIES, PLAYER, MODE_NAMES, MODE_MENU, ECONOMY, CTRL, TICK } from './sim/tuning.js?v=muv6kjqg';
+import { weaponOf, slotOf } from './sim/combat.js?v=muv6kjqg';
+import { drawLogo, drawHowTo } from './ui/art.js?v=muv6kjqg';
+import { HIT } from './maps/grid.js?v=muv6kjqg';
+import { Menus } from './ui/menus.js?v=muv6kjqg';
 
 const $ = id => document.getElementById(id);
 const show = (id, on = true) => { $(id).classList.toggle('hidden', !on); if (id === 'respawn') $('hud').classList.toggle('menu', on); };
@@ -372,8 +372,8 @@ class App {
       cam.fovMul = 0.8;
     } else {
       const o = m.map.overview, a = this.t * 0.08;
-      cam.x = o.cx + Math.cos(a) * o.r; cam.z = o.cz + Math.sin(a) * o.r; cam.y = o.cy + 4;
-      cam.yaw = Math.atan2(-(o.cx - cam.x), -(o.cz - cam.z)); cam.pitch = -0.35; cam.fovMul = 1;
+      cam.x = o.cx + Math.cos(a) * o.r; cam.z = o.cz + Math.sin(a) * o.r; cam.y = o.cy + o.r * 0.55;
+      cam.yaw = Math.atan2(-(o.cx - cam.x), -(o.cz - cam.z)); cam.pitch = -Math.atan2(cam.y - o.cy, o.r); cam.fovMul = 1;
     }
     this.shake = Math.max(0, this.shake - dt * 4);
     cam.shakeX = (Math.random() - 0.5) * this.shake * 0.02; cam.shakeY = (Math.random() - 0.5) * this.shake * 0.02;
