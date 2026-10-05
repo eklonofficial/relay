@@ -1,20 +1,27 @@
 // Menus and modals (GDD §16–21): home, respawn/pause screen, settings (3 tabs), play with friends,
 // custom matches, profile, shop/inventory, how to play, chat. All markup lives in index.html inside
 // the compositor; this module wires it up and keeps it current.
-import { surfaceDocument as document } from '../surface.js?v=muuo6ksf';
-import * as THREE from '../../vendor/three/three.module.js?v=muuo6ksf';
-import { ask, tell } from '../dialog.js?v=muuo6ksf';
-import { gunModel } from '../render/guns.js?v=muuo6ksf';
-import { SHELL_COLORS } from '../render/egg.js?v=muuo6ksf';
-import { WEAPONS, PRIMARIES, MODE_NAMES, MODE_MENU, TICK } from '../sim/tuning.js?v=muuo6ksf';
-import { ACTIONS, ACTION_NAMES, keyLabel, DEFAULT_KEYS } from '../game/input.js?v=muuo6ksf';
-import { DEFAULT_SETTINGS, saveSettings, saveProfile } from '../game/store.js?v=muuo6ksf';
-import { ensureDaily, def as challengeDef, reroll, timeLeft } from '../game/challenges.js?v=muuo6ksf';
-import { MAPS, mapDef } from '../maps/index.js?v=muuo6ksf';
-import { drawHowTo } from './art.js?v=muuo6ksf';
+import { surfaceDocument as document } from '../surface.js?v=muuocbci';
+import * as THREE from '../../vendor/three/three.module.js?v=muuocbci';
+import { ask, tell } from '../dialog.js?v=muuocbci';
+import { gunModel } from '../render/guns.js?v=muuocbci';
+import { SHELL_COLORS } from '../render/egg.js?v=muuocbci';
+import { WEAPONS, PRIMARIES, MODE_NAMES, MODE_MENU, TICK } from '../sim/tuning.js?v=muuocbci';
+import { ACTIONS, ACTION_NAMES, keyLabel, DEFAULT_KEYS } from '../game/input.js?v=muuocbci';
+import { DEFAULT_SETTINGS, saveSettings, saveProfile } from '../game/store.js?v=muuocbci';
+import { ensureDaily, def as challengeDef, reroll, timeLeft } from '../game/challenges.js?v=muuocbci';
+import { MAPS, mapDef } from '../maps/index.js?v=muuocbci';
+import { drawHowTo } from './art.js?v=muuocbci';
 
 const $ = id => document.getElementById(id);
 const show = (id, on = true) => $(id).classList.toggle('hidden', !on);
+// Inline SVG icons (the compositor paints inline SVG).
+const NS = 'http://www.w3.org/2000/svg';
+function svg(inner, box = '0 0 24 24', cls = '') { const t = document.createElement('template'); t.innerHTML = `<svg xmlns="${NS}" viewBox="${box}"${cls ? ` class="${cls}"` : ''}>${inner}</svg>`; return t.content.firstChild; }
+const STAR = '<path d="m26 3 6.6 13.4 14.8 2.1-10.7 10.5 2.5 14.7L26 36.8l-13.2 6.9 2.5-14.7L4.6 18.5l14.8-2.1z" fill="#ffd23f" stroke="#0b4560" stroke-width="3" stroke-linejoin="round"/><circle cx="26" cy="25" r="7" fill="none" stroke="#0b4560" stroke-width="3"/><circle cx="26" cy="25" r="2" fill="#0b4560"/>';
+const COIN = '<ellipse cx="12" cy="13" rx="9" ry="10" fill="#f2a500"/><ellipse cx="12" cy="12" rx="8" ry="9" fill="#ffd23f"/>';
+const REROLL = '<path d="M20 12a8 8 0 1 1-2.3-5.7M20 4v5h-5" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>';
+const CLOCK = '<circle cx="12" cy="12" r="9" fill="none" stroke="#ffd23f" stroke-width="3"/><path d="M12 7v5l3 3" fill="none" stroke="#ffd23f" stroke-width="3" stroke-linecap="round"/>';
 const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; };
 
 export const SHOP = {
@@ -78,7 +85,7 @@ export class Menus {
     $('btn-create').onclick = () => { show('friends', false); this.openCustom(); };
     $('btn-1v1').onclick = () => { show('friends', false); app.startMatch({ map: 'omelet', mode: 'ffa', options: {}, bots: 1, slots: 2, difficulty: 'hard', private: true }); };
     // Game mode dropup (opens upward with a check on the current mode).
-    $('mode-btn').onclick = () => { app.sound.play('pop'); const l = $('mode-list'); l.classList.toggle('hidden'); this.modeList(); };
+    $('mode-btn').onclick = () => { app.sound.play('pop'); $('mode-list-wrap').classList.toggle('hidden'); this.modeList(); };
     $('btn-settings').onclick = $('btn-rs-settings').onclick = () => this.openSettings();
     $('btn-full').onclick = $('btn-rs-full').onclick = () => { const d = globalThis.document; if (d.fullscreenElement) d.exitFullscreen(); else d.documentElement.requestFullscreen?.().catch(() => {}); };
     $('tab-profile').onclick = $('btn-rs-profile').onclick = () => this.openProfile();
@@ -101,16 +108,17 @@ export class Menus {
   refreshHome() {
     const app = this.app, p = app.profile;
     this.weaponRow($('home-weapons'), id => { p.primary = id; saveProfile(p); this.refreshHome(); }, p.primary);
-    $('weapon-name').textContent = WEAPONS[p.primary].name;
+    $('weapon-name').textContent = WEAPONS[p.primary].name.toUpperCase();
     $('weapon-desc').textContent = WEAPONS[p.primary].desc;
-    $('mode-btn').textContent = `GAME MODE: ${MODE_NAMES[p.mode].toUpperCase()} ▲`;
+    $('mode-val').textContent = MODE_NAMES[p.mode].toUpperCase();
     $('coins').textContent = p.coins.toLocaleString();
-    show('mode-list', false);
+    show('mode-list-wrap', false);
   }
   modeList() {
     const l = $('mode-list'), p = this.app.profile; l.replaceChildren();
     for (const m of MODE_MENU) {
-      const b = el('button', m === p.mode ? 'on' : '', MODE_NAMES[m]);
+      const b = el('button', m === p.mode ? 'orange' : 'pale', MODE_NAMES[m].toUpperCase());
+      if (m === p.mode) b.append(svg('<path d="M3 12l6 6L21 5" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>'));
       b.onclick = () => { p.mode = m; saveProfile(p); this.refreshHome(); };
       l.append(b);
     }
@@ -121,7 +129,7 @@ export class Menus {
     const app = this.app, s = app.session; if (!s) return;
     const me = s.me;
     this.weaponRow($('rs-weapon-list'), id => { app.profile.primary = id; saveProfile(app.profile); s.setPrimary(id); this.refreshRespawn(); }, me.nextPrimary);
-    $('rs-weapon-name').textContent = WEAPONS[me.nextPrimary].name;
+    $('rs-weapon-name').textContent = WEAPONS[me.nextPrimary].name.toUpperCase();
     $('room-code').textContent = s.code || 'OFFLINE';
     $('info-map').textContent = s.map.meta.name; $('info-mode').textContent = MODE_NAMES[s.match.modeId];
     show('btn-team', s.match.mode.teams);
@@ -138,24 +146,28 @@ export class Menus {
     this.rsKey = key;
     const b = $('rs-play');
     if (secs > 0) { b.textContent = `GET READY! ${secs}`; b.className = 'red'; b.disabled = true; }
-    else { b.textContent = '▶ PLAY'; b.className = 'green'; b.disabled = false; }
+    else { b.replaceChildren(svg('<path d="M2 2 18 12 2 22z" fill="#fff" stroke="#1b7a2c" stroke-width="2.4" stroke-linejoin="round"/>', '0 0 20 24'), document.createTextNode('PLAY')); b.className = 'green'; b.disabled = false; }
     $('info-fps').textContent = app.fps; $('info-ping').textContent = (s.ping || 0) + 'ms';
-    if (this.chalT === undefined || performance.now() - this.chalT > 1000) { this.chalT = performance.now(); $('chal-timer').textContent = '⏱ ' + timeLeft(app.profile); }
+    if (this.chalT === undefined || performance.now() - this.chalT > 1000) { this.chalT = performance.now(); $('chal-timer').replaceChildren(svg(CLOCK), document.createTextNode(timeLeft(app.profile))); }
   }
   challenges() {
     const app = this.app, c = ensureDaily(app.profile), list = $('chal-list');
     list.replaceChildren();
     c.slots.forEach((s, i) => {
       const d = challengeDef(s.id); if (!d) return;
-      const row = el('div', 'chal'), body = el('div'); body.style.flex = '1';
+      const row = el('div', 'chal' + (s.done ? ' done' : '')), body = el('div'); body.style.flex = '1';
+      row.append(svg(STAR, '0 0 52 52', 'badge'));
       body.append(el('div', 't', d.title.toUpperCase()), el('div', 'dsc', d.desc));
-      const bar = el('div', 'prog'), fill = el('div'); fill.style.width = Math.round(s.n / d.goal * 100) + '%'; bar.append(fill); body.append(bar);
-      const side = el('div', 'col'); side.style.alignItems = 'center'; side.style.gap = '2px';
-      side.append(el('div', 'yellow', s.done ? '✔' : `${Math.floor(s.n)}/${d.goal}`), el('div', 'note', `${d.reward}`));
-      const rr = el('button', 'small', '↻'); rr.title = 'Reroll (once a day)'; rr.disabled = s.rerolled || s.done;
+      const prog = el('div', 'prog'), track = el('div', 'track'), fill = el('div');
+      fill.style.width = Math.round(s.n / d.goal * 100) + '%'; track.append(fill);
+      prog.append(track, el('span', '', s.done ? 'DONE!' : `${Math.floor(s.n)}/${d.goal}`)); body.append(prog);
+      const meta = el('div', 'meta'), rw = el('div', 'rw');
+      rw.append(svg(COIN), el('span', '', d.reward.toLocaleString()));
+      const rr = el('button', 'small'); rr.append(svg(REROLL)); rr.title = 'Reroll (once a day)'; rr.disabled = s.rerolled || s.done;
+      if (rr.disabled) rr.style.opacity = '0.45';
       rr.onclick = () => { if (reroll(app.profile, i)) { saveProfile(app.profile); this.challenges(); } };
-      side.append(rr);
-      row.append(body, side); list.append(row);
+      meta.append(rw, rr); body.append(meta);
+      row.append(body); list.append(row);
     });
   }
   invite() {
