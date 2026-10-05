@@ -1,23 +1,23 @@
 // Living mobs: physics, AI archetypes, combat, breeding/taming, trading and animation.
-import { Entity, drawModel, rootMatrix, M } from './entity.js?v=muujns32';
-import { Projectile, renderStack } from './objects.js?v=muujns32';
-import { MOBS, PROFESSIONS, DYE_DIFFUSE } from '../data/mobs.js?v=muujns32';
-import { B, BLOCKS, SOLID, OPAQUE, VARIANT_MASK } from '../data/blocks.js?v=muujns32';
-import { UNLOADED } from '../world/world.js?v=muujns32';
-import { villagerTrades } from '../game/trades.js?v=muujns32';
-import { findPath, clearWalk } from './pathfind.js?v=muujns32';
-import { ARMOR_BYPASS, armorStats, armorReduce, applyInvul } from '../game/combat.js?v=muujns32';
-import { animalPose, chickenPose, wolfPose, horsePose } from './animals.js?v=muujns32';
-import { villagerPose, illagerPose, piglinPose } from './javamodels.js?v=muujns32';
-import { ironGolemPose, ironGolemSway, snowGolemPose, hoglinPose, striderPose, ravagerPose } from './beasts.js?v=muujns32';
-import { squidPose, fishPose, fishSway, pufferfishPose, guardianPose, dolphinPose, turtlePose, axolotlPose } from './aquatic.js?v=muujns32';
-import { witherPose, dragonPose, dragonHistory } from './bosses.js?v=muujns32';
-import { rabbitPose, ocelotPose, parrotPose, batPose, frogPose, camelPose } from './critters.js?v=muujns32';
-import { creeperPose, spiderPose, endermanPose, magmaPose, silverfishPose, blazePose, ghastPose, phantomPose } from './monsters.js?v=muujns32';
-import { humanoidPose } from './humanoid.js?v=muujns32';
-import { armorLayer } from '../data/armor.js?v=muujns32';
-import { I } from '../data/items.js?v=muujns32';
-import { dragonInit, dragonAI, dragonDamage, dragonDying, dragonHead } from './dragon.js?v=muujns32';
+import { Entity, drawModel, rootMatrix, M } from './entity.js?v=muujnt14';
+import { Projectile, renderStack } from './objects.js?v=muujnt14';
+import { MOBS, PROFESSIONS, DYE_DIFFUSE } from '../data/mobs.js?v=muujnt14';
+import { B, BLOCKS, SOLID, OPAQUE, VARIANT_MASK } from '../data/blocks.js?v=muujnt14';
+import { UNLOADED } from '../world/world.js?v=muujnt14';
+import { villagerTrades } from '../game/trades.js?v=muujnt14';
+import { findPath, clearWalk } from './pathfind.js?v=muujnt14';
+import { ARMOR_BYPASS, armorStats, armorReduce, applyInvul } from '../game/combat.js?v=muujnt14';
+import { animalPose, chickenPose, wolfPose, horsePose } from './animals.js?v=muujnt14';
+import { villagerPose, illagerPose, piglinPose } from './javamodels.js?v=muujnt14';
+import { ironGolemPose, ironGolemSway, snowGolemPose, hoglinPose, striderPose, ravagerPose } from './beasts.js?v=muujnt14';
+import { squidPose, fishPose, fishSway, pufferfishPose, guardianPose, dolphinPose, turtlePose, axolotlPose } from './aquatic.js?v=muujnt14';
+import { witherPose, dragonPose, dragonHistory } from './bosses.js?v=muujnt14';
+import { rabbitPose, ocelotPose, parrotPose, batPose, frogPose, camelPose } from './critters.js?v=muujnt14';
+import { creeperPose, spiderPose, endermanPose, magmaPose, silverfishPose, blazePose, ghastPose, phantomPose } from './monsters.js?v=muujnt14';
+import { humanoidPose } from './humanoid.js?v=muujnt14';
+import { armorLayer } from '../data/armor.js?v=muujnt14';
+import { I } from '../data/items.js?v=muujnt14';
+import { dragonInit, dragonAI, dragonDamage, dragonDying, dragonHead } from './dragon.js?v=muujnt14';
 
 const rnd = (a, b) => a + Math.random() * (b - a);
 const rint = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
@@ -1302,7 +1302,7 @@ export class Mob extends Entity {
 }
 
 // Moves an entity without gravity handling (fliers/swimmers).
-import { moveEntity } from './physics.js?v=muujns32';
+import { moveEntity } from './physics.js?v=muujnt14';
 function import_move(e, dt) { moveEntity(e.world, e, e.vel[0] * dt, e.vel[1] * dt, e.vel[2] * dt); }
 
 // Renders a held item using a part matrix (model units).

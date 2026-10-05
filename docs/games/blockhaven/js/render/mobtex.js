@@ -1,5 +1,5 @@
 // Mob skins: packs every model box into a 64x64 layer (MC-style box unwrap) and paints its faces.
-import { Painter, shade, mixHex } from './paint.js?v=muujns32';
+import { Painter, shade, mixHex } from './paint.js?v=muujnt14';
 
 export const SKIN = 64;
 // Every entity texture layer is ENTITY pixels square: Java's textures (64x32 up to 128x128) sit in its
