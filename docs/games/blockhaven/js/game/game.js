@@ -1,29 +1,29 @@
 // The running game: world + dimensions, player survival state, entities, simulation, weather and saving.
-import { B, BLOCKS, SOLID, OPAQUE, DIM, DIM_NAMES, HEIGHT, SEA, props, st, SHAPE_OF, SHAPE, chestPartner } from '../data/blocks.js?v=muujms2i';
-import { importedVoidAt, emptyChunk } from './javaworld.js?v=muujms2i';
-import { I, maxStack } from '../data/items.js?v=muujms2i';
-import { SMELTING } from '../data/recipes.js?v=muujms2i';
-import { MOBS } from '../data/mobs.js?v=muujms2i';
-import { BIOMES, COLD } from '../gen/biomes.js?v=muujms2i';
-import { World, UNLOADED, posKey } from '../world/world.js?v=muujms2i';
-import { Player } from './player.js?v=muujms2i';
-import { PlayerInventory, Container } from './inventory.js?v=muujms2i';
-import { EntityManager } from '../entity/entity.js?v=muujms2i';
-import { ItemEntity, XpOrb, FallingBlock, PrimedTnt, Lightning, Projectile } from '../entity/objects.js?v=muujms2i';
-import { weatherState, tickWeather, isRaining, isThundering, skyDarken, isRainingAt, precipitationHeight } from './weather.js?v=muujms2i';
-import { Mob, RIDEABLE } from '../entity/mob.js?v=muujms2i';
-import { Particles } from './particles.js?v=muujms2i';
-import { Sim } from './sim.js?v=muujms2i';
-import { Redstone } from './redstone.js?v=muujms2i';
-import { blockDrops } from './drops.js?v=muujms2i';
-import { computeEnv } from './env.js?v=muujms2i';
-import { fuelOf } from './ui.js?v=muujms2i';
-import { unlockLevel } from './trades.js?v=muujms2i';
-import { forward } from '../core/math.js?v=muujms2i';
-import { EndCrystal } from '../entity/crystal.js?v=muujms2i';
-import { migrateWorld } from './migrate.js?v=muujms2i';
-import { ARMOR_BYPASS, armorReduce, applyInvul, isAxe, shieldFaces, applyKnockback, knockbackResist, protectionFactor, enchLv } from './combat.js?v=muujms2i';
-import { deathText } from '../net/net.js?v=muujms2i';
+import { B, BLOCKS, SOLID, OPAQUE, DIM, DIM_NAMES, HEIGHT, SEA, props, st, SHAPE_OF, SHAPE, chestPartner } from '../data/blocks.js?v=muujmt1i';
+import { importedVoidAt, emptyChunk } from './javaworld.js?v=muujmt1i';
+import { I, maxStack } from '../data/items.js?v=muujmt1i';
+import { SMELTING } from '../data/recipes.js?v=muujmt1i';
+import { MOBS } from '../data/mobs.js?v=muujmt1i';
+import { BIOMES, COLD } from '../gen/biomes.js?v=muujmt1i';
+import { World, UNLOADED, posKey } from '../world/world.js?v=muujmt1i';
+import { Player } from './player.js?v=muujmt1i';
+import { PlayerInventory, Container } from './inventory.js?v=muujmt1i';
+import { EntityManager } from '../entity/entity.js?v=muujmt1i';
+import { ItemEntity, XpOrb, FallingBlock, PrimedTnt, Lightning, Projectile } from '../entity/objects.js?v=muujmt1i';
+import { weatherState, tickWeather, isRaining, isThundering, skyDarken, isRainingAt, precipitationHeight, shouldFreeze, shouldSnow } from './weather.js?v=muujmt1i';
+import { Mob, RIDEABLE } from '../entity/mob.js?v=muujmt1i';
+import { Particles } from './particles.js?v=muujmt1i';
+import { Sim } from './sim.js?v=muujmt1i';
+import { Redstone } from './redstone.js?v=muujmt1i';
+import { blockDrops } from './drops.js?v=muujmt1i';
+import { computeEnv } from './env.js?v=muujmt1i';
+import { fuelOf } from './ui.js?v=muujmt1i';
+import { unlockLevel } from './trades.js?v=muujmt1i';
+import { forward } from '../core/math.js?v=muujmt1i';
+import { EndCrystal } from '../entity/crystal.js?v=muujmt1i';
+import { migrateWorld } from './migrate.js?v=muujmt1i';
+import { ARMOR_BYPASS, armorReduce, applyInvul, isAxe, shieldFaces, applyKnockback, knockbackResist, protectionFactor, enchLv } from './combat.js?v=muujmt1i';
+import { deathText } from '../net/net.js?v=muujmt1i';
 
 export const DAY = 1200; // seconds per day
 const rnd = (a, b) => a + Math.random() * (b - a);
@@ -69,7 +69,7 @@ export class Game {
     this.mode = meta.mode === 'hardcore' ? 'survival' : meta.mode; this.hardcore = meta.mode === 'hardcore' || meta.hardcore;
     this.difficulty = this.hardcore ? 'hard' : meta.difficulty || 'normal';
     this.cheats = meta.cheats !== false;
-    this.rules = Object.assign({ doDaylightCycle: true, doMobSpawning: true, keepInventory: false, mobGriefing: true, doFireTick: true, doWeatherCycle: true, naturalRegeneration: true, doMobLoot: true, doTileDrops: true, showCoordinates: true, doInsomnia: true }, meta.rules || {});
+    this.rules = Object.assign({ doDaylightCycle: true, doMobSpawning: true, keepInventory: false, mobGriefing: true, doFireTick: true, doWeatherCycle: true, naturalRegeneration: true, doMobLoot: true, doTileDrops: true, showCoordinates: true, doInsomnia: true, snowAccumulationHeight: 1 }, meta.rules || {});
     this.dayTime = meta.time ?? 0.02; this.day = meta.day || 0;
     this.weather = weatherState(meta.weather || {});
     this.dims = meta.dims || {};
@@ -763,6 +763,24 @@ export class Game {
     for (; this.weatherAcc >= 1; this.weatherAcc--) {
       tickWeather(w, host && this.rules.doWeatherCycle);
       if (host && this.dim === DIM.OVERWORLD && isRaining(w) && isThundering(w)) this.thunderTick();
+      if (host && this.dim === DIM.OVERWORLD) this.precipitationTick();
+    }
+  }
+  // ServerLevel.tickChunk's ice and snow: each chunk ticked around the player, one tick in 16, picks
+  // a column. Still water on top freezes where it's cold enough to snow, and while it rains, snow
+  // settles there (on a snow layer it adds one, up to the snowAccumulationHeight rule).
+  precipitationTick() {
+    const R = 8, w = this.world, p = this.player.pos, pcx = Math.floor(p[0] / 16), pcz = Math.floor(p[2] / 16);
+    const raining = isRaining(this.weather), most = Math.min(this.rules.snowAccumulationHeight, 8);
+    for (let cx = pcx - R; cx <= pcx + R; cx++) for (let cz = pcz - R; cz <= pcz + R; cz++) {
+      if (Math.random() >= 1 / 16) continue;
+      const x = cx * 16 + Math.floor(Math.random() * 16), z = cz * 16 + Math.floor(Math.random() * 16), y = precipitationHeight(w, x, z);
+      if (y <= 0) continue;
+      const biome = w.biomeAt(x, z);
+      if (shouldFreeze(w, biome, x, y - 1, z)) this.setBlock(x, y - 1, z, B.ICE, 0);
+      if (!raining || most <= 0 || !shouldSnow(w, biome, x, y, z)) continue;
+      if (w.getBlock(x, y, z) !== B.SNOW) this.setBlock(x, y, z, B.SNOW, 0);
+      else { const l = (w.getMeta(x, y, z) & 7) + 1; if (l < most) this.setBlock(x, y, z, B.SNOW, l); }
     }
   }
   // ServerLevel.tickChunk's lightning: each chunk ticked around the player (8 chunks out) is struck

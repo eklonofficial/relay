@@ -1,11 +1,12 @@
 // Block simulation: liquids, gravity, support, random ticks (crops, saplings, grass, fire, cacti).
-import { B, BLOCKS, SOLID, OPAQUE, SHAPE_OF, SHAPE, CROP_STAGES, CROP_AGE_SHIFT, WATERLOGGED, props, st, DIM } from '../data/blocks.js?v=muujms2i';
-import { amountAt, heightAt, isWater, sameFluid } from './fluid.js?v=muujms2i';
-import { UNLOADED } from '../world/world.js?v=muujms2i';
-import * as T from '../gen/trees.js?v=muujms2i';
-import { KIND } from './redstone.js?v=muujms2i';
+import { B, BLOCKS, SOLID, OPAQUE, SHAPE_OF, SHAPE, CROP_STAGES, CROP_AGE_SHIFT, WATERLOGGED, VARIANT_MASK, STATE, props, st, DIM } from '../data/blocks.js?v=muujmt1i';
+import { amountAt, heightAt, isWater, sameFluid } from './fluid.js?v=muujmt1i';
+import { UNLOADED } from '../world/world.js?v=muujmt1i';
+import * as T from '../gen/trees.js?v=muujmt1i';
+import { KIND } from './redstone.js?v=muujmt1i';
 
 const NB4 = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+const SNOW_BLOCK = STATE.snow_block, SNOWY_GRASS = STATE.grass_block_snowy[1];
 const k3 = (x, y, z) => `${x},${y},${z}`;
 // Fire behaviour per block: [burn chance per fire tick, spread encouragement] (after Java Edition).
 const FLAME = new Map();
@@ -52,6 +53,15 @@ export class Sim {
       // Liquids next to the changed cell may flow into it.
       if (id === B.AIR || !SOLID[id]) for (const [ex, ez] of NB4) { const n = this.world.getBlock(x + dx + ex, y + dy, z + dz + ez); if (this.isLiquid(n) || WATERLOGGED[n]) this.schedule(x + dx + ex, y + dy, z + dz + ez, this.delayFor(n)); }
     }
+    this.snowyGrass(x, y - 1, z); this.snowyGrass(x, y, z);
+  }
+  // SnowyDirtBlock: grass is snowy while snow (a layer or a block) lies on it.
+  snowyGrass(x, y, z) {
+    const w = this.world;
+    if (w.getBlock(x, y, z) !== B.GRASS_BLOCK) return;
+    const up = w.getBlock(x, y + 1, z), m = w.getMeta(x, y, z), snowy = up === B.SNOW || (up === SNOW_BLOCK[0] && (w.getMeta(x, y + 1, z) & VARIANT_MASK[up]) === SNOW_BLOCK[1]);
+    const v = snowy ? SNOWY_GRASS : STATE.grass_block[1];
+    if ((m & VARIANT_MASK[B.GRASS_BLOCK]) !== v) this.game.setBlock(x, y, z, B.GRASS_BLOCK, (m & ~VARIANT_MASK[B.GRASS_BLOCK]) | v);
   }
 
   update(dt) {
