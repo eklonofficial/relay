@@ -1,9 +1,9 @@
 // Java Edition's weather (1.20.1): ServerLevel.advanceWeatherCycle's timers, the rain and thunder
 // levels that follow them, where it rains or snows (Biome.getPrecipitationAt, Level.isRainingAt) and
 // how dark the sky gets (Level.updateSkyBrightness). Times are in ticks (20 a second).
-import { BIOMES, DRY } from '../gen/biomes.js?v=muujmt1i';
-import { B, SOLID, DIM, SHAPE, SHAPE_OF, STATE, WATERLOGGED, VARIANT_MASK } from '../data/blocks.js?v=muujmt1i';
-import { collisionBoxes } from '../data/shapes.js?v=muujmt1i';
+import { BIOMES, DRY } from '../gen/biomes.js?v=muujn2k9';
+import { B, SOLID, DIM, SHAPE, SHAPE_OF, STATE, WATERLOGGED, VARIANT_MASK } from '../data/blocks.js?v=muujn2k9';
+import { collisionBoxes } from '../data/shapes.js?v=muujn2k9';
 
 // ServerLevel's UniformInts.
 export const RAIN_DELAY = [12000, 180000], RAIN_DURATION = [12000, 24000], THUNDER_DELAY = [12000, 180000], THUNDER_DURATION = [3600, 15600];
