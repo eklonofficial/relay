@@ -2,8 +2,8 @@
 // speed (doubled jumping or climbing), shots kick it back, reloads dip and tilt it (the long reload
 // adds a slap), swaps lower it out and back, the whisk swings across, inspect turns it over.
 // Drawn in its own scene and camera after the world, over a cleared depth buffer.
-import * as THREE from '../../vendor/three/three.module.js?v=muuoiyqg';
-import { gunModel } from './guns.js?v=muuoiyqg';
+import * as THREE from '../../vendor/three/three.module.js?v=muv65sre';
+import { gunModel } from './guns.js?v=muv65sre';
 
 export class ViewModel {
   constructor() {

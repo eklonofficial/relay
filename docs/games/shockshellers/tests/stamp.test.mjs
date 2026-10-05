@@ -1,0 +1,69 @@
+// tools/stamp.mjs: --check must pass on a freshly stamped tree and fail on unstamped or mixed
+// stamps, without writing anything. Runs on a throwaway copy, never on the repo itself.
+import { test, before, after } from 'node:test';
+import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
+import { cpSync, mkdtempSync, rmSync, readFileSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const game = fileURLToPath(new URL('..', import.meta.url));
+let dir, top;
+const run = (...args) => spawnSync(process.execPath, [join(dir, 'tools', 'stamp.mjs'), ...args], { encoding: 'utf8' });
+const edit = (rel, fn) => { const p = join(dir, rel); writeFileSync(p, fn(readFileSync(p, 'utf8'))); };
+
+before(() => {
+  // Same layout as docs/games: the game folder beside the shared calculator and tools.
+  top = mkdtempSync(join(tmpdir(), 'shockshellers-stamp-')); dir = join(top, 'shockshellers');
+  for (const f of ['index.html', 'net-config.js', 'js', 'tools', 'vendor']) cpSync(join(game, f), join(dir, f), { recursive: true });
+  for (const f of ['calc.html', 'vercel.json', 'tools']) cpSync(join(game, '..', f), join(top, f), { recursive: true });
+  const r = run();
+  assert.equal(r.status, 0, r.stderr);
+});
+after(() => rmSync(top, { recursive: true, force: true }));
+
+test('--check passes on a freshly stamped tree and changes nothing', () => {
+  const before = readFileSync(join(dir, 'js/sim/match.js'), 'utf8');
+  const r = run('--check');
+  assert.equal(r.status, 0, r.stderr);
+  assert.match(r.stdout, /stamp check ok/);
+  assert.equal(readFileSync(join(dir, 'js/sim/match.js'), 'utf8'), before);
+});
+
+test('--check fails on an unstamped module import', () => {
+  edit('js/sim/match.js', s => s.replace(/\.js\?v=[^'"]*/, '.js'));
+  const r = run('--check');
+  assert.equal(r.status, 1);
+  assert.match(r.stderr, /no \?v= stamp[\s\S]*js\/sim\/match\.js:\d+/);
+  run();
+});
+
+test('--check fails on an unstamped vendor URL and entry script', () => {
+  edit('js/net/net.js', s => s.replace(/peerjs\.min\.js\?v=[^'"]*/, 'peerjs.min.js'));
+  edit('index.html', s => s.replace(/js\/main\.js\?v=[^"]*/, 'js/main.js'));
+  const r = run('--check');
+  assert.equal(r.status, 1);
+  assert.match(r.stderr, /js\/net\/net\.js:\d+\s+\.\.\/\.\.\/vendor\/peerjs\.min\.js/);
+  assert.match(r.stderr, /index\.html:\d+\s+js\/main\.js/);
+  run();
+});
+
+test('--check fails when stamps disagree, and write mode repairs it', () => {
+  edit('js/sim/combat.js', s => s.replace(/\?v=[^'"]*/g, '?v=stale0'));
+  const r = run('--check');
+  assert.equal(r.status, 1);
+  assert.match(r.stderr, /stamps disagree: 2 different versions/);
+  assert.match(r.stderr, /v=stale0/);
+  assert.equal(run().status, 0);
+  assert.equal(run('--check').status, 0);
+});
+
+test('--check fails when the splash module count is out of date, and write mode repairs it', () => {
+  edit('index.html', s => s.replace(/data-modules="\d*"/, 'data-modules="3"'));
+  const r = run('--check');
+  assert.equal(r.status, 1);
+  assert.match(r.stderr, /data-modules is 3, but the page loads \d+ modules/);
+  assert.equal(run().status, 0);
+  assert.equal(run('--check').status, 0);
+});

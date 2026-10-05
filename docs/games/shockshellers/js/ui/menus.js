@@ -1,17 +1,17 @@
 // Menus and modals (GDD §16–21): home, respawn/pause screen, settings (3 tabs), play with friends,
 // custom matches, profile, shop/inventory, how to play, chat. All markup lives in index.html inside
 // the compositor; this module wires it up and keeps it current.
-import { surfaceDocument as document } from '../surface.js?v=muuoiyqg';
-import * as THREE from '../../vendor/three/three.module.js?v=muuoiyqg';
-import { ask, tell } from '../dialog.js?v=muuoiyqg';
-import { gunModel } from '../render/guns.js?v=muuoiyqg';
-import { SHELL_COLORS } from '../render/egg.js?v=muuoiyqg';
-import { WEAPONS, PRIMARIES, MODE_NAMES, MODE_MENU, TICK } from '../sim/tuning.js?v=muuoiyqg';
-import { ACTIONS, ACTION_NAMES, keyLabel, DEFAULT_KEYS } from '../game/input.js?v=muuoiyqg';
-import { DEFAULT_SETTINGS, saveSettings, saveProfile } from '../game/store.js?v=muuoiyqg';
-import { ensureDaily, def as challengeDef, reroll, timeLeft } from '../game/challenges.js?v=muuoiyqg';
-import { MAPS, mapDef } from '../maps/index.js?v=muuoiyqg';
-import { drawHowTo } from './art.js?v=muuoiyqg';
+import { surfaceDocument as document } from '../surface.js?v=muv65sre';
+import * as THREE from '../../vendor/three/three.module.js?v=muv65sre';
+import { ask, tell } from '../dialog.js?v=muv65sre';
+import { gunModel } from '../render/guns.js?v=muv65sre';
+import { SHELL_COLORS } from '../render/egg.js?v=muv65sre';
+import { WEAPONS, PRIMARIES, MODE_NAMES, MODE_MENU, TICK } from '../sim/tuning.js?v=muv65sre';
+import { ACTIONS, ACTION_NAMES, keyLabel, DEFAULT_KEYS } from '../game/input.js?v=muv65sre';
+import { DEFAULT_SETTINGS, saveSettings, saveProfile } from '../game/store.js?v=muv65sre';
+import { ensureDaily, def as challengeDef, reroll, timeLeft } from '../game/challenges.js?v=muv65sre';
+import { MAPS, mapDef } from '../maps/index.js?v=muv65sre';
+import { drawHowTo } from './art.js?v=muv65sre';
 
 const $ = id => document.getElementById(id);
 const show = (id, on = true) => $(id).classList.toggle('hidden', !on);
@@ -184,10 +184,12 @@ export class Menus {
   // ---------------- keys: chat, pause ----------------
   key(e) {
     const app = this.app;
-    if (app.state !== 'play') return true;
-    if (e.key === 'Enter' && !this.chatOpen && app.settings.chat) { e.preventDefault(); this.openChat(); return false; }
+    if (!['play', 'respawn', 'dead'].includes(app.state) || this.modalOpen()) return true;
+    if (e.key === 'Enter' && !this.chatOpen && app.settings.chat && document.activeElement?.tagName !== 'INPUT') { e.preventDefault(); this.openChat(); return false; }
+    if (e.code === 'F3') { e.preventDefault(); app.debug = !app.debug; show('debug', app.debug); return false; }
     return true;
   }
+  modalOpen() { return [...document.querySelectorAll('.modal')].some(m => !m.classList.contains('hidden')); }
   chatBind() {
     const inp = $('chat-input');
     inp.addEventListener('keydown', e => {

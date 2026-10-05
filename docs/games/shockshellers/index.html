@@ -18,6 +18,8 @@
     --orange: #f7941d; --orange-e: #b8620a; --green: #2fbf4a; --green-e: #1b7a2c; --red: #e8342a; --red-e: #9b1d16;
     --cyan: #19b3ea; --cyan-e: #0b6f99; --yellow: #ffd23f;
   }
+  /* As in Blockhaven: the compositor's box maths assume border-box sizing everywhere. */
+  * { box-sizing: border-box; }
   html, body { margin: 0; height: 100%; overflow: hidden; background: #000; color: #fff; font-family: "n", sans-serif; font-weight: 800; user-select: none; -webkit-user-select: none; }
   #game { position: fixed; inset: 0; width: 100%; height: 100%; display: block; outline: none; }
   #boot { position: fixed; inset: 0; background: linear-gradient(#2290b5, #a6dcef); z-index: 50; }
@@ -193,6 +195,7 @@
   .scores { display: flex; gap: calc(var(--u)*12); font-family: "s", sans-serif; font-weight: 400; font-size: calc(var(--u)*24); text-shadow: 0 calc(var(--u)*2) 0 var(--ink); }
   .scores .b { color: #6fb6ff; } .scores .r { color: #ff7a6e; }
   #banner { position: absolute; left: 50%; top: 20%; transform: translateX(-50%); font-size: calc(var(--u)*40); white-space: nowrap; }
+  #debug { position: absolute; left: calc(var(--u)*300); top: calc(var(--u)*8); padding: calc(var(--u)*6) calc(var(--u)*10); font-family: "n", sans-serif; font-size: calc(var(--u)*13); white-space: pre; line-height: 1.35; }
   #toast { position: absolute; left: 50%; top: calc(var(--u)*70); transform: translateX(-50%); font-size: calc(var(--u)*17); padding: calc(var(--u)*8) calc(var(--u)*16); }
 
   /* Modals */
@@ -232,7 +235,7 @@
 </head>
 <body>
 <div id="boot"><canvas id="boot-canvas"></canvas></div>
-<script type="module" id="boot-script" src="js/splash.js?v=muuoiyqg" data-modules="42"></script>
+<script type="module" id="boot-script" src="js/splash.js?v=muv65sre" data-modules="42"></script>
 <canvas id="game" tabindex="-1"></canvas>
 
 <div class="screen hidden" id="loading">
@@ -317,6 +320,7 @@
   <div class="coins" id="hud-coins"><svg viewBox="0 0 24 24"><ellipse cx="12" cy="13" rx="9" ry="10" fill="#f2a500"/><ellipse cx="12" cy="12" rx="8" ry="9" fill="#ffd23f"/><ellipse cx="9" cy="8" rx="2.5" ry="3.5" fill="#fff6c4"/></svg><span id="hud-coin-n">0</span></div>
   <div class="glass" id="perf"><div class="k">FPS</div><div id="fps">0</div><div class="k">PING</div><div id="ping">0ms</div></div>
   <div id="feed"></div>
+  <div class="glass hidden" id="debug"></div>
   <div id="objective" class="hidden"><div class="scores"><span class="b" id="score-b">0</span><span id="score-sep">·</span><span class="r" id="score-r">0</span></div><div id="obj-bar"><div id="obj-fill"></div></div><div id="obj-text"></div></div>
   <div class="h hidden" id="banner"></div>
   <div class="glass hidden" id="toast"></div>
@@ -384,7 +388,7 @@
   </div>
 </div>
 
-<script defer src="net-config.js?v=muuoiyqg"></script>
-<script type="module" src="js/main.js?v=muuoiyqg"></script>
+<script defer src="net-config.js?v=muv65sre"></script>
+<script type="module" src="js/main.js?v=muv65sre"></script>
 </body>
 </html>

@@ -8,8 +8,8 @@
 //
 // Game model: the host is authoritative. Guests send their inputs; the host sends snapshots at
 // 15 Hz plus the match's events, and each guest predicts only its own egg (guest.js).
-import { hostRoom, joinRoom, diagnose } from './transport.js?v=muuoiyqg';
-import { SealedChannel } from './sealed.js?v=muuoiyqg';
+import { hostRoom, joinRoom, diagnose } from './transport.js?v=muv65sre';
+import { SealedChannel } from './sealed.js?v=muv65sre';
 
 export const MAX_HUMANS = 8;
 const PREFIX = 'shockshellers-v1-';
@@ -41,7 +41,7 @@ function loadLib() {
   if (!libPromise) {
     libPromise = new Promise((resolve, reject) => {
       const s = document.createElement('script');
-      s.src = new URL('../../vendor/peerjs.min.js?v=muuoiyqg', import.meta.url).href;
+      s.src = new URL('../../vendor/peerjs.min.js?v=muv65sre', import.meta.url).href;
       s.onload = () => resolve();
       s.onerror = () => { libPromise = null; reject(new Error('Could not load the multiplayer library. Check your connection.')); };
       document.head.appendChild(s);
@@ -151,6 +151,7 @@ export class Net {
   // in transport.js); friends can join through whichever answers them.
   async host() {
     const cfg = netConfig();
+    if (cfg.offline) throw new Error('multiplayer is switched off in this browser');
     const code = Array.from({ length: 5 }, () => CODE_CHARS[Math.floor(Math.random() * CODE_CHARS.length)]).join('');
     this.code = code;
     const peerP = loadLib().then(() => this.registerPeer(code));

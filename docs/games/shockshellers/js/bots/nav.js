@@ -2,9 +2,9 @@
 // stand, edges for walking, stepping, ramps/stairs, drops, jump-ups, ladders and jump pads. Doubtful
 // edges are verified by running the real movement code, so a path the graph offers is one an egg can
 // actually walk. A* over a binary heap finds routes; costs prefer short, safe paths.
-import { PIECES, PIECE, facing } from '../maps/pieces.js?v=muuoiyqg';
-import { makeBody, stepBody } from '../sim/movement.js?v=muuoiyqg';
-import { CTRL, PLAYER } from '../sim/tuning.js?v=muuoiyqg';
+import { PIECES, PIECE, facing } from '../maps/pieces.js?v=muv65sre';
+import { makeBody, stepBody } from '../sim/movement.js?v=muv65sre';
+import { CTRL, PLAYER } from '../sim/tuning.js?v=muv65sre';
 
 const R = PLAYER.collideRadius;
 export const EDGE = { walk: 0, jump: 1, drop: 2, ladder: 3, pad: 4 };
