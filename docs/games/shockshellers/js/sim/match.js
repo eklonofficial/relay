@@ -4,11 +4,11 @@
 //
 // Players are humans or bots alike: each tick every player supplies { ctrl, yaw, pitch } (bots
 // through the same input struct, so they obey identical movement, fire-rate and spread rules).
-import { PLAYER, WEAPONS, MELEE, GRENADE, PICKUPS, STREAKS, DAMAGE, DEFAULT_OPTIONS, PRIMARIES, CTRL, TICK_HZ } from './tuning.js?v=muunn3ao';
-import { makeBody, stepBody, movementInput, forward } from './movement.js?v=muunn3ao';
-import { makeHands, stepHands, readyHands, refill, HandEvents, weaponOf, slotOf, grenadeLaunch, lcg } from './combat.js?v=muunn3ao';
-import { makeMode } from './modes.js?v=muunn3ao';
-import { HIT } from '../maps/grid.js?v=muunn3ao';
+import { PLAYER, WEAPONS, MELEE, GRENADE, PICKUPS, STREAKS, DAMAGE, DEFAULT_OPTIONS, PRIMARIES, CTRL, TICK_HZ } from './tuning.js?v=muunvxg7';
+import { makeBody, stepBody, movementInput, forward } from './movement.js?v=muunvxg7';
+import { makeHands, stepHands, readyHands, refill, HandEvents, weaponOf, slotOf, grenadeLaunch, lcg } from './combat.js?v=muunvxg7';
+import { makeMode } from './modes.js?v=muunvxg7';
+import { HIT } from '../maps/grid.js?v=muunvxg7';
 
 const HISTORY = 256;
 // Hit-angle damage (GDD §8.2): s = 0.2 + 0.8·dot(−d, n); mult = s^(4 + s^4).
@@ -81,6 +81,8 @@ export class Match {
   canRespawn(p) { return !p.alive && this.tick >= p.respawnAt && this.tick >= p.pauseCooldownUntil && this.mode.canSpawn(p); }
   requestRespawn(id) {
     const p = this.players.get(id);
+    // Back from a pause inside the grace window: just carry on.
+    if (p && p.alive && p.pausedAt >= 0) { p.pausedAt = -1; return true; }
     if (!p || !this.canRespawn(p)) return false;
     this.spawn(p);
     return true;
@@ -129,34 +131,9 @@ export class Match {
   // ---------------- the tick ----------------
   step() {
     if (this.paused) { this.tick++; return; }
-    const opts = this.options;
     for (const p of this.players.values()) {
       if (p.pausedAt >= 0 && p.alive && this.tick - p.pausedAt >= PLAYER.pauseGraceTicks) { p.alive = false; this.emit({ t: 'despawn', id: p.id }); }
-      if (!p.alive) { this.record(p); continue; }
-      const b = p.body, h = p.hands, ctrl = p.pausedAt >= 0 ? 0 : p.input.ctrl;
-      b.yaw = p.input.yaw; b.pitch = p.input.pitch;
-      if (p.spawnShield > 0) {
-        p.spawnShield = Math.max(0, p.spawnShield - 2);
-        if (movementInput(ctrl) || ((ctrl & CTRL.grenade) && h.grenades > 0)) p.spawnShield = 0;
-      }
-      const prev = p.prevCtrl;
-      const moveEv = stepBody(this.grid, b, ctrl, { gravity: opts.gravity, ads: h.ads });
-      const ev = stepHands(h, b, ctrl, prev, p.spawnShield > 0, HANDS);
-      p.prevCtrl = ctrl;
-      if (moveEv === 'fall') { this.kill(p, null, 'fall'); this.record(p); continue; }
-      if (moveEv) this.emit({ t: moveEv, id: p.id });
-      if (ev.broke) p.spawnShield = 0;
-      if (ev.fired) this.emit({ t: 'fire', id: p.id, w: slotOf(h).id, n: ev.shots.length });
-      for (const s of ev.shots) this.addShot(p, s);
-      if (ev.dry) this.emit({ t: 'dry', id: p.id });
-      if (ev.reloadStart) this.emit({ t: 'reload', id: p.id, w: slotOf(h).id, long: h.reload === weaponOf(h).reload[1] && weaponOf(h).reload[0] !== weaponOf(h).reload[1] });
-      if (ev.swapped) this.emit({ t: 'swap', id: p.id, w: slotOf(h).id });
-      if (ev.meleeSwing) this.emit({ t: 'swing', id: p.id });
-      if (ev.meleeHit) this.melee(p);
-      if (ev.chargeStart) this.emit({ t: 'charge', id: p.id });
-      if (ev.thrown !== null) this.throwGrenade(p, ev.thrown);
-      this.vitals(p);
-      this.pickups(p);
+      if (p.alive) this.stepPlayer(p, false);
       this.record(p);
     }
     this.stepBullets();
@@ -165,6 +142,43 @@ export class Match {
     this.stepItems();
     this.mode.step();
     this.tick++;
+  }
+  // One player's tick: movement, hands and what they cause. A guest's prediction runs this for its own
+  // egg with predict = true: everything it sees immediately (its movement, its shots leaving the gun)
+  // happens, but nothing that only the host may decide (damage, pickups, deaths, objects in the world).
+  stepPlayer(p, predict) {
+    const b = p.body, h = p.hands, ctrl = p.pausedAt >= 0 ? 0 : p.input.ctrl;
+    b.yaw = p.input.yaw; b.pitch = p.input.pitch;
+    if (p.spawnShield > 0) {
+      p.spawnShield = Math.max(0, p.spawnShield - 2);
+      if (movementInput(ctrl) || ((ctrl & CTRL.grenade) && h.grenades > 0)) p.spawnShield = 0;
+    }
+    const prev = p.prevCtrl;
+    const moveEv = stepBody(this.grid, b, ctrl, { gravity: this.options.gravity, ads: h.ads });
+    const ev = stepHands(h, b, ctrl, prev, p.spawnShield > 0, HANDS);
+    p.prevCtrl = ctrl;
+    if (moveEv === 'fall') { if (!predict) this.kill(p, null, 'fall'); return; }
+    if (moveEv) this.emit({ t: moveEv, id: p.id });
+    if (ev.broke) p.spawnShield = 0;
+    if (ev.fired) this.emit({ t: 'fire', id: p.id, w: slotOf(h).id, n: ev.shots.length });
+    for (const s of ev.shots) {
+      if (!predict) this.addShot(p, s);
+      else if (!WEAPONS[s.weapon].rocket) {
+        // The local tracer, stopped by the first wall like the real bullet.
+        const range = this.grid.raycast(s.x, s.y, s.z, s.dx, s.dy, s.dz, WEAPONS[s.weapon].range, HIT) ? HIT.t : WEAPONS[s.weapon].range;
+        this.emit({ t: 'shot', id: p.id, w: s.weapon, x: s.x, y: s.y, z: s.z, dx: s.dx, dy: s.dy, dz: s.dz, len: range, tracer: s.tracer, wall: null, predicted: true });
+      }
+    }
+    if (ev.dry) this.emit({ t: 'dry', id: p.id });
+    if (ev.reloadStart) this.emit({ t: 'reload', id: p.id, w: slotOf(h).id, long: h.reload === weaponOf(h).reload[1] && weaponOf(h).reload[0] !== weaponOf(h).reload[1] });
+    if (ev.swapped) this.emit({ t: 'swap', id: p.id, w: slotOf(h).id });
+    if (ev.meleeSwing) this.emit({ t: 'swing', id: p.id });
+    if (ev.chargeStart) this.emit({ t: 'charge', id: p.id });
+    if (predict) return;
+    if (ev.meleeHit) this.melee(p);
+    if (ev.thrown !== null) this.throwGrenade(p, ev.thrown);
+    this.vitals(p);
+    this.pickups(p);
   }
   record(p) {
     const i = (this.tick % HISTORY) * 4;

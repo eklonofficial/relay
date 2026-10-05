@@ -1,17 +1,17 @@
 // Menus and modals (GDD §16–21): home, respawn/pause screen, settings (3 tabs), play with friends,
 // custom matches, profile, shop/inventory, how to play, chat. All markup lives in index.html inside
 // the compositor; this module wires it up and keeps it current.
-import { surfaceDocument as document } from '../surface.js?v=muunn3ao';
-import * as THREE from '../../vendor/three/three.module.js?v=muunn3ao';
-import { ask, tell } from '../dialog.js?v=muunn3ao';
-import { gunModel } from '../render/guns.js?v=muunn3ao';
-import { SHELL_COLORS } from '../render/egg.js?v=muunn3ao';
-import { WEAPONS, PRIMARIES, MODE_NAMES, MODE_MENU, TICK } from '../sim/tuning.js?v=muunn3ao';
-import { ACTIONS, ACTION_NAMES, keyLabel, DEFAULT_KEYS } from '../game/input.js?v=muunn3ao';
-import { DEFAULT_SETTINGS, saveSettings, saveProfile } from '../game/store.js?v=muunn3ao';
-import { ensureDaily, def as challengeDef, reroll, timeLeft } from '../game/challenges.js?v=muunn3ao';
-import { MAPS, mapDef } from '../maps/index.js?v=muunn3ao';
-import { drawHowTo } from './art.js?v=muunn3ao';
+import { surfaceDocument as document } from '../surface.js?v=muunvxg7';
+import * as THREE from '../../vendor/three/three.module.js?v=muunvxg7';
+import { ask, tell } from '../dialog.js?v=muunvxg7';
+import { gunModel } from '../render/guns.js?v=muunvxg7';
+import { SHELL_COLORS } from '../render/egg.js?v=muunvxg7';
+import { WEAPONS, PRIMARIES, MODE_NAMES, MODE_MENU, TICK } from '../sim/tuning.js?v=muunvxg7';
+import { ACTIONS, ACTION_NAMES, keyLabel, DEFAULT_KEYS } from '../game/input.js?v=muunvxg7';
+import { DEFAULT_SETTINGS, saveSettings, saveProfile } from '../game/store.js?v=muunvxg7';
+import { ensureDaily, def as challengeDef, reroll, timeLeft } from '../game/challenges.js?v=muunvxg7';
+import { MAPS, mapDef } from '../maps/index.js?v=muunvxg7';
+import { drawHowTo } from './art.js?v=muunvxg7';
 
 const $ = id => document.getElementById(id);
 const show = (id, on = true) => $(id).classList.toggle('hidden', !on);
@@ -120,7 +120,7 @@ export class Menus {
   refreshRespawn() {
     const app = this.app, s = app.session; if (!s) return;
     const me = s.me;
-    this.weaponRow($('rs-weapon-list'), id => { app.profile.primary = id; saveProfile(app.profile); s.match.setPrimary(s.myId, id); this.refreshRespawn(); }, me.nextPrimary);
+    this.weaponRow($('rs-weapon-list'), id => { app.profile.primary = id; saveProfile(app.profile); s.setPrimary(id); this.refreshRespawn(); }, me.nextPrimary);
     $('rs-weapon-name').textContent = WEAPONS[me.nextPrimary].name;
     $('room-code').textContent = s.code || 'OFFLINE';
     $('info-map').textContent = s.map.meta.name; $('info-mode').textContent = MODE_NAMES[s.match.modeId];
@@ -160,12 +160,12 @@ export class Menus {
   }
   invite() {
     const code = this.app.session?.code;
-    if (!code) { tell('This match is offline. Use PLAY WITH FRIENDS → CREATE to host a room friends can join.'); return; }
+    if (!code) { tell('The room is still opening (or the multiplayer servers could not be reached).'); return; }
     navigator.clipboard?.writeText(code).then(() => this.app.hud.toast(`Room code ${code} copied!`), () => tell(`Room code: ${code}`));
   }
   switchTeam() {
     const s = this.app.session; if (!s) return;
-    const err = s.match.mode.switchTeam(s.me);
+    const err = s.switchTeam();
     if (err) tell(err);
   }
 
@@ -261,8 +261,7 @@ export class Menus {
   async join() {
     const code = $('code-input').value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 5);
     if (code.length !== 5) { $('join-status').textContent = 'Room codes have 5 letters and numbers.'; return; }
-    if (!this.app.joinRoom) { $('join-status').textContent = 'Online play is not available in this build.'; return; }
-    $('join-status').textContent = 'Connecting…';
+        $('join-status').textContent = 'Connecting…';
     try { await this.app.joinRoom(code, t => { $('join-status').textContent = t; }); show('friends', false); }
     catch (e) { $('join-status').textContent = e.message || 'Could not join.'; }
   }

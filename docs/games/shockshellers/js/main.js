@@ -1,26 +1,27 @@
 // Shock Shellers: boot, menus, the match flow (home → respawn screen → play → death → respawn) and
 // the frame loop. The simulation runs at a fixed 30 Hz inside the session; rendering interpolates.
-import './page.js?v=muunn3ao';
-import { surfaceDocument as document } from './surface.js?v=muunn3ao';
-import { registerApp } from './veil.js?v=muunn3ao';
-import { tell } from './dialog.js?v=muunn3ao';
-import { splash } from './splash.js?v=muunn3ao';
-import * as THREE from '../vendor/three/three.module.js?v=muunn3ao';
-import { Renderer } from './render/renderer.js?v=muunn3ao';
-import { EggAvatar, SHELL_COLORS, TEAM_COLORS } from './render/egg.js?v=muunn3ao';
-import { gunModel } from './render/guns.js?v=muunn3ao';
-import { Input } from './game/input.js?v=muunn3ao';
-import { Sound } from './game/audio.js?v=muunn3ao';
-import { Hud } from './game/hud.js?v=muunn3ao';
-import { loadSettings, saveSettings, loadProfile, saveProfile } from './game/store.js?v=muunn3ao';
-import { ensureDaily, progress as challengeProgress, claim as claimChallenges } from './game/challenges.js?v=muunn3ao';
-import { HostSession } from './game/session.js?v=muunn3ao';
-import { pickPublicMap, mapDef, MAPS } from './maps/index.js?v=muunn3ao';
-import { WEAPONS, PRIMARIES, PLAYER, MODE_NAMES, MODE_MENU, ECONOMY, CTRL, TICK } from './sim/tuning.js?v=muunn3ao';
-import { weaponOf, slotOf } from './sim/combat.js?v=muunn3ao';
-import { drawLogo, drawHowTo } from './ui/art.js?v=muunn3ao';
-import { HIT } from './maps/grid.js?v=muunn3ao';
-import { Menus } from './ui/menus.js?v=muunn3ao';
+import './page.js?v=muunvxg7';
+import { surfaceDocument as document } from './surface.js?v=muunvxg7';
+import { registerApp } from './veil.js?v=muunvxg7';
+import { tell } from './dialog.js?v=muunvxg7';
+import { splash } from './splash.js?v=muunvxg7';
+import * as THREE from '../vendor/three/three.module.js?v=muunvxg7';
+import { Renderer } from './render/renderer.js?v=muunvxg7';
+import { EggAvatar, SHELL_COLORS, TEAM_COLORS } from './render/egg.js?v=muunvxg7';
+import { gunModel } from './render/guns.js?v=muunvxg7';
+import { Input } from './game/input.js?v=muunvxg7';
+import { Sound } from './game/audio.js?v=muunvxg7';
+import { Hud } from './game/hud.js?v=muunvxg7';
+import { loadSettings, saveSettings, loadProfile, saveProfile } from './game/store.js?v=muunvxg7';
+import { ensureDaily, progress as challengeProgress, claim as claimChallenges } from './game/challenges.js?v=muunvxg7';
+import { HostSession } from './game/session.js?v=muunvxg7';
+import { GuestSession } from './net/guest.js?v=muunvxg7';
+import { pickPublicMap, mapDef, MAPS } from './maps/index.js?v=muunvxg7';
+import { WEAPONS, PRIMARIES, PLAYER, MODE_NAMES, MODE_MENU, ECONOMY, CTRL, TICK } from './sim/tuning.js?v=muunvxg7';
+import { weaponOf, slotOf } from './sim/combat.js?v=muunvxg7';
+import { drawLogo, drawHowTo } from './ui/art.js?v=muunvxg7';
+import { HIT } from './maps/grid.js?v=muunvxg7';
+import { Menus } from './ui/menus.js?v=muunvxg7';
 
 const $ = id => document.getElementById(id);
 const show = (id, on = true) => $(id).classList.toggle('hidden', !on);
@@ -112,17 +113,39 @@ class App {
     const p = this.profile;
     const map = mapDef(cfg.map);
     const mode = map.modes.includes(cfg.mode) ? cfg.mode : map.modes[0];
-    this.session = new HostSession({ ...cfg, mode, name: p.name, primary: p.primary, cosmetics: { ...p.equip } });
-    this.renderer.loadMap(this.session.map);
-    this.state = 'respawn'; this.diedAt = 0; this.paused = false;
-    this.lifeKills = 0; this.matchKills = 0;
+    const session = new HostSession({ ...cfg, mode, name: p.name, primary: p.primary, cosmetics: { ...p.equip } });
+    this.enter(session);
+    this.hud.chat('Opening your game to friends…', '#ffd23f');
+    // Every match is a room friends can join (they take a bot's place).
+    session.openRoom().then(code => {
+      if (this.session !== session) { session.close(); return; }
+      this.hud.chat(`Room code ${code}: click 👥 to copy it for friends!`, '#ffd23f');
+      this.menus.refreshRespawn();
+    }, e => { if (this.session === session) this.hud.chat('Playing offline: ' + e.message, '#ff8a80'); });
+    this.profile.stats.games++; saveProfile(this.profile);
+  }
+  // Show a session (hosted or joined): load its map and go to the respawn screen.
+  enter(session) {
+    this.session = session;
+    session.onChat = (text, color) => this.hud.chat(text, color);
+    session.onDisconnected = reason => { if (this.session === session) { this.goHome(); tell(reason); } };
+    this.renderer.loadMap(session.map);
+    this.state = 'respawn'; this.diedAt = 0; this.killer = null;
+    this.lifeKills = 0;
     show('home', false); show('hud'); show('respawn');
     this.menus.refreshRespawn();
-    this.hud.chat('Click 👥 to copy the room code for friends!', '#ffd23f');
-    this.profile.stats.games++; saveProfile(this.profile);
+  }
+  async joinRoom(code, status) {
+    this.sound.unlock();
+    const p = this.profile;
+    const session = await GuestSession.join(code, { name: p.name, primary: p.primary, cosmetics: { ...p.equip } }, status);
+    this.leaveMatch();
+    this.enter(session);
+    this.hud.chat(`Joined room ${code}.`, '#ffd23f');
   }
   leaveMatch() {
     if (!this.session) return;
+    this.session.close?.();
     for (const id of [...this.renderer.avatars.keys()]) this.renderer.dropAvatar(id);
     this.sound.stopAll();
     this.session = null;
@@ -131,8 +154,8 @@ class App {
   spawnMe() {
     const s = this.session; if (!s) return;
     const me = s.me;
-    if (!me.alive) { if (!s.match.requestRespawn(s.myId)) return; }
-    else if (me.pausedAt >= 0) me.pausedAt = -1; // back before the grace window ran out
+    if (!me.alive) { if (!s.respawn()) return; }
+    else if (me.pausedAt >= 0) { me.pausedAt = -1; s.respawn(); } // back before the grace window ran out
     this.input.yaw = me.body.yaw; this.input.pitch = 0;
     this.state = 'play'; show('respawn', false);
     this.input.enabled = true; this.input.requestLock();
@@ -141,7 +164,7 @@ class App {
   }
   pause() {
     if (this.state !== 'play' || !this.session) return;
-    this.session.match.pause(this.session.myId);
+    this.session.pauseMe();
     this.state = 'respawn'; show('respawn'); this.menus.refreshRespawn();
     this.input.enabled = false;
   }

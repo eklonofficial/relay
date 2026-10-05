@@ -1,9 +1,9 @@
 // The in-game HUD (GDD §19.6). Text elements only change when their value changes (each DOM change
 // repaints the compositor); everything that moves every frame (crosshair, health ring, hit markers,
 // damage arcs, grenade charge, scope, off-screen markers) is drawn on the HUD canvas.
-import { surfaceDocument as document } from '../surface.js?v=muunn3ao';
-import { WEAPONS, GRENADE, ROOST, STREAKS } from '../sim/tuning.js?v=muunn3ao';
-import { currentSpread, weaponOf, slotOf } from '../sim/combat.js?v=muunn3ao';
+import { surfaceDocument as document } from '../surface.js?v=muunvxg7';
+import { WEAPONS, GRENADE, ROOST, STREAKS } from '../sim/tuning.js?v=muunvxg7';
+import { currentSpread, weaponOf, slotOf } from '../sim/combat.js?v=muunvxg7';
 
 const $ = id => document.getElementById(id);
 const POWER_NAMES = { hardBoiled: 'HARD BOILED!', shellBreaker: 'SHELL BREAKER!', restock: 'RESTOCK!', overheal: 'OVERHEAL!', doubleYolks: 'DOUBLE YOLKS!', quailEgg: 'QUAIL EGG!' };

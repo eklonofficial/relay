@@ -7,10 +7,10 @@
 // Bots drive the match through the same input struct as humans (control bits + yaw/pitch), so the
 // simulation holds them to identical movement, fire-rate, spread and damage rules. Difficulty only
 // changes human limits (reaction, aim error, turn speed, leading, decision noise), never knowledge.
-import { CTRL, WEAPONS, PLAYER, GRENADE, PRIMARIES, TICK } from '../sim/tuning.js?v=muunn3ao';
-import { currentSpread, weaponOf, slotOf } from '../sim/combat.js?v=muunn3ao';
-import { forward } from '../sim/movement.js?v=muunn3ao';
-import { EDGE } from './nav.js?v=muunn3ao';
+import { CTRL, WEAPONS, PLAYER, GRENADE, PRIMARIES, TICK } from '../sim/tuning.js?v=muunvxg7';
+import { currentSpread, weaponOf, slotOf } from '../sim/combat.js?v=muunvxg7';
+import { forward } from '../sim/movement.js?v=muunvxg7';
+import { EDGE } from './nav.js?v=muunvxg7';
 
 export const DIFFICULTY = {
   easy: { reaction: 0.6, aimErr: 0.11, turn: 4.5, settle: 6, track: 0.9, lead: 0.3, fovMul: 0.85, discipline: 0.3, strafe: 0.35, jump: 0.02, nade: 0.15, cover: 0.3, hearing: 0.6, flinch: 1.6 },
