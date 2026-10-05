@@ -1,9 +1,9 @@
 // Block simulation: liquids, gravity, support, random ticks (crops, saplings, grass, fire, cacti).
-import { B, BLOCKS, SOLID, OPAQUE, SHAPE_OF, SHAPE, CROP_STAGES, CROP_AGE_SHIFT, WATERLOGGED, props, st, DIM } from '../data/blocks.js?v=muujme14';
-import { amountAt, heightAt, isWater, sameFluid } from './fluid.js?v=muujme14';
-import { UNLOADED } from '../world/world.js?v=muujme14';
-import * as T from '../gen/trees.js?v=muujme14';
-import { KIND } from './redstone.js?v=muujme14';
+import { B, BLOCKS, SOLID, OPAQUE, SHAPE_OF, SHAPE, CROP_STAGES, CROP_AGE_SHIFT, WATERLOGGED, props, st, DIM } from '../data/blocks.js?v=muujmeyj';
+import { amountAt, heightAt, isWater, sameFluid } from './fluid.js?v=muujmeyj';
+import { UNLOADED } from '../world/world.js?v=muujmeyj';
+import * as T from '../gen/trees.js?v=muujmeyj';
+import { KIND } from './redstone.js?v=muujmeyj';
 
 const NB4 = [[1, 0], [-1, 0], [0, 1], [0, -1]];
 const k3 = (x, y, z) => `${x},${y},${z}`;
@@ -91,7 +91,8 @@ export class Sim {
     const below = w.getBlock(x, y - 1, z);
     const eternal = below === B.NETHERRACK || (below === B.BASALT && (w.getMeta(x, y - 1, z) & 7) === 4);
     const soul = (w.getMeta(x, y, z) & 1) === 1;
-    if (!eternal && g.raining && w.lightAt(x, y, z).sky >= 15 && Math.random() < 0.6) { g.setBlock(x, y, z, B.AIR, 0); return; }
+    // (FireBlock.isNearRain: raining on it or beside it.)
+    if (!eternal && g.raining && [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]].some(([a, b]) => g.rainAt(x + a, y, z + b)) && Math.random() < 0.2 + (w.getMeta(x, y, z) & 15) * 0.03) { g.setBlock(x, y, z, B.AIR, 0); return; }
     f.age = Math.min(15, f.age + Math.floor(Math.random() * 3));
     const fuel = this.flammableAround(x, y, z);
     if (!eternal && !soul) {
@@ -308,7 +309,7 @@ export class Sim {
   }
   randomTick(x, y, z, id) {
     const g = this.game, w = this.world, m = w.getMeta(x, y, z);
-    const light = () => { const l = w.lightAt(x, y + 1, z); return Math.max(l.blk, g.isDay() ? l.sky : l.sky - 11); };
+    const light = () => { const l = w.lightAt(x, y + 1, z); return Math.max(l.blk, l.sky - g.skyDarken()); };
     switch (id) {
       case B.CROPS: {
         const v = m & 7, age = (m >> CROP_AGE_SHIFT) & 7, max = CROP_STAGES[v] - 1;

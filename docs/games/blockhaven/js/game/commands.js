@@ -1,9 +1,10 @@
 // Chat commands (cheats) with Minecraft-style syntax, ~relative coordinates and suggestions.
-import { B, STATE, DIM, BLOCKS } from '../data/blocks.js?v=muujme14';
-import { I, ITEMS } from '../data/items.js?v=muujme14';
-import { MOBS } from '../data/mobs.js?v=muujme14';
-import { BIOMES } from '../gen/biomes.js?v=muujme14';
-import { ENCHANTS, canEnchant, compatible, enchantsOf, setEnchants, enchantName } from '../data/enchantments.js?v=muujme14';
+import { B, STATE, DIM, BLOCKS } from '../data/blocks.js?v=muujmeyj';
+import { setWeather, sample, RAIN_DELAY, RAIN_DURATION, THUNDER_DURATION, parseTime } from './weather.js?v=muujmeyj';
+import { I, ITEMS } from '../data/items.js?v=muujmeyj';
+import { MOBS } from '../data/mobs.js?v=muujmeyj';
+import { BIOMES } from '../gen/biomes.js?v=muujmeyj';
+import { ENCHANTS, canEnchant, compatible, enchantsOf, setEnchants, enchantName } from '../data/enchantments.js?v=muujmeyj';
 
 const MODES = { survival: 'survival', s: 'survival', 0: 'survival', creative: 'creative', c: 'creative', 1: 'creative', adventure: 'adventure', a: 'adventure', 2: 'adventure', spectator: 'spectator', sp: 'spectator', 3: 'spectator' };
 const DIMS = { overworld: DIM.OVERWORLD, 'minecraft:overworld': DIM.OVERWORLD, nether: DIM.NETHER, the_nether: DIM.NETHER, 'minecraft:the_nether': DIM.NETHER, end: DIM.END, the_end: DIM.END, 'minecraft:the_end': DIM.END };
@@ -17,7 +18,7 @@ export const COMMANDS = {
   tp: { args: '<x> <y> <z>', desc: 'Teleport (supports ~ for relative)' },
   dimension: { args: '<overworld|nether|end>', desc: 'Travel to a dimension' },
   time: { args: 'set <day|noon|night|midnight|value> | add <value> | query', desc: 'Change the time' },
-  weather: { args: '<clear|rain|thunder> [seconds]', desc: 'Change the weather' },
+  weather: { args: '<clear|rain|thunder> [duration]', desc: 'Change the weather (duration in ticks, or 30s, 1d)' },
   give: { args: '<item> [count]', desc: 'Give yourself items' },
   enchant: { args: '<enchantment> [level]', desc: 'Enchant the held item' },
   summon: { args: '<mob> [x y z]', desc: 'Summon a mob' },
@@ -104,12 +105,12 @@ export class Commands {
         return out(`The time is ${Math.floor(g.dayTime * 24000)} (day ${g.day + 1})`);
       }
       case 'weather': {
-        const w = g.weather, dur = Number(parts[1]) || 600;
-        if (parts[0] === 'clear') { w.target = 0; w.thunderOn = false; w.timer = dur; }
-        else if (parts[0] === 'rain') { w.target = 1; w.thunderOn = false; w.timer = dur; }
-        else if (parts[0] === 'thunder') { w.target = 1; w.thunderOn = true; w.timer = dur; }
-        else return err('Usage: /weather <clear|rain|thunder>');
-        return out(`Changing to ${parts[0]}`);
+        const w = g.weather, t = parts[1] === undefined ? null : parseTime(parts[1]);
+        if (parts[1] !== undefined && t === null) return err(`Invalid duration '${parts[1]}'`);
+        if (parts[0] === 'clear') { setWeather(w, t ?? sample(RAIN_DELAY), 0, false, false); return out('Set the weather to clear'); }
+        if (parts[0] === 'rain') { setWeather(w, 0, t ?? sample(RAIN_DURATION), true, false); return out('Set the weather to rain'); }
+        if (parts[0] === 'thunder') { setWeather(w, 0, t ?? sample(THUNDER_DURATION), true, true); return out('Set the weather to rain & thunder'); }
+        return err('Usage: /weather <clear|rain|thunder> [duration]');
       }
       case 'give': {
         let [a, b, c] = parts;
