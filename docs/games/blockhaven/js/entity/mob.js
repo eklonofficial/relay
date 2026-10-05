@@ -1,27 +1,43 @@
 // Living mobs: physics, AI archetypes, combat, breeding/taming, trading and animation.
-import { Entity, drawModel, rootMatrix, M } from './entity.js?v=musmwq7w';
-import { Projectile, renderStack } from './objects.js?v=musmwq7w';
-import { MOBS, PROFESSIONS, DYE_DIFFUSE } from '../data/mobs.js?v=musmwq7w';
-import { B, BLOCKS, SOLID, OPAQUE } from '../data/blocks.js?v=musmwq7w';
-import { UNLOADED } from '../world/world.js?v=musmwq7w';
-import { villagerTrades } from '../game/trades.js?v=musmwq7w';
-import { findPath, clearWalk } from './pathfind.js?v=musmwq7w';
-import { ARMOR_BYPASS, armorStats, armorReduce, applyInvul } from '../game/combat.js?v=musmwq7w';
-import { animalPose, chickenPose, wolfPose, horsePose } from './animals.js?v=musmwq7w';
-import { villagerPose, illagerPose, piglinPose } from './javamodels.js?v=musmwq7w';
-import { ironGolemPose, ironGolemSway, snowGolemPose, hoglinPose, striderPose, ravagerPose } from './beasts.js?v=musmwq7w';
-import { squidPose, fishPose, fishSway, pufferfishPose, guardianPose, dolphinPose, turtlePose, axolotlPose } from './aquatic.js?v=musmwq7w';
-import { witherPose, dragonPose, dragonHistory } from './bosses.js?v=musmwq7w';
-import { rabbitPose, ocelotPose, parrotPose, batPose, frogPose, camelPose } from './critters.js?v=musmwq7w';
-import { creeperPose, spiderPose, endermanPose, magmaPose, silverfishPose, blazePose, ghastPose, phantomPose } from './monsters.js?v=musmwq7w';
-import { humanoidPose } from './humanoid.js?v=musmwq7w';
-import { armorLayer } from '../data/armor.js?v=musmwq7w';
-import { I } from '../data/items.js?v=musmwq7w';
-import { dragonInit, dragonAI, dragonDamage, dragonDying, dragonHead } from './dragon.js?v=musmwq7w';
+import { Entity, drawModel, rootMatrix, M } from './entity.js?v=musmx1xd';
+import { Projectile, renderStack } from './objects.js?v=musmx1xd';
+import { MOBS, PROFESSIONS, DYE_DIFFUSE } from '../data/mobs.js?v=musmx1xd';
+import { B, BLOCKS, SOLID, OPAQUE, VARIANT_MASK } from '../data/blocks.js?v=musmx1xd';
+import { UNLOADED } from '../world/world.js?v=musmx1xd';
+import { villagerTrades } from '../game/trades.js?v=musmx1xd';
+import { findPath, clearWalk } from './pathfind.js?v=musmx1xd';
+import { ARMOR_BYPASS, armorStats, armorReduce, applyInvul } from '../game/combat.js?v=musmx1xd';
+import { animalPose, chickenPose, wolfPose, horsePose } from './animals.js?v=musmx1xd';
+import { villagerPose, illagerPose, piglinPose } from './javamodels.js?v=musmx1xd';
+import { ironGolemPose, ironGolemSway, snowGolemPose, hoglinPose, striderPose, ravagerPose } from './beasts.js?v=musmx1xd';
+import { squidPose, fishPose, fishSway, pufferfishPose, guardianPose, dolphinPose, turtlePose, axolotlPose } from './aquatic.js?v=musmx1xd';
+import { witherPose, dragonPose, dragonHistory } from './bosses.js?v=musmx1xd';
+import { rabbitPose, ocelotPose, parrotPose, batPose, frogPose, camelPose } from './critters.js?v=musmx1xd';
+import { creeperPose, spiderPose, endermanPose, magmaPose, silverfishPose, blazePose, ghastPose, phantomPose } from './monsters.js?v=musmx1xd';
+import { humanoidPose } from './humanoid.js?v=musmx1xd';
+import { armorLayer } from '../data/armor.js?v=musmx1xd';
+import { I } from '../data/items.js?v=musmx1xd';
+import { dragonInit, dragonAI, dragonDamage, dragonDying, dragonHead } from './dragon.js?v=musmx1xd';
 
 const rnd = (a, b) => a + Math.random() * (b - a);
 const rint = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
 const wrap = a => { while (a > Math.PI) a -= Math.PI * 2; while (a < -Math.PI) a += Math.PI * 2; return a; };
+// BlockTags.ENDERMAN_HOLDABLE (by our block keys), and what the plants among them need beneath them.
+const HOLDABLE = new Set(['grass_block', 'dirt', 'coarse_dirt', 'podzol', 'mycelium', 'rooted_dirt', 'moss_block', 'mud', 'muddy_mangrove_roots', 'sand', 'red_sand', 'gravel',
+  'brown_mushroom', 'red_mushroom', 'tnt', 'cactus', 'clay', 'pumpkin', 'carved_pumpkin', 'melon', 'crimson_fungus', 'crimson_nylium', 'crimson_roots', 'warped_fungus',
+  'warped_nylium', 'warped_roots', 'dandelion', 'poppy', 'blue_orchid', 'allium', 'azure_bluet', 'red_tulip', 'orange_tulip', 'white_tulip', 'pink_tulip', 'oxeye_daisy',
+  'cornflower', 'lily_of_the_valley', 'wither_rose', 'torchflower']);
+const SOIL = new Set(['grass_block', 'dirt', 'coarse_dirt', 'podzol', 'mycelium', 'rooted_dirt', 'moss_block', 'mud', 'farmland', 'muddy_mangrove_roots']);
+const NETHER_SOIL = new Set(['crimson_nylium', 'warped_nylium', 'soul_soil', ...SOIL]);
+const blockKey = (id, m) => { const b = BLOCKS[id], v = b && b.variants && b.variants[m & VARIANT_MASK[id]]; return v ? v.key : null; };
+// Whether a carried block can stand at a spot whose block below is `below` (Block.canSurvive, for the holdables).
+function canStand(key, below, belowKey) {
+  if (key === 'cactus') return belowKey === 'sand' || belowKey === 'red_sand' || belowKey === 'cactus';
+  if (key.endsWith('fungus') || key.endsWith('roots')) return NETHER_SOIL.has(belowKey);
+  if (key.endsWith('mushroom')) return OPAQUE[below] === 1;
+  if (BLOCKS[B.FLOWER] && BLOCKS[B.FLOWER].variants.some(v => v.key === key)) return SOIL.has(belowKey);
+  return true;
+}
 const WOOL_COLORS = { white: [1, 1, 1], light_gray: [0.62, 0.62, 0.6], gray: [0.3, 0.32, 0.34], black: [0.1, 0.1, 0.12], brown: [0.5, 0.33, 0.2], pink: [1, 0.6, 0.72] };
 
 // Natural armor and weapons (Java Edition odds, scaled by difficulty).
@@ -86,6 +102,7 @@ export class Mob extends Entity {
     this.persistent = !!(opts.persistent || d.persistent);
     this.home = opts.home || null;
     this.fuse = 0; this.charged = !!opts.charged; this.resting = !!opts.resting;
+    this.carried = opts.carried || null; // an enderman's block ([id, meta])
     // A tropical fish's pattern and colours ([pattern 0-11, base colour, pattern colour]).
     if (d.pickFish) this.fish = opts.fish || d.pickFish();
     // Its breed (Java's variant, data/mobs.js): handed down, saved, or picked for where it spawns.
@@ -165,6 +182,7 @@ export class Mob extends Entity {
         const k = onFire && d.cooked && d.cooked[key] ? d.cooked[key] : key;
         if (n > 0) g.dropItem(this.pos[0], this.pos[1] + 0.5, this.pos[2], { key: k, count: n });
       }
+      if (this.carried) { const k = blockKey(...this.carried); if (k && I[k]) g.dropItem(this.pos[0], this.pos[1] + 0.5, this.pos[2], { key: k, count: 1 }); }
       if (d.woolDrop && !this.sheared) g.dropItem(this.pos[0], this.pos[1] + 0.5, this.pos[2], { key: `${this.woolColor}_wool`, count: 1 });
       if (this.mobType === 'creeper' && src.attacker && src.attacker.mobType === 'skeleton') g.dropItem(this.pos[0], this.pos[1], this.pos[2], { key: 'music_disc' in {} ? 'music_disc' : 'gunpowder', count: 1 });
       if (this.equipment && byPlayer) for (const k of [...this.equipment.armor, this.equipment.hand]) if (k && Math.random() < 0.085) g.dropItem(this.pos[0], this.pos[1] + 0.5, this.pos[2], { key: k, count: 1, dmg: I[k] && I[k].durability ? Math.floor(I[k].durability * (0.3 + Math.random() * 0.6)) : undefined });
@@ -617,8 +635,35 @@ export class Mob extends Entity {
       }
     } else { this.fuse = Math.max(0, this.fuse - dt * 2); this.navigateTo(t.pos, this.chaseSpeed(), dt); }
   }
+  // EndermanTakeBlockGoal / EndermanLeaveBlockGoal: an empty-handed enderman tries a random block
+  // near it 1 tick in 10 and picks it up if it is holdable and in plain sight; one carrying a block
+  // sets it down nearby about 1 tick in 1000 where it can stand. Only with mobGriefing.
+  endermanBlocks(dt) {
+    const g = this.game, w = this.world, r = Math.random, ticks = dt * 20;
+    if (!g.rules.mobGriefing) return;
+    const [ex, ey, ez] = this.pos;
+    if (!this.carried) {
+      if (r() >= 1 - 0.9 ** ticks) return;
+      const x = Math.floor(ex - 2 + r() * 4), y = Math.floor(ey + r() * 3), z = Math.floor(ez - 2 + r() * 4);
+      const id = w.getBlock(x, y, z), m = w.getMeta(x, y, z), k = id > 0 && blockKey(id, m);
+      if (!k || !HOLDABLE.has(k)) return;
+      const o = [Math.floor(ex) + 0.5, y + 0.5, Math.floor(ez) + 0.5], dv = [x + 0.5 - o[0], 0, z + 0.5 - o[2]], len = Math.hypot(dv[0], dv[2]);
+      const hit = len > 0 ? w.raycast(o, [dv[0] / len, 0, dv[2] / len], len + 0.5) : { x, y, z };
+      if (!hit || hit.x !== x || hit.y !== y || hit.z !== z) return;
+      this.carried = [id, m & VARIANT_MASK[id]];
+      g.setBlock(x, y, z, B.AIR, 0);
+    } else {
+      if (r() >= 1 - 0.999 ** ticks) return;
+      const x = Math.floor(ex - 1 + r() * 2), y = Math.floor(ey + r() * 2), z = Math.floor(ez - 1 + r() * 2);
+      const below = w.getBlock(x, y - 1, z), k = blockKey(...this.carried);
+      if (w.getBlock(x, y, z) !== B.AIR || below <= 0 || below === B.BEDROCK || !OPAQUE[below] || !k || !canStand(k, below, blockKey(below, w.getMeta(x, y - 1, z)))) return;
+      g.setBlock(x, y, z, this.carried[0], this.carried[1]);
+      this.carried = null;
+    }
+  }
   aiEnderman(dt) {
     const g = this.game;
+    this.endermanBlocks(dt);
     if (!this.target && !this.focus.remote && this.playerTargetable() && this.distToPlayer() < 64) {
       // Aggro when the player looks straight at the head (a carved pumpkin helmet hides you).
       const e = g.player.eyePos(), f = g.lookDir();
@@ -1042,7 +1087,7 @@ export class Mob extends Entity {
       jrabbit: rabbitPose, jocelot: ocelotPose, jparrot: parrotPose, jbat: batPose, jfrog: frogPose, jcamel: camelPose, jwither: witherPose }[m.anim];
     if (m.anim === 'jslime') return {};
     if (monster) {
-      st.creepy = !!this.angry; st.squish = this.squish || 0; st.ridden = !!this.rider; st.resting = !!this.resting;
+      st.creepy = !!this.angry; st.squish = this.squish || 0; st.ridden = !!this.rider; st.resting = !!this.resting; st.carrying = !!this.carried;
       // (Java's attack animation counts 10 ticks down from the blow.)
       st.attackTicks = this.swing * 10;
       st.inWater = this.inWater; st.onGround = this.onGround; st.moving = Math.hypot(this.vel[0], this.vel[1], this.vel[2]) > 0.05 || st.limbAmt > 1e-5;
@@ -1191,6 +1236,13 @@ export class Mob extends Entity {
       const t = this.age * 20;
       drawModel(ctx.mobsSwirl, g.mobModel(`${this.skinKey}_swirl`), g.mobLayer(`${this.skinKey}_swirl`), root, { ...this.lastPose, uvShift: [sw.x(t) % 1, (t * 0.01) % 1] }, [light[0] * 0.5, light[1] * 0.5, light[2] * 0.5]);
     }
+    // EnderManCarriedBlockLayer: the block it carries, held out in front, half size, tipped and turned
+    // (Java's model-space steps, after turning model space into ours).
+    if (this.carried) {
+      const D = Math.PI / 180, mm = M.chain(root, M.t(0, 24, 0), M.s(-16, -16, 16), M.t(0, 0.6875, -0.75), M.rx(20 * D), M.ry(45 * D), M.t(0.25, 0.1875, 0.25), M.s(-0.5, -0.5, 0.5), M.ry(90 * D));
+      const gl = new Float32Array([mm[0], mm[4], mm[8], 0, mm[1], mm[5], mm[9], 0, mm[2], mm[6], mm[10], 0, mm[3], mm[7], mm[11], 1]);
+      ctx.blockModels.push({ id: this.carried[0], meta: this.carried[1], light: (light[0] + light[1] + light[2]) / 3, matrix: gl });
+    }
     // A second skin over the first (the stray's clothes, the drowned's outer layer), posed alike.
     const over = g.mobModel(`${this.skinKey}_overlay`, true);
     // (A sheep's wool is tinted by its colour, and gone once sheared: SheepFurLayer.)
@@ -1241,14 +1293,14 @@ export class Mob extends Entity {
     if (this.deathT > 0) return null;
     return {
       t: 'mob', type: this.mobType, p: this.pos, yaw: this.yaw, health: this.health, baby: this.baby, size: this.size, tamed: this.tamed, sitting: this.sitting, saddled: this.saddled, rideSpeed: this.rideSpeed, jumpStrength: this.jumpStrength, temper: this.temper,
-      sheared: this.sheared, woolColor: this.woolColor, name: this.name, persistent: this.persistent, home: this.home, charged: this.charged, resting: this.resting, breed: this.breed, fish: this.fish,
+      sheared: this.sheared, woolColor: this.woolColor, name: this.name, persistent: this.persistent, home: this.home, charged: this.charged, resting: this.resting, carried: this.carried, breed: this.breed, fish: this.fish,
       profession: this.profession, level: this.level, xp: this.xp, trades: this.trades, equipment: this.equipment,
     };
   }
 }
 
 // Moves an entity without gravity handling (fliers/swimmers).
-import { moveEntity } from './physics.js?v=musmwq7w';
+import { moveEntity } from './physics.js?v=musmx1xd';
 function import_move(e, dt) { moveEntity(e.world, e, e.vel[0] * dt, e.vel[1] * dt, e.vel[2] * dt); }
 
 // Renders a held item using a part matrix (model units).
