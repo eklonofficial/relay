@@ -6,8 +6,8 @@
 //             shooting windows, 'always', 'never'), hop ('duel' | 'escape' | 'none'), scope
 // A bot weighs them with its own taste for each (a per-bot profile) and its skill: good players pick
 // what the situation calls for and switch at the right time; weaker ones lean on habits and misjudge.
-import { PLAYER, TICK } from '../sim/tuning.js?v=muv84lw6';
-import { EDGE } from './nav.js?v=muv84lw6';
+import { PLAYER, TICK } from '../sim/tuning.js?v=muv8budv';
+import { EDGE } from './nav.js?v=muv8budv';
 
 const T = (strafe, stand, hop, ads = false) => ({ strafe, stand, hop, ads });
 const FIGHT = T(true, 'counter', 'duel');

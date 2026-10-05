@@ -27,7 +27,7 @@ function run(minutes, skills, primary, mode = 'ffa', seed = 3) {
 const { MAPS, getMap } = await load('maps/index.js');
 test('on every map, everything that matters is reachable on foot', () => {
   for (const def of MAPS) {
-    const mp = getMap(def.id), nv = new NavGraph(mp.grid);
+    const mp = getMap(def.id), nv = new NavGraph(mp.grid, mp.meta.gravity || 1);
     assert.ok(nv.nodes.length > 200, def.id);
     const reach = (x, y, z, what) => { const id = nv.nearest(x, y, z); assert.ok(id !== null && nv.comp[id] === nv.main, `${def.id}: ${what} at ${x},${y},${z} unreachable`); };
     for (const s of mp.spawns) reach(s.x, s.y, s.z, 'spawn');

@@ -2,16 +2,17 @@
 // stand, edges for walking, stepping, ramps/stairs, drops, jump-ups, ladders and jump pads. Doubtful
 // edges are verified by running the real movement code, so a path the graph offers is one an egg can
 // actually walk. A* over a binary heap finds routes; costs prefer short, safe paths.
-import { PIECES, PIECE, facing } from '../maps/pieces.js?v=muv84lw6';
-import { makeBody, stepBody } from '../sim/movement.js?v=muv84lw6';
-import { CTRL, PLAYER } from '../sim/tuning.js?v=muv84lw6';
+import { PIECES, PIECE, facing } from '../maps/pieces.js?v=muv8budv';
+import { makeBody, stepBody } from '../sim/movement.js?v=muv8budv';
+import { CTRL, PLAYER } from '../sim/tuning.js?v=muv8budv';
 
 const R = PLAYER.collideRadius;
 export const EDGE = { walk: 0, jump: 1, drop: 2, ladder: 3, pad: 4 };
 
 export class NavGraph {
-  constructor(grid) {
-    this.grid = grid;
+  // gravity: the map's gravity multiplier (moon maps), so verified jumps and pad launches match play.
+  constructor(grid, gravity = 1) {
+    this.grid = grid; this.gravity = gravity;
     this.nodes = []; // { id, x, y, z, cx, cz, edges: [{to, cost, kind}], exposure }
     this.byCell = new Map(); // "x,z" → [node ids] (several floors per column)
     this.build();
@@ -106,7 +107,9 @@ export class NavGraph {
     for (let t = 0; t < 70; t++) {
       const ctrl = CTRL.up | (jump && t === 1 ? CTRL.jump : 0);
       body.yaw = Math.atan2(-(b.x - body.x), -(b.z - body.z));
-      stepBody(this.grid, body, (b.x - body.x) ** 2 + (b.z - body.z) ** 2 < 0.01 ? 0 : ctrl);
+      const ev = stepBody(this.grid, body, (b.x - body.x) ** 2 + (b.z - body.z) ** 2 < 0.01 ? 0 : ctrl, { gravity: this.gravity });
+      // Stepping onto a jump pad launches the egg before it can settle: touching the pad is arriving.
+      if (ev === 'pad' && b.pad && Math.floor(body.x) === b.cx && Math.floor(body.z) === b.cz) return true;
       if ((b.x - body.x) ** 2 + (b.z - body.z) ** 2 < 0.35 * 0.35 && Math.abs(body.y - b.y) < 0.35 && body.onGround > 0) return true;
       if (body.y < Math.min(a.y, b.y) - 1.5) return false;
     }
@@ -118,8 +121,8 @@ export class NavGraph {
       const yaw = k / 8 * Math.PI * 2;
       const body = makeBody(n.x, n.y, n.z); body.yaw = yaw; body.onGround = PLAYER.coyoteTicks;
       let airborne = false;
-      for (let t = 0; t < 120; t++) {
-        stepBody(this.grid, body, CTRL.up);
+      for (let t = 0; t < 240; t++) {
+        stepBody(this.grid, body, CTRL.up, { gravity: this.gravity });
         if (body.onGround <= 0) airborne = true;
         if (airborne && body.onGround === PLAYER.coyoteTicks && t > 6) {
           const land = this.nearest(body.x, body.y, body.z);
