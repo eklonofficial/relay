@@ -1,7 +1,7 @@
 // Sunny Side (GDD §15.4): two grassy hills with a valley between, for 16. Each hilltop holds a low
 // stone fort; a long wooden bridge spans the valley between the forts (the exposed fast route), while
 // the valley floor below offers rocks, trees and a stream bed for the covered route. Mid-range lanes.
-import { Builder, MAT } from './dsl.js?v=muv8budv';
+import { Builder, MAT } from './dsl.js?v=muv8iyqg';
 
 export default function sunnySide() {
   const W = 40, D = 30, b = new Builder(W, 12, D);

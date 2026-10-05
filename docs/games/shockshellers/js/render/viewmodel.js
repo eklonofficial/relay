@@ -4,9 +4,9 @@
 // reloads dip and tilt it while the magazine drops and comes back (the long reload adds a slap),
 // swaps lower it out and back, the whisk swings across, inspect turns it over.
 // Drawn in its own scene and camera after the world, over a cleared depth buffer.
-import * as THREE from '../../vendor/three/three.module.js?v=muv8budv';
-import { gunModel } from './guns.js?v=muv8budv';
-import { clone } from './models.js?v=muv8budv';
+import * as THREE from '../../vendor/three/three.module.js?v=muv8iyqg';
+import { gunModel } from './guns.js?v=muv8iyqg';
+import { clone } from './models.js?v=muv8iyqg';
 
 // Where each gun sits at the hip (metres in camera space), and how hard it kicks.
 const HIP = { yolk47: [0.16, -0.17, -0.36], doubleYolker: [0.16, -0.18, -0.35], cageFree: [0.16, -0.17, -0.38], yolkzooka: [0.2, -0.22, -0.38], beater: [0.15, -0.16, -0.32], poacher: [0.16, -0.17, -0.4], triBoil: [0.16, -0.17, -0.36], peck9mm: [0.15, -0.15, -0.3] };

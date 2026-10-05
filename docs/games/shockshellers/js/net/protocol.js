@@ -6,7 +6,7 @@
 //                     r: rockets, g: grenades, e: events}   15 Hz
 //                 opts {options} | boot {reason} | join | leave | bye | chat
 // Numbers are rounded to 1/256 (positions) and 1/1000 (angles) to keep messages small.
-import { PRIMARIES, SECONDARY } from '../sim/tuning.js?v=muv8budv';
+import { PRIMARIES, SECONDARY } from '../sim/tuning.js?v=muv8iyqg';
 
 const q = v => Math.round(v * 256) / 256;
 const a = v => Math.round(v * 1000) / 1000;

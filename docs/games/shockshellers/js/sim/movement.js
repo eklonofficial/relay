@@ -3,7 +3,7 @@
 //
 // Conventions: position is the egg's feet origin; its collision sphere (r 0.31) is centred 0.31 above.
 // Yaw 0 looks towards -z, positive yaw turns left (three.js camera convention); pitch > 0 looks up.
-import { PLAYER, CTRL } from './tuning.js?v=muv8budv';
+import { PLAYER, CTRL } from './tuning.js?v=muv8iyqg';
 
 const R = PLAYER.collideRadius;
 
@@ -28,6 +28,9 @@ function resolve(grid, b, ground) {
       if (STEP.canStep && ny < 0.707 && top > b.y + 1e-4 && top - b.y <= PLAYER.stepUp && !grid.collides(b.x, top + 0.002 + R, b.z, R - 1e-3)) {
         b.y = top + 0.002; ground.hit = true; moved = true; ground.stepped = true; return false;
       }
+      // Push a hair past the surface: landing exactly on it still counts as touching (by rounding),
+      // and the same box would then be "resolved" over and over, never reaching the next one.
+      depth += 1e-6;
       if (ny > 0 && ny <= 0.707) {
         // A steep edge (not ground): push out sideways only, or pressing into a wall's top edge
         // would lift the egg up it a little every tick.

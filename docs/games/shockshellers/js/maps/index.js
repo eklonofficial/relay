@@ -1,11 +1,12 @@
 // The map list (GDD §15.4). Each map module builds its grid on demand; builds are cached.
-import barnyard from './barnyard.js?v=muv8budv';
-import yolkQuarry from './yolk-quarry.js?v=muv8budv';
-import henHouse from './hen-house.js?v=muv8budv';
-import sunnySide from './sunny-side.js?v=muv8budv';
-import coopVille from './coop-ville.js?v=muv8budv';
-import moonHatch from './moon-hatch.js?v=muv8budv';
-import omeletArena from './omelet-arena.js?v=muv8budv';
+import barnyard from './barnyard.js?v=muv8iyqg';
+import yolkQuarry from './yolk-quarry.js?v=muv8iyqg';
+import henHouse from './hen-house.js?v=muv8iyqg';
+import sunnySide from './sunny-side.js?v=muv8iyqg';
+import coopVille from './coop-ville.js?v=muv8iyqg';
+import moonHatch from './moon-hatch.js?v=muv8iyqg';
+import eggTemple from './egg-temple.js?v=muv8iyqg';
+import omeletArena from './omelet-arena.js?v=muv8iyqg';
 
 export const MAPS = [
   { id: 'barnyard', name: 'Barnyard', build: barnyard, maxPlayers: 18, modes: ['ffa', 'teams', 'spatula', 'roost'], public: true },
@@ -14,6 +15,7 @@ export const MAPS = [
   { id: 'sunny', name: 'Sunny Side', build: sunnySide, maxPlayers: 16, modes: ['ffa', 'teams', 'spatula', 'roost'], public: true },
   { id: 'coopville', name: 'Coop Ville', build: coopVille, maxPlayers: 18, modes: ['ffa', 'teams', 'spatula', 'roost'], public: true },
   { id: 'moon', name: 'Moon Hatch', build: moonHatch, maxPlayers: 18, modes: ['ffa', 'teams', 'spatula', 'roost'], public: true },
+  { id: 'temple', name: 'Egg Temple', build: eggTemple, maxPlayers: 18, modes: ['ffa', 'teams', 'spatula'], public: true },
   { id: 'omelet', name: 'Omelet Arena', build: omeletArena, maxPlayers: 6, modes: ['ffa', 'teams', 'spatula'], public: true },
 ];
 const cache = new Map();

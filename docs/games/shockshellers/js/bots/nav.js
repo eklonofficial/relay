@@ -2,9 +2,9 @@
 // stand, edges for walking, stepping, ramps/stairs, drops, jump-ups, ladders and jump pads. Doubtful
 // edges are verified by running the real movement code, so a path the graph offers is one an egg can
 // actually walk. A* over a binary heap finds routes; costs prefer short, safe paths.
-import { PIECES, PIECE, facing } from '../maps/pieces.js?v=muv8budv';
-import { makeBody, stepBody } from '../sim/movement.js?v=muv8budv';
-import { CTRL, PLAYER } from '../sim/tuning.js?v=muv8budv';
+import { PIECES, PIECE, facing } from '../maps/pieces.js?v=muv8iyqg';
+import { makeBody, stepBody } from '../sim/movement.js?v=muv8iyqg';
+import { CTRL, PLAYER } from '../sim/tuning.js?v=muv8iyqg';
 
 const R = PLAYER.collideRadius;
 export const EDGE = { walk: 0, jump: 1, drop: 2, ladder: 3, pad: 4 };
@@ -102,7 +102,8 @@ export class NavGraph {
   }
   // Run the real movement code from node a towards b; true if it arrives (within 0.35, same floor).
   verify(a, b, jump) {
-    const body = makeBody(a.x, a.y, a.z); body.onGround = PLAYER.coyoteTicks;
+    // Start a hair above the node, as a standing egg rests (exactly on a stair's step line it wedges).
+    const body = makeBody(a.x, a.y + 0.002, a.z); body.onGround = PLAYER.coyoteTicks;
     body.yaw = Math.atan2(-(b.x - a.x), -(b.z - a.z));
     for (let t = 0; t < 70; t++) {
       const ctrl = CTRL.up | (jump && t === 1 ? CTRL.jump : 0);
