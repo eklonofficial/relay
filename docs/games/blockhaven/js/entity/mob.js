@@ -1,23 +1,23 @@
 // Living mobs: physics, AI archetypes, combat, breeding/taming, trading and animation.
-import { Entity, drawModel, rootMatrix, M } from './entity.js?v=musmvdzj';
-import { Projectile, renderStack } from './objects.js?v=musmvdzj';
-import { MOBS, PROFESSIONS } from '../data/mobs.js?v=musmvdzj';
-import { B, BLOCKS, SOLID } from '../data/blocks.js?v=musmvdzj';
-import { UNLOADED } from '../world/world.js?v=musmvdzj';
-import { villagerTrades } from '../game/trades.js?v=musmvdzj';
-import { findPath, clearWalk } from './pathfind.js?v=musmvdzj';
-import { ARMOR_BYPASS, armorStats, armorReduce, applyInvul } from '../game/combat.js?v=musmvdzj';
-import { animalPose, chickenPose, wolfPose, horsePose } from './animals.js?v=musmvdzj';
-import { villagerPose, illagerPose, piglinPose } from './javamodels.js?v=musmvdzj';
-import { ironGolemPose, ironGolemSway, snowGolemPose, hoglinPose, striderPose, ravagerPose } from './beasts.js?v=musmvdzj';
-import { squidPose, fishPose, fishSway, pufferfishPose, guardianPose, dolphinPose, turtlePose, axolotlPose } from './aquatic.js?v=musmvdzj';
-import { witherPose, dragonPose, dragonHistory } from './bosses.js?v=musmvdzj';
-import { rabbitPose, ocelotPose, parrotPose, batPose, frogPose, camelPose } from './critters.js?v=musmvdzj';
-import { creeperPose, spiderPose, endermanPose, magmaPose, silverfishPose, blazePose, ghastPose, phantomPose } from './monsters.js?v=musmvdzj';
-import { humanoidPose } from './humanoid.js?v=musmvdzj';
-import { armorLayer } from '../data/armor.js?v=musmvdzj';
-import { I } from '../data/items.js?v=musmvdzj';
-import { dragonInit, dragonAI, dragonDamage, dragonDying, dragonHead } from './dragon.js?v=musmvdzj';
+import { Entity, drawModel, rootMatrix, M } from './entity.js?v=musmvqjf';
+import { Projectile, renderStack } from './objects.js?v=musmvqjf';
+import { MOBS, PROFESSIONS } from '../data/mobs.js?v=musmvqjf';
+import { B, BLOCKS, SOLID, OPAQUE } from '../data/blocks.js?v=musmvqjf';
+import { UNLOADED } from '../world/world.js?v=musmvqjf';
+import { villagerTrades } from '../game/trades.js?v=musmvqjf';
+import { findPath, clearWalk } from './pathfind.js?v=musmvqjf';
+import { ARMOR_BYPASS, armorStats, armorReduce, applyInvul } from '../game/combat.js?v=musmvqjf';
+import { animalPose, chickenPose, wolfPose, horsePose } from './animals.js?v=musmvqjf';
+import { villagerPose, illagerPose, piglinPose } from './javamodels.js?v=musmvqjf';
+import { ironGolemPose, ironGolemSway, snowGolemPose, hoglinPose, striderPose, ravagerPose } from './beasts.js?v=musmvqjf';
+import { squidPose, fishPose, fishSway, pufferfishPose, guardianPose, dolphinPose, turtlePose, axolotlPose } from './aquatic.js?v=musmvqjf';
+import { witherPose, dragonPose, dragonHistory } from './bosses.js?v=musmvqjf';
+import { rabbitPose, ocelotPose, parrotPose, batPose, frogPose, camelPose } from './critters.js?v=musmvqjf';
+import { creeperPose, spiderPose, endermanPose, magmaPose, silverfishPose, blazePose, ghastPose, phantomPose } from './monsters.js?v=musmvqjf';
+import { humanoidPose } from './humanoid.js?v=musmvqjf';
+import { armorLayer } from '../data/armor.js?v=musmvqjf';
+import { I } from '../data/items.js?v=musmvqjf';
+import { dragonInit, dragonAI, dragonDamage, dragonDying, dragonHead } from './dragon.js?v=musmvqjf';
 
 const rnd = (a, b) => a + Math.random() * (b - a);
 const rint = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
@@ -85,7 +85,7 @@ export class Mob extends Entity {
     this.target = null; this.panic = 0; this.love = 0; this.breedCd = 0; this.growT = this.baby ? 1200 : 0;
     this.persistent = !!(opts.persistent || d.persistent);
     this.home = opts.home || null;
-    this.fuse = 0; this.charged = !!opts.charged;
+    this.fuse = 0; this.charged = !!opts.charged; this.resting = !!opts.resting;
     this.tamed = !!opts.tamed; this.sitting = !!opts.sitting;
     this.sheared = !!opts.sheared;
     this.woolColor = opts.woolColor || (type === 'sheep' ? (Math.random() < 0.82 ? 'white' : ['light_gray', 'gray', 'black', 'brown', 'pink'][rint(0, 4)]) : null);
@@ -114,6 +114,8 @@ export class Mob extends Entity {
   hurt(amount, src = {}) {
     const g = this.game;
     if (this.dead || this.deathT > 0) return false;
+    // (Bat.hurt: a hanging bat drops off its perch.)
+    this.resting = false;
     if (this.def.fireImmune && (src.kind === 'fire' || src.kind === 'lava')) return false;
     if (this.mobType === 'enderman' && src.kind === 'projectile') { this.teleportRandom(); return false; }
     if (this.mobType === 'wither' && (this.spawnT > 0 || (this.armored && src.kind === 'projectile'))) return false;
@@ -794,7 +796,24 @@ export class Mob extends Entity {
     const t = this.target;
     return { to: [t.pos[0], t.pos[1] + (t.h || 1) * 0.6, t.pos[2]], prog: Math.min(1, this.laser.t / this.def.laser.time) };
   }
+  // Bat.customServerAiStep: a bat hangs under a solid block it flies up against (1 tick in 100),
+  // turning its head now and then, until the block goes or a player comes within 4 blocks.
+  batRest(dt) {
+    const w = this.world, x = this.pos[0], z = this.pos[2], above = Math.floor(this.pos[1]) + 1;
+    const ceiling = OPAQUE[w.getBlock(x, above, z)];
+    if (!this.resting) {
+      if (ceiling && Math.random() < 1 - 0.99 ** (dt * 20)) { this.resting = true; this.goal = null; }
+      return this.resting;
+    }
+    if (!ceiling) { this.resting = false; return false; }
+    if (this.playerTargetable() && this.distToPlayer() < 4) { this.resting = false; this.vel[1] = 1; return false; }
+    this.vel[0] = this.vel[1] = this.vel[2] = 0;
+    this.pos[1] = above - this.h;
+    if (Math.random() < 1 - (199 / 200) ** (dt * 20)) this.yaw = Math.random() * Math.PI * 2;
+    return true;
+  }
   aiFlyer(dt) {
+    if (this.mobType === 'bat' && this.batRest(dt)) return;
     this.wanderT -= dt;
     if (this.wanderT <= 0 || !this.goal) {
       this.wanderT = rnd(1, 4);
@@ -1019,7 +1038,7 @@ export class Mob extends Entity {
       jrabbit: rabbitPose, jocelot: ocelotPose, jparrot: parrotPose, jbat: batPose, jfrog: frogPose, jcamel: camelPose, jwither: witherPose }[m.anim];
     if (m.anim === 'jslime') return {};
     if (monster) {
-      st.creepy = !!this.angry; st.squish = this.squish || 0; st.ridden = !!this.rider;
+      st.creepy = !!this.angry; st.squish = this.squish || 0; st.ridden = !!this.rider; st.resting = !!this.resting;
       // (Java's attack animation counts 10 ticks down from the blow.)
       st.attackTicks = this.swing * 10;
       st.inWater = this.inWater; st.onGround = this.onGround; st.moving = Math.hypot(this.vel[0], this.vel[1], this.vel[2]) > 0.05 || st.limbAmt > 1e-5;
@@ -1100,8 +1119,8 @@ export class Mob extends Entity {
     // IronGolemRenderer.setupRotations: it lurches side to side as it walks.
     if (this.model.anim === 'jirongolem') extra = M.rz(ironGolemSway(this.walk / 0.6662, this.walkAmt));
     let yOff = 0;
-    // BatRenderer.setupRotations: a flying bat bobs.
-    if (this.model.anim === 'jbat') yOff = Math.cos(this.age * 20 * 0.3) * 0.1;
+    // BatRenderer.setupRotations: a flying bat bobs; a hanging one sits a little lower.
+    if (this.model.anim === 'jbat') yOff = this.resting ? -0.1 : Math.cos(this.age * 20 * 0.3) * 0.1;
     // EnderDragonRenderer: the dragon turns and pitches by its recent flight, and its neck and tail
     // follow the path it flew (EnderDragon's flap time and latency positions, a tick at a time).
     let dragon = null;
@@ -1200,14 +1219,14 @@ export class Mob extends Entity {
     if (this.deathT > 0) return null;
     return {
       t: 'mob', type: this.mobType, p: this.pos, yaw: this.yaw, health: this.health, baby: this.baby, size: this.size, tamed: this.tamed, sitting: this.sitting, saddled: this.saddled, rideSpeed: this.rideSpeed, jumpStrength: this.jumpStrength, temper: this.temper,
-      sheared: this.sheared, woolColor: this.woolColor, name: this.name, persistent: this.persistent, home: this.home, charged: this.charged,
+      sheared: this.sheared, woolColor: this.woolColor, name: this.name, persistent: this.persistent, home: this.home, charged: this.charged, resting: this.resting,
       profession: this.profession, level: this.level, xp: this.xp, trades: this.trades, equipment: this.equipment,
     };
   }
 }
 
 // Moves an entity without gravity handling (fliers/swimmers).
-import { moveEntity } from './physics.js?v=musmvdzj';
+import { moveEntity } from './physics.js?v=musmvqjf';
 function import_move(e, dt) { moveEntity(e.world, e, e.vel[0] * dt, e.vel[1] * dt, e.vel[2] * dt); }
 
 // Renders a held item using a part matrix (model units).
