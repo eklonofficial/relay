@@ -1,8 +1,8 @@
-import { CHUNK, TEX, DIM } from '../data/blocks.js?v=muujnf54';
-import { meshSingleBlock, STRIDE } from '../mesh/mesher.js?v=muujnf54';
-import * as S from './shaders.js?v=muujnf54';
-import { uploadArray, updateLayer, uploadLayerChain, buildMipChain } from './atlas.js?v=muujnf54';
-import { mat4, perspective, multiply, invert, viewMatrix, frustumPlanes, boxVisible } from '../core/math.js?v=muujnf54';
+import { CHUNK, TEX, DIM } from '../data/blocks.js?v=muujnq9z';
+import { meshSingleBlock, STRIDE } from '../mesh/mesher.js?v=muujnq9z';
+import * as S from './shaders.js?v=muujnq9z';
+import { uploadArray, updateLayer, uploadLayerChain, buildMipChain } from './atlas.js?v=muujnq9z';
+import { mat4, perspective, multiply, invert, viewMatrix, frustumPlanes, boxVisible } from '../core/math.js?v=muujnq9z';
 
 const NO_OPTS = {};
 
@@ -19,6 +19,41 @@ const IDENTITY = mat4();
 // Opaque terrain passes: [program, chunk mesh, its section table].
 const OPAQUE_PASSES = [['terrainSolid', 'solid', 'secS'], ['terrain', 'cutout', 'secC']];
 const byDrawDist = (a, b) => a.drawDist - b.drawDist;
+
+// Java's cloud mesh (LevelRenderer.buildClouds) in cloud cells, y relative to the camera: f17 is the
+// cloud base rounded down to Java's 4-block bands. Vertices are x, y, z, u, v (cloud-map pixels / 256,
+// before the drift offset) and the face's shade (Java's 0.7 bottom, 1 top, 0.9 x sides, 0.8 z sides).
+function cloudMesh(fancy, f17) {
+  const out = [], E = 9.765625E-4, T = 0.00390625;
+  const v = (x, y, z, u, w, sh) => out.push(x, y, z, u * T, w * T, sh);
+  if (!fancy) {
+    for (let k = -32; k < 32; k += 32) for (let l = -32; l < 32; l += 32) {
+      v(k, f17, l + 32, k, l + 32, 1); v(k + 32, f17, l + 32, k + 32, l + 32, 1); v(k + 32, f17, l, k + 32, l, 1); v(k, f17, l, k, l, 1);
+    }
+    return new Float32Array(out);
+  }
+  for (let k = -3; k <= 4; k++) for (let l = -3; l <= 4; l++) {
+    const x = k * 8, z = l * 8;
+    if (f17 > -5) { v(x, f17, z + 8, x, z + 8, 0.7); v(x + 8, f17, z + 8, x + 8, z + 8, 0.7); v(x + 8, f17, z, x + 8, z, 0.7); v(x, f17, z, x, z, 0.7); }
+    if (f17 <= 5) { const y = f17 + 4 - E; v(x, y, z + 8, x, z + 8, 1); v(x + 8, y, z + 8, x + 8, z + 8, 1); v(x + 8, y, z, x + 8, z, 1); v(x, y, z, x, z, 1); }
+    if (k > -1) for (let i = 0; i < 8; i++) { const a = x + i, u = x + i + 0.5; v(a, f17, z + 8, u, z + 8, 0.9); v(a, f17 + 4, z + 8, u, z + 8, 0.9); v(a, f17 + 4, z, u, z, 0.9); v(a, f17, z, u, z, 0.9); }
+    if (k <= 1) for (let i = 0; i < 8; i++) { const a = x + i + 1 - E, u = x + i + 0.5; v(a, f17, z + 8, u, z + 8, 0.9); v(a, f17 + 4, z + 8, u, z + 8, 0.9); v(a, f17 + 4, z, u, z, 0.9); v(a, f17, z, u, z, 0.9); }
+    if (l > -1) for (let i = 0; i < 8; i++) { const c = z + i, w = z + i + 0.5; v(x, f17 + 4, c, x, w, 0.8); v(x + 8, f17 + 4, c, x + 8, w, 0.8); v(x + 8, f17, c, x + 8, w, 0.8); v(x, f17, c, x, w, 0.8); }
+    if (l <= 1) for (let i = 0; i < 8; i++) { const c = z + i + 1 - E, w = z + i + 0.5; v(x, f17 + 4, c, x, w, 0.8); v(x + 8, f17 + 4, c, x + 8, w, 0.8); v(x + 8, f17, c, x + 8, w, 0.8); v(x, f17, c, x, w, 0.8); }
+  }
+  return new Float32Array(out);
+}
+// Level.getCloudColor: white dimmed by the time of day, greyed by rain and darker in a thunderstorm.
+// dayTime: 0..1 of a day from Java's tick 0 (6 am).
+function cloudColor(dayTime, rain, thunder) {
+  const d0 = dayTime - 0.25 - Math.floor(dayTime - 0.25), d1 = 0.5 - Math.cos(d0 * Math.PI) / 2, f = (d0 * 2 + d1) / 3;
+  const f1 = Math.max(0, Math.min(1, Math.cos(f * Math.PI * 2) * 2 + 0.5));
+  let r = 1, g = 1, b = 1;
+  if (rain > 0) { const grey = (r * 0.3 + g * 0.59 + b * 0.11) * 0.6, k = 1 - rain * 0.95; r = r * k + grey * (1 - k); g = g * k + grey * (1 - k); b = b * k + grey * (1 - k); }
+  r *= f1 * 0.9 + 0.1; g *= f1 * 0.9 + 0.1; b *= f1 * 0.85 + 0.15;
+  if (thunder > 0) { const grey = (r * 0.3 + g * 0.59 + b * 0.11) * 0.2, k = 1 - thunder * 0.95; r = r * k + grey * (1 - k); g = g * k + grey * (1 - k); b = b * k + grey * (1 - k); }
+  return [r, g, b];
+}
 
 // Growable float batch of quads: pos(3) uv+layer(3) colour(4).
 export class Batch {
@@ -72,6 +107,7 @@ export class Renderer {
     this.post = this.program(S.POST_VS, S.POST_FS);
     this.shadowProg = this.program(S.TERRAIN_VS, S.SHADOW_FS);
     this.shadowSolid = this.program(S.TERRAIN_VS, S.SHADOW_SOLID_FS);
+    this.cloudProg = this.program(S.CLOUD_VS, S.CLOUD_FS);
     this.bloomProg = this.program(S.POST_VS, S.BLOOM_FS);
     this.godProg = this.program(S.POST_VS, S.GOD_FS);
     this.quality = 1;
@@ -142,6 +178,69 @@ export class Renderer {
       if (!chains) this.animChains.set(a, chains = []);
       uploadLayerChain(this.gl, this.blockTex, layer, chains[f] || (chains[f] = buildMipChain([a.frames[f]])));
     }
+  }
+  // The cloud map ({ w, h, data } RGBA), repeating, unfiltered and without mipmaps as in Java.
+  setCloudTexture(t) {
+    const gl = this.gl;
+    if (this.cloudTex) gl.deleteTexture(this.cloudTex);
+    this.cloudTex = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, this.cloudTex);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, t.w, t.h, 0, gl.RGBA, gl.UNSIGNED_BYTE, t.data);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
+  }
+  // Java's clouds (s.clouds 'fancy' or 'fast'), drawn after translucent terrain like LevelRenderer.
+  drawClouds(s, viewProj, fogNear, fogFar) {
+    const gl = this.gl, fancy = s.clouds === 'fancy';
+    if (!this.cloudTex || (!fancy && s.clouds !== 'fast') || s.dim !== DIM.OVERWORLD || s.renderDistance < 4) return;
+    const H = 192, ticks = (s.cloudTicks ?? s.time * 20) * 0.03;
+    let d2 = (s.camPos[0] + ticks) / 12, d4 = s.camPos[2] / 12 + 0.33000001311302185;
+    const d3 = H - s.camPos[1] + 0.33000001311302185;
+    d2 -= Math.floor(d2 / 2048) * 2048; d4 -= Math.floor(d4 / 2048) * 2048;
+    const f3 = d2 - Math.floor(d2), f4 = (d3 / 4 - Math.floor(d3 / 4)) * 4, f5 = d4 - Math.floor(d4);
+    const f17 = Math.floor(d3 / 4) * 4;
+    const key = `${fancy}|${f17}`;
+    if (this.cloudKey !== key) {
+      this.cloudKey = key;
+      const data = cloudMesh(fancy, f17);
+      if (!this.cloudVao) {
+        this.cloudVao = gl.createVertexArray(); this.cloudVbo = gl.createBuffer();
+        gl.bindVertexArray(this.cloudVao);
+        gl.bindBuffer(gl.ARRAY_BUFFER, this.cloudVbo);
+        gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 24, 0);
+        gl.enableVertexAttribArray(1); gl.vertexAttribPointer(1, 2, gl.FLOAT, false, 24, 12);
+        gl.enableVertexAttribArray(2); gl.vertexAttribPointer(2, 1, gl.FLOAT, false, 24, 20);
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.quadIndex);
+      }
+      gl.bindVertexArray(this.cloudVao);
+      gl.bindBuffer(gl.ARRAY_BUFFER, this.cloudVbo);
+      gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW);
+      this.cloudQuads = data.length / 24;
+    }
+    const p = this.cloudProg, F = Math.max(s.renderDistance * CHUNK, 32);
+    gl.useProgram(p.p);
+    this.setEnv(p.u, s, fogNear, fogFar);
+    gl.uniformMatrix4fv(p.u.uViewProj, false, viewProj);
+    gl.uniform3f(p.u.uShift, -f3, f4, -f5);
+    gl.uniform2f(p.u.uUVOff, Math.floor(d2) * 0.00390625, Math.floor(d4) * 0.00390625);
+    const c = cloudColor(s.dayTime ?? 0, s.rain || 0, s.thunder || 0);
+    gl.uniform3f(p.u.uCloudColor, c[0], c[1], c[2]);
+    gl.uniform2f(p.u.uCloudFog, F - Math.max(4, Math.min(64, F / 10)), F);
+    gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, this.cloudTex); gl.uniform1i(p.u.uCloudTex, 1); gl.activeTexture(gl.TEXTURE0);
+    gl.bindVertexArray(this.cloudVao);
+    gl.disable(gl.CULL_FACE);
+    gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+    gl.depthMask(true);
+    // Fancy: depth first, then colour, so only the nearest cloud face shows (Java's two passes).
+    for (let pass = fancy ? 0 : 1; pass < 2; pass++) {
+      gl.colorMask(pass === 1, pass === 1, pass === 1, pass === 1);
+      gl.drawElements(gl.TRIANGLES, this.cloudQuads * 6, gl.UNSIGNED_INT, 0);
+      this.draws++;
+    }
+    gl.depthMask(false);
+    gl.enable(gl.CULL_FACE);
   }
   setEntityTextures(chain, count) { this.entityTex = uploadArray(this.gl, chain, count); }
   // Replaces one 128x128 entity layer (a player's own skin, a pack's armor), mipmaps and all.
@@ -617,7 +716,7 @@ export class Renderer {
     this.setEnv(this.sky.u, s, fogNear, fogFar);
     gl.uniformMatrix4fv(this.sky.u.uInvViewProj, false, invViewProj);
     gl.uniform1f(this.sky.u.uNight, env.night);
-    gl.uniform1f(this.sky.u.uClouds, s.clouds ? 1 : 0);
+    gl.uniform1f(this.sky.u.uClouds, s.clouds === 'soft' ? 1 : 0); // the soft (shader) clouds
     gl.uniform1f(this.sky.u.uRain, s.rain || 0);
     gl.uniform1i(this.sky.u.uDim, s.dim || 0);
     gl.bindVertexArray(this.emptyVao);
@@ -650,7 +749,7 @@ export class Renderer {
     gl.uniform1f(l.u.uSSR, ssr ? Q.ssr : 0);
     gl.uniform1f(l.u.uPlainWater, this.quality === 0 ? 1 : 0);
     gl.uniform1f(l.u.uWaves, this.quality === 0 ? 0 : 1);
-    gl.uniform1f(l.u.uClouds, s.clouds ? 1 : 0);
+    gl.uniform1f(l.u.uClouds, s.clouds === 'soft' ? 1 : 0);
     gl.uniform1f(l.u.uRain, s.rain || 0);
     gl.uniform2f(l.u.uNearFar, 0.05, 1200);
     gl.uniform2f(l.u.uScreen, w, h);
@@ -666,6 +765,7 @@ export class Renderer {
       gl.bindVertexArray(m.vao);
       quads += this.drawSections(m, c.gpu.secT, c, planes);
     }
+    this.drawClouds(s, viewProj, fogNear, fogFar);
     // Translucent effects: weather, smoke, glints.
     gl.useProgram(e.p);
     for (const b of s.blendBatches || []) { const tx = this.texFor(b.tex); if (tx) { if (b.noCull) gl.disable(gl.CULL_FACE); this.drawBatch(b.batch, tx, b.alphaTest ?? 0.02, true, b); if (b.noCull) gl.enable(gl.CULL_FACE); } }

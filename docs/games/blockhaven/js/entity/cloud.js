@@ -1,7 +1,7 @@
 // Lingering clouds (the original's area effect cloud). The dragon leaves them where its fireballs
 // land and where it breathes: a purple haze that hurts anything standing in it once a second and
 // can be scooped up into bottles of dragon's breath.
-import { Entity } from './entity.js?v=muujnf54';
+import { Entity } from './entity.js?v=muujnq9z';
 
 const rnd = (a, b) => a + Math.random() * (b - a);
 

@@ -1,13 +1,13 @@
 // Player actions: mining, placing, using items and blocks, attacking.
-import { meleeDamage, isCrit, knockStrength, isSword, SHIELD_DELAY, SHIELD_DISABLE, enchantDamage, enchLv, sweepDamage } from './combat.js?v=muujnf54';
-import { B, BLOCKS, SOLID, OPAQUE, SHAPE_OF, SHAPE, props, st, DIM, FACING_SHIFT, AXIS_SHIFT, VARIANT_MASK, CHEST_DIRS, chestType, chestPartner } from '../data/blocks.js?v=muujnf54';
-import { I, breakTime } from '../data/items.js?v=muujnf54';
-import { enchantWithLevels } from '../data/enchantments.js?v=muujnf54';
-import { collisionBoxes, selectionBoxes } from '../data/shapes.js?v=muujnf54';
-import { UNLOADED, posKey } from '../world/world.js?v=muujnf54';
-import { forward } from '../core/math.js?v=muujnf54';
-import { CompoundContainer } from './inventory.js?v=muujnf54';
-import { KIND } from './redstone.js?v=muujnf54';
+import { meleeDamage, isCrit, knockStrength, isSword, SHIELD_DELAY, SHIELD_DISABLE, enchantDamage, enchLv, sweepDamage } from './combat.js?v=muujnq9z';
+import { B, BLOCKS, SOLID, OPAQUE, SHAPE_OF, SHAPE, props, st, DIM, FACING_SHIFT, AXIS_SHIFT, VARIANT_MASK, CHEST_DIRS, chestType, chestPartner } from '../data/blocks.js?v=muujnq9z';
+import { I, breakTime } from '../data/items.js?v=muujnq9z';
+import { enchantWithLevels } from '../data/enchantments.js?v=muujnq9z';
+import { collisionBoxes, selectionBoxes } from '../data/shapes.js?v=muujnq9z';
+import { UNLOADED, posKey } from '../world/world.js?v=muujnq9z';
+import { forward } from '../core/math.js?v=muujnq9z';
+import { CompoundContainer } from './inventory.js?v=muujnq9z';
+import { KIND } from './redstone.js?v=muujnq9z';
 
 const DIRS = [[0, 1], [-1, 0], [0, -1], [1, 0]];
 export const CROSSBOW_CHARGE = 1.25; // seconds (25 ticks)
