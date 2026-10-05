@@ -12,6 +12,10 @@
 const step4 = [[0, 0, 0, 1, 0.25, 1], [0, 0.25, 0.25, 1, 0.5, 1], [0, 0.5, 0.5, 1, 0.75, 1], [0, 0.75, 0.75, 1, 1, 1]];
 const ramp8 = Array.from({ length: 8 }, (_, i) => [0, i / 8, i / 8, 1, (i + 1) / 8, 1]);
 const halfRamp4 = Array.from({ length: 4 }, (_, i) => [0, i / 8, i / 4, 1, (i + 1) / 8, 1]);
+// Corner ramps for terrain, high towards +x and +z. Outer (a convex corner): height min(x, z), so only
+// the far corner is up. Inner (a concave corner): height max(x, z), so only the near corner is down.
+const outer8 = Array.from({ length: 8 }, (_, i) => [i / 8, i / 8, i / 8, 1, (i + 1) / 8, 1]);
+const inner8 = Array.from({ length: 8 }, (_, i) => [[i / 8, i / 8, 0, 1, (i + 1) / 8, 1], [0, i / 8, i / 8, 1, (i + 1) / 8, 1]]).flat();
 
 // shape: what the renderer builds. mat: material family (render/materials.js) for the main faces.
 const DEFS = [
@@ -37,6 +41,8 @@ const DEFS = [
   { key: 'hay', kind: 'solid', shape: 'hay', boxes: [[0.05, 0, 0.05, 0.95, 0.7, 0.95]] },
   { key: 'glass', kind: 'pass', shape: 'glass', boxes: [[0, 0, 0.45, 1, 1, 0.55]] },
   { key: 'decor', kind: 'none', shape: 'decor', boxes: [] },
+  { key: 'rampOuter', kind: 'solid', shape: 'rampOuter', boxes: outer8, ramp: true },
+  { key: 'rampInner', kind: 'solid', shape: 'rampInner', boxes: inner8, ramp: true },
 ];
 
 export const PIECES = DEFS.map((d, id) => ({ id, blocksShots: d.kind === 'solid' || d.kind === 'pad', blocksPlayers: d.kind === 'solid' || d.kind === 'pass' || d.kind === 'pad', ...d }));

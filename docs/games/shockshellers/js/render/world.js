@@ -1,10 +1,10 @@
 // Turns a map grid into a few merged meshes (one per material family). Faces hidden against full
 // blocks are dropped, and every vertex gets baked ambient occlusion from the cells around it, which
 // gives the soft, lightmapped look of the reference maps without shipping any lightmap.
-import * as THREE from '../../vendor/three/three.module.js?v=muv931ta';
-import { PIECES, BOXES, facing } from '../maps/pieces.js?v=muv931ta';
-import { worldMaterial, TEX_SCALE } from './materials.js?v=muv931ta';
-import { clone } from './models.js?v=muv931ta';
+import * as THREE from '../../vendor/three/three.module.js?v=muv98ap7';
+import { PIECES, BOXES, facing } from '../maps/pieces.js?v=muv98ap7';
+import { worldMaterial, TEX_SCALE } from './materials.js?v=muv98ap7';
+import { clone } from './models.js?v=muv98ap7';
 
 class Bucket {
   constructor(mat) { this.mat = mat; this.p = []; this.n = []; this.u = []; this.c = []; this.i = []; this.v = 0; this.s = TEX_SCALE[mat] ?? 0.5; }
@@ -99,6 +99,29 @@ export function buildWorld(map) {
         tri(B, d, c, e); tri(B, d, e, f);            // back
         tri(B, a, d, f); tri(B, b, e, c);            // sides
         if (!full(x, y - 1, z)) { tri(B, a, b, c); tri(B, a, c, d); }
+        break;
+      }
+      case 'rampOuter': case 'rampInner': {
+        // Corner ramps (terrain): each face is wound to face away from a point inside the solid.
+        const P = (px, py, pz) => { const [a, b] = rot(px, pz, ry); return [x + a, y + py, z + b]; };
+        const inside = P(0.85, 0.1, 0.85);
+        const face = (a, b, c) => {
+          const n = [(b[1] - a[1]) * (c[2] - a[2]) - (b[2] - a[2]) * (c[1] - a[1]), (b[2] - a[2]) * (c[0] - a[0]) - (b[0] - a[0]) * (c[2] - a[2]), (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0])];
+          const out = n[0] * (a[0] - inside[0]) + n[1] * (a[1] - inside[1]) + n[2] * (a[2] - inside[2]) > 0;
+          if (out) tri(B, a, b, c); else tri(B, a, c, b);
+        };
+        const a0 = P(0, 0, 0), b0 = P(1, 0, 0), c0 = P(1, 0, 1), d0 = P(0, 0, 1);
+        if (p.shape === 'rampOuter') {
+          const e = P(1, 1, 1);
+          face(a0, d0, e); face(a0, e, b0);                 // the two slopes meeting along the diagonal
+          face(b0, c0, e); face(d0, e, c0);                 // the high sides
+        } else {
+          const B1 = P(1, 1, 0), C1 = P(1, 1, 1), D1 = P(0, 1, 1);
+          face(a0, B1, C1); face(a0, C1, D1);               // the two slopes
+          face(a0, d0, D1); face(a0, b0, B1);               // the low sides (triangles)
+          face(b0, c0, C1); face(b0, C1, B1); face(d0, D1, C1); face(d0, C1, c0);   // the high sides
+        }
+        if (!full(x, y - 1, z)) { face(a0, b0, c0); face(a0, c0, d0); }
         break;
       }
       case 'crate': case 'barrel': if (clone(p.shape)) { extras.push({ kind: 'model', model: p.shape, x: x + 0.5, y, z: z + 0.5, ry, scale: p.shape === 'crate' ? 1.05 : 1 }); break; }

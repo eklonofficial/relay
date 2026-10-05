@@ -3,7 +3,7 @@
 //
 // Conventions: position is the egg's feet origin; its collision sphere (r 0.31) is centred 0.31 above.
 // Yaw 0 looks towards -z, positive yaw turns left (three.js camera convention); pitch > 0 looks up.
-import { PLAYER, CTRL } from './tuning.js?v=muv931ta';
+import { PLAYER, CTRL } from './tuning.js?v=muv98ap7';
 
 const R = PLAYER.collideRadius;
 

@@ -1,8 +1,8 @@
 // A small vocabulary for writing maps by hand: fill volumes with pieces, add stairs, ladders and
 // metadata layers (spawns, items, roost zones, spatula spawns, the overview camera). Maps are code,
 // so symmetric layouts are written once and mirrored.
-import { MapGrid } from './grid.js?v=muv931ta';
-import { PIECE } from './pieces.js?v=muv931ta';
+import { MapGrid } from './grid.js?v=muv98ap7';
+import { PIECE } from './pieces.js?v=muv98ap7';
 
 // Material families (render/materials.js gives each one textures and colours).
 export const MAT = { stone: 0, grass: 1, wood: 2, brick: 3, sand: 4, metal: 5, dirt: 6, plaster: 7, roof: 8, darkStone: 9, snow: 10, panel: 11, crate: 12, hay: 13, moon: 14, gold: 15, leaf: 16, water: 17, red: 18, blue: 19 };
@@ -65,9 +65,16 @@ export class Builder {
     if (ramps) for (let z = z0; z <= z1; z++) for (let x = x0; x <= x1; x++) {
       const t = H(x, z);
       // ry: 0 rises towards +z, 1 towards +x, 2 towards -z, 3 towards -x.
-      for (const [dx, dz, ry] of [[0, 1, 0], [1, 0, 1], [0, -1, 2], [-1, 0, 3]]) {
-        const n = H(x + dx, z + dz);
-        if (n === t + 1 && this.grid.get(x, t + 1, z) === 0) { this.put(x, t + 1, z, 'ramp', ry, top); break; }
+      if (this.grid.get(x, t + 1, z) !== 0) continue;
+      const up = [[0, 1], [1, 0], [0, -1], [-1, 0]].map(([dx, dz]) => H(x + dx, z + dz) === t + 1);
+      // Two neighbours up round a corner (+z and +x, ...): an inner corner ramp, not a jagged straight one.
+      const corner = [[0, 1, 0], [1, 2, 1], [2, 3, 2], [3, 0, 3]].find(([i, j]) => up[i] && up[j] && !up[(i + 2) & 3] && !up[(j + 2) & 3]);
+      if (corner) { this.put(x, t + 1, z, 'rampInner', corner[2], top); continue; }
+      const k = up.indexOf(true);
+      if (k >= 0) { this.put(x, t + 1, z, 'ramp', k, top); continue; }
+      // Only a diagonal neighbour up, its two sides level with us (they get ramps): an outer corner.
+      for (const [dx, dz, ry] of [[1, 1, 0], [1, -1, 1], [-1, -1, 2], [-1, 1, 3]]) {
+        if (H(x + dx, z + dz) === t + 1 && H(x + dx, z) === t && H(x, z + dz) === t) { this.put(x, t + 1, z, 'rampOuter', ry, top); break; }
       }
     }
     return this;

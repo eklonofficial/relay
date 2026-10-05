@@ -1,13 +1,13 @@
 // A match as this browser sees it. The host's session owns the real Match (and its bots); a guest's
 // session mirrors the host's snapshots and predicts only its own egg (net/guest.js). Either way the
 // view reads players, objects and events from here.
-import { Match } from '../sim/match.js?v=muv931ta';
-import { NavGraph } from '../bots/nav.js?v=muv931ta';
-import { BotManager, BOT_NAMES } from '../bots/bot.js?v=muv931ta';
-import { getMap } from '../maps/index.js?v=muv931ta';
-import { TICK, PRIMARIES } from '../sim/tuning.js?v=muv931ta';
-import { Net, cleanName } from '../net/net.js?v=muv931ta';
-import { encodePlayer, ownState, rosterEntry, sendable, trimEvent } from '../net/protocol.js?v=muv931ta';
+import { Match } from '../sim/match.js?v=muv98ap7';
+import { NavGraph } from '../bots/nav.js?v=muv98ap7';
+import { BotManager, BOT_NAMES } from '../bots/bot.js?v=muv98ap7';
+import { getMap } from '../maps/index.js?v=muv98ap7';
+import { TICK, PRIMARIES } from '../sim/tuning.js?v=muv98ap7';
+import { Net, cleanName } from '../net/net.js?v=muv98ap7';
+import { encodePlayer, ownState, rosterEntry, sendable, trimEvent } from '../net/protocol.js?v=muv98ap7';
 
 const navCache = new Map();
 export function navFor(mapId, map) { if (!navCache.has(mapId)) navCache.set(mapId, new NavGraph(map.grid, map.meta.gravity || 1)); return navCache.get(mapId); }
