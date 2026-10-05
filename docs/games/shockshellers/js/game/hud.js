@@ -1,9 +1,9 @@
 // The in-game HUD (GDD §19.6). Text elements only change when their value changes (each DOM change
 // repaints the compositor); everything that moves every frame (crosshair, health ring, hit markers,
 // damage arcs, grenade charge, scope, off-screen markers) is drawn on the HUD canvas.
-import { surfaceDocument as document } from '../surface.js?v=muuofzue';
-import { WEAPONS, GRENADE, ROOST, STREAKS } from '../sim/tuning.js?v=muuofzue';
-import { currentSpread, weaponOf, slotOf } from '../sim/combat.js?v=muuofzue';
+import { surfaceDocument as document } from '../surface.js?v=muuoiyqg';
+import { WEAPONS, GRENADE, ROOST, STREAKS } from '../sim/tuning.js?v=muuoiyqg';
+import { currentSpread, weaponOf, slotOf } from '../sim/combat.js?v=muuoiyqg';
 
 const $ = id => document.getElementById(id);
 const POWER_NAMES = { hardBoiled: 'HARD BOILED!', shellBreaker: 'SHELL BREAKER!', restock: 'RESTOCK!', overheal: 'OVERHEAL!', doubleYolks: 'DOUBLE YOLKS!', quailEgg: 'QUAIL EGG!' };
@@ -80,8 +80,12 @@ export class Hud {
   power(k) { this.banner(POWER_NAMES[k] || k); }
   toast(text, seconds = 3) { const e = $('toast'); e.textContent = text; e.classList.remove('hidden'); this.toastT = seconds; }
   chat(text, color = '#fff') {
-    const lines = $('chat-lines'), d = document.createElement('div'); d.textContent = text; d.style.color = color;
-    lines.append(d); this.chatLines.push({ d, t: 12 });
+    const lines = $('chat-lines'), d = document.createElement('div'); d.style.color = color;
+    // "Name: message" lines show the name in bold.
+    const i = text.indexOf(': ');
+    if (i > 0 && i < 20) { const n = document.createElement('span'); n.className = 'name'; n.textContent = text.slice(0, i + 1) + ' '; d.append(n, document.createTextNode(text.slice(i + 2))); }
+    else d.textContent = text;
+    lines.append(d); this.chatLines.push({ d, t: 20 });
     while (lines.children.length > 7) { lines.firstChild.remove(); this.chatLines.shift(); }
   }
   hit(kill) { this.hitT = 0.25; this.hitKill = kill; }

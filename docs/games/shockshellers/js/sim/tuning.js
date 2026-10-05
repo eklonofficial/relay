@@ -80,7 +80,7 @@ export const MODE_NAMES = { ffa: 'Free For All', teams: 'Teams', spatula: 'Spatu
 export const MODE_MENU = ['spatula', 'teams', 'ffa', 'roost'];
 
 // Host options (GDD §17), defaults.
-export const DEFAULT_OPTIONS = { gravity: 1, damage: 1, regen: 1, disabled: [], locked: false, noTeamChange: false, noTeamShuffle: false, scoreLimit: 0 };
+export const DEFAULT_OPTIONS = { gravity: 1, damage: 1, regen: 1, disabled: [], locked: false, noTeamChange: false, noTeamShuffle: false, scoreLimit: 0, botChat: true };
 
 // Control bitmask (GDD §26).
 export const CTRL = { up: 1, down: 2, left: 4, right: 8, jump: 16, fire: 32, melee: 64, scope: 128, reload: 256, swap: 512, grenade: 1024 };

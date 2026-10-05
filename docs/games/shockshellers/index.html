@@ -180,8 +180,12 @@
   #nades { display: flex; gap: calc(var(--u)*8); justify-content: flex-end; margin-bottom: calc(var(--u)*2); }
   #nades svg { width: calc(var(--u)*30); height: calc(var(--u)*38); }
   #nades svg.off path { fill: rgba(20,70,85,.85); }
-  #chat { position: absolute; left: calc(var(--u)*8); bottom: calc(var(--u)*8); width: calc(var(--u)*420); display: flex; flex-direction: column; gap: calc(var(--u)*2); font-size: calc(var(--u)*16); text-shadow: 0 calc(var(--u)*1) calc(var(--u)*2) #000, 0 0 calc(var(--u)*3) rgba(0,0,0,.6); }
-  #chat-input { pointer-events: auto; width: calc(var(--u)*380); font-size: calc(var(--u)*16); }
+  #chat { position: absolute; left: calc(var(--u)*8); bottom: calc(var(--u)*8); width: calc(var(--u)*400); display: flex; flex-direction: column; gap: calc(var(--u)*4); padding: calc(var(--u)*8) calc(var(--u)*10); font-size: calc(var(--u)*15); font-weight: 800; border-radius: calc(var(--u)*10); background: rgba(11,69,96,.32); border: calc(var(--u)*2) solid rgba(11,91,125,.45); text-shadow: 0 calc(var(--u)*1) calc(var(--u)*2) rgba(0,0,0,.8); }
+  #chat.open { background: rgba(11,69,96,.7); border-color: rgba(11,91,125,.95); }
+  #chat-lines { display: flex; flex-direction: column; gap: calc(var(--u)*2); max-height: calc(var(--u)*150); overflow: hidden; justify-content: flex-end; }
+  #chat-lines .name { font-weight: 900; }
+  #chat-hint { font-size: calc(var(--u)*12); color: var(--yellow); }
+  #chat-input { pointer-events: auto; width: 100%; box-sizing: border-box; font-size: calc(var(--u)*15); }
   #objective { position: absolute; left: 50%; top: calc(var(--u)*8); transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: calc(var(--u)*4); }
   #obj-bar { width: calc(var(--u)*360); height: calc(var(--u)*22); border: calc(var(--u)*3) solid var(--ink); border-radius: calc(var(--u)*12); background: rgba(0,0,0,.45); overflow: hidden; }
   #obj-bar > div { height: 100%; width: 0; background: var(--blue); }
@@ -228,7 +232,7 @@
 </head>
 <body>
 <div id="boot"><canvas id="boot-canvas"></canvas></div>
-<script type="module" id="boot-script" src="js/splash.js?v=muuofzue" data-modules="42"></script>
+<script type="module" id="boot-script" src="js/splash.js?v=muuoiyqg" data-modules="42"></script>
 <canvas id="game" tabindex="-1"></canvas>
 
 <div class="screen hidden" id="loading">
@@ -320,7 +324,7 @@
     <div id="nades"><svg viewBox="0 0 30 38"><path d="M11 3h8v5h-8zM15 8c8 0 13 6 13 15s-6 13-13 13S2 32 2 23 7 8 15 8z" fill="#fff"/></svg><svg viewBox="0 0 30 38"><path d="M11 3h8v5h-8zM15 8c8 0 13 6 13 15s-6 13-13 13S2 32 2 23 7 8 15 8z" fill="#fff"/></svg><svg viewBox="0 0 30 38"><path d="M11 3h8v5h-8zM15 8c8 0 13 6 13 15s-6 13-13 13S2 32 2 23 7 8 15 8z" fill="#fff"/></svg></div>
     <div class="row"><div class="n" id="ammo-n">30/240</div><svg class="bullets" viewBox="0 0 40 46"><g fill="#fff"><path d="M3 14q3-10 6 0v30H3z"/><path d="M13 14q3-10 6 0v30h-6z"/><path d="M23 14q3-10 6 0v30h-6z"/><path d="M33 14q3-10 6 0v30h-6z"/></g></svg></div>
   </div>
-  <div id="chat"><div id="chat-lines"></div><input type="text" id="chat-input" class="hidden" maxlength="200" spellcheck="false" autocomplete="off"></div>
+  <div id="chat"><div id="chat-lines"></div><input type="text" id="chat-input" class="hidden" maxlength="200" spellcheck="false" autocomplete="off" placeholder="Say something… (/t for team)"><div id="chat-hint">Press Enter to chat</div></div>
 </div>
 
 <div class="modal hidden" id="settings">
@@ -380,7 +384,7 @@
   </div>
 </div>
 
-<script defer src="net-config.js?v=muuofzue"></script>
-<script type="module" src="js/main.js?v=muuofzue"></script>
+<script defer src="net-config.js?v=muuoiyqg"></script>
+<script type="module" src="js/main.js?v=muuoiyqg"></script>
 </body>
 </html>

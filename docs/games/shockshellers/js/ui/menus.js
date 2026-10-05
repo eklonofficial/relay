@@ -1,17 +1,17 @@
 // Menus and modals (GDD §16–21): home, respawn/pause screen, settings (3 tabs), play with friends,
 // custom matches, profile, shop/inventory, how to play, chat. All markup lives in index.html inside
 // the compositor; this module wires it up and keeps it current.
-import { surfaceDocument as document } from '../surface.js?v=muuofzue';
-import * as THREE from '../../vendor/three/three.module.js?v=muuofzue';
-import { ask, tell } from '../dialog.js?v=muuofzue';
-import { gunModel } from '../render/guns.js?v=muuofzue';
-import { SHELL_COLORS } from '../render/egg.js?v=muuofzue';
-import { WEAPONS, PRIMARIES, MODE_NAMES, MODE_MENU, TICK } from '../sim/tuning.js?v=muuofzue';
-import { ACTIONS, ACTION_NAMES, keyLabel, DEFAULT_KEYS } from '../game/input.js?v=muuofzue';
-import { DEFAULT_SETTINGS, saveSettings, saveProfile } from '../game/store.js?v=muuofzue';
-import { ensureDaily, def as challengeDef, reroll, timeLeft } from '../game/challenges.js?v=muuofzue';
-import { MAPS, mapDef } from '../maps/index.js?v=muuofzue';
-import { drawHowTo } from './art.js?v=muuofzue';
+import { surfaceDocument as document } from '../surface.js?v=muuoiyqg';
+import * as THREE from '../../vendor/three/three.module.js?v=muuoiyqg';
+import { ask, tell } from '../dialog.js?v=muuoiyqg';
+import { gunModel } from '../render/guns.js?v=muuoiyqg';
+import { SHELL_COLORS } from '../render/egg.js?v=muuoiyqg';
+import { WEAPONS, PRIMARIES, MODE_NAMES, MODE_MENU, TICK } from '../sim/tuning.js?v=muuoiyqg';
+import { ACTIONS, ACTION_NAMES, keyLabel, DEFAULT_KEYS } from '../game/input.js?v=muuoiyqg';
+import { DEFAULT_SETTINGS, saveSettings, saveProfile } from '../game/store.js?v=muuoiyqg';
+import { ensureDaily, def as challengeDef, reroll, timeLeft } from '../game/challenges.js?v=muuoiyqg';
+import { MAPS, mapDef } from '../maps/index.js?v=muuoiyqg';
+import { drawHowTo } from './art.js?v=muuoiyqg';
 
 const $ = id => document.getElementById(id);
 const show = (id, on = true) => $(id).classList.toggle('hidden', !on);
@@ -30,7 +30,7 @@ export const SHOP = {
 };
 
 export class Menus {
-  constructor(app) { this.app = app; this.icons = {}; this.customCfg = { mode: 'ffa', map: 'omelet', bots: 6, difficulty: 'normal', gravity: 1, damage: 1, regen: 1, disabled: [], locked: false, noTeamChange: false, noTeamShuffle: false }; }
+  constructor(app) { this.app = app; this.icons = {}; this.customCfg = { mode: 'ffa', map: 'omelet', bots: 6, difficulty: 'normal', gravity: 1, damage: 1, regen: 1, disabled: [], locked: false, noTeamChange: false, noTeamShuffle: false, botChat: true }; }
 
   // White silhouettes of the guns, rendered once from the real models.
   weaponIcons() {
@@ -196,13 +196,13 @@ export class Menus {
       else if (e.key === 'Tab' || e.key === 'Escape') { e.preventDefault(); this.closeChat(); }
     });
   }
-  openChat() { this.chatOpen = true; this.app.hud.chatOpen = true; this.app.input.enabled = false; this.app.keys.clear(); show('chat-input'); $('chat-input').value = ''; $('chat-input').focus(); }
-  closeChat() { this.chatOpen = false; this.app.hud.chatOpen = false; show('chat-input', false); $('chat-input').blur(); if (this.app.state === 'play') { this.app.input.enabled = true; this.app.canvas.focus({ preventScroll: true }); } }
+  openChat() { this.chatOpen = true; this.app.hud.chatOpen = true; this.app.input.enabled = false; this.app.keys.clear(); show('chat-input'); show('chat-hint', false); $('chat').classList.add('open'); $('chat-input').value = ''; $('chat-input').focus(); }
+  closeChat() { this.chatOpen = false; this.app.hud.chatOpen = false; show('chat-input', false); show('chat-hint'); $('chat').classList.remove('open'); $('chat-input').blur(); if (this.app.state === 'play') { this.app.input.enabled = true; this.app.canvas.focus({ preventScroll: true }); } }
   sendChat(text) {
     const app = this.app, s = app.session; if (!s) return;
     const team = /^\/(t|team)\s+/i.test(text);
     const msg = text.replace(/^\/(t|team)\s+/i, '').replace(/[\u0000-\u001f\u007f-\u009f\u200e\u200f\u2028-\u202e\u2066-\u2069]/g, '').slice(0, 200);
-    if (/^\/(kick|p|pin|lock|unlock)\b/i.test(text)) { this.command(text); return; }
+    if (/^\/(kick|p|pin|lock|unlock|botchat)\b/i.test(text)) { this.command(text); return; }
     app.hud.chat(`${s.me.name}: ${msg}`, team ? '#7fd3ff' : '#fff');
     s.sendChat?.(msg, team);
   }
@@ -213,6 +213,7 @@ export class Menus {
       case 'lock': s.match.options.locked = true; app.hud.chat('Game locked.', '#ffd23f'); break;
       case 'unlock': s.match.options.locked = false; app.hud.chat('Game unlocked.', '#ffd23f'); break;
       case 'kick': { const name = rest.join(' ').toLowerCase(); const p = [...s.match.players.values()].find(q => q.name.toLowerCase() === name && q.id !== s.myId); if (p) { s.kick?.(p.id); app.hud.chat(`${p.name} was booted.`, '#ffd23f'); } else app.hud.chat('No player with that name.', '#ffd23f'); break; }
+      case 'botchat': { const on = !/^off$/i.test(rest[0] || ''); s.match.options.botChat = on; app.hud.chat(`Bot chat ${on ? 'on' : 'off'}.`, '#ffd23f'); break; }
       case 'p': case 'pin': app.hud.toast(rest.join(' '), 8); break;
     }
   }
@@ -245,7 +246,7 @@ export class Menus {
     const misc = $('set-misc'); misc.replaceChildren();
     misc.append(this.slider('Sound Effects', 0, 100, 1, () => s.volume, v => { s.volume = v; this.app.sound.setVolume(v); }));
     misc.append(this.slider('Field of View', 60, 100, 1, () => s.fov, v => { s.fov = v; }));
-    for (const [label, k] of [['Hold to Aim', 'holdToAim'], ['Enable Chat', 'chat'], ['Safe Usernames', 'safeNames'], ['Auto Detail', 'autoDetail'], ['Prevent accidental game close?', 'preventClose'], ['Recoil camera shake', 'shake'], ['Show center dot', 'centerDot'], ['Show hit markers', 'hitMarkers']]) misc.append(this.check(label, () => s[k], v => { s[k] = v; }));
+    for (const [label, k] of [['Hold to Aim', 'holdToAim'], ['Enable Chat', 'chat'], ['Bot chat in games I host', 'botChat'], ['Safe Usernames', 'safeNames'], ['Auto Detail', 'autoDetail'], ['Prevent accidental game close?', 'preventClose'], ['Recoil camera shake', 'shake'], ['Show center dot', 'centerDot'], ['Show hit markers', 'hitMarkers']]) misc.append(this.check(label, () => s[k], v => { s[k] = v; }));
   }
   capture(action, btn) {
     btn.classList.add('wait'); btn.textContent = 'Press a key…';
@@ -283,7 +284,7 @@ export class Menus {
     $('cu-search').addEventListener('input', () => this.fillCustom());
     $('cu-start').onclick = () => {
       const c = this.customCfg; show('custom', false);
-      this.app.startMatch({ map: c.map, mode: c.mode, options: { gravity: c.gravity, damage: c.damage, regen: c.regen, disabled: c.disabled, locked: c.locked, noTeamChange: c.noTeamChange, noTeamShuffle: c.noTeamShuffle }, bots: c.bots + 1, difficulty: c.difficulty, private: true, host: true });
+      this.app.startMatch({ map: c.map, mode: c.mode, options: { gravity: c.gravity, damage: c.damage, regen: c.regen, disabled: c.disabled, locked: c.locked, noTeamChange: c.noTeamChange, noTeamShuffle: c.noTeamShuffle, botChat: c.botChat }, bots: c.bots + 1, difficulty: c.difficulty, private: true, host: true });
     };
   }
   fillCustom() {
@@ -300,7 +301,7 @@ export class Menus {
     sl.append(this.slider('Health regen', 0, 4, 0.25, () => c.regen, v => { c.regen = v; }, v => v + '×'));
     chips('cu-weapons', PRIMARIES.map(w => [w, WEAPONS[w].name]), w => !c.disabled.includes(w), w => { c.disabled = c.disabled.includes(w) ? c.disabled.filter(x => x !== w) : [...c.disabled, w]; });
     const fl = $('cu-flags'); fl.replaceChildren();
-    for (const [label, k] of [['Locked (no new players)', 'locked'], ['No team change', 'noTeamChange'], ['No team shuffle', 'noTeamShuffle']]) fl.append(this.check(label, () => c[k], v => { c[k] = v; }));
+    for (const [label, k] of [['Bot chat', 'botChat'], ['Locked (no new players)', 'locked'], ['No team change', 'noTeamChange'], ['No team shuffle', 'noTeamShuffle']]) fl.append(this.check(label, () => c[k], v => { c[k] = v; }));
   }
 
   // ---------------- profile & shop ----------------
