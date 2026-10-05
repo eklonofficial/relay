@@ -1,9 +1,9 @@
 // Block simulation: liquids, gravity, support, random ticks (crops, saplings, grass, fire, cacti).
-import { B, BLOCKS, SOLID, OPAQUE, SHAPE_OF, SHAPE, CROP_STAGES, CROP_AGE_SHIFT, WATERLOGGED, VARIANT_MASK, STATE, props, st, DIM } from '../data/blocks.js?v=muujnq9z';
-import { amountAt, heightAt, isWater, sameFluid } from './fluid.js?v=muujnq9z';
-import { UNLOADED } from '../world/world.js?v=muujnq9z';
-import * as T from '../gen/trees.js?v=muujnq9z';
-import { KIND } from './redstone.js?v=muujnq9z';
+import { B, BLOCKS, SOLID, OPAQUE, SHAPE_OF, SHAPE, CROP_STAGES, CROP_AGE_SHIFT, WATERLOGGED, VARIANT_MASK, STATE, props, st, DIM } from '../data/blocks.js?v=muujnr74';
+import { amountAt, heightAt, isWater, sameFluid } from './fluid.js?v=muujnr74';
+import { UNLOADED } from '../world/world.js?v=muujnr74';
+import * as T from '../gen/trees.js?v=muujnr74';
+import { KIND } from './redstone.js?v=muujnr74';
 
 const NB4 = [[1, 0], [-1, 0], [0, 1], [0, -1]];
 const SNOW_BLOCK = STATE.snow_block, SNOWY_GRASS = STATE.grass_block_snowy[1];

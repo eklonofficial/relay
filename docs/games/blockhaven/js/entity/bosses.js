@@ -2,8 +2,8 @@
 // EnderDragonRenderer draws from a history of the dragon's heading and height (EnderDragon's
 // latency positions): five neck pieces and twelve tail pieces laid end to end along it, the body
 // rolling into turns, the wings beating. Coordinates as in entity/animals.js.
-import { jbox, pivot } from './humanoid.js?v=muujnq9z';
-import { P, child, rot, model, toOurs, R } from './animals.js?v=muujnq9z';
+import { jbox, pivot } from './humanoid.js?v=muujnr74';
+import { P, child, rot, model, toOurs, R } from './animals.js?v=muujnr74';
 
 const PI = Math.PI, D2R = PI / 180;
 const wrapDeg = a => { a %= 360; if (a >= 180) a -= 360; if (a < -180) a += 360; return a; };

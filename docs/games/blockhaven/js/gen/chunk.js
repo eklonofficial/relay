@@ -1,8 +1,22 @@
 // Chunk under construction. All feature and structure writers use world coordinates and are
 // silently clipped to this chunk, so features that span chunk borders generate seamlessly.
-import { CHUNK, HEIGHT, B, BLOCKS, SHAPE_OF, SHAPE, OPAQUE } from '../data/blocks.js?v=muujnq9z';
+import { CHUNK, HEIGHT, B, BLOCKS, SHAPE_OF, SHAPE, OPAQUE } from '../data/blocks.js?v=muujnr74';
 
 export const CI = (x, y, z) => x + z * CHUNK + y * CHUNK * CHUNK;
+
+// Each column's highest non-air block (0 if none) into out[x + z * 16]. The highest non-empty layer
+// is found four blocks at a time first, so columns don't each walk down through all the open air.
+export function columnTops(ids, out) {
+  const L = CHUNK * CHUNK, words = new Uint32Array(ids.buffer, ids.byteOffset, ids.length >> 2);
+  let top = HEIGHT - 1;
+  find: for (; top > 0; top--) { const w0 = (top * L) >> 2; for (let k = 0; k < L >> 2; k++) if (words[w0 + k]) break find; }
+  for (let c = 0; c < L; c++) {
+    let y = top;
+    while (y > 0 && ids[c + y * L] === B.AIR) y--;
+    out[c] = y;
+  }
+  return out;
+}
 
 export class ChunkBuilder {
   constructor(cx, cz) {

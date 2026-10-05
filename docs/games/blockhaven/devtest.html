@@ -79,7 +79,7 @@ function frame(now) {
   for (const c of world.chunks.values()) if (c.genPending || c.meshPending) { busy = true; break; }
   calm = busy ? 0 : calm + 1;
   if (!window.ready && calm > 60) {
-    window.ready = true;
+    window.ready = true; window.readyAt = now - t0;
     if (benchSecs) { window.benchYaw0 = cam[3]; bench = { start: now, yaw0: cam[3], ms: [], cpu: [] }; }
   }
 }

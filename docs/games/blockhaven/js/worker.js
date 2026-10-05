@@ -1,5 +1,5 @@
-import { createGenerator } from './gen/index.js?v=muujnq9z';
-import { meshChunk } from './mesh/mesher.js?v=muujnq9z';
+import { createGenerator } from './gen/index.js?v=muujnr74';
+import { meshChunk } from './mesh/mesher.js?v=muujnr74';
 
 let generator = null, genKey = '';
 
@@ -16,7 +16,9 @@ self.onmessage = e => {
       }, [w.ids.buffer, w.meta.buffer, w.biomes.buffer, w.heights.buffer]);
     } else if (m.type === 'mesh') {
       const r = meshChunk(m);
-      self.postMessage({ type: 'mesh', job: m.job, cx: m.cx, cz: m.cz, dim: m.dim, version: m.version, ...r }, [r.solid, r.cutout, r.trans, r.light]);
+      // The volume goes back to be filled again for the next job.
+      const volume = { ids: m.ids, meta: m.meta, biomes: m.biomes, top: m.top };
+      self.postMessage({ type: 'mesh', job: m.job, cx: m.cx, cz: m.cz, dim: m.dim, version: m.version, ...r, volume }, [r.solid, r.cutout, r.trans, r.light, m.ids.buffer, m.meta.buffer, m.biomes.buffer]);
     } else if (m.type === 'locate') {
       const key = `${m.seed}|${m.dim}|${m.worldType}`;
       if (key !== genKey) { generator = createGenerator(m.seed, m.dim, m.worldType); genKey = key; }

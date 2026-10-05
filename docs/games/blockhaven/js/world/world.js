@@ -1,9 +1,9 @@
 // Chunk storage, streaming, edits and queries for one dimension.
-import { CHUNK, HEIGHT, PAD, PS, B, OPAQUE, SOLID, EMIT, ATTEN, VARIANT_MASK, SHAPE_OF, SHAPE, DIM } from '../data/blocks.js?v=muujnq9z';
-import { VOLUME_SIZE } from '../mesh/mesher.js?v=muujnq9z';
-import { selectionBoxes, collisionBoxes } from '../data/shapes.js?v=muujnq9z';
-import { sinceOf } from '../gen/versions.js?v=muujnq9z';
-import { getChunk, decodeChunk } from '../game/storage.js?v=muujnq9z';
+import { CHUNK, HEIGHT, PAD, PS, B, OPAQUE, SOLID, EMIT, ATTEN, VARIANT_MASK, SHAPE_OF, SHAPE, DIM } from '../data/blocks.js?v=muujnr74';
+import { VOLUME_SIZE } from '../mesh/mesher.js?v=muujnr74';
+import { selectionBoxes, collisionBoxes } from '../data/shapes.js?v=muujnr74';
+import { sinceOf } from '../gen/versions.js?v=muujnr74';
+import { getChunk, decodeChunk } from '../game/storage.js?v=muujnr74';
 
 export const UNLOADED = 255;
 export const chunkKey = (cx, cz) => `${cx},${cz}`;
@@ -45,7 +45,7 @@ export class World {
     const count = Math.max(1, Math.min(4, (navigator.hardwareConcurrency || 4) - 1));
     this.workers = [];
     for (let i = 0; i < count; i++) {
-      const w = new Worker(new URL('../worker.js?v=muujnq9z', import.meta.url), { type: 'module' });
+      const w = new Worker(new URL('../worker.js?v=muujnr74', import.meta.url), { type: 'module' });
       w.busy = 0;
       w.onmessage = e => this.onWorkerMessage(w, e.data);
       w.onerror = e => console.error('worker error', e.message);
@@ -140,6 +140,7 @@ export class World {
     if (!c) return;
     if (m.type === 'gen') this.applyGen(c, m);
     else if (m.type === 'mesh') {
+      if (m.volume && m.volume.ids.length === VOLUME_SIZE) { (this.volumes || (this.volumes = [])).length < 8 && this.volumes.push(m.volume); }
       c.meshPending = false;
       c.light = new Uint8Array(m.light);
       if (m.version !== c.version) return;
@@ -214,14 +215,24 @@ export class World {
     return true;
   }
 
+  // Volumes travel to a worker and come back with the mesh (onWorkerMessage), to be used again:
+  // a fresh pair is about 1 MB to allocate and clear for every mesh job.
   buildVolume(cx, cz) {
     const S = PS, SS = S * S;
-    const ids = new Uint8Array(VOLUME_SIZE), meta = new Uint8Array(VOLUME_SIZE), biomes = new Uint8Array(SS);
-    ids.fill(B.BEDROCK, 0, SS);
-    // Only copy up to the tallest column around (everything above is air, already zero).
+    // Only copy up to the tallest column around (everything above is air).
     let top = 0;
     for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) { const hs = this.chunk(cx + dx, cz + dz).heights; for (let i = 0; i < hs.length; i++) if (hs[i] > top) top = hs[i]; }
     top = Math.min(HEIGHT, top + 2);
+    let ids, meta, biomes;
+    const pooled = this.volumes && this.volumes.pop();
+    if (pooled) {
+      ({ ids, meta, biomes } = pooled);
+      // Rows 1..top are all written below; clear what the last use left above them.
+      if (pooled.top > top) { ids.fill(0, (top + 1) * SS, (pooled.top + 1) * SS); meta.fill(0, (top + 1) * SS, (pooled.top + 1) * SS); }
+    } else {
+      ids = new Uint8Array(VOLUME_SIZE); meta = new Uint8Array(VOLUME_SIZE); biomes = new Uint8Array(SS);
+      ids.fill(B.BEDROCK, 0, SS);
+    }
     for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) {
       const src = this.chunk(cx + dx, cz + dz);
       const x0 = Math.max(0, PAD + dx * CHUNK), x1 = Math.min(S, PAD + dx * CHUNK + CHUNK);
@@ -245,7 +256,7 @@ export class World {
       if (px < 0 || pz < 0 || px >= S || pz >= S || y < 0 || y >= HEIGHT) continue;
       meta[px + pz * S + (y + 1) * SS] |= 16;
     }
-    return { ids, meta, biomes };
+    return { ids, meta, biomes, top };
   }
   setChestOpen(x, y, z, open) {
     const k = posKey(x, y, z);
@@ -293,12 +304,15 @@ export class World {
     else if (id === B.AIR && y === c.heights[hi]) { let yy = y; while (yy > 0 && c.ids[hi + yy * CC] === B.AIR) yy--; c.heights[hi] = yy; }
     // Light can travel 14 blocks, so neighbours may need new meshes too; nearby ones first.
     // A change that affects no light (a wire's power, a repeater's delay...) only touches the
-    // chunks that can see the block itself.
+    // chunks that can see the block itself. Light changes reach 14 blocks (across x and z
+    // together) from the block's column, and a face's corners sample one block further: a
+    // neighbour with nothing within 15 of the column (most diagonal ones) keeps its mesh.
     const lightChange = OPAQUE[old] !== OPAQUE[id] || ATTEN[old] !== ATTEN[id] ||
       EMIT[(old << 4) | (oldM & VARIANT_MASK[old])] !== EMIT[(id << 4) | (m & VARIANT_MASK[id])];
     for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) {
       const near = (dx === 0 || (dx < 0 && lx === 0) || (dx > 0 && lx === 15)) && (dz === 0 || (dz < 0 && lz === 0) || (dz > 0 && lz === 15));
-      if (!lightChange && !near) continue;
+      const reach = (dx > 0 ? CHUNK - lx : dx < 0 ? lx + 1 : 0) + (dz > 0 ? CHUNK - lz : dz < 0 ? lz + 1 : 0);
+      if (!near && (!lightChange || reach > 15)) continue;
       const n = dx === 0 && dz === 0 ? c : this.chunk(cx + dx, cz + dz);
       if (!n) continue;
       n.version++;

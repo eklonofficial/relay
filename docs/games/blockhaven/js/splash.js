@@ -5,7 +5,7 @@
 //   0 - 0.3  modules downloaded (counted against the module graph, from the tools/stamp.mjs count)
 //   0.3 - 1  main.js's own steps: textures, then the title panorama streaming in
 // then calls splash.ready(). The splash plays its animation out, fades, and removes itself.
-import { SplashArt } from './render/splashart.js?v=muujnq9z';
+import { SplashArt } from './render/splashart.js?v=muujnr74';
 
 const root = document.getElementById('boot'), canvas = document.getElementById('boot-canvas');
 const reduced = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
@@ -26,7 +26,7 @@ function finish() {
 if (!root || !canvas) stopped = true;
 else if ('transferControlToOffscreen' in canvas && typeof Worker === 'function') {
   const off = canvas.transferControlToOffscreen();
-  const worker = new Worker(new URL('./render/splashworker.js?v=muujnq9z', import.meta.url), { type: 'module' });
+  const worker = new Worker(new URL('./render/splashworker.js?v=muujnr74', import.meta.url), { type: 'module' });
   worker.onmessage = e => {
     if (e.data.type === 'painted') root.style.background = 'transparent';
     if (e.data.type === 'done') { worker.terminate(); finish(); }
@@ -64,5 +64,5 @@ pollModules();
 // Never stand in the way for long, whatever goes wrong while starting.
 setTimeout(() => splash.ready(), 30000);
 addEventListener('error', () => splash.ready());
-import './page.js?v=muujnq9z';
-import { surfaceDocument as document } from './surface.js?v=muujnq9z';
+import './page.js?v=muujnr74';
+import { surfaceDocument as document } from './surface.js?v=muujnr74';
