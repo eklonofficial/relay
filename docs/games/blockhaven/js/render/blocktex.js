@@ -1,7 +1,7 @@
 // Procedural 16x16 block textures. Every name registered in data/blocks.js must be drawable here.
-import { Painter, ramp, shade, mixHex, hex } from './paint.js?v=muujmd4c';
-import { TEXTURES, COLORS, SHEETS } from '../data/blocks.js?v=muujmd4c';
-import { EXTRA_BLOCK_TEX } from './enchtex.js?v=muujmd4c';
+import { Painter, ramp, shade, mixHex, hex } from './paint.js?v=muujme14';
+import { TEXTURES, COLORS, SHEETS } from '../data/blocks.js?v=muujme14';
+import { EXTRA_BLOCK_TEX } from './enchtex.js?v=muujme14';
 
 const N = 16;
 
@@ -1009,6 +1009,11 @@ const SHEET_ART = {
     [0, 19, 14, 10, 14, { sides: ['chest_side', 1, 6, true], down: ['chest_top', 1, 1], up: ['chest_top', 1, 1] }],
     [0, 0, 2, 4, 1, { all: ['#9a9a9a'] }],
   ],
+  ...Object.fromEntries(['chest_left', 'chest_right'].map(k => [k, [
+    [0, 0, 15, 5, 14, { sides: ['chest_side', 1, 1, true], down: ['chest_top', 1, 1], up: ['chest_top', 1, 1] }],
+    [0, 19, 15, 10, 14, { sides: ['chest_side', 1, 6, true], down: ['chest_top', 1, 1], up: ['chest_top', 1, 1] }],
+    [0, 0, 1, 4, 1, { all: ['#9a9a9a'] }],
+  ]])),
   skeleton_skull: [[0, 0, 8, 8, 8, { north: ['skeleton_skull_front', 0, 0, false, 2], sides: ['skeleton_skull_side', 0, 0, false, 2], down: ['skeleton_skull_top', 0, 0, false, 2], up: ['skeleton_skull_top', 0, 0, false, 2] }]],
   wither_skull: [[0, 0, 8, 8, 8, { north: ['wither_skull_front', 0, 0, false, 2], sides: ['wither_skull_side', 0, 0, false, 2], down: ['wither_skull_top', 0, 0, false, 2], up: ['wither_skull_top', 0, 0, false, 2] }]],
 };

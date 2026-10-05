@@ -1,6 +1,6 @@
 // Chunk under construction. All feature and structure writers use world coordinates and are
 // silently clipped to this chunk, so features that span chunk borders generate seamlessly.
-import { CHUNK, HEIGHT, B, BLOCKS, SHAPE_OF, SHAPE, OPAQUE } from '../data/blocks.js?v=muujmd4c';
+import { CHUNK, HEIGHT, B, BLOCKS, SHAPE_OF, SHAPE, OPAQUE } from '../data/blocks.js?v=muujme14';
 
 export const CI = (x, y, z) => x + z * CHUNK + y * CHUNK * CHUNK;
 

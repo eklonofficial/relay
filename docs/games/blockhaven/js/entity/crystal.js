@@ -1,8 +1,8 @@
 // End crystals: heal the dragon, explode when hit.
-import { Entity } from './entity.js?v=muujmd4c';
-import { B } from '../data/blocks.js?v=muujmd4c';
-import { dragonCrystalLost } from './dragon.js?v=muujmd4c';
-import { compose, translation, rotationX, rotationY, scaling } from '../core/math.js?v=muujmd4c';
+import { Entity } from './entity.js?v=muujme14';
+import { B } from '../data/blocks.js?v=muujme14';
+import { dragonCrystalLost } from './dragon.js?v=muujme14';
+import { compose, translation, rotationX, rotationY, scaling } from '../core/math.js?v=muujme14';
 
 export class EndCrystal extends Entity {
   constructor(game, x, y, z) {

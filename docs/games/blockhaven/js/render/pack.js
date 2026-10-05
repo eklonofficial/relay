@@ -1,7 +1,7 @@
 // Resource packs: Java Edition style packs (.zip with assets/minecraft/textures/... and
 // assets/minecraft/sounds/...). The bundled defaults and player-selected packs use the same
 // matching path; a player's pack stays in this browser (IndexedDB) and is never uploaded.
-import { SHEETS } from '../data/blocks.js?v=muujmd4c';
+import { SHEETS } from '../data/blocks.js?v=muujme14';
 
 const DB = 'blockhaven-packs', STORE = 'packs', KEY = 'active';
 
