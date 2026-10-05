@@ -1,29 +1,29 @@
 // Shock Shellers: boot, menus, the match flow (home → respawn screen → play → death → respawn) and
 // the frame loop. The simulation runs at a fixed 30 Hz inside the session; rendering interpolates.
-import './page.js?v=muv8vpk2';
-import { surfaceDocument as document } from './surface.js?v=muv8vpk2';
-import { registerApp } from './veil.js?v=muv8vpk2';
-import { tell } from './dialog.js?v=muv8vpk2';
-import { splash } from './splash.js?v=muv8vpk2';
-import * as THREE from '../vendor/three/three.module.js?v=muv8vpk2';
-import { Renderer } from './render/renderer.js?v=muv8vpk2';
-import { EggAvatar, SHELL_COLORS, TEAM_COLORS } from './render/egg.js?v=muv8vpk2';
-import { gunModel } from './render/guns.js?v=muv8vpk2';
-import { Input } from './game/input.js?v=muv8vpk2';
-import { SOUND_FILES } from './game/soundbank.js?v=muv8vpk2';
-import { Sound, registerSamples } from './game/audio.js?v=muv8vpk2';
-import { Hud } from './game/hud.js?v=muv8vpk2';
-import { loadSettings, saveSettings, loadProfile, saveProfile } from './game/store.js?v=muv8vpk2';
-import { ensureDaily, progress as challengeProgress, claim as claimChallenges } from './game/challenges.js?v=muv8vpk2';
-import { HostSession } from './game/session.js?v=muv8vpk2';
-import { GuestSession } from './net/guest.js?v=muv8vpk2';
-import { pickPublicMap, mapDef, MAPS } from './maps/index.js?v=muv8vpk2';
-import { WEAPONS, PRIMARIES, PLAYER, MODE_NAMES, MODE_MENU, ECONOMY, CTRL, TICK } from './sim/tuning.js?v=muv8vpk2';
-import { weaponOf, slotOf } from './sim/combat.js?v=muv8vpk2';
-import { drawLogo, drawHowTo } from './ui/art.js?v=muv8vpk2';
-import { loadModels } from './render/models.js?v=muv8vpk2';
-import { HIT } from './maps/grid.js?v=muv8vpk2';
-import { Menus } from './ui/menus.js?v=muv8vpk2';
+import './page.js?v=muv931ta';
+import { surfaceDocument as document } from './surface.js?v=muv931ta';
+import { registerApp } from './veil.js?v=muv931ta';
+import { tell } from './dialog.js?v=muv931ta';
+import { splash } from './splash.js?v=muv931ta';
+import * as THREE from '../vendor/three/three.module.js?v=muv931ta';
+import { Renderer } from './render/renderer.js?v=muv931ta';
+import { EggAvatar, SHELL_COLORS, TEAM_COLORS } from './render/egg.js?v=muv931ta';
+import { gunModel } from './render/guns.js?v=muv931ta';
+import { Input } from './game/input.js?v=muv931ta';
+import { SOUND_FILES } from './game/soundbank.js?v=muv931ta';
+import { Sound, registerSamples } from './game/audio.js?v=muv931ta';
+import { Hud } from './game/hud.js?v=muv931ta';
+import { loadSettings, saveSettings, loadProfile, saveProfile } from './game/store.js?v=muv931ta';
+import { ensureDaily, progress as challengeProgress, claim as claimChallenges } from './game/challenges.js?v=muv931ta';
+import { HostSession } from './game/session.js?v=muv931ta';
+import { GuestSession } from './net/guest.js?v=muv931ta';
+import { pickPublicMap, mapDef, MAPS } from './maps/index.js?v=muv931ta';
+import { WEAPONS, PRIMARIES, PLAYER, MODE_NAMES, MODE_MENU, ECONOMY, CTRL, TICK } from './sim/tuning.js?v=muv931ta';
+import { weaponOf, slotOf } from './sim/combat.js?v=muv931ta';
+import { drawLogo, drawHowTo } from './ui/art.js?v=muv931ta';
+import { loadModels } from './render/models.js?v=muv931ta';
+import { HIT } from './maps/grid.js?v=muv931ta';
+import { Menus } from './ui/menus.js?v=muv931ta';
 
 const $ = id => document.getElementById(id);
 const show = (id, on = true) => { $(id).classList.toggle('hidden', !on); if (id === 'respawn') $('hud').classList.toggle('menu', on); };
@@ -83,6 +83,7 @@ class App {
     s.background = new THREE.CanvasTexture(bg); s.background.colorSpace = THREE.SRGBColorSpace;
     s.add(new THREE.HemisphereLight(0xffffff, 0x88aabb, 1.8));
     const sun = new THREE.DirectionalLight(0xffffff, 2); sun.position.set(-2, 4, 3); s.add(sun);
+    const rim = new THREE.DirectionalLight(0xfff1d6, 1.6); rim.position.set(2.5, 2, -3); s.add(rim);   // a warm rim from behind
     const shadow = new THREE.Mesh(new THREE.CircleGeometry(0.45, 32).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0x0e3440, transparent: true, opacity: 0.25, depthWrite: false }));
     shadow.position.y = 0.002; s.add(shadow);
     this.home = { scene: s, camera: new THREE.PerspectiveCamera(28, 1, 0.1, 50), egg: null, spin: 0 };
@@ -313,8 +314,9 @@ class App {
   }
   drawHome(dt) {
     const h = this.home; if (!h) return;
-    h.spin += dt * 0.6;
-    if (h.egg) { h.egg.pose(0, 0, 0, h.spin, 0, { bob: this.t * 2 }); h.egg.setWeapon(this.profile.primary); }
+    // Idle: the egg faces you three-quarters on (gun in view) and sways gently, as if breathing.
+    h.spin += dt;
+    if (h.egg) { h.egg.pose(0, 0, 0, Math.PI + 0.5 + Math.sin(h.spin * 0.45) * 0.35, Math.sin(h.spin * 0.7) * 0.06, { bob: this.t * 2 }); h.egg.setWeapon(this.profile.primary); }
     const gl = this.renderer.gl;
     h.camera.aspect = innerWidth / innerHeight; h.camera.updateProjectionMatrix();
     gl.setClearColor(0x000000, 1); gl.clear(); gl.render(h.scene, h.camera);

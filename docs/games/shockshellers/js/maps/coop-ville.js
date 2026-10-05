@@ -2,7 +2,7 @@
 // houses you can walk through, flat rooftops with parapets reached by ladders (and joined by plank
 // walkways), a central plaza with a fountain and market stalls. Rooftops rule sightlines; streets and
 // interiors give the flanks. Point-symmetric for team modes.
-import { Builder, MAT } from './dsl.js?v=muv8vpk2';
+import { Builder, MAT } from './dsl.js?v=muv931ta';
 
 // A house: walls `h` high with a door, windows, a flat roof with a parapet, and a ladder up the side.
 function house(b, x0, z0, w, d, h, mat, door, ladder) {
@@ -25,14 +25,16 @@ export default function coopVille() {
   b.fill(0, 0, 0, N - 1, 0, N - 1, 'block', MAT.stone);             // cobbled streets
   b.mirrored(b => {
     // Two rows of houses on each side of the main street.
-    house(b, 2, 2, 7, 6, 3, MAT.plaster, 'z', [9, 4, 3]);
+    house(b, 2, 2, 7, 6, 3, MAT.plaster, 'z', [9, 6, 3]);
     house(b, 12, 2, 6, 6, 4, MAT.brick, 'x', [11, 6, 1]);
     house(b, 21, 2, 7, 6, 3, MAT.plaster, 'z', [28, 4, 3]);
     house(b, 31, 2, 7, 7, 4, MAT.brick, 'x', [30, 7, 1]);
     house(b, 2, 11, 6, 7, 4, MAT.brick, 'x', [8, 13, 3]);
     house(b, 30, 11, 8, 6, 3, MAT.plaster, 'z', [29, 13, 1]);
-    // A plank walkway between two rooftops (roof tops at 4/5 + parapet; deck at 5).
-    for (let x = 9; x <= 11; x++) b.put(x, 5, 4, 'block', 0, MAT.wood);
+    // A plank walkway between two rooftops: flush with the low roof (walking surface 5), with a step
+    // up at the far end onto the taller house's roof (6), through gaps in both parapets.
+    for (let x = 9; x <= 11; x++) b.put(x, 4, 4, 'block', 0, MAT.wood);
+    b.put(11, 5, 4, 'stairs', 1, MAT.wood);
     b.clear(8, 5, 4, 8, 5, 4); b.clear(12, 6, 4, 12, 6, 4);
     // Street furniture: market stalls (a roof on posts over crates), barrels, trees in planters.
     for (const [x, z] of [[14, 12], [17, 12]]) { b.put(x, 1, z, 'pillar', 0, MAT.wood); b.put(x, 2, z, 'pillar', 0, MAT.wood); }

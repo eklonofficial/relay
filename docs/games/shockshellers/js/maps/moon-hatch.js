@@ -1,7 +1,7 @@
 // Moon Hatch (GDD §15.4): a low-gravity moon base for 18 (gravity 0.5×, jumps carry far). A cratered
 // moon-rock plain, a raised central hub of metal panels, habitat pods with doorways, landing pads on
 // stilts reached by jump pads, and a starry space sky. Point-symmetric for team modes.
-import { Builder, MAT } from './dsl.js?v=muv8vpk2';
+import { Builder, MAT } from './dsl.js?v=muv931ta';
 
 export default function moonHatch() {
   const N = 40, c = (N - 1) / 2, b = new Builder(N, 14, N);
@@ -45,8 +45,8 @@ export default function moonHatch() {
     for (const [x, z] of [[12, 14], [27, 20], [17, 33]]) b.put(x, ground(x, z), z, 'barrel', 0, MAT.metal);
     for (const [x, z] of [[3, 3], [10, 3], [3, 10], [20, 2], [2, 20], [7, 7], [14, 12], [25, 3]]) b.spawn(x, ground(x, z), z, 1, Math.PI * 1.25);
     b.item('ammo', 19, 3, 16); b.item('ammo', 6, ground(6, 18), 18); b.item('grenade', 31, 5, 29); b.item('ammo', 18, ground(18, 6), 6); b.item('grenade', 9, ground(9, 9), 9);
-    b.roost(5, 17, 8, 20, ground(6, 18)); b.roost(29, 27, 33, 31, 5);
-    b.spatula(31, 5, 29);
+    b.roost(5, 17, 8, 20, ground(6, 18)); b.roost(25, 30, 28, 33, ground(26, 31));
+    b.spatula(26, ground(26, 22), 22);
   });
   b.roost(17, 17, 22, 22, 3);
   b.spatula(18, 3, 21); b.spatula(21, 3, 18);

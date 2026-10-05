@@ -1,7 +1,7 @@
 // Drawn artwork for the interface: the logo (bubbly cream letters, dark-brown outline, the O in
 // SHOCK is a fried egg; GDD §25) and the How to Play card (keyboard and mouse from the live
 // bindings, an egg with a target; GDD §19.2). Drawn on canvases so nothing is fetched.
-import { keyLabel, ACTION_NAMES } from '../game/input.js?v=muv8vpk2';
+import { keyLabel, ACTION_NAMES } from '../game/input.js?v=muv931ta';
 
 function word(x, text, cx, y, size, align) {
   x.font = `${size}px s, sans-serif`; x.textAlign = align; x.textBaseline = 'alphabetic'; x.lineJoin = 'round';

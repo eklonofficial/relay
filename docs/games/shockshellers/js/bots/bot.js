@@ -7,11 +7,11 @@
 // Bots drive the match through the same input struct as humans (control bits + yaw/pitch), so the
 // simulation holds them to identical movement, fire-rate, spread and damage rules. Difficulty only
 // changes human limits (reaction, aim error, turn speed, leading, decision noise), never knowledge.
-import { CTRL, WEAPONS, PLAYER, GRENADE, PRIMARIES, TICK } from '../sim/tuning.js?v=muv8vpk2';
-import { currentSpread, weaponOf, slotOf } from '../sim/combat.js?v=muv8vpk2';
-import { forward } from '../sim/movement.js?v=muv8vpk2';
-import { STRATEGIES, strategyProfile, choose } from './strategies.js?v=muv8vpk2';
-import { EDGE } from './nav.js?v=muv8vpk2';
+import { CTRL, WEAPONS, PLAYER, GRENADE, PRIMARIES, TICK } from '../sim/tuning.js?v=muv931ta';
+import { currentSpread, weaponOf, slotOf } from '../sim/combat.js?v=muv931ta';
+import { forward } from '../sim/movement.js?v=muv931ta';
+import { STRATEGIES, strategyProfile, choose } from './strategies.js?v=muv931ta';
+import { EDGE } from './nav.js?v=muv931ta';
 
 // Skill is a number from 0 (a first-time player) to 1 (a top player). Every trait is interpolated
 // between those two anchors; reaction time and aim error interpolate geometrically, since people are
@@ -542,7 +542,10 @@ export class Bot {
     const prev = this.pi > 0 ? this.path[this.pi - 1] : this.nav.nearest(b.x, b.y, b.z);
     const e = prev !== null ? this.nav.edge(prev, this.path[this.pi]) : null;
     const dx = n.x - b.x, dz = n.z - b.z, d = Math.hypot(dx, dz);
-    const reached = e?.kind === EDGE.ladder ? (Math.abs(n.y - b.y) < 0.3 && d < 0.6) : (d < 0.35 && Math.abs(n.y - b.y) < 0.6);
+    // A jump pad launches whoever touches it, usually before they reach its middle: once we're flying up
+    // off it, it counts as reached.
+    const launched = n.pad && b.onGround === 0 && b.vy > 0.05 && d < 1.3;
+    const reached = launched || (e?.kind === EDGE.ladder ? (Math.abs(n.y - b.y) < 0.3 && d < 0.6) : (d < 0.35 && Math.abs(n.y - b.y) < 0.6));
     if (reached) { this.pi++; this.progressT = 0; return this.steer(); }
     if (e?.kind === EDGE.ladder && !e.down) {
       // Face the wall and climb.
@@ -550,7 +553,8 @@ export class Bot {
       if (b.climbing || Math.hypot(lx, lz) < 0.6) { this.yaw = yawTo(e.fx, e.fz); out.ladder = true; out.x = e.fx; out.z = e.fz; return out; }
       out.x = lx; out.z = lz; return out;
     }
-    if (e?.kind === EDGE.pad && b.onGround === 0) { const f = forward(e.yaw); out.x = f[0]; out.z = f[2]; return out; }
+    // In the air off a pad: steer for the landing spot (air control corrects an off-centre launch).
+    if (e?.kind === EDGE.pad && b.onGround === 0) { if (d > 0.25) { out.x = dx / d; out.z = dz / d; } else { const f = forward(e.yaw); out.x = f[0] * 0.2; out.z = f[2] * 0.2; } return out; }
     out.x = dx / (d || 1); out.z = dz / (d || 1);
     if (e?.kind === EDGE.jump && d < 0.9 && b.onGround > 0) out.jump = true;
     // Stuck? Jump, then re-plan.
