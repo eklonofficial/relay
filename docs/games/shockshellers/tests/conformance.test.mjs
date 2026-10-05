@@ -21,7 +21,7 @@ test('the transport differs from Blockhaven\'s only in its topic root', () => {
   const a = unstamp(read(root, 'js/net/transport.js')).split('\n'), b = unstamp(read(ref, 'js/net/transport.js')).split('\n');
   assert.equal(a.length, b.length);
   const diff = a.map((l, i) => l === b[i] ? null : [l, b[i]]).filter(Boolean);
-  assert.deepEqual(diff, [["const ROOT = 'shockshellers/v1';", "const ROOT = 'blockhaven/v1';"]]);
+  assert.deepEqual(diff, [["const ROOT = 'blockhaven/shockshellers/v1'; // the shared relay's root (every deployed relay accepts it); own namespace, apart from Blockhaven's blockhaven/v1", "const ROOT = 'blockhaven/v1';"]]);
 });
 test('Link and the connection helpers are Blockhaven\'s', () => {
   // From the Link class's comment to the end of the class.

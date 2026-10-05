@@ -10,7 +10,7 @@
 // or slow doesn't matter. Channels look like PeerJS connections (on/send/close/open) so the rest
 // of the networking code doesn't care which path was used.
 
-const ROOT = 'shockshellers/v1';
+const ROOT = 'blockhaven/shockshellers/v1'; // the shared relay's root (every deployed relay accepts it); own namespace, apart from Blockhaven's blockhaven/v1
 const rid = () => Math.random().toString(36).slice(2, 10) + Math.random().toString(36).slice(2, 6);
 const enc = new TextEncoder(), dec = new TextDecoder();
 
