@@ -67,10 +67,13 @@ in `net-config.js`.
 
 ## Test Connection
 
-The **Multiplayer** screen has a **Test Connection** button. It checks every server from the
+The **Multiplayer** screen has a **Test Connection** button. It wakes the private relay and
+retries its connection for up to 65 seconds so a sleeping instance is not reported as down
+after a single short attempt. Other servers are checked in parallel. It checks every server from the
 network you're on and whether direct connections are possible, then says plainly whether
-multiplayer will work there (and whether directly or through a relay). If it says everything is
-blocked, that network blocks all of it: try another network or a phone hotspot.
+multiplayer will work there (and whether directly or through a relay). If no server can be
+reached, they may be down or blocked by the network: check the relay deployment, try again,
+or try another network or a phone hotspot.
 
 ## The project's own relay (recommended, free)
 
