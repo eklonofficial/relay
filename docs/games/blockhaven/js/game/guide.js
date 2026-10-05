@@ -1,11 +1,11 @@
 // The in-game guide: features, commands, crafting, farming, combat, villagers, dimensions and graphics.
-import { MusicPlayer } from './music.js?v=muujmeyj';
-import { BLOCKS, BLOCK_ITEMS, TEXTURES } from '../data/blocks.js?v=muujmeyj';
-import { ITEMS, I } from '../data/items.js?v=muujmeyj';
-import { SHAPED, SHAPELESS, SMELTING } from '../data/recipes.js?v=muujmeyj';
-import { MOBS } from '../data/mobs.js?v=muujmeyj';
-import { BIOMES } from '../gen/biomes.js?v=muujmeyj';
-import { COMMANDS } from './commands.js?v=muujmeyj';
+import { MusicPlayer } from './music.js?v=muujms2i';
+import { BLOCKS, BLOCK_ITEMS, TEXTURES } from '../data/blocks.js?v=muujms2i';
+import { ITEMS, I } from '../data/items.js?v=muujms2i';
+import { SHAPED, SHAPELESS, SMELTING } from '../data/recipes.js?v=muujms2i';
+import { MOBS } from '../data/mobs.js?v=muujms2i';
+import { BIOMES } from '../gen/biomes.js?v=muujms2i';
+import { COMMANDS } from './commands.js?v=muujms2i';
 
 const esc = s => String(s).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
 

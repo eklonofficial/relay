@@ -51,3 +51,14 @@ test('rain falls only where the biome has rain, from open sky', () => {
   assert.equal(W.precipitationAt(biome('plains'), 0, 200, 0), 'rain', 'plains never get that cold');
   assert.equal(W.parseTime('100'), 100); assert.equal(W.parseTime('30s'), 600); assert.equal(W.parseTime('1d'), 24000); assert.equal(W.parseTime('x'), null);
 });
+
+test('JavaRandom gives java.util.Random\'s numbers (for the rain and snow columns)', async () => {
+  const { JavaRandom } = await load('core/jrandom.js');
+  const r = new JavaRandom(42);
+  assert.deepEqual([r.nextInt(100), r.nextInt(100)], [30, 63]);
+  assert.equal(r.nextFloat().toFixed(6), '0.683223');
+  assert.equal(r.nextDouble().toFixed(6), '0.047939');
+  assert.equal(r.nextGaussian().toFixed(6), '0.276860');
+  const q = new JavaRandom(-12345678901n);
+  assert.equal(q.nextInt(10), 4); assert.equal(q.nextFloat().toFixed(6), '0.795654');
+});

@@ -1,10 +1,10 @@
 // Nether generator: a 128-high cavern world over a lava sea, with five biomes (nether wastes,
 // crimson and warped forests, soul sand valleys and basalt deltas), glowstone clusters hanging
 // from the ceiling, quartz/gold ore, ancient debris and huge fungi.
-import { Simplex, hash2, hash3, mulberry32 } from '../core/noise.js?v=muujmeyj';
-import { B, st, CHUNK } from '../data/blocks.js?v=muujmeyj';
-import { ChunkBuilder, CI } from './chunk.js?v=muujmeyj';
-import { BI } from './biomes.js?v=muujmeyj';
+import { Simplex, hash2, hash3, mulberry32 } from '../core/noise.js?v=muujms2i';
+import { B, st, CHUNK } from '../data/blocks.js?v=muujms2i';
+import { ChunkBuilder, CI } from './chunk.js?v=muujms2i';
+import { BI } from './biomes.js?v=muujms2i';
 
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
