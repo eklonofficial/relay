@@ -347,6 +347,28 @@ export async function joinRoom(code, { brokers, iceServers }, status = () => {},
 }
 
 // ---------------- connection test ----------------
+// A sleeping private relay needs the same startup budget as hosting/joining.
+// Keep trying WebSocket/MQTT even if the HTTP wake request is blocked by CORS.
+async function probeRelay(url, wake) {
+  const until = Date.now() + (wake ? 65000 : 8000);
+  const controller = new AbortController();
+  if (wake) fetch(wake, { mode: 'no-cors', cache: 'no-store', credentials: 'omit', referrerPolicy: 'no-referrer', signal: controller.signal }).catch(() => {});
+  try {
+    for (;;) {
+      try {
+        const client = await new Mqtt(url).connect(Math.min(8000, Math.max(1, until - Date.now())));
+        client.close();
+        return;
+      } catch (error) {
+        const left = until - Date.now();
+        if (!wake || left <= 0) throw error;
+        await new Promise(resolve => setTimeout(resolve, Math.min(2000, left)));
+        if (Date.now() >= until) throw error;
+      }
+    }
+  } finally { controller.abort(); }
+}
+
 // Checks every way of connecting from this network; each result is { name, ok, detail }.
 export async function diagnose(cfg, onResult = () => {}) {
   const results = [];
@@ -354,7 +376,8 @@ export async function diagnose(cfg, onResult = () => {}) {
   const jobs = [];
   for (const u of cfg.brokers || []) {
     const name = u.replace(/^wss?:\/\/([^@/]*@)?/, '').replace(/\/.*$/, '');
-    jobs.push(new Mqtt(u).connect(8000).then(c => { c.close(); add({ name: `Relay server ${name}`, ok: true, detail: 'reachable' }); }, e => add({ name: `Relay server ${name}`, ok: false, detail: e.message === 'timeout' ? 'no answer (blocked or down)' : 'blocked or down' })));
+    const wake = (cfg.wake || []).find(w => { try { return new URL(w).host === new URL(u).host; } catch { return false; } });
+    jobs.push(probeRelay(u, wake).then(() => add({ name: `Relay server ${name}`, ok: true, detail: 'reachable' }), () => add({ name: `Relay server ${name}`, ok: false, detail: wake ? 'no connection after 65 seconds; check the relay deployment or try again' : 'blocked or down' })));
   }
   if (cfg.peer && cfg.peer.host) {
     const url = `${cfg.peer.secure === false ? 'http' : 'https'}://${cfg.peer.host}${cfg.peer.port && cfg.peer.port !== 443 ? ':' + cfg.peer.port : ''}${cfg.peer.path || '/'}peerjs/id`;

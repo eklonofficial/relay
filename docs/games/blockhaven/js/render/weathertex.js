@@ -1,7 +1,7 @@
 // Rain and snow textures: Java's environment/rain.png and snow.png, 64x256 each and repeating, drawn
 // on the sheets of falling rain and snow (main.js drawWeather). Without a pack, painted ones: thin
 // pale streaks of rain, and loose flakes of snow.
-import { mulberry32 } from '../core/noise.js?v=muum39sy';
+import { mulberry32 } from '../core/noise.js?v=muvda45h';
 
 export const WEATHER_W = 64, WEATHER_H = 256;
 

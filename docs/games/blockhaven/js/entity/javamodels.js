@@ -2,7 +2,7 @@
 // WitchModel, IllagerModel, PiglinModel, ZombieVillagerModel), with their texture offsets, and their
 // setupAnim poses. Coordinates are Java's, turned into ours as in entity/humanoid.js; a part with a
 // parent is placed relative to it.
-import { jbox, pivot, playerModel, humanoidPose, bobArms, xbowCharge, xbowHold } from './humanoid.js?v=muum39sy';
+import { jbox, pivot, playerModel, humanoidPose, bobArms, xbowCharge, xbowHold } from './humanoid.js?v=muvda45h';
 
 const PI = Math.PI;
 const child = (x, y, z) => [-x, -y, z];
