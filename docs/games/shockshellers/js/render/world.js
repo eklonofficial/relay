@@ -1,9 +1,10 @@
 // Turns a map grid into a few merged meshes (one per material family). Faces hidden against full
 // blocks are dropped, and every vertex gets baked ambient occlusion from the cells around it, which
 // gives the soft, lightmapped look of the reference maps without shipping any lightmap.
-import * as THREE from '../../vendor/three/three.module.js?v=muv6kjqg';
-import { PIECES, BOXES, facing } from '../maps/pieces.js?v=muv6kjqg';
-import { worldMaterial, TEX_SCALE } from './materials.js?v=muv6kjqg';
+import * as THREE from '../../vendor/three/three.module.js?v=muv76gka';
+import { PIECES, BOXES, facing } from '../maps/pieces.js?v=muv76gka';
+import { worldMaterial, TEX_SCALE } from './materials.js?v=muv76gka';
+import { clone } from './models.js?v=muv76gka';
 
 class Bucket {
   constructor(mat) { this.mat = mat; this.p = []; this.n = []; this.u = []; this.c = []; this.i = []; this.v = 0; this.s = TEX_SCALE[mat] ?? 0.5; }
@@ -100,7 +101,10 @@ export function buildWorld(map) {
         if (!full(x, y - 1, z)) { tri(B, a, b, c); tri(B, a, c, d); }
         break;
       }
-      case 'barrel': {
+      case 'crate': case 'barrel': if (clone(p.shape)) { extras.push({ kind: 'model', model: p.shape, x: x + 0.5, y, z: z + 0.5, ry, scale: p.shape === 'crate' ? 1.05 : 1 }); break; }
+        if (p.shape === 'crate') { for (const b of p.boxes.map(b => rotateVisual(b, ry))) box(B, x + b[0], y + b[1], z + b[2], x + b[3], y + b[4], z + b[5]); break; }
+      // eslint-disable-next-line no-fallthrough
+      case 'barrelDrawn': {
         const M = bucket(5), r = 0.3, n = 10;
         for (let k = 0; k < n; k++) {
           const a0 = k / n * Math.PI * 2, a1 = (k + 1) / n * Math.PI * 2;
@@ -110,12 +114,15 @@ export function buildWorld(map) {
         }
         break;
       }
-      case 'tree': {
+      case 'tree': if (clone('tree')) { extras.push({ kind: 'model', model: 'tree', x: x + 0.5, y, z: z + 0.5, ry: (i * 7) & 3, scale: 1.1 }); break; }
+      // eslint-disable-next-line no-fallthrough
+      case 'treeDrawn': {
         box(bucket(2), x + 0.36, y, z + 0.36, x + 0.64, y + 1.6, z + 0.64);
         extras.push({ kind: 'canopy', x: x + 0.5, y: y + 2.1, z: z + 0.5, seed: i });
         break;
       }
-      case 'bush': extras.push({ kind: 'bush', x: x + 0.5, y: y + 0.25, z: z + 0.5, seed: i }); break;
+      case 'bush': if (clone('bush')) { extras.push({ kind: 'model', model: 'bush', x: x + 0.5, y, z: z + 0.5, ry: (i * 5) & 3, scale: 1 }); break; }
+        extras.push({ kind: 'bush', x: x + 0.5, y: y + 0.25, z: z + 0.5, seed: i }); break;
       case 'glass': extras.push({ kind: 'glass', x, y, z, ry }); break;
       case 'pad': {
         const vb = visualBoxes(p.key, BOXES[id][ry]);
@@ -156,6 +163,7 @@ function rotateVisual([x0, y0, z0, x1, y1, z1], ry) {
 // Trees, bushes, pads and glass: small shared meshes placed per cell.
 const shared = {};
 function buildExtra(e) {
+  if (e.kind === 'model') { const m = clone(e.model); m.position.set(e.x, e.y, e.z); m.rotation.y = e.ry * Math.PI / 2; m.scale.setScalar(e.scale || 1); return m; }
   if (e.kind === 'canopy' || e.kind === 'bush') {
     shared.leaf ??= new THREE.MeshLambertMaterial({ color: 0x7ccc3c });
     const g = new THREE.Group(), r = mulberry(e.seed);

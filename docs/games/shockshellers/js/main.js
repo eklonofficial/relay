@@ -1,28 +1,29 @@
 // Shock Shellers: boot, menus, the match flow (home → respawn screen → play → death → respawn) and
 // the frame loop. The simulation runs at a fixed 30 Hz inside the session; rendering interpolates.
-import './page.js?v=muv6kjqg';
-import { surfaceDocument as document } from './surface.js?v=muv6kjqg';
-import { registerApp } from './veil.js?v=muv6kjqg';
-import { tell } from './dialog.js?v=muv6kjqg';
-import { splash } from './splash.js?v=muv6kjqg';
-import * as THREE from '../vendor/three/three.module.js?v=muv6kjqg';
-import { Renderer } from './render/renderer.js?v=muv6kjqg';
-import { EggAvatar, SHELL_COLORS, TEAM_COLORS } from './render/egg.js?v=muv6kjqg';
-import { gunModel } from './render/guns.js?v=muv6kjqg';
-import { Input } from './game/input.js?v=muv6kjqg';
-import { SOUND_FILES } from './game/soundbank.js?v=muv6kjqg';
-import { Sound, registerSamples } from './game/audio.js?v=muv6kjqg';
-import { Hud } from './game/hud.js?v=muv6kjqg';
-import { loadSettings, saveSettings, loadProfile, saveProfile } from './game/store.js?v=muv6kjqg';
-import { ensureDaily, progress as challengeProgress, claim as claimChallenges } from './game/challenges.js?v=muv6kjqg';
-import { HostSession } from './game/session.js?v=muv6kjqg';
-import { GuestSession } from './net/guest.js?v=muv6kjqg';
-import { pickPublicMap, mapDef, MAPS } from './maps/index.js?v=muv6kjqg';
-import { WEAPONS, PRIMARIES, PLAYER, MODE_NAMES, MODE_MENU, ECONOMY, CTRL, TICK } from './sim/tuning.js?v=muv6kjqg';
-import { weaponOf, slotOf } from './sim/combat.js?v=muv6kjqg';
-import { drawLogo, drawHowTo } from './ui/art.js?v=muv6kjqg';
-import { HIT } from './maps/grid.js?v=muv6kjqg';
-import { Menus } from './ui/menus.js?v=muv6kjqg';
+import './page.js?v=muv76gka';
+import { surfaceDocument as document } from './surface.js?v=muv76gka';
+import { registerApp } from './veil.js?v=muv76gka';
+import { tell } from './dialog.js?v=muv76gka';
+import { splash } from './splash.js?v=muv76gka';
+import * as THREE from '../vendor/three/three.module.js?v=muv76gka';
+import { Renderer } from './render/renderer.js?v=muv76gka';
+import { EggAvatar, SHELL_COLORS, TEAM_COLORS } from './render/egg.js?v=muv76gka';
+import { gunModel } from './render/guns.js?v=muv76gka';
+import { Input } from './game/input.js?v=muv76gka';
+import { SOUND_FILES } from './game/soundbank.js?v=muv76gka';
+import { Sound, registerSamples } from './game/audio.js?v=muv76gka';
+import { Hud } from './game/hud.js?v=muv76gka';
+import { loadSettings, saveSettings, loadProfile, saveProfile } from './game/store.js?v=muv76gka';
+import { ensureDaily, progress as challengeProgress, claim as claimChallenges } from './game/challenges.js?v=muv76gka';
+import { HostSession } from './game/session.js?v=muv76gka';
+import { GuestSession } from './net/guest.js?v=muv76gka';
+import { pickPublicMap, mapDef, MAPS } from './maps/index.js?v=muv76gka';
+import { WEAPONS, PRIMARIES, PLAYER, MODE_NAMES, MODE_MENU, ECONOMY, CTRL, TICK } from './sim/tuning.js?v=muv76gka';
+import { weaponOf, slotOf } from './sim/combat.js?v=muv76gka';
+import { drawLogo, drawHowTo } from './ui/art.js?v=muv76gka';
+import { loadModels } from './render/models.js?v=muv76gka';
+import { HIT } from './maps/grid.js?v=muv76gka';
+import { Menus } from './ui/menus.js?v=muv76gka';
 
 const $ = id => document.getElementById(id);
 const show = (id, on = true) => { $(id).classList.toggle('hidden', !on); if (id === 'respawn') $('hud').classList.toggle('menu', on); };
@@ -61,6 +62,8 @@ class App {
     splash.progress(0.4);
     const bar = $('load-bar');
     const step = async (p, fn) => { fn?.(); bar.style.width = Math.round(p * 100) + '%'; splash.progress(0.3 + p * 0.7); await new Promise(r => setTimeout(r, 0)); };
+    await step(0.1);
+    await loadModels().catch(e => console.warn('models', e));
     await step(0.2, () => this.buildHome());
     await step(0.5, () => this.menus.weaponIcons());
     await step(0.8, () => this.menus.build());
@@ -194,7 +197,6 @@ class App {
           if (mine) {
             R.view.fire(w);
             if (this.settings.shake) this.shake = Math.min(1, this.shake + WEAPONS[w].recoil / 60);
-            const f = this.cam; fx.muzzle(f.x - Math.sin(f.yaw) * 0.5, f.y - 0.1, f.z - Math.cos(f.yaw) * 0.5, w === 'doubleYolker');
           }
           break;
         }
@@ -375,6 +377,8 @@ class App {
       cam.x = o.cx + Math.cos(a) * o.r; cam.z = o.cz + Math.sin(a) * o.r; cam.y = o.cy + o.r * 0.55;
       cam.yaw = Math.atan2(-(o.cx - cam.x), -(o.cz - cam.z)); cam.pitch = -Math.atan2(cam.y - o.cy, o.r); cam.fovMul = 1;
     }
+    // Recoil kicks the view up a touch and recovers (the setting turns the shake off, not the punch).
+    cam.pitch += R.view.takePunch(dt);
     this.shake = Math.max(0, this.shake - dt * 4);
     cam.shakeX = (Math.random() - 0.5) * this.shake * 0.02; cam.shakeY = (Math.random() - 0.5) * this.shake * 0.02;
     this.sound.listener(cam.x, cam.y, cam.z, cam.yaw);

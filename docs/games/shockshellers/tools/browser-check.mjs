@@ -67,7 +67,9 @@ try {
   assert.ok(originalIcon.startsWith('data:image/svg+xml,'));
   // These assertions intentionally prove what privileged access CAN recover.
   const debuggerSession = await page.context().newCDPSession(page);
-  const debugDOM = await debuggerSession.send('DOM.getDocument', { depth: -1, pierce: true });
+  // Retry briefly: the debugger's snapshot can lag the page by a moment while the packed bundle settles.
+  let debugDOM;
+  for (let i = 0; i < 20; i++) { debugDOM = await debuggerSession.send('DOM.getDocument', { depth: -1, pierce: true }); if (/"shadowRootType":"closed"/.test(JSON.stringify(debugDOM))) break; await page.waitForTimeout(250); }
   assert.match(JSON.stringify(debugDOM), /"shadowRootType":"closed"/);
   assert.match(JSON.stringify(debugDOM), /btn-play/);
   await debuggerSession.detach();

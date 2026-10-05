@@ -1,12 +1,13 @@
 // The 3D scene: sky, sun and shadows, the map, eggs, pickups, the spatula, the roost, effects and
 // the first-person hands. The game canvas (#game) lives outside the compositor so WebGL and pointer
 // lock work natively; this module only draws into it.
-import * as THREE from '../../vendor/three/three.module.js?v=muv6kjqg';
-import { buildWorld } from './world.js?v=muv6kjqg';
-import { EggAvatar, TEAM_COLORS } from './egg.js?v=muv6kjqg';
-import { Effects } from './fx.js?v=muv6kjqg';
-import { ViewModel } from './viewmodel.js?v=muv6kjqg';
-import { gunModel } from './guns.js?v=muv6kjqg';
+import * as THREE from '../../vendor/three/three.module.js?v=muv76gka';
+import { buildWorld } from './world.js?v=muv76gka';
+import { EggAvatar, TEAM_COLORS } from './egg.js?v=muv76gka';
+import { Effects } from './fx.js?v=muv76gka';
+import { ViewModel } from './viewmodel.js?v=muv76gka';
+import { gunModel } from './guns.js?v=muv76gka';
+import { clone } from './models.js?v=muv76gka';
 
 const SKIES = {
   day: { top: 0x2f8fd8, bottom: 0xbfe3f2, sun: 0xfff2d8 },
@@ -131,10 +132,10 @@ export class Renderer {
     const sc = this.sun.shadow.camera; sc.left = -R; sc.right = R; sc.top = R; sc.bottom = -R; sc.near = 0.5; sc.far = R * 4; sc.updateProjectionMatrix();
     this.hemi.intensity = (meta.ambient ?? 1.1) * 1.4;
     for (const it of map.items) {
-      const m = it.kind === 'ammo' ? carton() : (() => { const g = gunModel('grenade'); g.scale.setScalar(1.5); return g; })();
+      const m = it.kind === 'ammo' ? (clone('ammo') || carton()) : (() => { const g = gunModel('grenade'); g.scale.setScalar(1.5); return g; })();
       m.position.set(it.x, it.y, it.z); this.scene.add(m); this.items.set(map.items.indexOf(it), m);
     }
-    this.spatula = spatulaModel(); this.spatula.visible = false; this.scene.add(this.spatula);
+    this.spatula = clone('spatula') || spatulaModel(); this.spatula.visible = false; this.scene.add(this.spatula);
     this.roost = new THREE.Group(); this.roost.visible = false; this.scene.add(this.roost);
     this.roostRing = new THREE.Mesh(new THREE.BufferGeometry(), new THREE.MeshBasicMaterial({ color: 0x222222, transparent: true, opacity: 0.55, depthWrite: false, side: THREE.DoubleSide }));
     this.roost.add(this.roostRing);

@@ -1,8 +1,9 @@
 // The egg: a smooth ovoid shell (cracks grow at 80/60/40/20 HP, GDD §5), two floating cartoon
 // gloves holding the gun, an optional hat, a team ring for teammates and a name tag. Third-person
 // only; the first-person hands are viewmodel.js.
-import * as THREE from '../../vendor/three/three.module.js?v=muv6kjqg';
-import { gunModel } from './guns.js?v=muv6kjqg';
+import * as THREE from '../../vendor/three/three.module.js?v=muv76gka';
+import { gunModel } from './guns.js?v=muv76gka';
+import { clone } from './models.js?v=muv76gka';
 
 export const SHELL_COLORS = [0xfff6e5, 0xf2d0a4, 0xc98e5a, 0x8a5a3b, 0x5b3a26, 0xe9e1ff, 0xd7f0ff, 0xff9eb5, 0x9ee6a0, 0xffd34e, 0x7fb6ff, 0xb98cff, 0xff7a59, 0x2e2e34];
 export const TEAM_COLORS = [0xbbbbbb, 0x2f86e8, 0xe8473c];
@@ -101,6 +102,13 @@ export const HATS = {
   },
 };
 
+// The modelled mitten (scaled for a third-person egg), or a simple ball before models load.
+function mitten() {
+  const m = clone('glove');
+  if (!m) return glove();
+  m.scale.setScalar(0.75);
+  return m;
+}
 function nameSprite(text, color) {
   const c = new OffscreenCanvas(256, 64), x = c.getContext('2d');
   x.font = '800 30px n, sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle';
@@ -118,12 +126,13 @@ export class EggAvatar {
     this.color = SHELL_COLORS[color] ?? SHELL_COLORS[0];
     this.stage = -1;
     this.shellMat = new THREE.MeshStandardMaterial({ roughness: 0.42, metalness: 0.0 });
-    this.shell = new THREE.Mesh(eggGeometry(), this.shellMat); this.shell.castShadow = true;
+    const modelled = clone('egg')?.getObjectByProperty('isMesh', true);
+    this.shell = new THREE.Mesh(modelled ? modelled.geometry : eggGeometry(), this.shellMat); this.shell.castShadow = true;
     this.body = new THREE.Group(); this.body.add(this.shell); this.group.add(this.body);
-    this.hat = HATS[hat]?.() || null; if (this.hat) { this.hat.position.y = H - 0.04; this.body.add(this.hat); }
+    this.hat = clone('hat_' + hat) || HATS[hat]?.() || null; if (this.hat) { this.hat.position.y = H - 0.04; this.body.add(this.hat); }
     // Hands + gun pivot at chest height, pitched with the view.
     this.arms = new THREE.Group(); this.arms.position.set(0, 0.32, 0); this.body.add(this.arms);
-    this.gloveR = glove(); this.gloveL = glove(); this.arms.add(this.gloveR, this.gloveL);
+    this.gloveR = mitten(); this.gloveL = mitten(); this.arms.add(this.gloveR, this.gloveL);
     this.setWeapon(weapon);
     this.team = team; this.friendly = friendly;
     if (friendly) {
@@ -141,10 +150,13 @@ export class EggAvatar {
     if (this.gun) this.arms.remove(this.gun);
     this.gun = gunModel(id);
     const scale = id === 'peck9mm' ? 0.75 : 0.55;
-    this.gun.scale.setScalar(scale); this.gun.position.set(0.16, -0.02, -0.18);
+    // Gloves and gun float clearly outside the shell, to the egg's right, as the reference style does.
+    this.gun.scale.setScalar(scale); this.gun.position.set(0.27, -0.02, -0.2);
     this.arms.add(this.gun);
-    this.gloveR.position.set(0.16, -0.07, -0.14);
-    this.gloveL.position.set(0.1, -0.03, -0.32 * (id === 'peck9mm' ? 0.55 : 1));
+    const u = this.gun.userData, s2 = scale;
+    const g = u.grip ? u.grip.clone().multiplyScalar(s2).add(this.gun.position) : new THREE.Vector3(0.27, -0.07, -0.16);
+    const sp = u.support ? u.support.clone().multiplyScalar(s2).add(this.gun.position) : new THREE.Vector3(0.2, -0.03, -0.34);
+    this.gloveR.position.copy(g); this.gloveL.position.copy(id === 'peck9mm' ? g.clone().add(new THREE.Vector3(-0.05, 0, 0)) : sp);
   }
   setHp(hp) {
     const st = crackStage(hp);

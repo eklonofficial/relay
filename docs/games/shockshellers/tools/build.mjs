@@ -28,6 +28,7 @@ const replacements = {
     api.onResolve({ filter: /\.js\?v=/ }, args => ({ path: resolve(args.resolveDir, args.path.split('?')[0]) }));
     api.onLoad({ filter: /[\\/]page\.js$/ }, () => ({ contents: `import {mount} from './surface.js';mount(${JSON.stringify(markup)},${JSON.stringify(css)});`, loader: 'js' }));
     // The sound bank: each recorded effect becomes a data: URL inside the bundle.
+    api.onLoad({ filter: /[\\/]models\.js$/ }, args => ({ loader: 'js', contents: readFileSync(args.path, 'utf8').replace(/new URL\('\.\.\/\.\.\/(assets\/models\/[\w]+\.glb)', import\.meta\.url\)\.href/g, (_, file) => JSON.stringify(binary(file, 'model/gltf-binary'))) }));
     api.onLoad({ filter: /[\\/]soundbank\.js$/ }, args => ({ loader: 'js', contents: readFileSync(args.path, 'utf8').replace(/new URL\('\.\.\/\.\.\/(assets\/sounds\/[\w]+\.mp3)', import\.meta\.url\)\.href/g, (_, file) => JSON.stringify(binary(file, 'audio/mpeg'))) }));
     api.onLoad({ filter: /[\\/](?:main|net)\.js$/ }, args => {
       let source = readFileSync(args.path, 'utf8');
