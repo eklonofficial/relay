@@ -95,6 +95,20 @@ try {
   await click('btn-play');
   await page.waitForFunction(() => !window.testRoot.getElementById('respawn').classList.contains('hidden') && window.testRoot.querySelectorAll('#board-list .lb').length >= 6, null, { polling: 100 });
   await page.screenshot({ path: resolve(captures, 'respawn.png') });
+  // Quit through the canvas-rendered confirm dialog, then run the input checks in a custom match
+  // with no bots, so nothing can crack the test egg mid-check.
+  await click('btn-quit');
+  await page.waitForFunction(() => [...window.testRoot.querySelectorAll('.screen button')].some(b => b.textContent === 'OK'));
+  await page.evaluate(() => { [...window.testRoot.querySelectorAll('.screen button')].find(b => b.textContent === 'OK').id = 'test-ok'; });
+  await click('test-ok');
+  await page.waitForFunction(() => !window.testRoot.getElementById('home').classList.contains('hidden'));
+  await click('btn-friends'); await click('btn-create');
+  await page.waitForFunction(() => !window.testRoot.getElementById('custom').classList.contains('hidden'));
+  await page.evaluate(() => { [...window.testRoot.querySelectorAll('#cu-bots button')].find(b => b.textContent === 'None').id = 'test-nobots'; });
+  await click('test-nobots');
+  await page.screenshot({ path: resolve(captures, 'custom.png') });
+  await click('cu-start');
+  await page.waitForFunction(() => !window.testRoot.getElementById('respawn').classList.contains('hidden') && window.testRoot.querySelectorAll('#board-list .lb').length === 1, null, { polling: 100 });
   await page.waitForFunction(() => window.testRoot.getElementById('rs-play').textContent.includes('PLAY'), null, { polling: 100 });
   await click('rs-play');
   await page.waitForFunction(() => document.pointerLockElement?.tagName === 'CANVAS' && window.testRoot.getElementById('respawn').classList.contains('hidden'), null, { polling: 100 });

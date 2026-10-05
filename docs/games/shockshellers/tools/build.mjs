@@ -27,6 +27,8 @@ const replacements = {
   setup(api) {
     api.onResolve({ filter: /\.js\?v=/ }, args => ({ path: resolve(args.resolveDir, args.path.split('?')[0]) }));
     api.onLoad({ filter: /[\\/]page\.js$/ }, () => ({ contents: `import {mount} from './surface.js';mount(${JSON.stringify(markup)},${JSON.stringify(css)});`, loader: 'js' }));
+    // The sound bank: each recorded effect becomes a data: URL inside the bundle.
+    api.onLoad({ filter: /[\\/]soundbank\.js$/ }, args => ({ loader: 'js', contents: readFileSync(args.path, 'utf8').replace(/new URL\('\.\.\/\.\.\/(assets\/sounds\/[\w]+\.mp3)', import\.meta\.url\)\.href/g, (_, file) => JSON.stringify(binary(file, 'audio/mpeg'))) }));
     api.onLoad({ filter: /[\\/](?:main|net)\.js$/ }, args => {
       let source = readFileSync(args.path, 'utf8');
       if (args.path.endsWith(join('net', 'net.js'))) {
@@ -54,7 +56,7 @@ const hash = `'sha256-${createHash('sha256').update(boot).digest('base64')}'`;
 const csp = `default-src 'none'; script-src blob: ${hash}; script-src-attr 'none'; style-src 'unsafe-inline'; img-src data: blob:; font-src data: blob:; media-src data: blob:; connect-src 'self' data: https: wss: http: ws:; worker-src blob:; frame-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'`;
 writeFileSync(join(out, 'index.html'), `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="${csp}"><meta name="referrer" content="no-referrer"><meta name="viewport" content="width=device-width,initial-scale=1">${identity}<style>html,body{margin:0;height:100%;background:#000;overflow:hidden}canvas{width:100%;height:100%;display:block}</style></head><body><canvas></canvas><script type="module">${boot}</script></body></html>`);
 // The shared calculator (../calc.html) and vercel.json are packed by docs/games/tools/build.mjs.
-writeFileSync(join(out, 'third-party-notices.txt'), ['fonts/LICENSE-sigmar-one.txt', 'fonts/LICENSE-nunito.txt', 'vendor/LICENSE-peerjs.txt', 'vendor/three/LICENSE-three.txt'].map(n => `${n}\n${read(n)}`).join('\n\n'));
+writeFileSync(join(out, 'third-party-notices.txt'), ['fonts/LICENSE-sigmar-one.txt', 'fonts/LICENSE-nunito.txt', 'vendor/LICENSE-peerjs.txt', 'vendor/three/LICENSE-three.txt', 'assets/sounds/LICENSE-sounds.txt'].map(n => `${n}\n${read(n)}`).join('\n\n'));
 // Remove only our known temporary entry file, never a computed output tree.
 unlinkSync(entry);
 console.log(`built ${out}: ${payload.length} bytes, one packed resource`);

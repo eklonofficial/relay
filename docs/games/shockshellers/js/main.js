@@ -1,27 +1,28 @@
 // Shock Shellers: boot, menus, the match flow (home → respawn screen → play → death → respawn) and
 // the frame loop. The simulation runs at a fixed 30 Hz inside the session; rendering interpolates.
-import './page.js?v=muv65sre';
-import { surfaceDocument as document } from './surface.js?v=muv65sre';
-import { registerApp } from './veil.js?v=muv65sre';
-import { tell } from './dialog.js?v=muv65sre';
-import { splash } from './splash.js?v=muv65sre';
-import * as THREE from '../vendor/three/three.module.js?v=muv65sre';
-import { Renderer } from './render/renderer.js?v=muv65sre';
-import { EggAvatar, SHELL_COLORS, TEAM_COLORS } from './render/egg.js?v=muv65sre';
-import { gunModel } from './render/guns.js?v=muv65sre';
-import { Input } from './game/input.js?v=muv65sre';
-import { Sound } from './game/audio.js?v=muv65sre';
-import { Hud } from './game/hud.js?v=muv65sre';
-import { loadSettings, saveSettings, loadProfile, saveProfile } from './game/store.js?v=muv65sre';
-import { ensureDaily, progress as challengeProgress, claim as claimChallenges } from './game/challenges.js?v=muv65sre';
-import { HostSession } from './game/session.js?v=muv65sre';
-import { GuestSession } from './net/guest.js?v=muv65sre';
-import { pickPublicMap, mapDef, MAPS } from './maps/index.js?v=muv65sre';
-import { WEAPONS, PRIMARIES, PLAYER, MODE_NAMES, MODE_MENU, ECONOMY, CTRL, TICK } from './sim/tuning.js?v=muv65sre';
-import { weaponOf, slotOf } from './sim/combat.js?v=muv65sre';
-import { drawLogo, drawHowTo } from './ui/art.js?v=muv65sre';
-import { HIT } from './maps/grid.js?v=muv65sre';
-import { Menus } from './ui/menus.js?v=muv65sre';
+import './page.js?v=muv6d2vx';
+import { surfaceDocument as document } from './surface.js?v=muv6d2vx';
+import { registerApp } from './veil.js?v=muv6d2vx';
+import { tell } from './dialog.js?v=muv6d2vx';
+import { splash } from './splash.js?v=muv6d2vx';
+import * as THREE from '../vendor/three/three.module.js?v=muv6d2vx';
+import { Renderer } from './render/renderer.js?v=muv6d2vx';
+import { EggAvatar, SHELL_COLORS, TEAM_COLORS } from './render/egg.js?v=muv6d2vx';
+import { gunModel } from './render/guns.js?v=muv6d2vx';
+import { Input } from './game/input.js?v=muv6d2vx';
+import { SOUND_FILES } from './game/soundbank.js?v=muv6d2vx';
+import { Sound, registerSamples } from './game/audio.js?v=muv6d2vx';
+import { Hud } from './game/hud.js?v=muv6d2vx';
+import { loadSettings, saveSettings, loadProfile, saveProfile } from './game/store.js?v=muv6d2vx';
+import { ensureDaily, progress as challengeProgress, claim as claimChallenges } from './game/challenges.js?v=muv6d2vx';
+import { HostSession } from './game/session.js?v=muv6d2vx';
+import { GuestSession } from './net/guest.js?v=muv6d2vx';
+import { pickPublicMap, mapDef, MAPS } from './maps/index.js?v=muv6d2vx';
+import { WEAPONS, PRIMARIES, PLAYER, MODE_NAMES, MODE_MENU, ECONOMY, CTRL, TICK } from './sim/tuning.js?v=muv6d2vx';
+import { weaponOf, slotOf } from './sim/combat.js?v=muv6d2vx';
+import { drawLogo, drawHowTo } from './ui/art.js?v=muv6d2vx';
+import { HIT } from './maps/grid.js?v=muv6d2vx';
+import { Menus } from './ui/menus.js?v=muv6d2vx';
 
 const $ = id => document.getElementById(id);
 const show = (id, on = true) => { $(id).classList.toggle('hidden', !on); if (id === 'respawn') $('hud').classList.toggle('menu', on); };
@@ -37,6 +38,7 @@ class App {
     this.renderer.baseFov = this.settings.fov;
     this.input = new Input(this.canvas, this.settings);
     this.keys = this.input.keys; // veil.js clears these on quick-hide
+    registerSamples(SOUND_FILES);
     this.sound = new Sound(this.settings);
     this.hud = new Hud(this.settings);
     this.menus = new Menus(this);
@@ -221,7 +223,8 @@ class App {
           break;
         }
         case 'spawn': if (mine) this.input.yaw = me.body.yaw; break;
-        case 'reload': snd.play(e.long ? 'reloadLong' : 'reload', mine ? null : pos(e.id), 0.8); break;
+        case 'reload': snd.play('reload', mine ? null : pos(e.id), 0.8); break;
+        case 'reloaded': snd.play(e.long ? 'reloadedLong' : 'reloaded', mine ? null : pos(e.id), 0.8); break;
         case 'dry': if (mine) snd.play('dry'); break;
         case 'swap': if (mine) snd.play('swap'); break;
         case 'swing': snd.play('melee', mine ? null : pos(e.id)); break;
@@ -229,7 +232,7 @@ class App {
         case 'bounce': snd.play('bounce', [e.x, e.y, e.z], 0.6); break;
         case 'rocket': snd.play('yolkzooka', mine ? null : [e.x, e.y, e.z]); break;
         case 'boom': {
-          fx.explosion(e.x, e.y, e.z, e.r, e.w, e.team); snd.play('explode', [e.x, e.y, e.z], 1.2);
+          fx.explosion(e.x, e.y, e.z, e.r, e.w, e.team); snd.play('explode', [e.x, e.y, e.z], 1.2); if (e.w === 'grenade') snd.play('squawk', [e.x, e.y + 0.3, e.z], 0.8);
           const d = Math.hypot(e.x - me.body.x, e.y - me.body.y, e.z - me.body.z);
           if (this.settings.shake && d < e.r * 1.5 * 3) this.shake = Math.min(1.5, this.shake + (1 - d / (e.r * 4.5)) * 1.2);
           break;
@@ -328,6 +331,16 @@ class App {
       a.pose(P[0], P[1], P[2], p.body.yaw, p.body.pitch, { scale: p.power.quailEgg > 0 ? 0.5 : 1, shield: p.shield > 0 || p.spawnShield > 0, breaker: p.power.shellBreaker > 0, bob: this.t * 10 * Math.min(1, Math.hypot(p.body.vx, p.body.vz) * 25) });
     }
     for (const id of [...R.avatars.keys()]) if (!m.players.has(id)) R.dropAvatar(id);
+    // Footsteps: one per stride of ground travel, for everyone (they give positions away, as they should).
+    for (const p of m.players.values()) {
+      if (!p.alive || p.body.onGround <= 0 || p.body.climbing) continue;
+      const v = Math.hypot(p.body.vx, p.body.vz);
+      if (v < 0.02) continue;
+      this.strides ??= new Map();
+      const d = (this.strides.get(p.id) || 0) + v * 30 * dt;
+      if (d > 1.15) { this.strides.set(p.id, 0); this.sound.play('step', p.id === s.myId ? null : [p.body.x, p.body.y, p.body.z], p.id === s.myId ? 0.35 : 0.6); }
+      else this.strides.set(p.id, d);
+    }
     // Pickups, rockets, grenades, spatula, roost.
     m.items.forEach((it, i) => R.setItem(i, it.active, this.t));
     for (const r of m.rockets) { R.fx.rocket(r.id, r.x, r.y, r.z, r.dx, r.dy, r.dz); this.sound.loop('r' + r.id, 'rocket', [r.x, r.y, r.z]); }

@@ -16,7 +16,12 @@ export class Sound {
     const n = c.sampleRate * 2, buf = c.createBuffer(1, n, c.sampleRate), d = buf.getChannelData(0);
     for (let i = 0; i < n; i++) d[i] = Math.random() * 2 - 1;
     this.noise = buf;
-    for (const [name, url] of Object.entries(SAMPLE_URLS)) this.load(name, url);
+    this.variants = new Map();
+    for (const [name, url] of Object.entries(SAMPLE_URLS)) {
+      this.load(name, url);
+      const base = name.replace(/\d+$/, '');
+      if (base !== name) { if (!this.variants.has(base)) this.variants.set(base, []); this.variants.get(base).push(name); }
+    }
   }
   setVolume(v) { if (this.master) this.master.gain.value = (v / 100) ** 1.5 * 0.9; }
   async load(name, url) {
@@ -42,9 +47,15 @@ export class Sound {
     if (!this.ctx || this.ctx.state !== 'running') return;
     if (pos && Math.hypot(pos[0] - this.lx, pos[1] - this.ly, pos[2] - this.lz) > 90) return;
     const out = this.out(pos, gain);
-    const b = this.buffers.get(name) || this.buffers.get(name.replace(/\d+$/, ''));
+    const b = this.pick(name);
     if (b) { const s = this.ctx.createBufferSource(); s.buffer = b; s.playbackRate.value = rate * (0.96 + Math.random() * 0.08); s.connect(out); s.start(); return; }
     (SYNTH[name] || SYNTH.pop)(this, out, rate);
+  }
+  // A recorded sample for this name, choosing among numbered variants (crack0, crack1…) when there are some.
+  pick(name) {
+    const b = this.buffers.get(name); if (b) return b;
+    const v = this.variants?.get(name); if (v?.length) return this.buffers.get(v[Math.floor(Math.random() * v.length)]);
+    return null;
   }
   // Looping sound attached to an id (grenade clucks, rocket hiss): call every frame to keep it alive
   // and move it; loops not refreshed are stopped by sweepLoops().
@@ -127,7 +138,14 @@ const SYNTH = {
 const SYNTH_LOOP = {
   cluck(s, out) {
     let on = true;
-    const tick = () => { if (!on || !s.ctx) return; tone(s, out, { f: 650 + Math.random() * 200, f2: 400, dur: 0.07, type: 'sawtooth', peak: 0.15 }); setTimeout(tick, 220 + Math.random() * 140); };
+    // A live grenade clucks: recorded syllables at a nervous, irregular pace.
+    const tick = () => {
+      if (!on || !s.ctx) return;
+      const b = s.pick('cluck');
+      if (b) { const src = s.ctx.createBufferSource(); src.buffer = b; src.playbackRate.value = 1.05 + Math.random() * 0.25; const g = s.ctx.createGain(); g.gain.value = 0.55; src.connect(g); g.connect(out); src.start(); }
+      else tone(s, out, { f: 650 + Math.random() * 200, f2: 400, dur: 0.07, type: 'sawtooth', peak: 0.15 });
+      setTimeout(tick, 200 + Math.random() * 160);
+    };
     tick(); return () => { on = false; };
   },
   rocket(s, out) {

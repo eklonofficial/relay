@@ -1,0 +1,8 @@
+Shock Shellers sound effects are built from:
+
+- The Free Firearm Sound Library (Free Firearm SFX team): CC0 1.0 Universal, public domain dedication.
+  https://opengameart.org/content/the-free-firearm-sound-library
+- Kenney Impact Sounds, Interface Sounds and RPG Audio (www.kenney.nl): CC0 1.0 Universal.
+- "Chicken Sound Effect" by IMadeIt, https://opengameart.org/content/chicken-sound-effect
+  Licensed under Creative Commons Attribution 3.0 (https://creativecommons.org/licenses/by/3.0/).
+  Changes: cut into individual syllables, re-levelled, pitched.

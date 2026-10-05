@@ -5,8 +5,8 @@
 // Countdown units, exactly as the GDD lists them:
 //   rof, burst gaps, scope delay, swap, melee           ticks       (−1 per tick)
 //   recoil, reload, grenade throw/cancel lock, shield   1/60 s      (−2 per tick)
-import { WEAPONS, PRIMARIES, SECONDARY, MELEE, GRENADE, PLAYER, CTRL } from './tuning.js?v=muv65sre';
-import { forward } from './movement.js?v=muv65sre';
+import { WEAPONS, PRIMARIES, SECONDARY, MELEE, GRENADE, PLAYER, CTRL } from './tuning.js?v=muv6d2vx';
+import { forward } from './movement.js?v=muv6d2vx';
 
 // Per-player LCG (GDD §8.3): seed = (seed·9301 + 49297) mod 233280.
 export const lcg = s => (s * 9301 + 49297) % 233280;
@@ -153,6 +153,7 @@ function startReload(h, ev) {
   const s = slotOf(h), w = WEAPONS[s.id];
   h.reloadRounds = Math.min(w.mag - s.mag, s.store);
   h.reload = s.mag === 0 ? w.reload[1] : w.reload[0];
+  h.reloadWasLong = s.mag === 0 && w.reload[0] !== w.reload[1];
   h.scopeBlocked = true; h.ads = false; ev.reloadStart = true;
 }
 
