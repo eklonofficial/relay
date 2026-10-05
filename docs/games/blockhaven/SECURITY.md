@@ -20,9 +20,9 @@ Preventing the privileged vectors requires control outside this website: a trust
 ## Production build
 
 GitHub Pages must use **GitHub Actions**, not the legacy `main /docs` source.
-The Blockhaven workflow tests the packed application, stages the rest of `docs/`
-without `docs/games/blockhaven/`, and puts only `build/site/` at the existing
-`games/blockhaven/` URL. It then renders documentation and deploys that artifact.
+The Blockhaven workflow tests the packed applications, stages the rest of `docs/`
+without the calculator games' readable folders, and puts only the packed site
+`build/games/` (the shared calculator plus each game) at the existing `games/` URLs. It then renders documentation and deploys that artifact.
 Serving `/docs` directly exposes the readable HTML, modules and individual assets
 before the compositor can hide anything. A production check should find a small
 canvas shell plus content-addressed resources, and a 404 for `js/main.js`.
@@ -30,9 +30,9 @@ This deployment correction still cannot prevent privileged inspection or screen
 monitoring. GoGuardian Teacher, for example, documents live screen viewing;
 canvas pixels remain visible to that capability.
 
-From the repository root, run `npm ci` and `npm run build`. **Deploy only `build/site/`** as the application's root, on the same origin/path as the previous version to retain saves. `npm run build -- --out <directory>` chooses another output location. Do not publish the readable development tree, tests, source maps, debug pages or individual asset directories. Browser storage keys and world/Java/resource-pack upload/download formats are retained.
+From the repository root, run `npm ci` and `npm run build:site`. **Deploy only `build/games/`** as the site root (the shared calculator at `calc.html`, Blockhaven at `blockhaven/`), on the same origin as the previous version to retain saves. `npm run build -- --out <directory>` builds Blockhaven alone into another location. Do not publish the readable development tree, tests, source maps, debug pages or individual asset directories. Browser storage keys and world/Java/resource-pack upload/download formats are retained.
 
-The output has neutral HTML shells and content-addressed `.bin` resources. The engine, workers, PeerJS library, default resource pack and fonts are bundled, minified where appropriate and gzip-compressed. The browser decodes the resource and runs local blob modules/workers. Routine engine, texture, model, font and sound requests no longer have separate URLs. The companion calculator uses the same packed canvas compositor and keeps its established URL and quick-hide/resume contract. Licenses are included in `third-party-notices.txt`.
+The output has neutral HTML shells and content-addressed `.bin` resources. The engine, workers, PeerJS library, default resource pack and fonts are bundled, minified where appropriate and gzip-compressed. The browser decodes the resource and runs local blob modules/workers. Routine engine, texture, model, font and sound requests no longer have separate URLs. The shared calculator (`docs/games/calc.html`, one page for every calculator game) uses the same packed canvas compositor and keeps the quick-hide/resume contract; Blockhaven's quick-hide embeds it from `../calc.html`. Licenses are included in `third-party-notices.txt`.
 
 The bootstrap verifies the full SHA-256 digest of each packed resource before decoding or executing it. This rejects altered resources when the bootstrap itself is trusted; it cannot authenticate a bootstrap replaced by an active intermediary.
 

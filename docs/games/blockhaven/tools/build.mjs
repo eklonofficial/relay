@@ -9,11 +9,12 @@ import { createHash } from 'node:crypto';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const dependencyDir = process.argv.includes('--dependencies') ? resolve(process.argv[process.argv.indexOf('--dependencies') + 1]) : resolve(root, '../../..');
 const { build } = createRequire(join(dependencyDir, 'package.json'))('esbuild');
-const out = process.argv.includes('--out') ? resolve(process.argv[process.argv.indexOf('--out') + 1]) : resolve(root, '../../../build/site');
+const out = process.argv.includes('--out') ? resolve(process.argv[process.argv.indexOf('--out') + 1]) : resolve(root, '../../../build/games/blockhaven');
 mkdirSync(out, { recursive: true });
 const read = name => readFileSync(join(root, name), 'utf8');
 const page = read('index.html');
-const identity = read('calc.html').match(/<title>[^<]*<\/title>\s*<link rel="icon" href="[^"]*">/)[0];
+// The tab identity is the shared calculator's (docs/games/calc.html), from the first byte.
+const identity = read('../calc.html').match(/<title>[^<]*<\/title>\s*<link rel="icon" href="[^"]*">/)[0];
 let css = page.match(/<style>([\s\S]*?)<\/style>/)[1].replace(/\/\*[\s\S]*?\*\//g, '');
 css = css.replace(/Minecraft/g, 'p').replace(/Pixelify Sans/g, 'q').replace(/url\((fonts\/[^)?]+)(?:\?[^)]*)?\)/g, (_, name) => `url(data:font/woff2;base64,${readFileSync(join(root, name)).toString('base64')})`);
 const markup = page.match(/<body>([\s\S]*?)<\/body>/)[1].replace(/<script\b[^>]*>[\s\S]*?<\/script>/g, '').replace(/<!--[\s\S]*?-->/g, '');
@@ -56,24 +57,7 @@ const boot = `try{const r=await fetch('./${name}',{credentials:'omit',referrerPo
 const hash = `'sha256-${createHash('sha256').update(boot).digest('base64')}'`;
 const csp = `default-src 'none'; script-src blob: ${hash}; script-src-attr 'none'; style-src 'unsafe-inline'; img-src data: blob:; font-src data: blob:; media-src data: blob:; connect-src 'self' data: https: wss: http: ws:; worker-src blob:; frame-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'`;
 writeFileSync(join(out, 'index.html'), `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="${csp}"><meta name="referrer" content="no-referrer"><meta name="viewport" content="width=device-width,initial-scale=1">${identity}<style>html,body{margin:0;height:100%;background:#000;overflow:hidden}canvas{width:100%;height:100%;display:block}</style></head><body><canvas></canvas><script type="module">${boot}</script></body></html>`);
-// Pack the companion page with the same compositor. Preserve its native math,
-// graph input, history, sliders and the established navigation/message contract.
-const calculator = read('calc.html');
-const calcStyle = calculator.match(/<style>([\s\S]*?)<\/style>/)[1];
-const calcMarkup = calculator.match(/<body>([\s\S]*?)<\/body>/)[1].replace(/<script\b[^>]*>[\s\S]*?<\/script>/g, '');
-const calcCode = calculator.match(/<script>([\s\S]*?)<\/script>/)[1];
-writeFileSync(entry, `import {mount,surfaceDocument as document} from ${JSON.stringify(join(root, 'js/surface.js').replace(/\\/g, '/'))};mount(${JSON.stringify(calcMarkup)},${JSON.stringify(calcStyle)});\n(()=>{${calcCode}\n})();`);
-const calcBundle = (await build({ entryPoints: [entry], bundle: true, minify: true, format: 'esm', target: 'es2022', write: false, legalComments: 'none' })).outputFiles[0].text;
-const calcPayload = gzipSync(Buffer.from(calcBundle), { level: 9 });
-const calcDigest = createHash('sha256').update(calcPayload).digest('hex');
-const calcName = calcDigest.slice(0, 24) + '.bin';
-writeFileSync(join(out, calcName), calcPayload);
-const calcBoot = boot.replace(name, calcName).replace(digest, calcDigest);
-const calcHash = `'sha256-${createHash('sha256').update(calcBoot).digest('base64')}'`;
-writeFileSync(join(out, 'calc.html'), readFileSync(join(out, 'index.html'), 'utf8').replace(hash, calcHash).replace(boot, calcBoot));
-const config = JSON.parse(read('vercel.json'));
-config.routes[0].headers['Content-Security-Policy'] = csp.replace(`script-src blob: ${hash}`, `script-src blob: ${hash} ${calcHash}`);
-writeFileSync(join(out, 'vercel.json'), JSON.stringify(config, null, 2) + '\n');
+// The shared calculator (../calc.html) and vercel.json are packed by docs/games/tools/build.mjs.
 writeFileSync(join(out, 'third-party-notices.txt'), ['fonts/LICENSE-minecraft-font.txt', 'fonts/LICENSE-pixelify-sans.txt', 'vendor/LICENSE-peerjs.txt'].map(n => `${n}\n${read(n)}`).join('\n\n'));
 // Remove only our known temporary entry file, never a computed output tree.
 unlinkSync(entry);

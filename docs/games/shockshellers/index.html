@@ -1,0 +1,321 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' ; script-src-attr 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; media-src 'self' data: blob:; connect-src 'self' https: wss: http: ws:; worker-src 'self' blob:; frame-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta name="referrer" content="no-referrer">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Graphing Calculator</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%232f72dc'/%3E%3Cpath d='M5 25 C11 25 12 7 16 7 S21 25 27 25' fill='none' stroke='white' stroke-width='2.6' stroke-linecap='round'/%3E%3C/svg%3E">
+<style>
+  /* Fonts (OFL, fonts/LICENSE-*.txt). Families use short opaque names: "s" Sigmar One (display), "n" Nunito. */
+  @font-face { font-family: "s"; font-style: normal; font-weight: 400; font-display: block; src: url(fonts/sigmar-one-latin.woff2?v=STAMP) format("woff2"); }
+  @font-face { font-family: "n"; font-style: normal; font-weight: 200 1000; font-display: block; src: url(fonts/nunito-latin.woff2?v=STAMP) format("woff2"); }
+  :root {
+    --u: 1px; --sky1: #2290b5; --sky2: #a6dcef; --ink: #0e3440; --ink2: #174e5e; --panel1: #2a8fa8; --panel2: #8fd3e8;
+    --orange: #f39a25; --green: #2bb94f; --red: #e2463a; --blue: #2f86e8; --yellow: #ffd23f; --white: #fff;
+    --r: calc(var(--u) * 12);
+  }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #000; color: #fff; font-family: "n", sans-serif; font-weight: 800; user-select: none; -webkit-user-select: none; }
+  #game { position: fixed; inset: 0; width: 100%; height: 100%; display: block; outline: none; }
+  #boot { position: fixed; inset: 0; background: linear-gradient(#2290b5, #a6dcef); z-index: 50; }
+  #boot-canvas { width: 100%; height: 100%; display: block; }
+  .hidden { display: none !important; }
+  .screen { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; z-index: 10; }
+  .h { font-family: "s", sans-serif; font-weight: 400; color: #fff; text-shadow: 0 calc(var(--u)*3) 0 var(--ink), calc(var(--u)*2) calc(var(--u)*3) 0 var(--ink), calc(var(--u)*-2) calc(var(--u)*3) 0 var(--ink); letter-spacing: calc(var(--u) * 0.5); }
+  button { font-family: "s", sans-serif; font-weight: 400; color: #fff; cursor: pointer; border: calc(var(--u)*3) solid var(--ink); border-radius: var(--r); background: var(--panel1);
+    padding: calc(var(--u)*8) calc(var(--u)*18); font-size: calc(var(--u)*20); box-shadow: 0 calc(var(--u)*4) 0 var(--ink); text-shadow: 0 calc(var(--u)*2) 0 rgba(0,0,0,.35); outline: none; }
+  button:hover { filter: brightness(1.1); }
+  button:focus-visible { outline: calc(var(--u)*3) solid var(--yellow); }
+  button:active { transform: translateY(calc(var(--u)*3)); box-shadow: 0 calc(var(--u)*1) 0 var(--ink); }
+  button.green { background: linear-gradient(#4fd86c, #22a043); }
+  button.blue { background: linear-gradient(#55a8ff, #2a73d6); }
+  button.red { background: linear-gradient(#ff6a5c, #c8352a); }
+  button.orange { background: linear-gradient(#ffb74a, #e88812); }
+  button.small { padding: calc(var(--u)*4) calc(var(--u)*10); font-size: calc(var(--u)*15); }
+  button.icon { width: calc(var(--u)*46); height: calc(var(--u)*46); padding: 0; font-size: calc(var(--u)*22); }
+  button:disabled { filter: grayscale(.7) brightness(.85); cursor: default; }
+  .panel { background: linear-gradient(rgba(42,143,168,.92), rgba(143,211,232,.92)); border: calc(var(--u)*4) solid var(--ink); border-radius: calc(var(--u)*16); box-shadow: 0 calc(var(--u)*6) 0 rgba(14,52,64,.6); padding: calc(var(--u)*14); }
+  .panel.dark { background: rgba(14,52,64,.82); }
+  .row { display: flex; gap: calc(var(--u)*10); align-items: center; }
+  .col { display: flex; flex-direction: column; gap: calc(var(--u)*10); }
+  input[type=text] { font-family: "n", sans-serif; font-weight: 900; font-size: calc(var(--u)*20); color: var(--ink); background: #fff; border: calc(var(--u)*3) solid var(--ink); border-radius: calc(var(--u)*10); padding: calc(var(--u)*6) calc(var(--u)*12); outline: none; }
+  input[type=checkbox] { width: calc(var(--u)*22); height: calc(var(--u)*22); accent-color: var(--orange); margin: 0; }
+  .yellow { color: var(--yellow); }
+  .ink { color: var(--ink); }
+
+  /* Loading / How to Play */
+  #loading { justify-content: center; gap: calc(var(--u)*18); background: linear-gradient(var(--sky1), var(--sky2)); z-index: 40; }
+  .logo { width: calc(var(--u)*520); height: calc(var(--u)*170); }
+  .bar { width: calc(var(--u)*420); height: calc(var(--u)*30); border: calc(var(--u)*5) solid #5a3410; border-radius: calc(var(--u)*20); background: #fff; overflow: hidden; }
+  .bar > div { height: 100%; width: 0; background: linear-gradient(#ffc04a, #f08a10); border-radius: calc(var(--u)*14); }
+  #load-status { font-size: calc(var(--u)*22); }
+  #howto { display: flex; gap: calc(var(--u)*24); align-items: center; }
+  #howto canvas { width: calc(var(--u)*520); height: calc(var(--u)*230); }
+  .tips { display: flex; flex-direction: column; gap: calc(var(--u)*10); width: calc(var(--u)*300); font-size: calc(var(--u)*18); color: var(--ink); }
+  .tips div { background: rgba(255,255,255,.85); border: calc(var(--u)*3) solid var(--ink); border-radius: calc(var(--u)*10); padding: calc(var(--u)*8) calc(var(--u)*10); }
+
+  /* Home */
+  #home { pointer-events: none; }
+  #home > * { pointer-events: auto; }
+  #home-top { position: absolute; left: calc(var(--u)*24); top: calc(var(--u)*16); display: flex; flex-direction: column; gap: calc(var(--u)*8); }
+  #home-top .logo { width: calc(var(--u)*330); height: calc(var(--u)*110); }
+  #name { width: calc(var(--u)*260); }
+  .tabs { display: flex; gap: calc(var(--u)*6); }
+  .tabs button { transform: skewX(-10deg); padding: calc(var(--u)*6) calc(var(--u)*20); font-size: calc(var(--u)*18); }
+  .tabs button.on { background: linear-gradient(#ffb74a, #e88812); }
+  #home-right { position: absolute; right: calc(var(--u)*24); top: calc(var(--u)*16); display: flex; gap: calc(var(--u)*8); align-items: center; }
+  .coins { display: flex; align-items: center; gap: calc(var(--u)*6); font-size: calc(var(--u)*24); background: rgba(14,52,64,.75); border: calc(var(--u)*3) solid var(--ink); border-radius: calc(var(--u)*24); padding: calc(var(--u)*2) calc(var(--u)*14) calc(var(--u)*2) calc(var(--u)*4); }
+  .coin { width: calc(var(--u)*28); height: calc(var(--u)*28); border-radius: 50%; background: radial-gradient(circle at 40% 35%, #fff6b0, #ffc531 45%, #d88a00); border: calc(var(--u)*2) solid #7a4c00; }
+  #home-bottom { position: absolute; bottom: calc(var(--u)*22); left: 0; right: 0; display: flex; flex-direction: column; align-items: center; gap: calc(var(--u)*10); }
+  #weapon-name { font-size: calc(var(--u)*34); }
+  #weapon-desc { font-size: calc(var(--u)*17); font-style: italic; color: #fff; text-shadow: 0 calc(var(--u)*2) 0 var(--ink); font-weight: 800; }
+  .weapons { display: flex; gap: calc(var(--u)*8); }
+  .wbtn { width: calc(var(--u)*86); height: calc(var(--u)*62); padding: calc(var(--u)*4); background: var(--panel1); display: flex; align-items: center; justify-content: center; }
+  .wbtn img { width: 100%; height: 100%; object-fit: contain; pointer-events: none; }
+  .wbtn.on { background: linear-gradient(#ffb74a, #e88812); border-color: #fff; }
+  .wbtn.off { filter: grayscale(1) brightness(.6); }
+  .play-row { display: flex; gap: calc(var(--u)*14); align-items: flex-end; }
+  #btn-play { font-size: calc(var(--u)*40); padding: calc(var(--u)*10) calc(var(--u)*46); }
+  .dropup { position: relative; }
+  .dropup .list { position: absolute; bottom: calc(100% + var(--u)*8); left: 0; right: 0; display: flex; flex-direction: column; gap: calc(var(--u)*4); }
+  .dropup .list button { font-size: calc(var(--u)*16); text-align: left; }
+  .dropup .list button.on::after { content: ""; float: right; width: calc(var(--u)*10); height: calc(var(--u)*16); border-right: calc(var(--u)*4) solid #fff; border-bottom: calc(var(--u)*4) solid #fff; transform: rotate(45deg); }
+  #mode-btn { min-width: calc(var(--u)*230); font-size: calc(var(--u)*18); }
+  #news { position: absolute; right: calc(var(--u)*24); top: calc(var(--u)*90); width: calc(var(--u)*260); font-size: calc(var(--u)*15); color: var(--ink); }
+  #news .h { font-size: calc(var(--u)*22); }
+  #news .item { background: rgba(255,255,255,.85); border-radius: calc(var(--u)*8); border: calc(var(--u)*2) solid var(--ink); padding: calc(var(--u)*6) calc(var(--u)*8); margin-top: calc(var(--u)*6); font-weight: 700; }
+  #footer { position: absolute; left: calc(var(--u)*10); bottom: calc(var(--u)*6); font-size: calc(var(--u)*13); opacity: .8; }
+
+  /* Respawn / pause */
+  #respawn { background: rgba(0,0,0,.15); }
+  #rs-left { position: absolute; left: calc(var(--u)*20); top: calc(var(--u)*120); display: flex; flex-direction: column; gap: calc(var(--u)*8); width: calc(var(--u)*190); }
+  #rs-left button { transform: skewX(-10deg); text-align: left; }
+  #rs-center { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); display: flex; gap: calc(var(--u)*16); align-items: stretch; }
+  #challenges { width: calc(var(--u)*380); }
+  .chal { display: flex; gap: calc(var(--u)*8); align-items: center; background: rgba(14,52,64,.55); border-radius: calc(var(--u)*10); padding: calc(var(--u)*6) calc(var(--u)*8); margin-top: calc(var(--u)*6); }
+  .chal .t { font-family: "s", sans-serif; font-weight: 400; font-size: calc(var(--u)*16); }
+  .chal .dsc { font-size: calc(var(--u)*13); color: var(--yellow); }
+  .prog { height: calc(var(--u)*12); border-radius: calc(var(--u)*8); background: rgba(0,0,0,.4); overflow: hidden; margin-top: calc(var(--u)*3); }
+  .prog > div { height: 100%; background: var(--green); width: 0; }
+  #rs-weapons .weapons { flex-wrap: wrap; width: calc(var(--u)*290); }
+  #rs-weapons .wbtn { width: calc(var(--u)*86); height: calc(var(--u)*56); }
+  #rs-play { position: absolute; left: 50%; bottom: calc(var(--u)*60); transform: translateX(-50%); font-size: calc(var(--u)*34); min-width: calc(var(--u)*280); }
+  #rs-top { position: absolute; right: calc(var(--u)*20); top: calc(var(--u)*16); display: flex; flex-direction: column; align-items: flex-end; gap: calc(var(--u)*8); }
+  #rs-info { font-size: calc(var(--u)*15); text-align: right; min-width: calc(var(--u)*170); }
+  #rs-info .k { color: var(--yellow); }
+  #room-code { font-family: "s", sans-serif; font-weight: 400; font-size: calc(var(--u)*22); letter-spacing: calc(var(--u)*3); }
+
+  /* HUD */
+  #hud { pointer-events: none; z-index: 5; }
+  #hud-canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+  #board { position: absolute; left: calc(var(--u)*8); top: calc(var(--u)*8); display: flex; gap: calc(var(--u)*14); align-items: flex-start; }
+  #board-list { display: flex; flex-direction: column; gap: calc(var(--u)*2); width: calc(var(--u)*210); }
+  .lb { display: flex; justify-content: space-between; font-size: calc(var(--u)*15); padding: calc(var(--u)*1) calc(var(--u)*8); background: rgba(0,0,0,.28); border-radius: calc(var(--u)*3); color: rgba(255,255,255,.85); }
+  .lb.me { background: rgba(243,154,37,.92); color: #fff; }
+  .lb.t1 { color: #9fd0ff; } .lb.t2 { color: #ffb0a8; }
+  .lb.me.t1, .lb.me.t2 { color: #fff; }
+  .lb-head { font-family: "s", sans-serif; font-weight: 400; font-size: calc(var(--u)*14); padding: 0 calc(var(--u)*6); }
+  #streak { display: flex; align-items: center; gap: calc(var(--u)*4); }
+  #streak .n { font-family: "s", sans-serif; font-weight: 400; color: var(--yellow); font-size: calc(var(--u)*36); text-shadow: 0 calc(var(--u)*3) 0 var(--ink); }
+  #streak .l { font-family: "s", sans-serif; font-weight: 400; font-size: calc(var(--u)*13); line-height: 1; text-shadow: 0 calc(var(--u)*2) 0 var(--ink); }
+  #perf { position: absolute; right: calc(var(--u)*8); top: calc(var(--u)*44); width: calc(var(--u)*82); text-align: center; background: rgba(14,52,64,.75); border: calc(var(--u)*3) solid #174e5e; border-radius: calc(var(--u)*10); padding: calc(var(--u)*4); font-size: calc(var(--u)*13); }
+  #perf .h { font-size: calc(var(--u)*14); color: var(--yellow); text-shadow: none; }
+  #hud-coins { position: absolute; right: calc(var(--u)*8); top: calc(var(--u)*6); }
+  #feed { position: absolute; right: calc(var(--u)*100); top: calc(var(--u)*44); display: flex; flex-direction: column; align-items: flex-end; gap: calc(var(--u)*3); font-size: calc(var(--u)*15); }
+  #feed > div { background: rgba(0,0,0,.35); border-radius: calc(var(--u)*4); padding: calc(var(--u)*2) calc(var(--u)*8); display: flex; gap: calc(var(--u)*6); align-items: center; }
+  #feed img { height: calc(var(--u)*16); }
+  #ammo { position: absolute; right: calc(var(--u)*20); bottom: calc(var(--u)*10); text-align: right; }
+  #ammo .n { font-family: "n", sans-serif; font-weight: 900; font-size: calc(var(--u)*54); text-shadow: 0 calc(var(--u)*3) 0 rgba(0,0,0,.45); }
+  #ammo .n.empty { color: #ff5545; }
+  #nades { display: flex; gap: calc(var(--u)*6); justify-content: flex-end; }
+  .nade { width: calc(var(--u)*22); height: calc(var(--u)*28); border-radius: 45% 45% 40% 40%; background: #fff; border: calc(var(--u)*2) solid rgba(0,0,0,.4); }
+  .nade.off { background: rgba(30,60,70,.75); }
+  #chat { position: absolute; left: calc(var(--u)*8); bottom: calc(var(--u)*10); width: calc(var(--u)*420); display: flex; flex-direction: column; gap: calc(var(--u)*2); font-size: calc(var(--u)*16); text-shadow: 0 calc(var(--u)*1) calc(var(--u)*2) #000; }
+  #chat-input { pointer-events: auto; width: calc(var(--u)*380); font-size: calc(var(--u)*16); }
+  #objective { position: absolute; left: 50%; top: calc(var(--u)*8); transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: calc(var(--u)*4); }
+  #obj-bar { width: calc(var(--u)*360); height: calc(var(--u)*22); border: calc(var(--u)*3) solid var(--ink); border-radius: calc(var(--u)*12); background: rgba(0,0,0,.45); overflow: hidden; }
+  #obj-bar > div { height: 100%; width: 0; background: var(--blue); }
+  #obj-text { font-family: "s", sans-serif; font-weight: 400; font-size: calc(var(--u)*18); text-shadow: 0 calc(var(--u)*2) 0 var(--ink); }
+  .scores { display: flex; gap: calc(var(--u)*12); font-family: "s", sans-serif; font-weight: 400; font-size: calc(var(--u)*24); }
+  .scores .b { color: #6fb6ff; } .scores .r { color: #ff7a6e; }
+  #banner { position: absolute; left: 50%; top: 22%; transform: translateX(-50%); font-size: calc(var(--u)*40); white-space: nowrap; }
+  #toast { position: absolute; left: 50%; top: calc(var(--u)*70); transform: translateX(-50%); font-size: calc(var(--u)*18); background: rgba(14,52,64,.85); border: calc(var(--u)*3) solid var(--ink); border-radius: calc(var(--u)*12); padding: calc(var(--u)*6) calc(var(--u)*14); }
+  #scope { position: absolute; inset: 0; }
+
+  /* Modals */
+  .modal { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,.45); z-index: 30; }
+  .modal .panel { min-width: calc(var(--u)*560); max-width: 90vw; max-height: 90vh; overflow: auto; position: relative; }
+  .modal .close { position: absolute; right: calc(var(--u)*10); top: calc(var(--u)*10); }
+  .modal .h.title { font-size: calc(var(--u)*30); text-align: center; margin-bottom: calc(var(--u)*10); }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: calc(var(--u)*8) calc(var(--u)*24); }
+  .opt { display: flex; justify-content: space-between; align-items: center; gap: calc(var(--u)*10); font-size: calc(var(--u)*17); color: #fff; text-shadow: 0 calc(var(--u)*2) 0 var(--ink); }
+  .key { min-width: calc(var(--u)*100); font-family: "n", sans-serif; font-weight: 900; font-size: calc(var(--u)*15); background: #fff; color: var(--ink); box-shadow: none; padding: calc(var(--u)*4) calc(var(--u)*8); text-shadow: none; }
+  .key.wait { background: var(--yellow); }
+  .slider { position: relative; width: calc(var(--u)*220); height: calc(var(--u)*26); }
+  .slider .track { position: absolute; left: 0; right: 0; top: calc(var(--u)*9); height: calc(var(--u)*8); border-radius: calc(var(--u)*6); background: rgba(14,52,64,.7); }
+  .slider .fill { position: absolute; left: 0; top: calc(var(--u)*9); height: calc(var(--u)*8); border-radius: calc(var(--u)*6); background: var(--orange); }
+  .slider .knob { position: absolute; top: calc(var(--u)*1); width: calc(var(--u)*24); height: calc(var(--u)*24); margin-left: calc(var(--u)*-12); border-radius: 50%; background: #fff; border: calc(var(--u)*3) solid var(--ink); }
+  .slider .val { position: absolute; right: calc(var(--u)*-48); top: 0; font-size: calc(var(--u)*16); }
+  .tabbar { display: flex; gap: calc(var(--u)*8); justify-content: center; margin-bottom: calc(var(--u)*12); }
+  .tabbar button.on { background: linear-gradient(#ffb74a, #e88812); }
+  .foot { display: flex; gap: calc(var(--u)*10); justify-content: center; margin-top: calc(var(--u)*14); }
+  .chips { display: flex; flex-wrap: wrap; gap: calc(var(--u)*6); }
+  .chips button { font-size: calc(var(--u)*14); padding: calc(var(--u)*4) calc(var(--u)*10); }
+  .chips button.on { background: linear-gradient(#ffb74a, #e88812); }
+  #code-input { width: calc(var(--u)*180); text-transform: uppercase; letter-spacing: calc(var(--u)*4); text-align: center; font-size: calc(var(--u)*26); }
+  .note { font-size: calc(var(--u)*14); color: #fff; opacity: .9; text-shadow: 0 calc(var(--u)*1) 0 var(--ink); font-weight: 700; }
+  #shop-grid { display: grid; grid-template-columns: repeat(4, calc(var(--u)*120)); gap: calc(var(--u)*8); }
+  .item-card { height: calc(var(--u)*110); display: flex; flex-direction: column; align-items: center; justify-content: space-between; font-size: calc(var(--u)*13); padding: calc(var(--u)*6); }
+  .item-card .sw { width: calc(var(--u)*56); height: calc(var(--u)*56); border-radius: 50% 50% 46% 46%; border: calc(var(--u)*3) solid var(--ink); }
+  .item-card.on { background: linear-gradient(#ffb74a, #e88812); }
+  #stats { font-size: calc(var(--u)*16); color: #fff; }
+  #stats td { padding: calc(var(--u)*2) calc(var(--u)*10); }
+  #stats td.k { color: var(--yellow); }
+</style>
+</head>
+<body>
+<div id="boot"><canvas id="boot-canvas"></canvas></div>
+<script type="module" id="boot-script" src="js/splash.js?v=muunn3ao" data-modules="36"></script>
+<canvas id="game" tabindex="-1"></canvas>
+
+<div class="screen hidden" id="loading">
+  <canvas class="logo" id="logo-load" width="1040" height="340"></canvas>
+  <div class="bar"><div id="load-bar"></div></div>
+  <div class="h" id="load-status">Cracking eggs…</div>
+  <div id="howto" class="panel">
+    <canvas id="howto-canvas" width="1040" height="460"></canvas>
+    <div class="tips"><div>Aim for the center of the egg for the most damage.</div><div>Stand still when shooting to improve accuracy (especially snipers).</div><div>Watch out! Standing still for too long makes for a dead egg.</div></div>
+  </div>
+</div>
+
+<div class="screen hidden" id="home">
+  <div id="home-top">
+    <canvas class="logo" id="logo-home" width="660" height="220"></canvas>
+    <input type="text" id="name" maxlength="16" spellcheck="false" autocomplete="off" placeholder="Your name">
+    <div class="tabs"><button id="tab-home" class="on">HOME</button><button id="tab-profile">PROFILE</button><button id="tab-shop">SHOP</button></div>
+  </div>
+  <div id="home-right">
+    <div class="coins"><div class="coin"></div><span id="coins">0</span></div>
+    <button class="icon" id="btn-settings" title="Settings">⚙</button>
+    <button class="icon" id="btn-full" title="Fullscreen">⛶</button>
+  </div>
+  <div id="news" class="panel">
+    <div class="h">Latest News</div>
+    <div class="item">Bots fill every lobby. Share your room code and friends take a bot's place.</div>
+    <div class="item">Custom matches: pick the map, mode, bots and rules. Try a 1v1 in Omelet Arena.</div>
+    <div class="item">Daily challenges reset every 24 hours. Each one can be rerolled once.</div>
+    <div class="item">Hold Q to cook a Cluck Bomb. Fire or melee cancels the throw.</div>
+  </div>
+  <div id="home-bottom">
+    <div class="h" id="weapon-name">Yolk-47</div>
+    <div id="weapon-desc"></div>
+    <div class="weapons" id="home-weapons"></div>
+    <div class="play-row">
+      <button class="blue" id="btn-friends">PLAY WITH FRIENDS!</button>
+      <button class="green" id="btn-play">▶ PLAY</button>
+      <div class="dropup"><div class="list hidden" id="mode-list"></div><button id="mode-btn">GAME MODE: FREE FOR ALL ▲</button></div>
+    </div>
+  </div>
+  <div id="footer">v1.0 · Shock Shellers · an original egg shooter</div>
+</div>
+
+<div class="screen hidden" id="respawn">
+  <div id="rs-left">
+    <button class="red" id="btn-quit">QUIT</button>
+    <button id="btn-rs-profile">PROFILE</button>
+    <button id="btn-rs-shop">INVENTORY</button>
+    <button id="btn-team" class="hidden">SWITCH TEAM</button>
+  </div>
+  <div id="rs-center">
+    <div class="panel" id="challenges"><div class="h">Challenges</div><div id="chal-list"></div><div class="note" id="chal-timer"></div></div>
+    <div class="panel" id="rs-weapons"><div class="h">Change your weapon?</div><div class="weapons" id="rs-weapon-list"></div><div class="h" id="rs-weapon-name" style="text-align:center"></div></div>
+  </div>
+  <button class="red" id="rs-play">GET READY! 5</button>
+  <div id="rs-top">
+    <div class="row"><button class="icon" id="btn-help" title="How to play">?</button><button class="icon" id="btn-invite" title="Copy room code">👥</button><button class="icon" id="btn-rs-settings" title="Settings">⚙</button><button class="icon" id="btn-rs-full" title="Fullscreen">⛶</button></div>
+    <div class="panel dark" id="rs-info"><div><span class="k">Room</span> <span id="room-code">—</span></div><div><span class="k">Map</span> <span id="info-map"></span></div><div><span class="k">Mode</span> <span id="info-mode"></span></div><div><span class="k">FPS</span> <span id="info-fps"></span> <span class="k">Ping</span> <span id="info-ping"></span></div></div>
+  </div>
+</div>
+
+<div class="screen hidden" id="hud">
+  <canvas id="hud-canvas"></canvas>
+  <div id="board"><div id="board-list"></div><div id="streak"><div class="n" id="best-streak">x0</div><div class="l">BEST<br>STREAK</div></div></div>
+  <div class="coins" id="hud-coins"><div class="coin"></div><span id="hud-coin-n">0</span></div>
+  <div id="perf"><div class="h">FPS</div><div id="fps">0</div><div class="h">PING</div><div id="ping">0ms</div></div>
+  <div id="feed"></div>
+  <div id="objective" class="hidden"><div class="scores"><span class="b" id="score-b">0</span><span id="score-sep">·</span><span class="r" id="score-r">0</span></div><div id="obj-bar"><div id="obj-fill"></div></div><div id="obj-text"></div></div>
+  <div class="h hidden" id="banner"></div>
+  <div class="hidden" id="toast"></div>
+  <div id="ammo"><div id="nades"><div class="nade"></div><div class="nade"></div><div class="nade"></div></div><div class="n" id="ammo-n">30/240</div></div>
+  <div id="chat"><div id="chat-lines"></div><input type="text" id="chat-input" class="hidden" maxlength="200" spellcheck="false" autocomplete="off"></div>
+</div>
+
+<div class="modal hidden" id="settings">
+  <div class="panel">
+    <button class="icon red close" id="set-close">✕</button>
+    <div class="h title">Settings</div>
+    <div class="tabbar"><button id="set-tab-0" class="on">Keyboard &amp; Mouse</button><button id="set-tab-1">Gamepad</button><button id="set-tab-2">Display &amp; Audio</button></div>
+    <div id="set-page-0"><div class="grid2" id="keybinds"></div><div class="col" style="margin-top:calc(var(--u)*12)" id="set-mouse"></div></div>
+    <div id="set-page-1" class="hidden"><div class="col" id="set-pad"></div></div>
+    <div id="set-page-2" class="hidden"><div class="grid2" id="set-misc"></div></div>
+    <div class="foot"><button class="red" id="set-cancel">Cancel</button><button class="orange" id="set-reset">Reset to Defaults</button><button class="green" id="set-ok">Confirm</button></div>
+  </div>
+</div>
+
+<div class="modal hidden" id="friends">
+  <div class="panel">
+    <button class="icon red close" id="fr-close">✕</button>
+    <div class="h title">Play With Friends</div>
+    <div class="row" style="justify-content:center;gap:calc(var(--u)*30)">
+      <div class="col" style="align-items:center"><div class="h">Join a game</div><input type="text" id="code-input" maxlength="5" spellcheck="false" autocomplete="off" placeholder="CODE"><button class="green" id="btn-join">JOIN</button><div class="note" id="join-status"></div></div>
+      <div class="col" style="align-items:center"><div class="h">Create a game</div><button class="blue" id="btn-create">CREATE CUSTOM MATCH</button><button class="orange" id="btn-1v1">QUICK 1v1</button></div>
+    </div>
+  </div>
+</div>
+
+<div class="modal hidden" id="custom">
+  <div class="panel">
+    <button class="icon red close" id="cu-close">✕</button>
+    <div class="h title">Custom Match</div>
+    <div class="col">
+      <div class="opt">Mode <div class="chips" id="cu-modes"></div></div>
+      <div class="opt">Map <input type="text" id="cu-search" placeholder="Search maps" spellcheck="false" autocomplete="off" style="width:calc(var(--u)*180)"></div>
+      <div class="chips" id="cu-maps"></div>
+      <div class="opt">Bots <div class="chips" id="cu-bots"></div></div>
+      <div class="opt">Bot skill <div class="chips" id="cu-skill"></div></div>
+      <div class="grid2" id="cu-sliders"></div>
+      <div class="opt">Weapons <div class="chips" id="cu-weapons"></div></div>
+      <div class="grid2" id="cu-flags"></div>
+    </div>
+    <div class="foot"><button class="green" id="cu-start">START MATCH</button></div>
+  </div>
+</div>
+
+<div class="modal hidden" id="profile">
+  <div class="panel">
+    <button class="icon red close" id="pr-close">✕</button>
+    <div class="h title" id="pr-name">Profile</div>
+    <table id="stats"></table>
+  </div>
+</div>
+
+<div class="modal hidden" id="shop">
+  <div class="panel">
+    <button class="icon red close" id="sh-close">✕</button>
+    <div class="h title">Coop Shop</div>
+    <div class="tabbar" id="sh-tabs"></div>
+    <div id="shop-grid"></div>
+    <div class="foot"><div class="coins"><div class="coin"></div><span id="sh-coins">0</span></div></div>
+  </div>
+</div>
+
+<div class="modal hidden" id="help">
+  <div class="panel"><button class="icon red close" id="help-close">✕</button><div class="h title">How to Play</div><canvas id="help-canvas" width="1040" height="460" style="width:calc(var(--u)*780);height:calc(var(--u)*345)"></canvas>
+    <div class="tips" style="width:auto"><div>Aim for the center of the egg for the most damage.</div><div>Stand still when shooting to improve accuracy (especially snipers).</div><div>Watch out! Standing still for too long makes for a dead egg.</div></div></div>
+</div>
+
+<script defer src="net-config.js?v=muunn3ao"></script>
+<script type="module" src="js/main.js?v=muunn3ao"></script>
+</body>
+</html>

@@ -1,0 +1,330 @@
+// Menus and modals (GDD §16–21): home, respawn/pause screen, settings (3 tabs), play with friends,
+// custom matches, profile, shop/inventory, how to play, chat. All markup lives in index.html inside
+// the compositor; this module wires it up and keeps it current.
+import { surfaceDocument as document } from '../surface.js?v=muunn3ao';
+import * as THREE from '../../vendor/three/three.module.js?v=muunn3ao';
+import { ask, tell } from '../dialog.js?v=muunn3ao';
+import { gunModel } from '../render/guns.js?v=muunn3ao';
+import { SHELL_COLORS } from '../render/egg.js?v=muunn3ao';
+import { WEAPONS, PRIMARIES, MODE_NAMES, MODE_MENU, TICK } from '../sim/tuning.js?v=muunn3ao';
+import { ACTIONS, ACTION_NAMES, keyLabel, DEFAULT_KEYS } from '../game/input.js?v=muunn3ao';
+import { DEFAULT_SETTINGS, saveSettings, saveProfile } from '../game/store.js?v=muunn3ao';
+import { ensureDaily, def as challengeDef, reroll, timeLeft } from '../game/challenges.js?v=muunn3ao';
+import { MAPS, mapDef } from '../maps/index.js?v=muunn3ao';
+import { drawHowTo } from './art.js?v=muunn3ao';
+
+const $ = id => document.getElementById(id);
+const show = (id, on = true) => $(id).classList.toggle('hidden', !on);
+const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; };
+
+export const SHOP = {
+  color: SHELL_COLORS.map((c, i) => ({ id: i, price: i < 7 ? 0 : 2500 + i * 500 })),
+  hat: [{ id: 'none', price: 0 }, { id: 'cap', price: 0 }, { id: 'beanie', price: 1500 }, { id: 'chef', price: 3000 }, { id: 'tophat', price: 6000 }, { id: 'crown', price: 25000 }],
+};
+
+export class Menus {
+  constructor(app) { this.app = app; this.icons = {}; this.customCfg = { mode: 'ffa', map: 'omelet', bots: 6, difficulty: 'normal', gravity: 1, damage: 1, regen: 1, disabled: [], locked: false, noTeamChange: false, noTeamShuffle: false }; }
+
+  // White silhouettes of the guns, rendered once from the real models.
+  weaponIcons() {
+    const gl = this.app.renderer.gl, size = [256, 128];
+    const rt = new THREE.WebGLRenderTarget(size[0], size[1], { samples: 4 });
+    const scene = new THREE.Scene(), cam = new THREE.OrthographicCamera(-0.55, 0.55, 0.275, -0.275, 0.1, 10);
+    cam.position.set(3, 0, 0); cam.lookAt(0, 0, 0);
+    const white = new THREE.MeshBasicMaterial({ color: 0xffffff });
+    const pixels = new Uint8Array(size[0] * size[1] * 4);
+    for (const id of [...PRIMARIES, 'peck9mm', 'grenade', 'whisk']) {
+      const g = gunModel(id); g.traverse(o => { if (o.isMesh) o.material = white; });
+      const box = new THREE.Box3().setFromObject(g), c = box.getCenter(new THREE.Vector3()), s = box.getSize(new THREE.Vector3());
+      const k = Math.min(1.0 / Math.max(s.z, 0.01), 0.5 / Math.max(s.y, 0.01)) * 0.92;
+      g.scale.setScalar(k); g.position.set(-c.x * k, -c.y * k, -c.z * k);
+      if (id === 'grenade' || id === 'whisk') g.rotation.z = 0;
+      scene.add(g);
+      gl.setRenderTarget(rt); gl.setClearColor(0x000000, 0); gl.clear(); gl.render(scene, cam);
+      gl.readRenderTargetPixels(rt, 0, 0, size[0], size[1], pixels);
+      scene.remove(g);
+      const cv = new OffscreenCanvas(size[0], size[1]), x = cv.getContext('2d'), img = x.createImageData(size[0], size[1]);
+      for (let y = 0; y < size[1]; y++) img.data.set(pixels.subarray((size[1] - 1 - y) * size[0] * 4, (size[1] - y) * size[0] * 4), y * size[0] * 4);
+      x.putImageData(img, 0, 0);
+      this.iconFrom(id, cv);
+    }
+    gl.setRenderTarget(null); gl.setClearColor(0x000000, 1); rt.dispose();
+  }
+  iconFrom(id, cv) {
+    // A data: URL keeps the icon inside the page (img-src allows data:/blob: only).
+    cv.convertToBlob().then(b => { const r = new FileReader(); r.onload = () => { this.icons[id] = r.result; this.app.hud.weaponIcons[id] = r.result; this.applyIcons(); }; r.readAsDataURL(b); });
+  }
+  applyIcons() { for (const img of document.querySelectorAll('img[data-w]')) if (this.icons[img.dataset.w] && img.src !== this.icons[img.dataset.w]) img.src = this.icons[img.dataset.w]; }
+  weaponRow(container, onPick, current) {
+    container.replaceChildren();
+    for (const id of PRIMARIES) {
+      const b = el('button', 'wbtn' + (id === current ? ' on' : '')), img = el('img');
+      img.dataset.w = id; img.alt = ''; if (this.icons[id]) img.src = this.icons[id];
+      b.append(img); b.title = WEAPONS[id].name;
+      b.onclick = () => { this.app.sound.play('pop'); onPick(id); };
+      container.append(b);
+    }
+  }
+
+  build() {
+    const app = this.app;
+    $('name').value = app.profile.name;
+    $('name').addEventListener('input', () => { const v = $('name').value.replace(/[^A-Za-z0-9_]/g, '').slice(0, 16); if (v !== $('name').value) $('name').value = v; if (v) { app.profile.name = v; saveProfile(app.profile); } });
+    $('btn-play').onclick = () => { app.sound.unlock(); app.play(); };
+    $('btn-friends').onclick = () => { app.sound.unlock(); show('friends'); $('join-status').textContent = ''; $('code-input').focus(); };
+    $('fr-close').onclick = () => show('friends', false);
+    $('btn-join').onclick = () => this.join();
+    $('code-input').addEventListener('keydown', e => { if (e.key === 'Enter') this.join(); });
+    $('btn-create').onclick = () => { show('friends', false); this.openCustom(); };
+    $('btn-1v1').onclick = () => { show('friends', false); app.startMatch({ map: 'omelet', mode: 'ffa', options: {}, bots: 1, slots: 2, difficulty: 'hard', private: true }); };
+    // Game mode dropup (opens upward with a check on the current mode).
+    $('mode-btn').onclick = () => { app.sound.play('pop'); const l = $('mode-list'); l.classList.toggle('hidden'); this.modeList(); };
+    $('btn-settings').onclick = $('btn-rs-settings').onclick = () => this.openSettings();
+    $('btn-full').onclick = $('btn-rs-full').onclick = () => { const d = globalThis.document; if (d.fullscreenElement) d.exitFullscreen(); else d.documentElement.requestFullscreen?.().catch(() => {}); };
+    $('tab-profile').onclick = $('btn-rs-profile').onclick = () => this.openProfile();
+    $('tab-shop').onclick = $('btn-rs-shop').onclick = () => this.openShop();
+    $('pr-close').onclick = () => show('profile', false);
+    $('sh-close').onclick = () => { show('shop', false); app.refreshHomeEgg(); };
+    $('btn-help').onclick = () => { drawHowTo($('help-canvas'), app.settings.keys); show('help'); };
+    $('help-close').onclick = () => show('help', false);
+    $('btn-quit').onclick = async () => { if (await ask('Leave this match?')) app.goHome(); };
+    $('btn-invite').onclick = () => this.invite();
+    $('btn-team').onclick = () => this.switchTeam();
+    $('rs-play').onclick = () => { if (!$('rs-play').disabled) app.spawnMe(); };
+    // Pointer lock lost while playing = pause (Esc).
+    app.input.onLockChange = locked => { if (!locked && app.state === 'play' && !this.chatOpen) app.pause(); };
+    app.input.onKey = e => this.key(e);
+    this.chatBind();
+    this.settingsBind();
+    this.customBind();
+  }
+  refreshHome() {
+    const app = this.app, p = app.profile;
+    this.weaponRow($('home-weapons'), id => { p.primary = id; saveProfile(p); this.refreshHome(); }, p.primary);
+    $('weapon-name').textContent = WEAPONS[p.primary].name;
+    $('weapon-desc').textContent = WEAPONS[p.primary].desc;
+    $('mode-btn').textContent = `GAME MODE: ${MODE_NAMES[p.mode].toUpperCase()} ▲`;
+    $('coins').textContent = p.coins.toLocaleString();
+    show('mode-list', false);
+  }
+  modeList() {
+    const l = $('mode-list'), p = this.app.profile; l.replaceChildren();
+    for (const m of MODE_MENU) {
+      const b = el('button', m === p.mode ? 'on' : '', MODE_NAMES[m]);
+      b.onclick = () => { p.mode = m; saveProfile(p); this.refreshHome(); };
+      l.append(b);
+    }
+  }
+
+  // ---------------- respawn / pause ----------------
+  refreshRespawn() {
+    const app = this.app, s = app.session; if (!s) return;
+    const me = s.me;
+    this.weaponRow($('rs-weapon-list'), id => { app.profile.primary = id; saveProfile(app.profile); s.match.setPrimary(s.myId, id); this.refreshRespawn(); }, me.nextPrimary);
+    $('rs-weapon-name').textContent = WEAPONS[me.nextPrimary].name;
+    $('room-code').textContent = s.code || 'OFFLINE';
+    $('info-map').textContent = s.map.meta.name; $('info-mode').textContent = MODE_NAMES[s.match.modeId];
+    show('btn-team', s.match.mode.teams);
+    this.challenges();
+    this.tickRespawn(true);
+  }
+  tickRespawn(force) {
+    const app = this.app, s = app.session; if (!s) return;
+    const m = s.match, me = s.me;
+    const wait = Math.max(me.alive ? 0 : me.respawnAt - m.tick, me.pauseCooldownUntil - m.tick);
+    const secs = Math.ceil(wait * TICK);
+    const key = secs > 0 ? 'w' + secs : 'go';
+    if (!force && this.rsKey === key) return;
+    this.rsKey = key;
+    const b = $('rs-play');
+    if (secs > 0) { b.textContent = `GET READY! ${secs}`; b.className = 'red'; b.disabled = true; }
+    else { b.textContent = '▶ PLAY'; b.className = 'green'; b.disabled = false; }
+    $('info-fps').textContent = app.fps; $('info-ping').textContent = (s.ping || 0) + 'ms';
+    if (this.chalT === undefined || performance.now() - this.chalT > 1000) { this.chalT = performance.now(); $('chal-timer').textContent = '⏱ ' + timeLeft(app.profile); }
+  }
+  challenges() {
+    const app = this.app, c = ensureDaily(app.profile), list = $('chal-list');
+    list.replaceChildren();
+    c.slots.forEach((s, i) => {
+      const d = challengeDef(s.id); if (!d) return;
+      const row = el('div', 'chal'), body = el('div'); body.style.flex = '1';
+      body.append(el('div', 't', d.title.toUpperCase()), el('div', 'dsc', d.desc));
+      const bar = el('div', 'prog'), fill = el('div'); fill.style.width = Math.round(s.n / d.goal * 100) + '%'; bar.append(fill); body.append(bar);
+      const side = el('div', 'col'); side.style.alignItems = 'center'; side.style.gap = '2px';
+      side.append(el('div', 'yellow', s.done ? '✔' : `${Math.floor(s.n)}/${d.goal}`), el('div', 'note', `${d.reward}`));
+      const rr = el('button', 'small', '↻'); rr.title = 'Reroll (once a day)'; rr.disabled = s.rerolled || s.done;
+      rr.onclick = () => { if (reroll(app.profile, i)) { saveProfile(app.profile); this.challenges(); } };
+      side.append(rr);
+      row.append(body, side); list.append(row);
+    });
+  }
+  invite() {
+    const code = this.app.session?.code;
+    if (!code) { tell('This match is offline. Use PLAY WITH FRIENDS → CREATE to host a room friends can join.'); return; }
+    navigator.clipboard?.writeText(code).then(() => this.app.hud.toast(`Room code ${code} copied!`), () => tell(`Room code: ${code}`));
+  }
+  switchTeam() {
+    const s = this.app.session; if (!s) return;
+    const err = s.match.mode.switchTeam(s.me);
+    if (err) tell(err);
+  }
+
+  // ---------------- keys: chat, pause ----------------
+  key(e) {
+    const app = this.app;
+    if (app.state !== 'play') return true;
+    if (e.key === 'Enter' && !this.chatOpen && app.settings.chat) { e.preventDefault(); this.openChat(); return false; }
+    return true;
+  }
+  chatBind() {
+    const inp = $('chat-input');
+    inp.addEventListener('keydown', e => {
+      e.stopPropagation();
+      if (e.key === 'Enter') { const v = inp.value.trim(); if (v) this.sendChat(v); this.closeChat(); e.preventDefault(); }
+      else if (e.key === 'Tab' || e.key === 'Escape') { e.preventDefault(); this.closeChat(); }
+    });
+  }
+  openChat() { this.chatOpen = true; this.app.hud.chatOpen = true; this.app.input.enabled = false; this.app.keys.clear(); show('chat-input'); $('chat-input').value = ''; $('chat-input').focus(); }
+  closeChat() { this.chatOpen = false; this.app.hud.chatOpen = false; show('chat-input', false); $('chat-input').blur(); if (this.app.state === 'play') { this.app.input.enabled = true; this.app.canvas.focus({ preventScroll: true }); } }
+  sendChat(text) {
+    const app = this.app, s = app.session; if (!s) return;
+    const team = /^\/(t|team)\s+/i.test(text);
+    const msg = text.replace(/^\/(t|team)\s+/i, '').replace(/[\u0000-\u001f\u007f-\u009f\u200e\u200f\u2028-\u202e\u2066-\u2069]/g, '').slice(0, 200);
+    if (/^\/(kick|p|pin|lock|unlock)\b/i.test(text)) { this.command(text); return; }
+    app.hud.chat(`${s.me.name}: ${msg}`, team ? '#7fd3ff' : '#fff');
+    s.sendChat?.(msg, team);
+  }
+  command(text) {
+    const app = this.app, s = app.session, [cmd, ...rest] = text.slice(1).split(/\s+/);
+    if (!s?.host) { app.hud.chat('Only the host can do that.', '#ffd23f'); return; }
+    switch (cmd.toLowerCase()) {
+      case 'lock': s.match.options.locked = true; app.hud.chat('Game locked.', '#ffd23f'); break;
+      case 'unlock': s.match.options.locked = false; app.hud.chat('Game unlocked.', '#ffd23f'); break;
+      case 'kick': { const name = rest.join(' ').toLowerCase(); const p = [...s.match.players.values()].find(q => q.name.toLowerCase() === name && q.id !== s.myId); if (p) { s.kick?.(p.id); app.hud.chat(`${p.name} was booted.`, '#ffd23f'); } else app.hud.chat('No player with that name.', '#ffd23f'); break; }
+      case 'p': case 'pin': app.hud.toast(rest.join(' '), 8); break;
+    }
+  }
+
+  // ---------------- settings ----------------
+  settingsBind() {
+    for (let i = 0; i < 3; i++) $('set-tab-' + i).onclick = () => { for (let k = 0; k < 3; k++) { $('set-tab-' + k).classList.toggle('on', k === i); show('set-page-' + k, k === i); } };
+    $('set-close').onclick = $('set-cancel').onclick = () => { Object.assign(this.app.settings, this.before); this.app.settings.keys = { ...this.before.keys }; show('settings', false); };
+    $('set-ok').onclick = () => { saveSettings(this.app.settings); this.applySettings(); show('settings', false); };
+    $('set-reset').onclick = () => { const seen = this.app.settings.seenHowTo; Object.assign(this.app.settings, structuredClone(DEFAULT_SETTINGS)); this.app.settings.keys = { ...DEFAULT_KEYS }; this.app.settings.seenHowTo = seen; this.fillSettings(); };
+  }
+  openSettings() { this.before = structuredClone(this.app.settings); this.fillSettings(); show('settings'); this.app.input.exitLock(); }
+  applySettings() { const a = this.app; a.sound.setVolume(a.settings.volume); a.renderer.baseFov = a.settings.fov; drawHowTo($('howto-canvas'), a.settings.keys); }
+  fillSettings() {
+    const s = this.app.settings;
+    const kb = $('keybinds'); kb.replaceChildren();
+    for (const a of ACTIONS) {
+      const row = el('div', 'opt'), btn = el('button', 'key', keyLabel(s.keys[a]));
+      btn.onclick = () => this.capture(a, btn);
+      row.append(el('span', '', ACTION_NAMES[a]), btn); kb.append(row);
+    }
+    const mouse = $('set-mouse'); mouse.replaceChildren();
+    mouse.append(this.slider('Mouse Speed', 1, 100, 1, () => s.mouseSpeed, v => { s.mouseSpeed = v; }));
+    mouse.append(this.check('Invert Mouse', () => s.invertMouse, v => { s.invertMouse = v; }));
+    mouse.append(this.check('Fix Mouse Glitch (raw input)', () => s.rawInput, v => { s.rawInput = v; }));
+    const pad = $('set-pad'); pad.replaceChildren();
+    pad.append(el('div', 'note', 'Standard gamepad: A jump · RT fire · LT aim · X reload · Y swap · RB grenade · B melee · sticks move and look.'));
+    pad.append(this.slider('Stick Sensitivity', 1, 100, 1, () => s.padSpeed, v => { s.padSpeed = v; }));
+    pad.append(this.check('Invert Stick', () => s.padInvert, v => { s.padInvert = v; }));
+    const misc = $('set-misc'); misc.replaceChildren();
+    misc.append(this.slider('Sound Effects', 0, 100, 1, () => s.volume, v => { s.volume = v; this.app.sound.setVolume(v); }));
+    misc.append(this.slider('Field of View', 60, 100, 1, () => s.fov, v => { s.fov = v; }));
+    for (const [label, k] of [['Hold to Aim', 'holdToAim'], ['Enable Chat', 'chat'], ['Safe Usernames', 'safeNames'], ['Auto Detail', 'autoDetail'], ['Prevent accidental game close?', 'preventClose'], ['Recoil camera shake', 'shake'], ['Show center dot', 'centerDot'], ['Show hit markers', 'hitMarkers']]) misc.append(this.check(label, () => s[k], v => { s[k] = v; }));
+  }
+  capture(action, btn) {
+    btn.classList.add('wait'); btn.textContent = 'Press a key…';
+    const done = code => { btn.classList.remove('wait'); if (code && code !== 'Escape') this.app.settings.keys[action] = code; btn.textContent = keyLabel(this.app.settings.keys[action]); document.removeEventListener('keydown', onKey, true); document.removeEventListener('mousedown', onMouse, true); };
+    const onKey = e => { e.preventDefault(); e.stopPropagation(); done(e.code); };
+    const onMouse = e => { if (e.target === btn && e.button === 0) return; e.preventDefault(); e.stopPropagation(); done('M' + e.button); };
+    setTimeout(() => { document.addEventListener('keydown', onKey, true); document.addEventListener('mousedown', onMouse, true); }, 0);
+  }
+  // A drawn slider (native range inputs are not painted by the compositor).
+  slider(label, min, max, step, get, set, fmt = v => String(v)) {
+    const row = el('div', 'opt'), sl = el('div', 'slider'), tr = el('div', 'track'), fill = el('div', 'fill'), knob = el('div', 'knob'), val = el('div', 'val');
+    sl.append(tr, fill, knob, val); row.append(el('span', '', label), sl);
+    const draw = () => { const f = (get() - min) / (max - min); fill.style.width = f * 100 + '%'; knob.style.left = f * 100 + '%'; val.textContent = fmt(get()); };
+    const at = e => { const r = sl.getBoundingClientRect(); const f = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)); set(Math.round((min + f * (max - min)) / step) * step); draw(); };
+    sl.addEventListener('pointerdown', e => { at(e); const mv = ev => at(ev), up = () => { document.removeEventListener('pointermove', mv); document.removeEventListener('pointerup', up); }; document.addEventListener('pointermove', mv); document.addEventListener('pointerup', up); });
+    draw(); return row;
+  }
+  check(label, get, set) {
+    const row = el('label', 'opt'), box = el('input'); box.type = 'checkbox'; box.checked = !!get();
+    box.onchange = () => set(box.checked);
+    row.append(el('span', '', label), box); return row;
+  }
+
+  // ---------------- friends / custom matches ----------------
+  async join() {
+    const code = $('code-input').value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 5);
+    if (code.length !== 5) { $('join-status').textContent = 'Room codes have 5 letters and numbers.'; return; }
+    if (!this.app.joinRoom) { $('join-status').textContent = 'Online play is not available in this build.'; return; }
+    $('join-status').textContent = 'Connecting…';
+    try { await this.app.joinRoom(code, t => { $('join-status').textContent = t; }); show('friends', false); }
+    catch (e) { $('join-status').textContent = e.message || 'Could not join.'; }
+  }
+  openCustom() { show('custom'); this.fillCustom(); }
+  customBind() {
+    $('cu-close').onclick = () => show('custom', false);
+    $('cu-search').addEventListener('input', () => this.fillCustom());
+    $('cu-start').onclick = () => {
+      const c = this.customCfg; show('custom', false);
+      this.app.startMatch({ map: c.map, mode: c.mode, options: { gravity: c.gravity, damage: c.damage, regen: c.regen, disabled: c.disabled, locked: c.locked, noTeamChange: c.noTeamChange, noTeamShuffle: c.noTeamShuffle }, bots: c.bots + 1, difficulty: c.difficulty, private: true, host: true });
+    };
+  }
+  fillCustom() {
+    const c = this.customCfg, chips = (id, items, isOn, pick) => { const box = $(id); box.replaceChildren(); for (const [k, label] of items) { const b = el('button', isOn(k) ? 'on' : '', label); b.onclick = () => { pick(k); this.fillCustom(); }; box.append(b); } };
+    const map = mapDef(c.map);
+    chips('cu-modes', MODE_MENU.map(m => [m, MODE_NAMES[m]]), m => m === c.mode, m => { c.mode = m; if (!mapDef(c.map).modes.includes(m)) c.map = (MAPS.find(x => x.modes.includes(m)) || MAPS[0]).id; });
+    const q = $('cu-search').value.toLowerCase();
+    chips('cu-maps', MAPS.filter(m => m.name.toLowerCase().includes(q)).map(m => [m.id, `${m.name} (${m.maxPlayers})`]), m => m === c.map, m => { c.map = m; c.bots = Math.min(c.bots, mapDef(m).maxPlayers - 1); if (!mapDef(m).modes.includes(c.mode)) c.mode = mapDef(m).modes[0]; });
+    chips('cu-bots', Array.from({ length: map.maxPlayers }, (_, i) => [i, i ? String(i) : 'None']), n => n === c.bots, n => { c.bots = n; });
+    chips('cu-skill', [['easy', 'Easy'], ['normal', 'Normal'], ['hard', 'Hard'], ['expert', 'Expert']], d => d === c.difficulty, d => { c.difficulty = d; });
+    const sl = $('cu-sliders'); sl.replaceChildren();
+    sl.append(this.slider('Gravity', 0.25, 1, 0.25, () => c.gravity, v => { c.gravity = v; }, v => v + '×'));
+    sl.append(this.slider('Damage', 0, 2, 0.25, () => c.damage, v => { c.damage = v; }, v => v + '×'));
+    sl.append(this.slider('Health regen', 0, 4, 0.25, () => c.regen, v => { c.regen = v; }, v => v + '×'));
+    chips('cu-weapons', PRIMARIES.map(w => [w, WEAPONS[w].name]), w => !c.disabled.includes(w), w => { c.disabled = c.disabled.includes(w) ? c.disabled.filter(x => x !== w) : [...c.disabled, w]; });
+    const fl = $('cu-flags'); fl.replaceChildren();
+    for (const [label, k] of [['Locked (no new players)', 'locked'], ['No team change', 'noTeamChange'], ['No team shuffle', 'noTeamShuffle']]) fl.append(this.check(label, () => c[k], v => { c[k] = v; }));
+  }
+
+  // ---------------- profile & shop ----------------
+  openProfile() {
+    const p = this.app.profile, s = p.stats, t = $('stats');
+    $('pr-name').textContent = p.name; t.replaceChildren();
+    const row = (k, v) => { const r = el('tr'); r.append(el('td', 'k', k), el('td', '', String(v))); t.append(r); };
+    row('Kills', s.kills); row('Deaths', s.deaths); row('K/D', s.deaths ? (s.kills / s.deaths).toFixed(2) : s.kills);
+    row('Best streak', s.bestStreak); row('Damage dealt', Math.round(s.damage)); row('Matches', s.games);
+    row('Public / private kills', `${s.publicKills} / ${s.privateKills}`); row('Roost wins', s.roostWins); row('Challenges completed', s.challenges);
+    for (const w of [...PRIMARIES, 'peck9mm', 'grenade', 'melee']) row(`${WEAPONS[w]?.name || (w === 'grenade' ? 'Cluck Bomb' : 'Whisk')} kills`, s.byWeapon[w] || 0);
+    for (const m of MODE_MENU) row(`${MODE_NAMES[m]} kills`, s.byMode[m] || 0);
+    show('profile'); this.app.input.exitLock();
+  }
+  openShop(tab = 'color') {
+    const p = this.app.profile, tabs = $('sh-tabs'); tabs.replaceChildren();
+    for (const [k, label] of [['color', 'Shell Colors'], ['hat', 'Hats']]) { const b = el('button', k === tab ? 'on' : '', label); b.onclick = () => this.openShop(k); tabs.append(b); }
+    const grid = $('shop-grid'); grid.replaceChildren();
+    for (const item of SHOP[tab]) {
+      const owned = item.price === 0 || p.owned.includes(tab + ':' + item.id), on = p.equip[tab] === item.id;
+      const card = el('button', 'item-card' + (on ? ' on' : ''));
+      if (tab === 'color') { const sw = el('div', 'sw'); sw.style.background = '#' + SHELL_COLORS[item.id].toString(16).padStart(6, '0'); card.append(sw); }
+      else card.append(el('div', 'h', item.id === 'none' ? '—' : item.id.toUpperCase()));
+      card.append(el('div', '', owned ? (on ? 'EQUIPPED' : 'OWNED') : `${item.price.toLocaleString()} yolks`));
+      card.onclick = async () => {
+        if (!owned) {
+          if (p.coins < item.price) { tell('Not enough Golden Yolks yet. Kills and challenges earn more.'); return; }
+          if (!(await ask(`Buy this for ${item.price.toLocaleString()} Golden Yolks?`))) return;
+          p.coins -= item.price; p.owned.push(tab + ':' + item.id); this.app.sound.play('powerup');
+        }
+        p.equip[tab] = item.id; saveProfile(p); this.openShop(tab); this.app.refreshHomeEgg();
+      };
+      grid.append(card);
+    }
+    $('sh-coins').textContent = p.coins.toLocaleString();
+    show('shop'); this.app.input.exitLock();
+  }
+}

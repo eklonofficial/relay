@@ -32,7 +32,7 @@ permissions:
 jobs:
   check:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -42,26 +42,38 @@ jobs:
       # fresh modules. Fix a failure with: node docs/games/blockhaven/tools/stamp.mjs
       - name: Cache-busting stamps
         run: node docs/games/blockhaven/tools/stamp.mjs --check
+      - name: Shock Shellers cache-busting stamps
+        run: node docs/games/shockshellers/tools/stamp.mjs --check
+      - name: Shared calculator security policy
+        run: node docs/games/tools/security.mjs --check
       - name: Tests
         run: node --test 'docs/games/blockhaven/tests/*.test.mjs'
+      - name: Shock Shellers tests
+        run: node --test 'docs/games/shockshellers/tests/*.test.mjs'
+      - name: Shared calculator tests
+        run: node --test 'docs/games/tests/*.test.mjs'
       - name: Build tooling
         run: npm ci
       - name: Relay regression checks
         run: npm ci --prefix blockhaven-relay && npm run test:relay
+      # Every calculator game plus the shared calculator, into build/games/.
       - name: Packed build
-        run: npm run build
+        run: npm run build:site
       - name: Browser tooling
         run: npx playwright install --with-deps chromium
       - name: Canvas browser regression checks
         run: npm run test:browser
-      # Keep the rest of the site, but never put Blockhaven's readable development
-      # tree in the Pages artifact. Use the same paths/origin to preserve saves.
+      - name: Shock Shellers browser regression checks
+        run: npm run test:browser:shockshellers
+      # Keep the rest of the site, but never put a calculator game's readable development tree in the
+      # Pages artifact. The packed site (shared calculator + every game) replaces those folders at the
+      # same paths/origin, which preserves saves.
       - name: Stage website
         if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
         run: |
-          mkdir -p build/pages-input/games/blockhaven
-          rsync -a --exclude='games/blockhaven/' docs/ build/pages-input/
-          cp -a build/site/. build/pages-input/games/blockhaven/
+          mkdir -p build/pages-input/games
+          rsync -a --exclude='games/blockhaven/' --exclude='games/shockshellers/' --exclude='games/calc.html' --exclude='games/vercel.json' --exclude='games/tools/' --exclude='games/tests/' docs/ build/pages-input/
+          cp -a build/games/. build/pages-input/games/
       - name: Render documentation
         if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
         uses: actions/jekyll-build-pages@v1
