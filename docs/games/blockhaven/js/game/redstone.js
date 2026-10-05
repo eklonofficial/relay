@@ -7,12 +7,12 @@
 //  - Redstone wire keeps the original algorithm, including its order-of-updates quirks
 //    (a Java HashSet walk), so locational behaviour matches too.
 // Only the host (or a single player) simulates; everyone else receives the block changes.
-import { B, BLOCKS, SOLID, OPAQUE, SHAPE_OF, SHAPE, props, VARIANT_MASK } from '../data/blocks.js?v=muujnr74';
-import { timeOfDay, skyDarken } from './weather.js?v=muujnr74';
-import { I, maxStack } from '../data/items.js?v=muujnr74';
-import { UNLOADED, posKey } from '../world/world.js?v=muujnr74';
-import { blockDrops } from './drops.js?v=muujnr74';
-import { DIR6_OF_2D, DIR2D_OF_6, OPP6 } from '../data/orient.js?v=muujnr74';
+import { B, BLOCKS, SOLID, OPAQUE, SHAPE_OF, SHAPE, props, VARIANT_MASK } from '../data/blocks.js?v=muujns32';
+import { timeOfDay, skyDarken } from './weather.js?v=muujns32';
+import { I, maxStack } from '../data/items.js?v=muujns32';
+import { UNLOADED, posKey } from '../world/world.js?v=muujns32';
+import { blockDrops } from './drops.js?v=muujns32';
+import { DIR6_OF_2D, DIR2D_OF_6, OPP6 } from '../data/orient.js?v=muujns32';
 
 // ---- directions (Java order) ----
 const DOWN = 0, UP = 1, NORTH = 2, SOUTH = 3, WEST = 4, EAST = 5;
@@ -820,7 +820,7 @@ export class Redstone {
   forEntities(fn) {
     const g = this.g;
     if (g.alive && g.mode !== 'spectator') fn({ pos: g.player.pos, hw: 0.3, h: g.player.sneaking ? 1.5 : 1.8, isLiving: true });
-    for (const e of g.entities.list) { if (e.dead || (e.remote && !e.visible)) continue; fn(e); }
+    for (const e of g.entities.list) { if (e.dead || e.frozen || (e.remote && !e.visible)) continue; fn(e); }
   }
   // The original calls entityInside for every block an entity overlaps; plates and buttons care.
   entityTick() {

@@ -1,50 +1,50 @@
 // Blockhaven bootstrap: assets, menus, input, camera, frame loop.
-import './page.js?v=muujnr74';
-import { surfaceDocument as document } from './surface.js?v=muujnr74';
-import { registerApp } from './veil.js?v=muujnr74';
-import { movementSamples } from './util/pointer.js?v=muujnr74';
-import { ask, tell } from './dialog.js?v=muujnr74';
-import { Demo, DEMO_SEED } from './demo.js?v=muujnr74';
-import { armorLayerModel, armorLayer, ARMOR_MATERIALS, LEATHER_COLOR, elytraModel } from './data/armor.js?v=muujnr74';
-import { humanoidPose, processSkin } from './entity/humanoid.js?v=muujnr74';
-import { TEXTURES, TEX, B, BLOCKS, DIM, DIM_NAMES, SHAPE_OF, SHAPE, props, HEIGHT, STATE, VARIANT_MASK } from './data/blocks.js?v=muujnr74';
-import { I, ITEMS } from './data/items.js?v=muujnr74';
-import { MOBS, PROFESSIONS, playerModel, saddleModel, PLAYER_SKINS } from './data/mobs.js?v=muujnr74';
-import { Net, cleanCode, cleanName, cleanKey, cleanChat, chatLine, MAX_PLAYERS, wakeRelays, diagnoseNetwork } from './net/net.js?v=muujnr74';
-import { NameTags } from './net/nametags.js?v=muujnr74';
-import { BIOMES } from './gen/biomes.js?v=muujnr74';
-import { generateBlockTextures, drawBlockTexture } from './render/blocktex.js?v=muujnr74';
-import { cloudTexture } from './render/cloudtex.js?v=muujnr74';
-import { generateItemTextures, ITEM_LAYER, FX_LAYER, ITEM_LAYER_COUNT, flatTexFor } from './render/itemtex.js?v=muujnr74';
-import { Zip, storedPack, savePack, removePack, applyBlockTextures, applyItemTextures, applyArmorTextures, readEntityTexture, readCloudTexture, indexSounds } from './render/pack.js?v=muujnr74';
-import { packModel, paintModel, ENTITY, texFactor, faceRects } from './render/mobtex.js?v=muujnr74';
-import { buildMipChain } from './render/atlas.js?v=muujnr74';
-import { Renderer, Batch } from './render/renderer.js?v=muujnr74';
-import { generateWeatherTextures, readWeatherTextures } from './render/weathertex.js?v=muujnr74';
-import { precipitationAt, precipitationHeight } from './game/weather.js?v=muujnr74';
-import { JavaRandom } from './core/jrandom.js?v=muujnr74';
-import { collisionBoxes } from './data/shapes.js?v=muujnr74';
-import { World, UNLOADED } from './world/world.js?v=muujnr74';
-import { createGenerator } from './gen/index.js?v=muujnr74';
-import { Game } from './game/game.js?v=muujnr74';
-import { Interact, crossbowCharge } from './game/interact.js?v=muujnr74';
-import { SpawnPrep, STATUS_COLOR } from './game/spawnprep.js?v=muujnr74';
-import { splash } from './splash.js?v=muujnr74';
-import { Commands } from './game/commands.js?v=muujnr74';
-import { GUI, HUD } from './game/ui.js?v=muujnr74';
-import { buildIcons, hudSprites } from './game/icons.js?v=muujnr74';
-import { Sound } from './game/audio.js?v=muujnr74';
-import { buildLogo, buttonTexture, dirtTexture, iconDataURL } from './render/logo.js?v=muujnr74';
-import { computeEnv } from './game/env.js?v=muujnr74';
-import { guideSections } from './game/guide.js?v=muujnr74';
-import { listWorlds, loadWorld, saveWorld, deleteWorld } from './game/storage.js?v=muujnr74';
-import { importJavaWorld, exportJavaWorld } from './game/javaworld.js?v=muujnr74';
-import { drawModel, rootMatrix, M } from './entity/entity.js?v=muujnr74';
-import { itemMesh, emitItemMesh, clearItemMeshes } from './entity/itemmesh.js?v=muujnr74';
-import { Lightning, billboard } from './entity/objects.js?v=muujnr74';
-import { compose, translation, rotationX, rotationY, rotationZ, scaling, forward, mat4 } from './core/math.js?v=muujnr74';
-import { hasGlint } from './data/enchantments.js?v=muujnr74';
-import { BarrelRoll } from './game/barrelroll.js?v=muujnr74';
+import './page.js?v=muujns32';
+import { surfaceDocument as document } from './surface.js?v=muujns32';
+import { registerApp } from './veil.js?v=muujns32';
+import { movementSamples } from './util/pointer.js?v=muujns32';
+import { ask, tell } from './dialog.js?v=muujns32';
+import { Demo, DEMO_SEED } from './demo.js?v=muujns32';
+import { armorLayerModel, armorLayer, ARMOR_MATERIALS, LEATHER_COLOR, elytraModel } from './data/armor.js?v=muujns32';
+import { humanoidPose, processSkin } from './entity/humanoid.js?v=muujns32';
+import { TEXTURES, TEX, B, BLOCKS, DIM, DIM_NAMES, SHAPE_OF, SHAPE, props, HEIGHT, STATE, VARIANT_MASK } from './data/blocks.js?v=muujns32';
+import { I, ITEMS } from './data/items.js?v=muujns32';
+import { MOBS, PROFESSIONS, playerModel, saddleModel, PLAYER_SKINS } from './data/mobs.js?v=muujns32';
+import { Net, cleanCode, cleanName, cleanKey, cleanChat, chatLine, MAX_PLAYERS, wakeRelays, diagnoseNetwork } from './net/net.js?v=muujns32';
+import { NameTags } from './net/nametags.js?v=muujns32';
+import { BIOMES } from './gen/biomes.js?v=muujns32';
+import { generateBlockTextures, drawBlockTexture } from './render/blocktex.js?v=muujns32';
+import { cloudTexture } from './render/cloudtex.js?v=muujns32';
+import { generateItemTextures, ITEM_LAYER, FX_LAYER, ITEM_LAYER_COUNT, flatTexFor } from './render/itemtex.js?v=muujns32';
+import { Zip, storedPack, savePack, removePack, applyBlockTextures, applyItemTextures, applyArmorTextures, readEntityTexture, readCloudTexture, indexSounds } from './render/pack.js?v=muujns32';
+import { packModel, paintModel, ENTITY, texFactor, faceRects } from './render/mobtex.js?v=muujns32';
+import { buildMipChain } from './render/atlas.js?v=muujns32';
+import { Renderer, Batch } from './render/renderer.js?v=muujns32';
+import { generateWeatherTextures, readWeatherTextures } from './render/weathertex.js?v=muujns32';
+import { precipitationAt, precipitationHeight } from './game/weather.js?v=muujns32';
+import { JavaRandom } from './core/jrandom.js?v=muujns32';
+import { collisionBoxes } from './data/shapes.js?v=muujns32';
+import { World, UNLOADED } from './world/world.js?v=muujns32';
+import { createGenerator } from './gen/index.js?v=muujns32';
+import { Game } from './game/game.js?v=muujns32';
+import { Interact, crossbowCharge } from './game/interact.js?v=muujns32';
+import { SpawnPrep, STATUS_COLOR } from './game/spawnprep.js?v=muujns32';
+import { splash } from './splash.js?v=muujns32';
+import { Commands } from './game/commands.js?v=muujns32';
+import { GUI, HUD } from './game/ui.js?v=muujns32';
+import { buildIcons, hudSprites } from './game/icons.js?v=muujns32';
+import { Sound } from './game/audio.js?v=muujns32';
+import { buildLogo, buttonTexture, dirtTexture, iconDataURL } from './render/logo.js?v=muujns32';
+import { computeEnv } from './game/env.js?v=muujns32';
+import { guideSections } from './game/guide.js?v=muujns32';
+import { listWorlds, loadWorld, saveWorld, deleteWorld } from './game/storage.js?v=muujns32';
+import { importJavaWorld, exportJavaWorld } from './game/javaworld.js?v=muujns32';
+import { drawModel, rootMatrix, M } from './entity/entity.js?v=muujns32';
+import { itemMesh, emitItemMesh, clearItemMeshes } from './entity/itemmesh.js?v=muujns32';
+import { Lightning, billboard } from './entity/objects.js?v=muujns32';
+import { compose, translation, rotationX, rotationY, rotationZ, scaling, forward, mat4 } from './core/math.js?v=muujns32';
+import { hasGlint } from './data/enchantments.js?v=muujns32';
+import { BarrelRoll } from './game/barrelroll.js?v=muujns32';
 
 const $ = id => document.getElementById(id);
 // Resolves after the page has painted what was just put on screen.
@@ -1275,7 +1275,8 @@ class App {
       this.mouse.leftClicked = this.mouse.rightClicked = false;
       if (this.gui.isOpen) this.gui.update();
       this.saveT += dt;
-      if (this.saveT > 45) { this.saveT = 0; this.saveGame(); }
+      // Autosave between frames when the browser has a moment (or after 2 s), not in the middle of one.
+      if (this.saveT > 45) { this.saveT = 0; if (window.requestIdleCallback) requestIdleCallback(() => this.saveGame(), { timeout: 2000 }); else this.saveGame(); }
     }
     if (this.sleeping) {
       this.sleeping.t += dt;

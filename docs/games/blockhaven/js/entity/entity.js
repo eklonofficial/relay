@@ -1,8 +1,8 @@
 // Entity base class, manager and the box-model renderer shared by every mob.
-import { moveEntity } from './physics.js?v=muujnr74';
-import { B } from '../data/blocks.js?v=muujnr74';
-import { fluidPush } from '../game/fluid.js?v=muujnr74';
-import { ENTITY, texFactor } from '../render/mobtex.js?v=muujnr74';
+import { moveEntity } from './physics.js?v=muujns32';
+import { B } from '../data/blocks.js?v=muujns32';
+import { fluidPush } from '../game/fluid.js?v=muujns32';
+import { ENTITY, texFactor } from '../render/mobtex.js?v=muujns32';
 
 let nextId = 1;
 const LIGHT = { sky: 0, blk: 0 };
@@ -68,15 +68,27 @@ export class Entity {
 }
 
 export class EntityManager {
-  constructor(game) { this.game = game; this.list = []; this.frame = 0; }
-  add(e) { e.lodPhase = (Math.random() * 8) | 0; this.list.push(e); if (e.onAdd) e.onAdd(); return e; }
+  // `active`: this frame's entities in loaded chunks, the ones near() searches. Entities in
+  // unloaded chunks are frozen and, as in Java, out of everyone's reach; they pile up as a world
+  // is explored, so leaving them out keeps every mob's searches as cheap as near spawn.
+  constructor(game) { this.game = game; this.list = []; this.active = null; this.frame = 0; }
+  add(e) { e.lodPhase = (Math.random() * 8) | 0; this.list.push(e); if (this.active && this.game.world.isLoaded(e.pos[0], e.pos[2])) this.active.push(e); if (e.onAdd) e.onAdd(); return e; }
   update(dt) {
     const g = this.game, p = g.player && g.player.pos;
     this.frame = (this.frame + 1) | 0;
+    const active = this.active || (this.active = []);
+    active.length = 0;
     for (const e of this.list) {
       if (e.dead) continue;
-      if (!g.world.isLoaded(e.pos[0], e.pos[2])) { e.frozen = true; continue; }
-      e.frozen = false;
+      e.frozen = !g.world.isLoaded(e.pos[0], e.pos[2]);
+      if (!e.frozen) active.push(e);
+    }
+    const n0 = this.list.length;
+    for (let i = 0; i < this.list.length; i++) {
+      const e = this.list[i];
+      if (e.dead) continue;
+      if (i >= n0) e.frozen = !g.world.isLoaded(e.pos[0], e.pos[2]); // added during this loop
+      if (e.frozen) continue;
       e.age += dt;
       // Distant mobs think less often (their skipped time is carried over), which keeps
       // big villages and mob farms cheap on low-end machines.
@@ -98,11 +110,11 @@ export class EntityManager {
   }
   near(p, r, filter) {
     const out = [];
-    for (const e of this.list) if (!e.dead && Math.abs(e.pos[0] - p[0]) < r && Math.abs(e.pos[2] - p[2]) < r && Math.abs(e.pos[1] - p[1]) < r && (!filter || filter(e))) out.push(e);
+    for (const e of this.active || this.list) if (!e.dead && Math.abs(e.pos[0] - p[0]) < r && Math.abs(e.pos[2] - p[2]) < r && Math.abs(e.pos[1] - p[1]) < r && (!filter || filter(e))) out.push(e);
     return out;
   }
   count(filter) { let n = 0; for (const e of this.list) if (!e.dead && filter(e)) n++; return n; }
-  clear() { this.list = []; }
+  clear() { this.list = []; this.active = null; }
 }
 
 // ---------------- box models ----------------

@@ -1,11 +1,12 @@
 // Chunk storage, streaming, edits and queries for one dimension.
-import { CHUNK, HEIGHT, PAD, PS, B, OPAQUE, SOLID, EMIT, ATTEN, VARIANT_MASK, SHAPE_OF, SHAPE, DIM } from '../data/blocks.js?v=muujnr74';
-import { VOLUME_SIZE } from '../mesh/mesher.js?v=muujnr74';
-import { selectionBoxes, collisionBoxes } from '../data/shapes.js?v=muujnr74';
-import { sinceOf } from '../gen/versions.js?v=muujnr74';
-import { getChunk, decodeChunk } from '../game/storage.js?v=muujnr74';
+import { CHUNK, HEIGHT, PAD, PS, B, OPAQUE, SOLID, EMIT, ATTEN, VARIANT_MASK, SHAPE_OF, SHAPE, DIM } from '../data/blocks.js?v=muujns32';
+import { VOLUME_SIZE } from '../mesh/mesher.js?v=muujns32';
+import { selectionBoxes, collisionBoxes } from '../data/shapes.js?v=muujns32';
+import { sinceOf } from '../gen/versions.js?v=muujns32';
+import { getChunk, decodeChunk } from '../game/storage.js?v=muujns32';
 
 export const UNLOADED = 255;
+const COLLIDE_TMP = [], COLLIDE_POOL = [];
 export const chunkKey = (cx, cz) => `${cx},${cz}`;
 // Numeric twin of chunkKey for the hot lookups (no string built per call).
 const numKey = (cx, cz) => (cx + 0x200000) * 0x400000 + (cz + 0x200000);
@@ -45,7 +46,7 @@ export class World {
     const count = Math.max(1, Math.min(4, (navigator.hardwareConcurrency || 4) - 1));
     this.workers = [];
     for (let i = 0; i < count; i++) {
-      const w = new Worker(new URL('../worker.js?v=muujnr74', import.meta.url), { type: 'module' });
+      const w = new Worker(new URL('../worker.js?v=muujns32', import.meta.url), { type: 'module' });
       w.busy = 0;
       w.onmessage = e => this.onWorkerMessage(w, e.data);
       w.onerror = e => console.error('worker error', e.message);
@@ -443,19 +444,23 @@ export class World {
   }
 
   // Collision boxes (world space) of blocks overlapping an AABB.
+  // Collision boxes overlapping the box. The returned boxes are reused by the next call, so use
+  // them before colliding again (physics does).
   collide(x0, y0, z0, x1, y1, z1, out = []) {
-    out.length = 0;
-    const tmp = [];
+    const tmp = COLLIDE_TMP, pool = COLLIDE_POOL;
+    let n = 0;
+    const box = (a, b, c, d, e, f) => { const bb = pool[n] || (pool[n] = [0, 0, 0, 0, 0, 0]); bb[0] = a; bb[1] = b; bb[2] = c; bb[3] = d; bb[4] = e; bb[5] = f; out[n++] = bb; };
     for (let y = Math.floor(y0) - 1; y <= Math.floor(y1); y++) for (let z = Math.floor(z0); z <= Math.floor(z1); z++) for (let x = Math.floor(x0); x <= Math.floor(x1); x++) {
       const id = this.getBlock(x, y, z);
-      if (id === UNLOADED) { out.push([x, y, z, x + 1, y + 1, z + 1]); continue; }
+      if (id === UNLOADED) { box(x, y, z, x + 1, y + 1, z + 1); continue; }
       if (!SOLID[id]) continue;
       collisionBoxes(id, this.getMeta(x, y, z), tmp);
       for (const b of tmp) {
-        const bb = [x + b[0], y + b[1], z + b[2], x + b[3], y + b[4], z + b[5]];
-        if (bb[3] > x0 && bb[0] < x1 && bb[4] > y0 && bb[1] < y1 && bb[5] > z0 && bb[2] < z1) out.push(bb);
+        const a0 = x + b[0], a1 = y + b[1], a2 = z + b[2], a3 = x + b[3], a4 = y + b[4], a5 = z + b[5];
+        if (a3 > x0 && a0 < x1 && a4 > y0 && a1 < y1 && a5 > z0 && a2 < z1) box(a0, a1, a2, a3, a4, a5);
       }
     }
+    out.length = n;
     return out;
   }
 

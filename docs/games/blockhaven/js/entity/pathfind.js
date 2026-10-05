@@ -1,30 +1,31 @@
 // Grid A* for walking mobs: 8-way moves (no corner cutting), one-block step-ups, drops of up to
 // three blocks, doors for villagers, and it avoids lava, fire, cacti and deep falls. When the
 // goal can't be reached within the node budget it returns a path to the closest spot it found.
-import { B, SOLID, SHAPE_OF, SHAPE } from '../data/blocks.js?v=muujnr74';
-import { UNLOADED } from '../world/world.js?v=muujnr74';
+import { B, SOLID, SHAPE_OF, SHAPE } from '../data/blocks.js?v=muujns32';
+import { UNLOADED } from '../world/world.js?v=muujns32';
 
 const DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]];
-const DANGER = new Set([B.LAVA, B.FIRE, B.CACTUS, B.SWEET_BERRY_BUSH, B.MAGMA_BLOCK].filter(x => x !== undefined));
+const DANGER = new Uint8Array(256);
+for (const id of [B.LAVA, B.FIRE, B.CACTUS, B.SWEET_BERRY_BUSH, B.MAGMA_BLOCK]) if (id !== undefined) DANGER[id] = 1;
 
 // Min-heap keyed on f.
 class Heap {
   constructor() { this.a = []; }
   get size() { return this.a.length; }
-  push(n) { const a = this.a; a.push(n); let i = a.length - 1; while (i > 0) { const p = (i - 1) >> 1; if (a[p].f <= a[i].f) break; [a[p], a[i]] = [a[i], a[p]]; i = p; } }
+  push(n) { const a = this.a; a.push(n); let i = a.length - 1; while (i > 0) { const p = (i - 1) >> 1; if (a[p].f <= a[i].f) break; const t = a[p]; a[p] = a[i]; a[i] = t; i = p; } }
   pop() {
     const a = this.a, top = a[0], last = a.pop();
-    if (a.length) { a[0] = last; let i = 0; for (;;) { const l = 2 * i + 1, r = l + 1; let m = i; if (l < a.length && a[l].f < a[m].f) m = l; if (r < a.length && a[r].f < a[m].f) m = r; if (m === i) break; [a[m], a[i]] = [a[i], a[m]]; i = m; } }
+    if (a.length) { a[0] = last; let i = 0; for (;;) { const l = 2 * i + 1, r = l + 1; let m = i; if (l < a.length && a[l].f < a[m].f) m = l; if (r < a.length && a[r].f < a[m].f) m = r; if (m === i) break; const t = a[m]; a[m] = a[i]; a[i] = t; i = m; } }
     return top;
   }
 }
 
 export function findPath(world, from, to, { height = 2, maxNodes = 700, maxDrop = 3, doors = false, swim = false } = {}) {
   const get = (x, y, z) => world.getBlock(x, y, z);
-  const passable = id => id === B.AIR || (!SOLID[id] && !DANGER.has(id) && id !== UNLOADED) || (doors && SHAPE_OF[id] === SHAPE.DOOR) || (swim && id === B.WATER);
+  const passable = id => id === B.AIR || (!SOLID[id] && !DANGER[id] && id !== UNLOADED) || (doors && SHAPE_OF[id] === SHAPE.DOOR) || (swim && id === B.WATER);
   const standable = (x, y, z) => {
     const below = get(x, y - 1, z);
-    if (below === UNLOADED || DANGER.has(below)) return false;
+    if (below === UNLOADED || DANGER[below]) return false;
     if (!(SOLID[below] || (swim && below === B.WATER) || get(x, y, z) === B.WATER)) return false;
     for (let k = 0; k < height; k++) if (!passable(get(x, y + k, z))) return false;
     return true;
@@ -87,7 +88,7 @@ export function clearWalk(world, from, to, height = 2) {
     if (SOLID[feet]) { if (SOLID[world.getBlock(x, y + 1, z)] || SOLID[world.getBlock(x, y + height, z)]) return false; y++; continue; }
     if (!SOLID[below]) { if (SOLID[world.getBlock(x, y - 2, z)]) { y--; continue; } return false; }
     for (let k = 1; k < height; k++) if (SOLID[world.getBlock(x, y + k, z)]) return false;
-    if (DANGER.has(feet) || DANGER.has(below)) return false;
+    if (DANGER[feet] || DANGER[below]) return false;
   }
   return true;
 }

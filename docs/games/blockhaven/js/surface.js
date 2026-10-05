@@ -12,6 +12,10 @@ let dirty = true, animated = false;
 // Each element's painted extent (its subtree, padded for shadows and overhangs) is kept from
 // the last full paint; layout cannot have changed since, or the surface would be dirty.
 let extents = new WeakMap(), live = new Set(), clipRect = null, lastSize = '', lastClip = null, lastTargets = [];
+// Elements whose only change since the last paint is their opacity (a fading chat line or
+// title): that never moves anything, so only their own area needs painting again.
+const faded = new Set();
+const withoutOpacity = v => (v || '').replace(/(^|;)\s*opacity\s*:[^;]*/g, '$1').replace(/;\s*;/g, ';').trim();
 const PAD = 8;
 const hints = new WeakMap();
 let hint = '', hintTimer, pointer = { x: 0, y: 0 };
@@ -67,13 +71,17 @@ export function mount(markup, css) {
   context = output.getContext('2d');
   native.body.replaceChildren(...(worldCanvas ? [worldCanvas, host] : [host]));
   const observer = new MutationObserver(records => {
-    dirty = true;
     for (const r of records) {
+      if (r.type === 'attributes' && r.attributeName === 'style' && withoutOpacity(r.oldValue) === withoutOpacity(r.target.getAttribute('style'))) {
+        const e = extents.get(r.target);
+        if (e && !e.clipped) { faded.add(r.target); continue; }
+      }
+      dirty = true;
       if (r.type === 'attributes' && r.attributeName === 'title') captureHints(r.target);
       if (r.type === 'childList') r.addedNodes.forEach(captureHints);
     }
   });
-  observer.observe(layout, { subtree: true, childList: true, characterData: true, attributes: true });
+  observer.observe(layout, { subtree: true, childList: true, characterData: true, attributes: true, attributeOldValue: true });
   for (const name of ['input', 'change', 'focusin', 'focusout', 'mouseover', 'mouseout', 'scroll', 'pointermove', 'keydown', 'keyup']) {
     tree.addEventListener(name, () => { dirty = true; }, true);
   }
@@ -88,7 +96,7 @@ export function mount(markup, css) {
     if (value) hintTimer = setTimeout(() => { hint = value; dirty = true; }, 600);
   });
   host.addEventListener('mouseleave', () => { clearTimeout(hintTimer); hint = ''; dirty = true; });
-  const frame = () => { requestAnimationFrame(frame); if (!native.hidden && (dirty || animated)) paint(); };
+  const frame = () => { requestAnimationFrame(frame); if (!native.hidden && (dirty || animated || faded.size)) paint(); };
   requestAnimationFrame(frame);
 }
 
@@ -250,7 +258,7 @@ function draw(ctx, el, inherited = new DOMMatrix()) {
   ctx.setTransform(dpr*matrix.a,dpr*matrix.b,dpr*matrix.c,dpr*matrix.d,dpr*matrix.e,dpr*matrix.f);
   ctx.imageSmoothingEnabled = s.imageRendering !== 'pixelated';
   ctx.globalAlpha *= Number(s.opacity);
-  if (!ctx.globalAlpha) { ctx.restore(); extents.set(el, ext); return ext; }
+  if (!ctx.globalAlpha) { ctx.restore(); ext.clipped = true; if (!clipRect) extents.set(el, ext); return ext; } // (its children's extent unknown)
   if (s.mixBlendMode !== 'normal') ctx.globalCompositeOperation = s.mixBlendMode;
   if (s.filter !== 'none') ctx.filter = s.filter;
   box(ctx, s, r);
@@ -302,7 +310,7 @@ export function paint() {
     // Only animations moved: the union of their areas now and as last painted (text and children
     // included), the live canvases and carets, and last frame's area (anything that moved away).
     const add = (x0, y0, x1, y1) => { clip = clip ? { x0: Math.min(clip.x0, x0), y0: Math.min(clip.y0, y0), x1: Math.max(clip.x1, x1), y1: Math.max(clip.y1, y1) } : { x0, y0, x1, y1 }; };
-    for (const el of [...targets, ...live]) {
+    for (const el of [...targets, ...live, ...faded]) {
       if (!el.isConnected) continue;
       const b = el.getBoundingClientRect(), e = extents.get(el);
       if (b.width || b.height) add(b.left - PAD, b.top - PAD, b.right + PAD, b.bottom + PAD);
@@ -312,7 +320,7 @@ export function paint() {
     if (clip) clip = { x0: Math.floor(clip.x0), y0: Math.floor(clip.y0), x1: Math.ceil(clip.x1), y1: Math.ceil(clip.y1) };
   }
   lastClip = clip;
-  dirty = false;
+  dirty = false; faded.clear();
   animated = running.length > 0;
   if (output.width !== w || output.height !== h) { output.width = w; output.height = h; }
   lastSize = size;

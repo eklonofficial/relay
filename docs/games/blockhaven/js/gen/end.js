@@ -1,9 +1,9 @@
 // End generator: the central island with its ring of obsidian pillars (end crystals on top, the
 // two shortest caged in iron bars), a void gap, then endless outer islands with chorus forests.
-import { Simplex, hash2, mulberry32 } from '../core/noise.js?v=muujnr74';
-import { B, st, CHUNK, HEIGHT } from '../data/blocks.js?v=muujnr74';
-import { ChunkBuilder, CI } from './chunk.js?v=muujnr74';
-import { BI } from './biomes.js?v=muujnr74';
+import { Simplex, hash2, mulberry32 } from '../core/noise.js?v=muujns32';
+import { B, st, CHUNK, HEIGHT } from '../data/blocks.js?v=muujns32';
+import { ChunkBuilder, CI } from './chunk.js?v=muujns32';
+import { BI } from './biomes.js?v=muujns32';
 
 export const END_MAIN_R = 92;
 export const END_OUTER_R = 180;

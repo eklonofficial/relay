@@ -1,29 +1,29 @@
 // The running game: world + dimensions, player survival state, entities, simulation, weather and saving.
-import { B, BLOCKS, SOLID, OPAQUE, DIM, DIM_NAMES, HEIGHT, SEA, props, st, SHAPE_OF, SHAPE, chestPartner } from '../data/blocks.js?v=muujnr74';
-import { importedVoidAt, emptyChunk } from './javaworld.js?v=muujnr74';
-import { I, maxStack } from '../data/items.js?v=muujnr74';
-import { SMELTING } from '../data/recipes.js?v=muujnr74';
-import { MOBS } from '../data/mobs.js?v=muujnr74';
-import { BIOMES, COLD } from '../gen/biomes.js?v=muujnr74';
-import { World, UNLOADED, posKey } from '../world/world.js?v=muujnr74';
-import { Player } from './player.js?v=muujnr74';
-import { PlayerInventory, Container } from './inventory.js?v=muujnr74';
-import { EntityManager } from '../entity/entity.js?v=muujnr74';
-import { ItemEntity, XpOrb, FallingBlock, PrimedTnt, Lightning, Projectile } from '../entity/objects.js?v=muujnr74';
-import { weatherState, tickWeather, isRaining, isThundering, skyDarken, isRainingAt, precipitationHeight, shouldFreeze, shouldSnow } from './weather.js?v=muujnr74';
-import { Mob, RIDEABLE } from '../entity/mob.js?v=muujnr74';
-import { Particles } from './particles.js?v=muujnr74';
-import { Sim } from './sim.js?v=muujnr74';
-import { Redstone } from './redstone.js?v=muujnr74';
-import { blockDrops } from './drops.js?v=muujnr74';
-import { computeEnv } from './env.js?v=muujnr74';
-import { fuelOf } from './ui.js?v=muujnr74';
-import { unlockLevel } from './trades.js?v=muujnr74';
-import { forward } from '../core/math.js?v=muujnr74';
-import { EndCrystal } from '../entity/crystal.js?v=muujnr74';
-import { migrateWorld } from './migrate.js?v=muujnr74';
-import { ARMOR_BYPASS, armorReduce, applyInvul, isAxe, shieldFaces, applyKnockback, knockbackResist, protectionFactor, enchLv } from './combat.js?v=muujnr74';
-import { deathText } from '../net/net.js?v=muujnr74';
+import { B, BLOCKS, SOLID, OPAQUE, DIM, DIM_NAMES, HEIGHT, SEA, props, st, SHAPE_OF, SHAPE, chestPartner } from '../data/blocks.js?v=muujns32';
+import { importedVoidAt, emptyChunk } from './javaworld.js?v=muujns32';
+import { I, maxStack } from '../data/items.js?v=muujns32';
+import { SMELTING } from '../data/recipes.js?v=muujns32';
+import { MOBS } from '../data/mobs.js?v=muujns32';
+import { BIOMES, COLD } from '../gen/biomes.js?v=muujns32';
+import { World, UNLOADED, posKey } from '../world/world.js?v=muujns32';
+import { Player } from './player.js?v=muujns32';
+import { PlayerInventory, Container } from './inventory.js?v=muujns32';
+import { EntityManager } from '../entity/entity.js?v=muujns32';
+import { ItemEntity, XpOrb, FallingBlock, PrimedTnt, Lightning, Projectile } from '../entity/objects.js?v=muujns32';
+import { weatherState, tickWeather, isRaining, isThundering, skyDarken, isRainingAt, precipitationHeight, shouldFreeze, shouldSnow } from './weather.js?v=muujns32';
+import { Mob, RIDEABLE } from '../entity/mob.js?v=muujns32';
+import { Particles } from './particles.js?v=muujns32';
+import { Sim } from './sim.js?v=muujns32';
+import { Redstone } from './redstone.js?v=muujns32';
+import { blockDrops } from './drops.js?v=muujns32';
+import { computeEnv } from './env.js?v=muujns32';
+import { fuelOf } from './ui.js?v=muujns32';
+import { unlockLevel } from './trades.js?v=muujns32';
+import { forward } from '../core/math.js?v=muujns32';
+import { EndCrystal } from '../entity/crystal.js?v=muujns32';
+import { migrateWorld } from './migrate.js?v=muujns32';
+import { ARMOR_BYPASS, armorReduce, applyInvul, isAxe, shieldFaces, applyKnockback, knockbackResist, protectionFactor, enchLv } from './combat.js?v=muujns32';
+import { deathText } from '../net/net.js?v=muujns32';
 
 export const DAY = 1200; // seconds per day
 const rnd = (a, b) => a + Math.random() * (b - a);
@@ -735,7 +735,8 @@ export class Game {
   // ---------------- per-frame tick ----------------
   update(dt) {
     this.bossBar = null; // bosses re-register every tick while nearby
-    this.pathBudget = 4; // A* searches allowed per tick across all mobs
+    this.pathBudget = 4; // A* searches allowed per tick across all mobs,
+    this.pathUntil = performance.now() + 4; // and after the first, only within 4 ms (slow devices)
     this.time += dt;
     if (this.timers.length) { const now = this.time; const due = this.timers.filter(t => t.t <= now); this.timers = this.timers.filter(t => t.t > now); for (const t of due) t.fn(); }
     if (this.rules.doDaylightCycle && this.dim === DIM.OVERWORLD) {
@@ -798,10 +799,14 @@ export class Game {
     this.entities.add(new Lightning(this, x + 0.5, y, z + 0.5));
   }
   // Furnaces smelt, spawners spawn.
+  // Furnaces and spawners tick only in loaded chunks, as block entities do in Java.
   tickBlockEntities(dt) {
-    for (const [k, be] of this.world.blockEntities) {
+    const w = this.world;
+    for (const [k, be] of w.blockEntities) {
+      if (be.type !== 'furnace' && be.type !== 'spawner') continue;
+      if (be.x !== undefined ? !w.isLoaded(be.x, be.z) : !w.isLoaded(+k.split(',')[0], +k.split(',')[2])) continue;
       if (be.type === 'furnace') { if (!(this.net && !this.net.isHost)) this.tickFurnace(k, be, dt); }
-      else if (be.type === 'spawner') this.tickSpawner(be, dt);
+      else this.tickSpawner(be, dt);
     }
   }
   tickFurnace(k, be, dt) {
