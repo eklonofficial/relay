@@ -2,9 +2,9 @@
 // explosions (sprite count ∝ damage/4), yolk hit splashes, egg shatter shards and yolk splats, plus
 // the world objects that move: rockets, grenades (with the pre-detonation flash), pickups and the
 // spatula. Pools are reused; nothing allocates per frame once warm.
-import * as THREE from '../../vendor/three/three.module.js?v=muv98ap7';
-import { gunModel } from './guns.js?v=muv98ap7';
-import { TEAM_COLORS } from './egg.js?v=muv98ap7';
+import * as THREE from '../../vendor/three/three.module.js?v=muv9bt8u';
+import { gunModel } from './guns.js?v=muv9bt8u';
+import { TEAM_COLORS } from './egg.js?v=muv9bt8u';
 
 function radial(inner, outer, size = 64) {
   const c = new OffscreenCanvas(size, size), x = c.getContext('2d');
@@ -26,6 +26,19 @@ function bulletHole(size = 64) {
   g = x.createRadialGradient(m, m, 0, m, m, size * 0.13);
   g.addColorStop(0, 'rgba(8,6,4,1)'); g.addColorStop(0.8, 'rgba(20,16,12,0.95)'); g.addColorStop(1, 'rgba(20,16,12,0)');
   x.fillStyle = g; x.beginPath(); x.arc(m, m, size * 0.13, 0, Math.PI * 2); x.fill();
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+}
+// A yolk splat seen from above: a ragged white of albumen with a glossy yolk off-centre and droplets.
+function yolkSplat(size = 128) {
+  const c = new OffscreenCanvas(size, size), x = c.getContext('2d'), m = size / 2;
+  let s = 99; const r = () => (s = (s * 16807) % 2147483647) / 2147483647;
+  const blob = (cx, cy, R, n, wob) => { x.beginPath(); for (let i = 0; i <= n; i++) { const a = i / n * Math.PI * 2, rr = R * (1 - wob + r() * wob * 2); i ? x.lineTo(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr) : x.moveTo(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr); } x.closePath(); x.fill(); };
+  x.fillStyle = 'rgba(255,252,236,0.75)'; blob(m, m, size * 0.36, 18, 0.22);
+  for (let i = 0; i < 9; i++) { const a = r() * 6.28, d = size * (0.36 + r() * 0.1); blob(m + Math.cos(a) * d, m + Math.sin(a) * d, size * (0.02 + r() * 0.035), 8, 0.2); }
+  const g = x.createRadialGradient(m - size * 0.06, m - size * 0.07, 0, m, m, size * 0.2);
+  g.addColorStop(0, '#ffe680'); g.addColorStop(0.5, '#ffbe14'); g.addColorStop(1, '#f29d00');
+  x.fillStyle = g; blob(m + size * 0.03, m + size * 0.02, size * 0.19, 14, 0.1);
+  x.fillStyle = 'rgba(255,255,255,0.7)'; x.beginPath(); x.ellipse(m - size * 0.04, m - size * 0.05, size * 0.05, size * 0.025, -0.6, 0, 7); x.fill();
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
 }
 function puff() {
@@ -81,13 +94,14 @@ export class Effects {
     this.si = 0;
     // Impacts: small bullet holes that shrink away after a while.
     this.decalMat = new THREE.MeshBasicMaterial({ map: bulletHole(), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 });
-    this.splatMat = new THREE.MeshBasicMaterial({ map: radial('rgba(255,196,30,1)', 'rgba(255,170,0,0)'), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -3 });
+    this.splatMat = new THREE.MeshBasicMaterial({ map: yolkSplat(), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -3 });
     const dg = new THREE.PlaneGeometry(1, 1);
     this.decals = []; for (let i = 0; i < 64; i++) { const m = new THREE.Mesh(dg, this.decalMat); m.visible = false; m.userData = { life: 0 }; scene.add(m); this.decals.push(m); }
     this.di = 0;
     // Shell shards.
-    this.shardGeo = new THREE.TetrahedronGeometry(0.06, 0);
-    this.shards = []; for (let i = 0; i < 96; i++) { const m = new THREE.Mesh(this.shardGeo, new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.5, flatShading: true })); m.visible = false; m.userData = { v: new THREE.Vector3(), w: new THREE.Vector3(), life: 0 }; m.castShadow = true; scene.add(m); this.shards.push(m); }
+    // Curved bits of shell (patches of a sphere the egg's size), a few shapes, lit on both faces.
+    this.shardGeos = [[0.5, 0.45], [0.35, 0.6], [0.6, 0.3], [0.3, 0.3]].map(([a, b]) => new THREE.SphereGeometry(0.3, 3, 2, 0, a, 1.2, b).translate(0, 0, -0.3).rotateX(Math.PI / 2));
+    this.shards = []; for (let i = 0; i < 128; i++) { const m = new THREE.Mesh(this.shardGeos[i % 4], new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.45, flatShading: true, side: THREE.DoubleSide })); m.visible = false; m.userData = { v: new THREE.Vector3(), w: new THREE.Vector3(), life: 0 }; m.castShadow = true; scene.add(m); this.shards.push(m); }
     this.shi = 0;
     // Flash light for muzzle flashes and explosions.
     this.flash = new THREE.PointLight(0xffc070, 0, 6, 2); scene.add(this.flash); this.flashT = 0;
@@ -114,18 +128,30 @@ export class Effects {
     for (let i = 0; i < 5; i++) this.yolk.spawn(x, y, z, 0.07 + Math.random() * 0.05, 0.35, 0xffc21a, -dx * 1.5 + (Math.random() - 0.5) * 1.5, -dy * 1.5 + Math.random() * 1.5, -dz * 1.5 + (Math.random() - 0.5) * 1.5, -0.1);
     for (let i = 0; i < 3; i++) this.shard(x, y, z, 0xffffff, 0.6);
   }
-  shard(x, y, z, color, life = 2.5) {
+  // A shell fragment flung from (x,y,z); `out` pushes it away from the egg's centre. It bounces and
+  // settles on `floor`, then shrinks away.
+  shard(x, y, z, color, life = 2.5, floor = -Infinity, out = null, scale = 0.45) {
     const m = this.shards[this.shi = (this.shi + 1) % this.shards.length], u = m.userData;
-    m.material.color.setHex(color); m.position.set(x, y, z); m.visible = true; m.scale.setScalar(0.6 + Math.random() * 0.9);
-    u.v.set((Math.random() - 0.5) * 3, 1.5 + Math.random() * 2.5, (Math.random() - 0.5) * 3); u.w.set(Math.random() * 10, Math.random() * 10, Math.random() * 10); u.life = life;
+    m.material.color.setHex(color); m.position.set(x, y, z); m.visible = true; u.size = scale * (0.6 + Math.random() * 0.8); m.scale.setScalar(u.size);
+    m.rotation.set(Math.random() * 6.28, Math.random() * 6.28, Math.random() * 6.28);
+    if (out) u.v.set(out[0] * (2 + Math.random() * 2.5) + (Math.random() - 0.5), out[1] * 2 + 1.5 + Math.random() * 2.5, out[2] * (2 + Math.random() * 2.5) + (Math.random() - 0.5));
+    else u.v.set((Math.random() - 0.5) * 3, 1.5 + Math.random() * 2.5, (Math.random() - 0.5) * 3);
+    u.w.set((Math.random() - 0.5) * 20, (Math.random() - 0.5) * 20, 0); u.life = life; u.max = life; u.floor = floor;
   }
   // Death: 8–12 shards, a yolk burst and a yolk splat on the floor below.
+  // Death: the shell bursts into a shower of curved pieces (in the egg's colour) flung outwards from
+  // all over its surface, a yolk-and-white splash, and a splat left on the floor.
   shatter(x, y, z, color, floorY) {
-    const n = 8 + Math.floor(Math.random() * 5);
-    for (let i = 0; i < n; i++) this.shard(x + (Math.random() - 0.5) * 0.3, y + 0.3 + Math.random() * 0.3, z + (Math.random() - 0.5) * 0.3, color);
-    for (let i = 0; i < 10; i++) this.yolk.spawn(x, y + 0.3, z, 0.1 + Math.random() * 0.08, 0.6, 0xffbf00, (Math.random() - 0.5) * 3, Math.random() * 3, (Math.random() - 0.5) * 3, 0.1);
+    const n = 22 + Math.floor(Math.random() * 8);
+    for (let i = 0; i < n; i++) {
+      const a = Math.random() * Math.PI * 2, h = Math.random();
+      const o = [Math.cos(a), h - 0.3, Math.sin(a)];
+      this.shard(x + o[0] * 0.25, y + 0.05 + h * 0.6, z + o[2] * 0.25, color, 2.2 + Math.random(), floorY, o, 1.0);
+    }
+    for (let i = 0; i < 14; i++) this.yolk.spawn(x, y + 0.35, z, 0.12 + Math.random() * 0.14, 0.5 + Math.random() * 0.3, 0xffb400, (Math.random() - 0.5) * 3.5, Math.random() * 3, (Math.random() - 0.5) * 3.5, 0.2);
+    for (let i = 0; i < 8; i++) this.smoke.spawn(x, y + 0.35, z, 0.16 + Math.random() * 0.1, 0.45, 0xfffaf0, (Math.random() - 0.5) * 2.5, Math.random() * 2, (Math.random() - 0.5) * 2.5, 0.5, 0.75);
     const m = this.decals[this.di = (this.di + 1) % this.decals.length];
-    m.material = this.splatMat; m.position.set(x, floorY + 0.012, z); m.rotation.set(-Math.PI / 2, 0, Math.random() * 6); m.scale.setScalar(0.7 + Math.random() * 0.3); m.visible = true; m.userData.life = 10; m.userData.size = m.scale.x;
+    m.material = this.splatMat; m.position.set(x, floorY + 0.012, z); m.rotation.set(-Math.PI / 2, 0, Math.random() * 6); m.scale.setScalar(1.0 + Math.random() * 0.35); m.visible = true; m.userData.life = 12; m.userData.size = m.scale.x;
   }
   explosion(x, y, z, radius, weapon, team = 0) {
     const n = Math.round((weapon === 'grenade' ? 150 : 140) / 4 / 3);
@@ -183,7 +209,13 @@ export class Effects {
       if (!m.visible) continue;
       const u = m.userData; u.life -= dt; if (u.life <= 0) { m.visible = false; continue; }
       u.v.y -= 9 * dt; m.position.addScaledVector(u.v, dt);
+      if (m.position.y < u.floor + 0.02) {
+        // Bounce once or twice, then lie still.
+        m.position.y = u.floor + 0.02; if (u.v.y < 0) u.v.y *= -0.3; u.v.x *= 0.55; u.v.z *= 0.55; u.w.multiplyScalar(0.5);
+        if (Math.abs(u.v.y) < 0.4) u.v.y = 0;
+      }
       m.rotation.x += u.w.x * dt; m.rotation.y += u.w.y * dt;
+      if (u.life < 0.4) m.scale.setScalar(u.size * u.life / 0.4);
       if (m.position.y < -20) m.visible = false;
     }
     if (this.flashT > 0) { this.flashT -= dt; if (this.flashT <= 0) this.flash.intensity = 0; }
