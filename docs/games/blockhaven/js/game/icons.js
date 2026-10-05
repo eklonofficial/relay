@@ -1,8 +1,8 @@
 // Inventory icons as data URLs: isometric cubes for blocks, crisp sprites for items.
-import { ITEMS } from '../data/items.js?v=musmx1xd';
-import { FACE_TEX, VARIANT_MASK, TINT_OF, TINT, SHAPE_OF, SHAPE, TRANSLUCENT } from '../data/blocks.js?v=musmx1xd';
-import { ITEM_LAYER, FX_LAYER } from '../render/itemtex.js?v=musmx1xd';
-import { ANVIL_BOXES } from '../data/shapes.js?v=musmx1xd';
+import { ITEMS } from '../data/items.js?v=musmxd8k';
+import { FACE_TEX, VARIANT_MASK, TINT_OF, TINT, SHAPE_OF, SHAPE, TRANSLUCENT } from '../data/blocks.js?v=musmxd8k';
+import { ITEM_LAYER, FX_LAYER } from '../render/itemtex.js?v=musmxd8k';
+import { ANVIL_BOXES } from '../data/shapes.js?v=musmxd8k';
 
 // Several boxes (in block pixels) drawn in the same isometric view as the cube icons, bottom first.
 // The top face of the highest box uses the block's top texture; every other face uses the sides.

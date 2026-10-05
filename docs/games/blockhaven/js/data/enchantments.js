@@ -2,8 +2,8 @@
 // rolled in, which items take them, which ones exclude each other, and the enchanting-table
 // and anvil arithmetic. A stack's enchantments live in stack.tag.ench ({ id: level }); an
 // enchanted book keeps them in stack.tag.stored. stack.tag.rc is the anvil's prior-work cost.
-import { I } from './items.js?v=musmx1xd';
-import { mulberry32 } from '../core/noise.js?v=musmx1xd';
+import { I } from './items.js?v=musmxd8k';
+import { mulberry32 } from '../core/noise.js?v=musmxd8k';
 
 const W = { common: 10, uncommon: 5, rare: 2, very_rare: 1 };
 // [id, max level, rarity, category, minCost(level), maxCost(level), flags]
