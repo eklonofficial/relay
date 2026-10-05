@@ -1,11 +1,13 @@
 // A small vocabulary for writing maps by hand: fill volumes with pieces, add stairs, ladders and
 // metadata layers (spawns, items, roost zones, spatula spawns, the overview camera). Maps are code,
 // so symmetric layouts are written once and mirrored.
-import { MapGrid } from './grid.js?v=muv76gka';
-import { PIECE } from './pieces.js?v=muv76gka';
+import { MapGrid } from './grid.js?v=muv7xl0m';
+import { PIECE } from './pieces.js?v=muv7xl0m';
 
 // Material families (render/materials.js gives each one textures and colours).
 export const MAT = { stone: 0, grass: 1, wood: 2, brick: 3, sand: 4, metal: 5, dirt: 6, plaster: 7, roof: 8, darkStone: 9, snow: 10, panel: 11, crate: 12, hay: 13, moon: 14, gold: 15, leaf: 16, water: 17, red: 18, blue: 19 };
+
+const y0Top = () => true;
 
 export class Builder {
   constructor(w, h, d) { this.grid = new MapGrid(w, h, d); this.spawns = []; this.items = []; this.roostZones = []; this.spatulaSpawns = []; this.overview = null; this.mirrors = []; }
@@ -38,6 +40,26 @@ export class Builder {
   }
   // A ladder `h` cells tall in cell (x, y.., z), hung on the wall in direction ry.
   ladder(x, y, z, h, ry, mat = MAT.wood) { for (let i = 0; i < h; i++) this.put(x, y + i, z, 'ladder', ry, mat); return this; }
+  // Terrain: fill each column of the area up to height h(x, z) (whole cells; ground at y 0 is level 0),
+  // with `top` as the surface material. Where a column is exactly one higher than a neighbour and
+  // `ramps` is on, the lower side gets a ramp up to it, so gentle slopes walk (cliffs of 2+ stay cliffs).
+  terrain(x0, z0, x1, z1, h, mat = MAT.dirt, top = MAT.grass, ramps = true) {
+    const H = (x, z) => (x < x0 || x > x1 || z < z0 || z > z1) ? null : Math.max(0, Math.round(h(x, z)));
+    for (let z = z0; z <= z1; z++) for (let x = x0; x <= x1; x++) {
+      const t = H(x, z);
+      for (let y = 1; y <= t; y++) this.put(x, y, z, 'block', 0, y === t ? top : mat);
+      if (y0Top(t)) this.put(x, 0, z, 'block', 0, t === 0 ? top : mat);
+    }
+    if (ramps) for (let z = z0; z <= z1; z++) for (let x = x0; x <= x1; x++) {
+      const t = H(x, z);
+      // ry: 0 rises towards +z, 1 towards +x, 2 towards -z, 3 towards -x.
+      for (const [dx, dz, ry] of [[0, 1, 0], [1, 0, 1], [0, -1, 2], [-1, 0, 3]]) {
+        const n = H(x + dx, z + dz);
+        if (n === t + 1 && this.grid.get(x, t + 1, z) === 0) { this.put(x, t + 1, z, 'ramp', ry, top); break; }
+      }
+    }
+    return this;
+  }
   // Metadata, mirrored like geometry. Coordinates are cell coordinates; y is the floor cell's top.
   spawn(x, y, z, team = 0, yaw = null) { this.meta('spawns', { x: x + 0.5, y, z: z + 0.5, team, yaw }, team); return this; }
   item(kind, x, y, z) { this.meta('items', { kind, x: x + 0.5, y: y + 0.3, z: z + 0.5 }); return this; }

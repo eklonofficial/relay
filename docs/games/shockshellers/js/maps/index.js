@@ -1,7 +1,11 @@
 // The map list (GDD §15.4). Each map module builds its grid on demand; builds are cached.
-import omeletArena from './omelet-arena.js?v=muv76gka';
+import barnyard from './barnyard.js?v=muv7xl0m';
+import yolkQuarry from './yolk-quarry.js?v=muv7xl0m';
+import omeletArena from './omelet-arena.js?v=muv7xl0m';
 
 export const MAPS = [
+  { id: 'barnyard', name: 'Barnyard', build: barnyard, maxPlayers: 18, modes: ['ffa', 'teams', 'spatula', 'roost'], public: true },
+  { id: 'quarry', name: 'Yolk Quarry', build: yolkQuarry, maxPlayers: 14, modes: ['ffa', 'teams', 'spatula', 'roost'], public: true },
   { id: 'omelet', name: 'Omelet Arena', build: omeletArena, maxPlayers: 6, modes: ['ffa', 'teams', 'spatula'], public: true },
 ];
 const cache = new Map();

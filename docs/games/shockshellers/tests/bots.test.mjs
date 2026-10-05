@@ -24,13 +24,21 @@ function run(minutes, skills, primary, mode = 'ffa', seed = 3) {
   return { m, maxStill };
 }
 
-test('the nav graph covers the map and is one connected region', () => {
-  assert.ok(nav.nodes.length > 300);
-  // Tiny islands (a crate top, a battlement) are meant to be out of reach; real areas must connect.
-  const size = new Map(); for (const c of nav.comp) size.set(c, (size.get(c) || 0) + 1);
-  const big = [...nav.comp].filter(c => size.get(c) >= 6).length, main = size.get(nav.main);
-  assert.ok(main / big > 0.95, `${main}/${big}`);
-  for (const s of map.spawns) assert.equal(nav.comp[nav.nearest(s.x, s.y, s.z)], nav.main, 'every spawn reachable');
+const { MAPS, getMap } = await load('maps/index.js');
+test('on every map, everything that matters is reachable on foot', () => {
+  for (const def of MAPS) {
+    const mp = getMap(def.id), nv = new NavGraph(mp.grid);
+    assert.ok(nv.nodes.length > 200, def.id);
+    const reach = (x, y, z, what) => { const id = nv.nearest(x, y, z); assert.ok(id !== null && nv.comp[id] === nv.main, `${def.id}: ${what} at ${x},${y},${z} unreachable`); };
+    for (const s of mp.spawns) reach(s.x, s.y, s.z, 'spawn');
+    for (const it of mp.items) reach(it.x, it.y - 0.3, it.z, it.kind);
+    for (const s of mp.spatulaSpawns) reach(s.x, s.y, s.z, 'spatula spawn');
+    // A zone is reachable if a player can stand anywhere inside it.
+    for (const z of mp.roostZones) assert.ok(nv.nodes.some(n => nv.comp[n.id] === nv.main && n.x >= z.x0 && n.x <= z.x1 && n.z >= z.z0 && n.z <= z.z1 && n.y >= z.y0 - 0.2 && n.y <= z.y1), `${def.id}: roost zone at ${z.cx},${z.cz} unreachable`);
+    // Team modes need both sides.
+    if (def.modes.includes('teams')) for (const t of [1, 2]) assert.ok(mp.spawns.some(s => s.team === t), `${def.id}: no team ${t} spawns`);
+    if (def.modes.includes('roost')) assert.ok(mp.roostZones.length >= 3, `${def.id}: roost needs zones`);
+  }
 });
 
 test('a bot match produces fights and no bot stands idle for long', () => {

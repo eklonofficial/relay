@@ -2,7 +2,7 @@
 // A grass courtyard ringed by crenellated stone walls with a walkway on top (reached by mid-wall stairs:
 // the sniper lane), a raised central dais with two stair approaches and a cover lip, L-shaped cover in
 // each quadrant, crates and barrels for mid-height cover, and trees in the corners. 24×24, six players.
-import { Builder, MAT } from './dsl.js?v=muv76gka';
+import { Builder, MAT } from './dsl.js?v=muv7xl0m';
 
 export default function omeletArena() {
   const N = 24, b = new Builder(N, 10, N);
@@ -43,7 +43,7 @@ export default function omeletArena() {
   });
   // Ammo out in the open (on the dais and mid-flank), grenades at the corner pockets.
   b.mirrored(b => { b.item('ammo', 11, 3, 10); b.item('ammo', 4, 1, 12); b.item('grenade', 5, 1, 5); b.item('ammo', 12, 4, 1); });
-  b.spatula(11, 3, 11); b.spatula(4, 1, 11); b.spatula(19, 1, 12);
+  b.spatula(11, 3, 12); b.spatula(4, 1, 11); b.spatula(19, 1, 12);
   b.overview = { cx: N / 2, cy: 3, cz: N / 2, r: N * 0.62 };
 
   return b.finish({

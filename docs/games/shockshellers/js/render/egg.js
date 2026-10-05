@@ -1,9 +1,9 @@
 // The egg: a smooth ovoid shell (cracks grow at 80/60/40/20 HP, GDD §5), two floating cartoon
 // gloves holding the gun, an optional hat, a team ring for teammates and a name tag. Third-person
 // only; the first-person hands are viewmodel.js.
-import * as THREE from '../../vendor/three/three.module.js?v=muv76gka';
-import { gunModel } from './guns.js?v=muv76gka';
-import { clone } from './models.js?v=muv76gka';
+import * as THREE from '../../vendor/three/three.module.js?v=muv7xl0m';
+import { gunModel } from './guns.js?v=muv7xl0m';
+import { clone } from './models.js?v=muv7xl0m';
 
 export const SHELL_COLORS = [0xfff6e5, 0xf2d0a4, 0xc98e5a, 0x8a5a3b, 0x5b3a26, 0xe9e1ff, 0xd7f0ff, 0xff9eb5, 0x9ee6a0, 0xffd34e, 0x7fb6ff, 0xb98cff, 0xff7a59, 0x2e2e34];
 export const TEAM_COLORS = [0xbbbbbb, 0x2f86e8, 0xe8473c];

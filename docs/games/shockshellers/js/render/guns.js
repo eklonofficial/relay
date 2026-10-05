@@ -1,8 +1,8 @@
 // The eight weapons and the whisk, modelled in code: each part is a 2D side profile extruded with a
 // bevel (crisp low-poly silhouettes with soft edges), plus a few turned parts (barrels, scopes).
 // Units: metres-ish, the gun's muzzle points along -z, the grip sits near the origin.
-import * as THREE from '../../vendor/three/three.module.js?v=muv76gka';
-import { clone } from './models.js?v=muv76gka';
+import * as THREE from '../../vendor/three/three.module.js?v=muv7xl0m';
+import { clone } from './models.js?v=muv7xl0m';
 
 const M = {};
 function mat(key) {
