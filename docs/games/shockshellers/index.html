@@ -222,6 +222,10 @@
   .section { font-family: "s", sans-serif; font-weight: 400; color: var(--blue-e); font-size: calc(var(--u)*17); margin: calc(var(--u)*6) 0 calc(var(--u)*4); }
   #code-input { width: calc(var(--u)*190); text-transform: uppercase; letter-spacing: calc(var(--u)*5); text-align: center; font-size: calc(var(--u)*28); font-weight: 900; }
   .note { font-size: calc(var(--u)*14); color: var(--ink); font-weight: 700; }
+  .net-test { margin-top: calc(var(--u)*14); border-top: calc(var(--u)*2) solid rgba(23,78,94,.2); padding-top: calc(var(--u)*12); text-align: center; }
+  .net-test button { font-size: calc(var(--u)*15); padding: calc(var(--u)*6) calc(var(--u)*16); }
+  .note.diag { white-space: pre-line; text-align: left; font-size: calc(var(--u)*12); margin-top: calc(var(--u)*8); max-height: calc(var(--u)*170); overflow-y: auto; }
+  .note.diag.ok { color: #1b7a2c; } .note.diag.err { color: #c0392b; }
   .cols { display: flex; gap: calc(var(--u)*28); justify-content: center; }
   .cols > div { display: flex; flex-direction: column; align-items: center; gap: calc(var(--u)*10); width: calc(var(--u)*240); }
   #shop-grid { display: grid; grid-template-columns: repeat(4, calc(var(--u)*124)); gap: calc(var(--u)*10); }
@@ -235,7 +239,7 @@
 </head>
 <body>
 <div id="boot"><canvas id="boot-canvas"></canvas></div>
-<script type="module" id="boot-script" src="js/splash.js?v=muvgrqjg" data-modules="54"></script>
+<script type="module" id="boot-script" src="js/splash.js?v=muvjbwwq" data-modules="54"></script>
 <canvas id="game" tabindex="-1"></canvas>
 
 <div class="screen hidden" id="loading">
@@ -348,7 +352,8 @@
     <div class="body"><div class="cols">
       <div><div class="section">Join a game</div><input type="text" id="code-input" maxlength="5" spellcheck="false" autocomplete="off" placeholder="CODE"><button class="green" id="btn-join">JOIN</button><div class="note" id="join-status"></div></div>
       <div><div class="section">Create a game</div><button class="cyan" id="btn-create">CUSTOM MATCH</button><button class="orange" id="btn-1v1">QUICK 1v1</button><div class="note">Your room gets a code. Friends join and take a bot's place.</div></div>
-    </div></div>
+    </div>
+    <div class="net-test"><button class="cyan small" id="btn-net-test">TEST CONNECTION</button><div class="note diag" id="net-diag"></div></div></div>
   </div>
 </div>
 
@@ -388,7 +393,7 @@
   </div>
 </div>
 
-<script defer src="net-config.js?v=muvgrqjg"></script>
-<script type="module" src="js/main.js?v=muvgrqjg"></script>
+<script defer src="net-config.js?v=muvjbwwq"></script>
+<script type="module" src="js/main.js?v=muvjbwwq"></script>
 </body>
 </html>

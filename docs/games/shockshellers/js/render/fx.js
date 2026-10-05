@@ -2,9 +2,9 @@
 // explosions (sprite count ∝ damage/4), yolk hit splashes, egg shatter shards and yolk splats, plus
 // the world objects that move: rockets, grenades (with the pre-detonation flash), pickups and the
 // spatula. Pools are reused; nothing allocates per frame once warm.
-import * as THREE from '../../vendor/three/three.module.js?v=muvgrqjg';
-import { gunModel } from './guns.js?v=muvgrqjg';
-import { TEAM_COLORS } from './egg.js?v=muvgrqjg';
+import * as THREE from '../../vendor/three/three.module.js?v=muvjbwwq';
+import { gunModel } from './guns.js?v=muvjbwwq';
+import { TEAM_COLORS } from './egg.js?v=muvjbwwq';
 
 function radial(inner, outer, size = 64) {
   const c = new OffscreenCanvas(size, size), x = c.getContext('2d');

@@ -1,17 +1,18 @@
 // Menus and modals (GDD §16–21): home, respawn/pause screen, settings (3 tabs), play with friends,
 // custom matches, profile, shop/inventory, how to play, chat. All markup lives in index.html inside
 // the compositor; this module wires it up and keeps it current.
-import { surfaceDocument as document } from '../surface.js?v=muvgrqjg';
-import * as THREE from '../../vendor/three/three.module.js?v=muvgrqjg';
-import { ask, tell } from '../dialog.js?v=muvgrqjg';
-import { gunModel } from '../render/guns.js?v=muvgrqjg';
-import { SHELL_COLORS } from '../render/egg.js?v=muvgrqjg';
-import { WEAPONS, PRIMARIES, MODE_NAMES, MODE_MENU, TICK } from '../sim/tuning.js?v=muvgrqjg';
-import { ACTIONS, ACTION_NAMES, keyLabel, DEFAULT_KEYS } from '../game/input.js?v=muvgrqjg';
-import { DEFAULT_SETTINGS, saveSettings, saveProfile } from '../game/store.js?v=muvgrqjg';
-import { ensureDaily, def as challengeDef, reroll, timeLeft } from '../game/challenges.js?v=muvgrqjg';
-import { MAPS, mapDef } from '../maps/index.js?v=muvgrqjg';
-import { drawHowTo } from './art.js?v=muvgrqjg';
+import { surfaceDocument as document } from '../surface.js?v=muvjbwwq';
+import * as THREE from '../../vendor/three/three.module.js?v=muvjbwwq';
+import { ask, tell } from '../dialog.js?v=muvjbwwq';
+import { gunModel } from '../render/guns.js?v=muvjbwwq';
+import { SHELL_COLORS } from '../render/egg.js?v=muvjbwwq';
+import { WEAPONS, PRIMARIES, MODE_NAMES, MODE_MENU, TICK } from '../sim/tuning.js?v=muvjbwwq';
+import { ACTIONS, ACTION_NAMES, keyLabel, DEFAULT_KEYS } from '../game/input.js?v=muvjbwwq';
+import { DEFAULT_SETTINGS, saveSettings, saveProfile } from '../game/store.js?v=muvjbwwq';
+import { ensureDaily, def as challengeDef, reroll, timeLeft } from '../game/challenges.js?v=muvjbwwq';
+import { MAPS, mapDef } from '../maps/index.js?v=muvjbwwq';
+import { drawHowTo } from './art.js?v=muvjbwwq';
+import { wakeRelays, diagnoseNetwork } from '../net/net.js?v=muvjbwwq';
 
 const $ = id => document.getElementById(id);
 const show = (id, on = true) => $(id).classList.toggle('hidden', !on);
@@ -78,7 +79,11 @@ export class Menus {
     $('name').value = app.profile.name;
     $('name').addEventListener('input', () => { const v = $('name').value.replace(/[^A-Za-z0-9_]/g, '').slice(0, 16); if (v !== $('name').value) $('name').value = v; if (v) { app.profile.name = v; saveProfile(app.profile); } });
     $('btn-play').onclick = () => { app.sound.unlock(); app.play(); };
-    $('btn-friends').onclick = () => { app.sound.unlock(); show('friends'); $('join-status').textContent = ''; $('code-input').focus(); };
+    // The project relay sleeps when idle and takes up to a minute to wake; on school networks it is
+    // often the only way through, so it is woken now (PLAY hosts at once) and again on this dialog.
+    wakeRelays();
+    $('btn-friends').onclick = () => { app.sound.unlock(); wakeRelays(); show('friends'); $('join-status').textContent = ''; $('code-input').focus(); };
+    $('btn-net-test').onclick = () => this.testConnection();
     $('fr-close').onclick = () => show('friends', false);
     $('btn-join').onclick = () => this.join();
     $('code-input').addEventListener('keydown', e => { if (e.key === 'Enter') this.join(); });
@@ -273,6 +278,26 @@ export class Menus {
   }
 
   // ---------------- friends / custom matches ----------------
+  // Checks each way of connecting from this network and says whether multiplayer will work (as in
+  // Blockhaven's Multiplayer screen).
+  async testConnection() {
+    const out = $('net-diag'), btn = $('btn-net-test');
+    btn.disabled = true; out.className = 'note diag';
+    const lines = []; let testing = true;
+    const paint = () => { out.textContent = [...lines, ...(testing ? ['', 'Testing… a sleeping relay can take about a minute to wake.'] : [])].join('\n'); };
+    paint();
+    try {
+      const results = await diagnoseNetwork(r => { lines.push(`${r.ok ? 'OK' : 'NO'}  ${r.name}: ${r.detail}`); paint(); });
+      const relay = results.some(r => r.ok && /^Relay/.test(r.name)), room = results.some(r => r.ok && /^Room/.test(r.name)), direct = results.some(r => r.ok && /Direct/.test(r.name));
+      testing = false;
+      lines.push('', relay || room
+        ? `Multiplayer will work on this network${direct ? ', with direct connections (fastest)' : ', through a relay server'}.`
+        : 'No multiplayer server could be reached. This network may block them, or the relay is still waking: try again in a minute.');
+      out.className = `note diag ${relay || room ? 'ok' : 'err'}`;
+      paint();
+    } catch (e) { out.textContent = `The test failed: ${e.message}`; out.className = 'note diag err'; }
+    btn.disabled = false;
+  }
   async join() {
     const code = $('code-input').value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 5);
     if (code.length !== 5) { $('join-status').textContent = 'Room codes have 5 letters and numbers.'; return; }

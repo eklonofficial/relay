@@ -2,7 +2,7 @@
 // loading pill (index.html paints the gradient before any script runs). main.js reports progress
 // and calls splash.ready(); the splash then fades out and removes itself. It never stands in the
 // way for long, whatever goes wrong while starting.
-import { surfaceDocument } from './surface.js?v=muvgrqjg';
+import { surfaceDocument } from './surface.js?v=muvjbwwq';
 // Before the page mounts, the splash is the native #boot; once the compositor mounts the markup, the
 // live copy is the one in its layout tree. Look it up every frame.
 const find = id => surfaceDocument.getElementById(id) || document.getElementById(id);
