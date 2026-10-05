@@ -1,29 +1,30 @@
 // Shock Shellers: boot, menus, the match flow (home → respawn screen → play → death → respawn) and
 // the frame loop. The simulation runs at a fixed 30 Hz inside the session; rendering interpolates.
-import './page.js?v=muvjbwwq';
-import { surfaceDocument as document } from './surface.js?v=muvjbwwq';
-import { registerApp } from './veil.js?v=muvjbwwq';
-import { tell } from './dialog.js?v=muvjbwwq';
-import { splash } from './splash.js?v=muvjbwwq';
-import * as THREE from '../vendor/three/three.module.js?v=muvjbwwq';
-import { Renderer } from './render/renderer.js?v=muvjbwwq';
-import { EggAvatar, SHELL_COLORS, TEAM_COLORS } from './render/egg.js?v=muvjbwwq';
-import { gunModel } from './render/guns.js?v=muvjbwwq';
-import { Input } from './game/input.js?v=muvjbwwq';
-import { SOUND_FILES } from './game/soundbank.js?v=muvjbwwq';
-import { Sound, registerSamples } from './game/audio.js?v=muvjbwwq';
-import { Hud } from './game/hud.js?v=muvjbwwq';
-import { loadSettings, saveSettings, loadProfile, saveProfile } from './game/store.js?v=muvjbwwq';
-import { ensureDaily, progress as challengeProgress, claim as claimChallenges } from './game/challenges.js?v=muvjbwwq';
-import { HostSession } from './game/session.js?v=muvjbwwq';
-import { GuestSession } from './net/guest.js?v=muvjbwwq';
-import { pickPublicMap, mapDef, MAPS } from './maps/index.js?v=muvjbwwq';
-import { WEAPONS, PRIMARIES, PLAYER, MODE_NAMES, MODE_MENU, ECONOMY, CTRL, TICK } from './sim/tuning.js?v=muvjbwwq';
-import { weaponOf, slotOf } from './sim/combat.js?v=muvjbwwq';
-import { drawLogo, drawHowTo } from './ui/art.js?v=muvjbwwq';
-import { loadModels } from './render/models.js?v=muvjbwwq';
-import { HIT } from './maps/grid.js?v=muvjbwwq';
-import { Menus } from './ui/menus.js?v=muvjbwwq';
+import './page.js?v=muvmfsft';
+import { surfaceDocument as document } from './surface.js?v=muvmfsft';
+import { registerApp } from './veil.js?v=muvmfsft';
+import { tell } from './dialog.js?v=muvmfsft';
+import { splash } from './splash.js?v=muvmfsft';
+import * as THREE from '../vendor/three/three.module.js?v=muvmfsft';
+import { Renderer } from './render/renderer.js?v=muvmfsft';
+import { EggAvatar, SHELL_COLORS, TEAM_COLORS } from './render/egg.js?v=muvmfsft';
+import { gunModel } from './render/guns.js?v=muvmfsft';
+import { Input } from './game/input.js?v=muvmfsft';
+import { SOUND_FILES } from './game/soundbank.js?v=muvmfsft';
+import { Sound, registerSamples } from './game/audio.js?v=muvmfsft';
+import { Hud } from './game/hud.js?v=muvmfsft';
+import { loadSettings, saveSettings, loadProfile, saveProfile } from './game/store.js?v=muvmfsft';
+import { ensureDaily, progress as challengeProgress, claim as claimChallenges } from './game/challenges.js?v=muvmfsft';
+import { HostSession } from './game/session.js?v=muvmfsft';
+import { GuestSession } from './net/guest.js?v=muvmfsft';
+import { pickPublicMap, mapDef, MAPS } from './maps/index.js?v=muvmfsft';
+import { WEAPONS, PRIMARIES, PLAYER, MODE_NAMES, MODE_MENU, ECONOMY, CTRL, TICK } from './sim/tuning.js?v=muvmfsft';
+import { weaponOf, slotOf } from './sim/combat.js?v=muvmfsft';
+import { eyePoint } from './sim/movement.js?v=muvmfsft';
+import { drawLogo, drawHowTo } from './ui/art.js?v=muvmfsft';
+import { loadModels } from './render/models.js?v=muvmfsft';
+import { HIT } from './maps/grid.js?v=muvmfsft';
+import { Menus } from './ui/menus.js?v=muvmfsft';
 
 const $ = id => document.getElementById(id);
 const show = (id, on = true) => { $(id).classList.toggle('hidden', !on); if (id === 'respawn') $('hud').classList.toggle('menu', on); };
@@ -364,8 +365,10 @@ class App {
     const cam = this.cam;
     if (me.alive && this.state === 'play') {
       s.lerpPos(me, P);
-      cam.x = P[0]; cam.y = P[1] + PLAYER.eyeY + (me.power.quailEgg > 0 ? -0.15 : 0); cam.z = P[2];
+      // The eye pivots on the head like the reference's (it is also where shots leave from).
       cam.yaw = this.input.yaw; cam.pitch = this.input.pitch;
+      const E = eyePoint({ x: P[0], y: P[1], z: P[2], yaw: cam.yaw, pitch: cam.pitch });
+      cam.x = E[0]; cam.y = E[1] + (me.power.quailEgg > 0 ? -0.15 : 0); cam.z = E[2];
       const w = weaponOf(me.hands);
       cam.fovMul = me.hands.ads ? w.scope : 1;
       this.input.zoom = me.hands.ads ? w.scope : 1;

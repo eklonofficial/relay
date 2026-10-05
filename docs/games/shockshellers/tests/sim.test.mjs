@@ -171,12 +171,18 @@ test('a centred Poacher shot kills; spawn shield blocks damage and firing; regen
 });
 
 test('bullets are projectiles: they take time to arrive and vanish at max range', () => {
-  const { m, b } = duel('poacher');
-  Object.assign(b.body, { x: 15, y: 1, z: 20 - 9 });
+  // The Cage Free's round flies 1.75 u/tick: at 9 units it lands on the 6th tick, not the first.
+  const { m, b } = duel('cageFree');
+  Object.assign(b.body, { x: 15, y: 1, z: 20 - 9 }); b.hp = 50;
   m.setInput(1, CTRL.fire, 0, 0); m.step();
-  assert.equal(b.alive, true, 'not hit on the firing tick at 9 units with velocity 3');
-  m.setInput(1, 0, 0, 0); m.step(); m.step();
+  assert.equal(Math.round(b.hp), 50, 'not hit on the firing tick at 9 units with velocity 1.75 (hp ' + b.hp + ')');
+  m.setInput(1, 0, 0, 0); for (let i = 0; i < 6; i++) m.step();
   assert.equal(b.alive, false);
+  // The live Crackshot's round (velocity 17) is all but instant: 9 units in one tick.
+  const q = duel('poacher');
+  Object.assign(q.b.body, { x: 15, y: 1, z: 20 - 9 });
+  q.m.setInput(1, CTRL.fire, 0, 0); q.m.step();
+  assert.equal(q.b.alive, false);
   const p = duel('peck9mm');
   Object.assign(p.b.body, { x: 15, y: 1, z: 2 }); // 18 units > Peck range 15
   p.a.hands.cur = 0;

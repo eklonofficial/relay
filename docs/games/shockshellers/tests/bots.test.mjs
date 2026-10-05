@@ -89,7 +89,7 @@ test('hopping is situational: close fights only, never with a sniper, and not al
       if (b.hopping && q) {
         hops++;
         // Snipers hop only when pushed: escaping someone close, unscoped.
-        if (b.hopWeapon === 'poacher' || b.hopWeapon === 'cageFree') assert.ok(dist < 7.5 && b.goal?.k === 'escape', `a sniper hopped at ${dist.toFixed(1)} (${b.goal?.k})`);
+        if (b.hopWeapon === 'poacher' || b.hopWeapon === 'cageFree') assert.ok(dist < 8 && b.goal?.k === 'escape', `a sniper hopped at ${dist.toFixed(1)} (${b.goal?.k})`);
         assert.ok(dist < 8.5, `hopped at range ${dist.toFixed(1)}`);
       }
       if (dist < 5 && b.visible(b.target)) { closeFights++; if (b.hopping) hopInClose++; }

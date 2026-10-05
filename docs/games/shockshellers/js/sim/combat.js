@@ -5,8 +5,8 @@
 // Countdown units, exactly as the GDD lists them:
 //   rof, burst gaps, scope delay, swap, melee           ticks       (−1 per tick)
 //   recoil, reload, grenade throw/cancel lock, shield   1/60 s      (−2 per tick)
-import { WEAPONS, PRIMARIES, SECONDARY, MELEE, GRENADE, PLAYER, CTRL } from './tuning.js?v=muvjbwwq';
-import { forward } from './movement.js?v=muvjbwwq';
+import { WEAPONS, PRIMARIES, SECONDARY, MELEE, GRENADE, PLAYER, CTRL } from './tuning.js?v=muvmfsft';
+import { forward, eyePoint } from './movement.js?v=muvmfsft';
 
 // Per-player LCG (GDD §8.3): seed = (seed·9301 + 49297) mod 233280.
 export const lcg = s => (s * 9301 + 49297) % 233280;
@@ -157,19 +157,19 @@ function startReload(h, ev) {
   h.scopeBlocked = true; h.ads = false; ev.reloadStart = true;
 }
 
+const EYE = [0, 0, 0];
 function shoot(h, body, w, slot, ev) {
   slot.mag--;
   h.recoil = w.recoil;
   const spread = currentSpread(h, w);
-  const ox = body.x, oy = body.y + PLAYER.eyeY, oz = body.z;
+  const [ox, oy, oz] = eyePoint(body, EYE);
   const n = w.pellets || 1;
   for (let i = 0; i < n; i++) {
     let yaw, pitch;
     if (w.pellets) { yaw = body.yaw + (rand(h) * 2 - 1) * spread; pitch = body.pitch + (rand(h) * 2 - 1) * spread * w.vSpreadMul; }
     else { yaw = body.yaw + (rand(h) - 0.5) * spread; pitch = body.pitch + (rand(h) - 0.5) * spread; rand(h); /* roll */ }
     forward(yaw, pitch, DIR);
-    const fwd = forward(body.yaw, body.pitch);
-    ev.shots.push({ x: ox + fwd[0] * PLAYER.muzzleForward, y: oy + fwd[1] * PLAYER.muzzleForward, z: oz + fwd[2] * PLAYER.muzzleForward, dx: DIR[0], dy: DIR[1], dz: DIR[2], weapon: slot.id, tracer: w.tracer ? (slot.mag % w.tracer === 0) : false });
+    ev.shots.push({ x: ox, y: oy, z: oz, dx: DIR[0], dy: DIR[1], dz: DIR[2], weapon: slot.id, tracer: w.tracer ? (slot.mag % w.tracer === 0) : false });
   }
   // Bloom (GDD §8.3).
   const [, accMin, loss, recover] = w.acc, m = h.ads ? w.ads : 1;

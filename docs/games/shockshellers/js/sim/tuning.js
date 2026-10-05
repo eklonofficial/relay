@@ -14,7 +14,10 @@ export const PLAYER = {
   gravity: 0.012, terminalFall: 0.29, maxStep: 0.29,
   jumpVel: 0.13, adsJumpMult: 0.66, coyoteTicks: 4, jumpBufferTicks: 10,
   ladderAccel: 0.028, ladderJumpOff: 0.065, jumpPadVel: 0.27,
-  collideRadius: 0.31, hitRadius: 0.30, hitCenterY: 0.30, eyeY: 0.30, muzzleForward: 0.1,
+  collideRadius: 0.31, hitRadius: 0.30, hitCenterY: 0.30,
+  // The head pivots at +0.30 (pitch turns it); the eye, and the point every shot leaves from, sits
+  // 0.10 up the head's own up axis [REF]. eyeY is that height when looking level.
+  headY: 0.30, eyeUp: 0.10, eyeY: 0.40,
   stepUp: 0.26, killPlaneY: -10,
   spawnShield: 120, respawnTicks: 150, pauseGraceTicks: 90, pauseCooldownTicks: 150,
   swapStowTicks: 13, swapEquipTicks: 13, scopeDelayTicks: 7,
@@ -36,7 +39,7 @@ export const WEAPONS = {
     desc: 'Slow rocket, big boom. Keep your distance.' },
   beater: { name: 'Beater', dmg: 23, rof: 2, recoil: 7, auto: true, mag: 40, store: 200, pickup: 40, range: 20, vel: 1.25, reload: [190, 225], acc: [0.06, 0.19, 0.045, 0.05], ads: 0.6, moveMod: 0.7, tracer: 3, scope: 1.0, scoped: false,
     desc: 'Forty-round bullpup that never stops whisking.' },
-  poacher: { name: 'Poacher', dmg: 170, rof: 15, recoil: 20, auto: false, mag: 1, store: 12, pickup: 4, range: 120, vel: 3.0, reload: [144, 144], acc: [0.0, 0.35, 0.1, 0.023], ads: 0.5, moveMod: 0.85, reloadBloom: false, scope: 0.3, scoped: true,
+  poacher: { name: 'Poacher', dmg: 180, rof: 15, recoil: 20, auto: false, mag: 1, store: 12, pickup: 4, range: 120, vel: 17, reload: [144, 144], acc: [0.0, 0.35, 0.1, 0.023], ads: 0.5, moveMod: 0.85, reloadBloom: false, scope: 0.3, scoped: true,
     desc: 'One round. One egg. Make it count.' },
   triBoil: { name: 'Tri-Boil', dmg: 35, burst: 3, burstGap: 3, rof: 15, recoil: 18, auto: false, mag: 24, store: 150, pickup: 24, range: 20, vel: 1.5, reload: [160, 205], acc: [0.03, 0.15, 0.04, 0.03], ads: 0.6, moveMod: 0.8, scope: 0.7, scoped: false,
     desc: 'Three-round burst for disciplined mid-range.' },

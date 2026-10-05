@@ -1,18 +1,18 @@
 // Menus and modals (GDD §16–21): home, respawn/pause screen, settings (3 tabs), play with friends,
 // custom matches, profile, shop/inventory, how to play, chat. All markup lives in index.html inside
 // the compositor; this module wires it up and keeps it current.
-import { surfaceDocument as document } from '../surface.js?v=muvjbwwq';
-import * as THREE from '../../vendor/three/three.module.js?v=muvjbwwq';
-import { ask, tell } from '../dialog.js?v=muvjbwwq';
-import { gunModel } from '../render/guns.js?v=muvjbwwq';
-import { SHELL_COLORS } from '../render/egg.js?v=muvjbwwq';
-import { WEAPONS, PRIMARIES, MODE_NAMES, MODE_MENU, TICK } from '../sim/tuning.js?v=muvjbwwq';
-import { ACTIONS, ACTION_NAMES, keyLabel, DEFAULT_KEYS } from '../game/input.js?v=muvjbwwq';
-import { DEFAULT_SETTINGS, saveSettings, saveProfile } from '../game/store.js?v=muvjbwwq';
-import { ensureDaily, def as challengeDef, reroll, timeLeft } from '../game/challenges.js?v=muvjbwwq';
-import { MAPS, mapDef } from '../maps/index.js?v=muvjbwwq';
-import { drawHowTo } from './art.js?v=muvjbwwq';
-import { wakeRelays, diagnoseNetwork } from '../net/net.js?v=muvjbwwq';
+import { surfaceDocument as document } from '../surface.js?v=muvmfsft';
+import * as THREE from '../../vendor/three/three.module.js?v=muvmfsft';
+import { ask, tell } from '../dialog.js?v=muvmfsft';
+import { gunModel } from '../render/guns.js?v=muvmfsft';
+import { SHELL_COLORS } from '../render/egg.js?v=muvmfsft';
+import { WEAPONS, PRIMARIES, MODE_NAMES, MODE_MENU, TICK } from '../sim/tuning.js?v=muvmfsft';
+import { ACTIONS, ACTION_NAMES, keyLabel, DEFAULT_KEYS } from '../game/input.js?v=muvmfsft';
+import { DEFAULT_SETTINGS, saveSettings, saveProfile } from '../game/store.js?v=muvmfsft';
+import { ensureDaily, def as challengeDef, reroll, timeLeft } from '../game/challenges.js?v=muvmfsft';
+import { MAPS, mapDef } from '../maps/index.js?v=muvmfsft';
+import { drawHowTo } from './art.js?v=muvmfsft';
+import { wakeRelays, diagnoseNetwork } from '../net/net.js?v=muvmfsft';
 
 const $ = id => document.getElementById(id);
 const show = (id, on = true) => $(id).classList.toggle('hidden', !on);

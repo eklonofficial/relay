@@ -3,7 +3,7 @@
 //
 // Conventions: position is the egg's feet origin; its collision sphere (r 0.31) is centred 0.31 above.
 // Yaw 0 looks towards -z, positive yaw turns left (three.js camera convention); pitch > 0 looks up.
-import { PLAYER, CTRL } from './tuning.js?v=muvjbwwq';
+import { PLAYER, CTRL } from './tuning.js?v=muvmfsft';
 
 const R = PLAYER.collideRadius;
 
@@ -13,6 +13,13 @@ export function makeBody(x = 0, y = 0, z = 0) {
 
 export const forward = (yaw, pitch = 0, out = [0, 0, 0]) => {
   const c = Math.cos(pitch); out[0] = -Math.sin(yaw) * c; out[1] = Math.sin(pitch); out[2] = -Math.cos(yaw) * c; return out;
+};
+// The eye (camera, and where shots start): the head's pivot plus 0.1 along the head's up axis, so
+// looking down moves it forward and looking up moves it back, as in the reference.
+export const eyePoint = (b, out = [0, 0, 0]) => {
+  const sp = Math.sin(b.pitch || 0), cp = Math.cos(b.pitch || 0);
+  out[0] = b.x + Math.sin(b.yaw) * sp * PLAYER.eyeUp; out[1] = b.y + PLAYER.headY + cp * PLAYER.eyeUp; out[2] = b.z + Math.cos(b.yaw) * sp * PLAYER.eyeUp;
+  return out;
 };
 
 // Push the sphere at the body's position out of the world, up to 8 times (GDD §6.4). Returns
