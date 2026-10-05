@@ -1,29 +1,29 @@
 // Shock Shellers: boot, menus, the match flow (home → respawn screen → play → death → respawn) and
 // the frame loop. The simulation runs at a fixed 30 Hz inside the session; rendering interpolates.
-import './page.js?v=muv8iyqg';
-import { surfaceDocument as document } from './surface.js?v=muv8iyqg';
-import { registerApp } from './veil.js?v=muv8iyqg';
-import { tell } from './dialog.js?v=muv8iyqg';
-import { splash } from './splash.js?v=muv8iyqg';
-import * as THREE from '../vendor/three/three.module.js?v=muv8iyqg';
-import { Renderer } from './render/renderer.js?v=muv8iyqg';
-import { EggAvatar, SHELL_COLORS, TEAM_COLORS } from './render/egg.js?v=muv8iyqg';
-import { gunModel } from './render/guns.js?v=muv8iyqg';
-import { Input } from './game/input.js?v=muv8iyqg';
-import { SOUND_FILES } from './game/soundbank.js?v=muv8iyqg';
-import { Sound, registerSamples } from './game/audio.js?v=muv8iyqg';
-import { Hud } from './game/hud.js?v=muv8iyqg';
-import { loadSettings, saveSettings, loadProfile, saveProfile } from './game/store.js?v=muv8iyqg';
-import { ensureDaily, progress as challengeProgress, claim as claimChallenges } from './game/challenges.js?v=muv8iyqg';
-import { HostSession } from './game/session.js?v=muv8iyqg';
-import { GuestSession } from './net/guest.js?v=muv8iyqg';
-import { pickPublicMap, mapDef, MAPS } from './maps/index.js?v=muv8iyqg';
-import { WEAPONS, PRIMARIES, PLAYER, MODE_NAMES, MODE_MENU, ECONOMY, CTRL, TICK } from './sim/tuning.js?v=muv8iyqg';
-import { weaponOf, slotOf } from './sim/combat.js?v=muv8iyqg';
-import { drawLogo, drawHowTo } from './ui/art.js?v=muv8iyqg';
-import { loadModels } from './render/models.js?v=muv8iyqg';
-import { HIT } from './maps/grid.js?v=muv8iyqg';
-import { Menus } from './ui/menus.js?v=muv8iyqg';
+import './page.js?v=muv8vpk2';
+import { surfaceDocument as document } from './surface.js?v=muv8vpk2';
+import { registerApp } from './veil.js?v=muv8vpk2';
+import { tell } from './dialog.js?v=muv8vpk2';
+import { splash } from './splash.js?v=muv8vpk2';
+import * as THREE from '../vendor/three/three.module.js?v=muv8vpk2';
+import { Renderer } from './render/renderer.js?v=muv8vpk2';
+import { EggAvatar, SHELL_COLORS, TEAM_COLORS } from './render/egg.js?v=muv8vpk2';
+import { gunModel } from './render/guns.js?v=muv8vpk2';
+import { Input } from './game/input.js?v=muv8vpk2';
+import { SOUND_FILES } from './game/soundbank.js?v=muv8vpk2';
+import { Sound, registerSamples } from './game/audio.js?v=muv8vpk2';
+import { Hud } from './game/hud.js?v=muv8vpk2';
+import { loadSettings, saveSettings, loadProfile, saveProfile } from './game/store.js?v=muv8vpk2';
+import { ensureDaily, progress as challengeProgress, claim as claimChallenges } from './game/challenges.js?v=muv8vpk2';
+import { HostSession } from './game/session.js?v=muv8vpk2';
+import { GuestSession } from './net/guest.js?v=muv8vpk2';
+import { pickPublicMap, mapDef, MAPS } from './maps/index.js?v=muv8vpk2';
+import { WEAPONS, PRIMARIES, PLAYER, MODE_NAMES, MODE_MENU, ECONOMY, CTRL, TICK } from './sim/tuning.js?v=muv8vpk2';
+import { weaponOf, slotOf } from './sim/combat.js?v=muv8vpk2';
+import { drawLogo, drawHowTo } from './ui/art.js?v=muv8vpk2';
+import { loadModels } from './render/models.js?v=muv8vpk2';
+import { HIT } from './maps/grid.js?v=muv8vpk2';
+import { Menus } from './ui/menus.js?v=muv8vpk2';
 
 const $ = id => document.getElementById(id);
 const show = (id, on = true) => { $(id).classList.toggle('hidden', !on); if (id === 'respawn') $('hud').classList.toggle('menu', on); };
@@ -406,7 +406,7 @@ class App {
     // Distance to whatever the crosshair is on (the Yolkzooka reticle turns red inside arming range).
     const f = [-Math.sin(cam.yaw) * Math.cos(cam.pitch), Math.sin(cam.pitch), -Math.cos(cam.yaw) * Math.cos(cam.pitch)];
     const aimDist = m.grid.raycast(cam.x, cam.y, cam.z, f[0], f[1], f[2], 10, HIT) ? HIT.t : 99;
-    this.hud.draw(dt, { me: this.state === 'play' ? me : null, yaw: cam.yaw, fov: R.camera.fov, markers, aimDist });
+    this.hud.draw(dt, { me: this.state === 'play' ? me : null, yaw: cam.yaw, pitch: cam.pitch, speed: Math.hypot(me.body.vx, me.body.vz) * 30, air: me.body.onGround <= 0, fov: R.camera.fov, markers, aimDist });
   }
 }
 

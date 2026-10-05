@@ -118,7 +118,7 @@ def export(name, roots):
         for c in r.children_recursive: c.select_set(True)
     path = os.path.join(OUT, name + '.glb')
     bpy.ops.export_scene.gltf(filepath=path, export_format='GLB', use_selection=True, export_apply=True, export_yup=True,
-                              export_extras=False, export_cameras=False, export_lights=False, export_texcoords=False, export_normals=True)
+                              export_extras=False, export_cameras=False, export_lights=False, export_texcoords=(name == 'eggs'), export_normals=True)  # only the shell takes a texture (cracks)
     print('wrote', name, os.path.getsize(path) // 1024, 'KB')
 
 # ---------------- guns ----------------
@@ -328,8 +328,11 @@ def egg():
     # UVs for the shell/crack texture: u around, v up.
     uv = bm.loops.layers.uv.new()
     for f in bm.faces:
-        for l in f.loops:
-            co = l.vert.co; l[uv].uv = ((math.atan2(co.y, co.x) / (2 * math.pi)) % 1.0, co.z / H)
+        us = [(math.atan2(l.vert.co.y, l.vert.co.x) / (2 * math.pi)) % 1.0 for l in f.loops]
+        for l, u in zip(f.loops, us):
+            # The last column of faces wraps from u≈0.97 back to 0: give those corners u+1 (no seam smear).
+            if max(us) - u > 0.5: u += 1.0
+            l[uv].uv = (u, l.vert.co.z / H)
     o = mesh_obj('shell', bm, M('shell'), r)
     for p in o.data.polygons: p.use_smooth = True
     return r

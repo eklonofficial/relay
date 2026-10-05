@@ -1,17 +1,17 @@
 // Menus and modals (GDD §16–21): home, respawn/pause screen, settings (3 tabs), play with friends,
 // custom matches, profile, shop/inventory, how to play, chat. All markup lives in index.html inside
 // the compositor; this module wires it up and keeps it current.
-import { surfaceDocument as document } from '../surface.js?v=muv8iyqg';
-import * as THREE from '../../vendor/three/three.module.js?v=muv8iyqg';
-import { ask, tell } from '../dialog.js?v=muv8iyqg';
-import { gunModel } from '../render/guns.js?v=muv8iyqg';
-import { SHELL_COLORS } from '../render/egg.js?v=muv8iyqg';
-import { WEAPONS, PRIMARIES, MODE_NAMES, MODE_MENU, TICK } from '../sim/tuning.js?v=muv8iyqg';
-import { ACTIONS, ACTION_NAMES, keyLabel, DEFAULT_KEYS } from '../game/input.js?v=muv8iyqg';
-import { DEFAULT_SETTINGS, saveSettings, saveProfile } from '../game/store.js?v=muv8iyqg';
-import { ensureDaily, def as challengeDef, reroll, timeLeft } from '../game/challenges.js?v=muv8iyqg';
-import { MAPS, mapDef } from '../maps/index.js?v=muv8iyqg';
-import { drawHowTo } from './art.js?v=muv8iyqg';
+import { surfaceDocument as document } from '../surface.js?v=muv8vpk2';
+import * as THREE from '../../vendor/three/three.module.js?v=muv8vpk2';
+import { ask, tell } from '../dialog.js?v=muv8vpk2';
+import { gunModel } from '../render/guns.js?v=muv8vpk2';
+import { SHELL_COLORS } from '../render/egg.js?v=muv8vpk2';
+import { WEAPONS, PRIMARIES, MODE_NAMES, MODE_MENU, TICK } from '../sim/tuning.js?v=muv8vpk2';
+import { ACTIONS, ACTION_NAMES, keyLabel, DEFAULT_KEYS } from '../game/input.js?v=muv8vpk2';
+import { DEFAULT_SETTINGS, saveSettings, saveProfile } from '../game/store.js?v=muv8vpk2';
+import { ensureDaily, def as challengeDef, reroll, timeLeft } from '../game/challenges.js?v=muv8vpk2';
+import { MAPS, mapDef } from '../maps/index.js?v=muv8vpk2';
+import { drawHowTo } from './art.js?v=muv8vpk2';
 
 const $ = id => document.getElementById(id);
 const show = (id, on = true) => $(id).classList.toggle('hidden', !on);

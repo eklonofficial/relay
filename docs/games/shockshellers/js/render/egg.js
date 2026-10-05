@@ -1,9 +1,9 @@
 // The egg: a smooth ovoid shell (cracks grow at 80/60/40/20 HP, GDD §5), two floating cartoon
 // gloves holding the gun, an optional hat, a team ring for teammates and a name tag. Third-person
 // only; the first-person hands are viewmodel.js.
-import * as THREE from '../../vendor/three/three.module.js?v=muv8iyqg';
-import { gunModel } from './guns.js?v=muv8iyqg';
-import { clone } from './models.js?v=muv8iyqg';
+import * as THREE from '../../vendor/three/three.module.js?v=muv8vpk2';
+import { gunModel } from './guns.js?v=muv8vpk2';
+import { clone } from './models.js?v=muv8vpk2';
 
 export const SHELL_COLORS = [0xfff6e5, 0xf2d0a4, 0xc98e5a, 0x8a5a3b, 0x5b3a26, 0xe9e1ff, 0xd7f0ff, 0xff9eb5, 0x9ee6a0, 0xffd34e, 0x7fb6ff, 0xb98cff, 0xff7a59, 0x2e2e34];
 export const TEAM_COLORS = [0xbbbbbb, 0x2f86e8, 0xe8473c];
@@ -30,29 +30,57 @@ const shellTex = new Map();
 function shellTexture(color, stage) {
   const key = color * 8 + stage;
   if (shellTex.has(key)) return shellTex.get(key);
-  const c = new OffscreenCanvas(256, 256), x = c.getContext('2d');
+  const S = 512, c = new OffscreenCanvas(S, S), x = c.getContext('2d');
   const hex = '#' + color.toString(16).padStart(6, '0');
-  x.fillStyle = hex; x.fillRect(0, 0, 256, 256);
+  x.fillStyle = hex; x.fillRect(0, 0, S, S);
   // Subtle speckles.
   let s = 7 + color % 97;
   const r = () => (s = (s * 16807) % 2147483647) / 2147483647;
-  x.fillStyle = 'rgba(0,0,0,0.04)'; for (let i = 0; i < 60; i++) { x.beginPath(); x.arc(r() * 256, r() * 256, 1 + r() * 2, 0, 7); x.fill(); }
-  // Cracks: jagged polylines from a few seeds, more and longer per stage.
-  x.strokeStyle = 'rgba(40,25,15,0.85)'; x.lineCap = 'round'; x.lineJoin = 'round';
-  s = 1234;
-  const starts = [[64, 110], [190, 90], [130, 170], [30, 60], [220, 180], [100, 40], [160, 130], [60, 200]];
-  for (let k = 0; k < stage * 2; k++) {
-    let [px, py] = starts[k];
-    x.lineWidth = 2.6 - k * 0.15;
-    x.beginPath(); x.moveTo(px, py);
-    const len = 4 + stage * 2;
-    for (let j = 0; j < len; j++) {
-      px += (r() - 0.5) * 30; py += (r() - 0.5) * 30; x.lineTo(px, py);
-      if (r() < 0.3) { const bx = px + (r() - 0.5) * 24, by = py + (r() - 0.5) * 24; x.lineTo(bx, by); x.moveTo(px, py); }
+  x.fillStyle = 'rgba(0,0,0,0.04)'; for (let i = 0; i < 120; i++) { x.beginPath(); x.arc(r() * S, r() * S, 2 + r() * 4, 0, 7); x.fill(); }
+  // Cracks (GDD §5: they grow at 80/60/40/20 HP). Each is a jagged, branching line from a seed spread
+  // evenly around the shell (u wraps, so every side cracks), drawn as a dark groove with a pale lip
+  // beside it so it reads at a distance. Later stages add seeds and lengthen the old ones; at the last
+  // stage flakes of shell are chipped out. Fixed seeds keep the cracks the same from stage to stage.
+  if (stage > 0) {
+    const paths = [];
+    for (let k = 0; k < 2 + stage * 2; k++) {
+      s = 1000 + k * 7919;
+      // The shell is ~2.8× wider around than it is tall, so texture-space y steps are stretched to match.
+      const Y = 2.8, pts = [[((k * 0.382) % 1) * S, S * (0.25 + ((k * 0.618) % 1) * 0.5)]];
+      let a = r() * Math.PI * 2;
+      const len = 4 + stage * 3;
+      for (let j = 0; j < len; j++) {
+        a += (r() - 0.5) * 1.6;
+        const [px, py] = pts[pts.length - 1], d = 14 + r() * 16;
+        pts.push([px + Math.cos(a) * d * 0.7, py + Math.sin(a) * d * Y * 0.7]);
+        if (r() < 0.35) { const b = a + (r() < 0.5 ? 1 : -1) * (0.7 + r() * 0.6), bd = 10 + r() * 18; paths.push([[px, py], [px + Math.cos(b) * bd * 0.7, py + Math.sin(b) * bd * Y * 0.7], [px + Math.cos(b + 0.4) * bd * 1.2, py + Math.sin(b + 0.4) * bd * Y * 1.2]]); }
+      }
+      paths.unshift(pts);
     }
-    x.stroke();
+    const stroke = (style, w, dx, dy) => {
+      x.strokeStyle = style; x.lineWidth = w;
+      for (const off of [-S, 0, S]) for (const pts of paths) {
+        x.beginPath(); x.moveTo(pts[0][0] + off + dx, pts[0][1] + dy);
+        for (let i = 1; i < pts.length; i++) x.lineTo(pts[i][0] + off + dx, pts[i][1] + dy);
+        x.stroke();
+      }
+    };
+    x.lineCap = 'round'; x.lineJoin = 'round';
+    stroke('rgba(255,255,255,0.45)', 5, 1.5, 2);   // the lip catching light
+    stroke('rgba(45,28,16,0.9)', 4.5, 0, 0);         // the groove
+    stroke('rgba(20,12,6,0.95)', 1.6, 0, 0);         // its dark heart
+    if (stage >= 4) {
+      s = 4242;
+      for (let i = 0; i < 6; i++) {
+        const cx = r() * S, cy = S * (0.3 + r() * 0.45), n = 6 + Math.floor(r() * 3), R = 8 + r() * 10;
+        x.beginPath();
+        for (let j = 0; j < n; j++) { const a = j / n * Math.PI * 2, rr = R * (0.6 + r() * 0.6); x.lineTo(cx + Math.cos(a) * rr * 0.6, cy + Math.sin(a) * rr * 1.7); }
+        x.closePath(); x.fillStyle = 'rgba(255,214,60,0.95)'; x.fill();
+        x.strokeStyle = 'rgba(45,28,16,0.9)'; x.lineWidth = 2.5; x.stroke();
+      }
+    }
   }
-  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.wrapS = THREE.RepeatWrapping;
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.wrapS = THREE.RepeatWrapping; t.anisotropy = 4;
   shellTex.set(key, t);
   return t;
 }

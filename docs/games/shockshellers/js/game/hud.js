@@ -1,9 +1,9 @@
 // The in-game HUD (GDD §19.6). Text elements only change when their value changes (each DOM change
 // repaints the compositor); everything that moves every frame (crosshair, health ring, hit markers,
 // damage arcs, grenade charge, scope, off-screen markers) is drawn on the HUD canvas.
-import { surfaceDocument as document } from '../surface.js?v=muv8iyqg';
-import { WEAPONS, GRENADE, ROOST, STREAKS } from '../sim/tuning.js?v=muv8iyqg';
-import { currentSpread, weaponOf, slotOf } from '../sim/combat.js?v=muv8iyqg';
+import { surfaceDocument as document } from '../surface.js?v=muv8vpk2';
+import { WEAPONS, GRENADE, ROOST, STREAKS } from '../sim/tuning.js?v=muv8vpk2';
+import { currentSpread, weaponOf, slotOf } from '../sim/combat.js?v=muv8vpk2';
 
 const $ = id => document.getElementById(id);
 const POWER_NAMES = { hardBoiled: 'HARD BOILED!', shellBreaker: 'SHELL BREAKER!', restock: 'RESTOCK!', overheal: 'OVERHEAL!', doubleYolks: 'DOUBLE YOLKS!', quailEgg: 'QUAIL EGG!' };
@@ -99,6 +99,66 @@ export class Hud {
     if (this.toastT > 0 && (this.toastT -= dt) <= 0) $('toast').classList.add('hidden');
   }
 
+  drawScope(c, w, h, dt, v, id) {
+    const A = this.scopeA, r = Math.min(w, h) * 0.46;
+    // Sway: the lens lags behind the view (a damped spring fed by turning), plus a walk bob and breathing.
+    const sw = this.sway || (this.sway = { x: 0, y: 0, vx: 0, vy: 0, yaw: v.yaw, pitch: v.pitch, t: 0 });
+    let dy = v.yaw - sw.yaw; dy = Math.atan2(Math.sin(dy), Math.cos(dy));
+    sw.vx += dy * 900; sw.vy -= (v.pitch - sw.pitch) * 900; sw.yaw = v.yaw; sw.pitch = v.pitch;
+    const k = Math.min(1, dt * 60);
+    sw.vx -= (sw.x * 0.9 + sw.vx * 0.35) * k; sw.vy -= (sw.y * 0.9 + sw.vy * 0.35) * k;
+    sw.x = Math.max(-r * 0.25, Math.min(r * 0.25, sw.x + sw.vx * dt * 6)); sw.y = Math.max(-r * 0.25, Math.min(r * 0.25, sw.y + sw.vy * dt * 6));
+    sw.t += dt * (1 + Math.min(1, v.speed / 3) * 4);
+    const bob = Math.min(1, v.speed / 3) * (v.air ? 0 : 1);
+    const ox = sw.x + Math.sin(sw.t * 1.1) * (1.5 + bob * 6), oy = sw.y + Math.sin(sw.t * 2.2) * (1 + bob * 4) + (1 - A) * r * 0.5;
+    let cx = w / 2 + ox, cy = h / 2 + oy;
+    c.save(); c.globalAlpha = A;
+    // The tube: everything outside the lens is black.
+    c.fillStyle = '#000'; c.beginPath(); c.rect(0, 0, w, h); c.arc(cx, cy, r, 0, Math.PI * 2, true); c.fill();
+    // Lens rim: a soft dark falloff, a thin bright edge and a faint blue coating glint up and left.
+    let g = c.createRadialGradient(cx, cy, r * 0.72, cx, cy, r);
+    g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(0.8, 'rgba(0,0,0,.28)'); g.addColorStop(1, 'rgba(0,0,0,.85)');
+    c.fillStyle = g; c.beginPath(); c.arc(cx, cy, r, 0, Math.PI * 2); c.fill();
+    g = c.createRadialGradient(cx - r * 0.45, cy - r * 0.5, 0, cx - r * 0.45, cy - r * 0.5, r * 0.6);
+    g.addColorStop(0, 'rgba(150,200,255,.10)'); g.addColorStop(1, 'rgba(150,200,255,0)');
+    c.fillStyle = g; c.beginPath(); c.arc(cx, cy, r, 0, Math.PI * 2); c.fill();
+    c.strokeStyle = '#111'; c.lineWidth = 7; c.beginPath(); c.arc(cx, cy, r, 0, Math.PI * 2); c.stroke();
+    c.strokeStyle = 'rgba(255,255,255,.12)'; c.lineWidth = 1.5; c.beginPath(); c.arc(cx, cy, r - 4, Math.PI * 1.05, Math.PI * 1.6); c.stroke();
+    // Reticles stay on the true aim point (the tube drifts around them), so the sway never lies.
+    cx = w / 2; cy = h / 2 + (1 - A) * r * 0.5;
+    c.strokeStyle = '#000'; c.fillStyle = '#000';
+    if (id === 'poacher') {
+      // Duplex: heavy posts from the rim that thin to fine hairs near the centre, with mil dots.
+      const post = r * 0.5;
+      c.lineWidth = 5; c.beginPath();
+      c.moveTo(cx - r, cy); c.lineTo(cx - post, cy); c.moveTo(cx + post, cy); c.lineTo(cx + r, cy);
+      c.moveTo(cx, cy + post); c.lineTo(cx, cy + r); c.stroke();
+      c.lineWidth = 1.25; c.beginPath(); c.moveTo(cx - post, cy); c.lineTo(cx + post, cy); c.moveTo(cx, cy - r); c.lineTo(cx, cy + post); c.stroke();
+      for (let i = 1; i <= 4; i++) for (const sgn of [-1, 1]) {
+        c.beginPath(); c.arc(cx + sgn * i * post / 5, cy, 1.8, 0, Math.PI * 2); c.fill();
+        c.beginPath(); c.arc(cx, cy + sgn * i * post / 5, 1.8, 0, Math.PI * 2); c.fill();
+      }
+      c.fillStyle = 'rgba(230,30,20,.95)'; c.beginPath(); c.arc(cx, cy, 1.6, 0, Math.PI * 2); c.fill();
+    } else if (id === 'yolkzooka') {
+      // Rangefinder: a square sight (green beyond arming range) with stadia ticks for drop.
+      const ok = v.aimDist > WEAPONS.yolkzooka.minRange;
+      c.lineWidth = 1.5; c.beginPath(); c.moveTo(cx - r, cy); c.lineTo(cx - 22, cy); c.moveTo(cx + 22, cy); c.lineTo(cx + r, cy); c.moveTo(cx, cy + 22); c.lineTo(cx, cy + r); c.stroke();
+      for (let i = 1; i <= 4; i++) { const y = cy + 22 + i * r * 0.11, L = 14 - i * 2; c.beginPath(); c.moveTo(cx - L, y); c.lineTo(cx + L, y); c.stroke(); }
+      c.strokeStyle = ok ? 'rgba(70,240,110,.95)' : 'rgba(255,60,50,.95)'; c.lineWidth = 2.5; c.strokeRect(cx - 16, cy - 16, 32, 32);
+      c.fillStyle = c.strokeStyle; c.font = '800 13px n, sans-serif'; c.textAlign = 'left'; c.textBaseline = 'middle';
+      c.fillText(v.aimDist < 99 ? v.aimDist.toFixed(1) + 'u' : '--', cx + 24, cy - 24);
+    } else {
+      // Cage Free: fine crosshair with a centre gap, a ring and stadia ticks.
+      c.lineWidth = 1.5; c.beginPath();
+      c.moveTo(cx - r, cy); c.lineTo(cx - 6, cy); c.moveTo(cx + 6, cy); c.lineTo(cx + r, cy);
+      c.moveTo(cx, cy - r); c.lineTo(cx, cy - 6); c.moveTo(cx, cy + 6); c.lineTo(cx, cy + r); c.stroke();
+      c.lineWidth = 1; c.beginPath(); c.arc(cx, cy, r * 0.16, 0, Math.PI * 2); c.stroke();
+      for (let i = 1; i <= 5; i++) { const d = r * 0.16 + i * r * 0.12, L = i % 2 ? 5 : 9; c.beginPath(); c.moveTo(cx - L, cy + d); c.lineTo(cx + L, cy + d); c.moveTo(cx + d, cy - L); c.lineTo(cx + d, cy + L); c.moveTo(cx - d, cy - L); c.lineTo(cx - d, cy + L); c.stroke(); }
+      c.fillStyle = 'rgba(230,30,20,.95)'; c.beginPath(); c.arc(cx, cy, 1.5, 0, Math.PI * 2); c.fill();
+    }
+    c.restore();
+  }
+
   // Per-frame canvas: crosshair, scope, health ring, grenade charge, hit marker, damage, markers.
   draw(dt, v) {
     const c = this.ctx, d = this.dpr || 1, W = this.canvas.width, H = this.canvas.height;
@@ -122,18 +182,15 @@ export class Hud {
       c.beginPath(); c.arc(cx, cy, Math.min(w, h) * 0.18, -Math.PI / 2 - ang - 0.35, -Math.PI / 2 - ang + 0.35); c.stroke();
     }
     this.dmgArcs = this.dmgArcs.filter(a => a.t > 0);
-    // Scope overlay (Cage Free, Poacher, Yolkzooka when aiming).
+    // Scope overlay (Cage Free, Poacher, Yolkzooka when aiming): fades in as the gun comes up, sways
+    // against mouse movement and bobs while walking, a darkened lens rim, and a reticle per gun.
     const scoped = hands.ads && wpn.scoped;
-    if (scoped) {
-      const r = Math.min(w, h) * 0.46;
-      c.fillStyle = '#000'; c.beginPath(); c.rect(0, 0, w, h); c.arc(cx, cy, r, 0, Math.PI * 2, true); c.fill();
-      c.strokeStyle = 'rgba(0,0,0,.85)'; c.lineWidth = 2;
-      c.beginPath(); c.moveTo(cx - r, cy); c.lineTo(cx + r, cy); c.moveTo(cx, cy - r); c.lineTo(cx, cy + r); c.stroke();
-      c.lineWidth = 6; c.beginPath(); c.arc(cx, cy, r, 0, Math.PI * 2); c.stroke();
-    }
+    this.scopeA = scoped ? Math.min(1, (this.scopeA || 0) + dt * 9) : 0;
+    if (this.scopeA > 0) this.drawScope(c, w, h, dt, v, s.id);
+    else { this.sway = null; }
     // Crosshair: four lines whose gap follows the real spread; hidden while swapping or meleeing.
     const busy = hands.swap > 0 || hands.melee > 0;
-    if (!busy && !(scoped && wpn.id !== 'yolkzooka')) {
+    if (!busy && !scoped) {
       const spread = currentSpread(hands, wpn);
       const fovPx = h / 2 / Math.tan(v.fov / 2 * Math.PI / 180);
       const gap = Math.max(4, Math.tan(spread / 2) * fovPx);

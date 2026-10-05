@@ -2,15 +2,30 @@
 // explosions (sprite count ∝ damage/4), yolk hit splashes, egg shatter shards and yolk splats, plus
 // the world objects that move: rockets, grenades (with the pre-detonation flash), pickups and the
 // spatula. Pools are reused; nothing allocates per frame once warm.
-import * as THREE from '../../vendor/three/three.module.js?v=muv8iyqg';
-import { gunModel } from './guns.js?v=muv8iyqg';
-import { TEAM_COLORS } from './egg.js?v=muv8iyqg';
+import * as THREE from '../../vendor/three/three.module.js?v=muv8vpk2';
+import { gunModel } from './guns.js?v=muv8vpk2';
+import { TEAM_COLORS } from './egg.js?v=muv8vpk2';
 
 function radial(inner, outer, size = 64) {
   const c = new OffscreenCanvas(size, size), x = c.getContext('2d');
   const g = x.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
   g.addColorStop(0, inner); g.addColorStop(1, outer);
   x.fillStyle = g; x.fillRect(0, 0, size, size);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+}
+// A bullet hole: a small dark core with a chipped, lighter rim and a faint soot ring around it.
+function bulletHole(size = 64) {
+  const c = new OffscreenCanvas(size, size), x = c.getContext('2d'), m = size / 2;
+  let g = x.createRadialGradient(m, m, 0, m, m, m);
+  g.addColorStop(0, 'rgba(30,24,18,0.55)'); g.addColorStop(0.45, 'rgba(30,24,18,0.25)'); g.addColorStop(1, 'rgba(30,24,18,0)');
+  x.fillStyle = g; x.fillRect(0, 0, size, size);
+  x.fillStyle = 'rgba(190,184,172,0.28)';
+  x.beginPath();
+  for (let i = 0; i <= 12; i++) { const a = i / 12 * Math.PI * 2, r = size * (0.17 + ((i * 7) % 5) * 0.012); x.lineTo(m + Math.cos(a) * r, m + Math.sin(a) * r); }
+  x.fill();
+  g = x.createRadialGradient(m, m, 0, m, m, size * 0.13);
+  g.addColorStop(0, 'rgba(8,6,4,1)'); g.addColorStop(0.8, 'rgba(20,16,12,0.95)'); g.addColorStop(1, 'rgba(20,16,12,0)');
+  x.fillStyle = g; x.beginPath(); x.arc(m, m, size * 0.13, 0, Math.PI * 2); x.fill();
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
 }
 function puff() {
@@ -64,8 +79,8 @@ export class Effects {
     const sg = new THREE.CylinderGeometry(0.012, 0.012, 1, 5, 1, true); sg.rotateX(Math.PI / 2); sg.translate(0, 0, -0.5);
     this.streaks = []; for (let i = 0; i < 160; i++) { const m = new THREE.Mesh(sg, this.streakMat); m.visible = false; m.userData = {}; scene.add(m); this.streaks.push(m); }
     this.si = 0;
-    // Impacts: small dark scorch decals that fade.
-    this.decalMat = new THREE.MeshBasicMaterial({ map: radial('rgba(40,30,20,0.8)', 'rgba(40,30,20,0)'), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 });
+    // Impacts: small bullet holes that shrink away after a while.
+    this.decalMat = new THREE.MeshBasicMaterial({ map: bulletHole(), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 });
     this.splatMat = new THREE.MeshBasicMaterial({ map: radial('rgba(255,196,30,1)', 'rgba(255,170,0,0)'), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -3 });
     const dg = new THREE.PlaneGeometry(1, 1);
     this.decals = []; for (let i = 0; i < 64; i++) { const m = new THREE.Mesh(dg, this.decalMat); m.visible = false; m.userData = { life: 0 }; scene.add(m); this.decals.push(m); }
@@ -88,7 +103,7 @@ export class Effects {
   impact(x, y, z, nx, ny, nz) {
     const m = this.decals[this.di = (this.di + 1) % this.decals.length];
     m.material = this.decalMat; m.position.set(x + nx * 0.01, y + ny * 0.01, z + nz * 0.01);
-    m.lookAt(x + nx, y + ny, z + nz); m.scale.setScalar(0.12 + Math.random() * 0.05); m.visible = true; m.userData.life = 8;
+    m.lookAt(x + nx, y + ny, z + nz); m.rotateZ(Math.random() * 6.28); m.scale.setScalar(0.085 + Math.random() * 0.025); m.visible = true; m.userData.life = 10; m.userData.size = m.scale.x;
     for (let i = 0; i < 3; i++) this.smoke.spawn(x + nx * 0.05, y + ny * 0.05, z + nz * 0.05, 0.08, 0.45, 0xd8d0c0, nx * 0.6 + (Math.random() - 0.5) * 0.5, ny * 0.6 + Math.random() * 0.4, nz * 0.6 + (Math.random() - 0.5) * 0.5, 0.25, 0.7);
   }
   muzzle(x, y, z, big = false) {
@@ -110,7 +125,7 @@ export class Effects {
     for (let i = 0; i < n; i++) this.shard(x + (Math.random() - 0.5) * 0.3, y + 0.3 + Math.random() * 0.3, z + (Math.random() - 0.5) * 0.3, color);
     for (let i = 0; i < 10; i++) this.yolk.spawn(x, y + 0.3, z, 0.1 + Math.random() * 0.08, 0.6, 0xffbf00, (Math.random() - 0.5) * 3, Math.random() * 3, (Math.random() - 0.5) * 3, 0.1);
     const m = this.decals[this.di = (this.di + 1) % this.decals.length];
-    m.material = this.splatMat; m.position.set(x, floorY + 0.012, z); m.rotation.set(-Math.PI / 2, 0, Math.random() * 6); m.scale.setScalar(0.7 + Math.random() * 0.3); m.visible = true; m.userData.life = 10;
+    m.material = this.splatMat; m.position.set(x, floorY + 0.012, z); m.rotation.set(-Math.PI / 2, 0, Math.random() * 6); m.scale.setScalar(0.7 + Math.random() * 0.3); m.visible = true; m.userData.life = 10; m.userData.size = m.scale.x;
   }
   explosion(x, y, z, radius, weapon, team = 0) {
     const n = Math.round((weapon === 'grenade' ? 150 : 140) / 4 / 3);
@@ -159,7 +174,11 @@ export class Effects {
       if (u.d >= u.left) { m.visible = false; continue; }
       m.position.set(u.x + u.dx * u.d, u.y + u.dy * u.d, u.z + u.dz * u.d);
     }
-    for (const m of this.decals) if (m.visible && (m.userData.life -= dt) <= 0) m.visible = false;
+    for (const m of this.decals) {
+      if (!m.visible) continue;
+      if ((m.userData.life -= dt) <= 0) m.visible = false;
+      else if (m.userData.life < 0.6 && m.userData.size) m.scale.setScalar(m.userData.size * m.userData.life / 0.6);
+    }
     for (const m of this.shards) {
       if (!m.visible) continue;
       const u = m.userData; u.life -= dt; if (u.life <= 0) { m.visible = false; continue; }
