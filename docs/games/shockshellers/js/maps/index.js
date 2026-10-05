@@ -1,5 +1,5 @@
 // The map list (GDD §15.4). Each map module builds its grid on demand; builds are cached.
-import omeletArena from './omelet-arena.js?v=muuo542w';
+import omeletArena from './omelet-arena.js?v=muuo6ksf';
 
 export const MAPS = [
   { id: 'omelet', name: 'Omelet Arena', build: omeletArena, maxPlayers: 6, modes: ['ffa', 'teams', 'spatula'], public: true },

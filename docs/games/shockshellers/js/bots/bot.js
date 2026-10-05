@@ -7,10 +7,10 @@
 // Bots drive the match through the same input struct as humans (control bits + yaw/pitch), so the
 // simulation holds them to identical movement, fire-rate, spread and damage rules. Difficulty only
 // changes human limits (reaction, aim error, turn speed, leading, decision noise), never knowledge.
-import { CTRL, WEAPONS, PLAYER, GRENADE, PRIMARIES, TICK } from '../sim/tuning.js?v=muuo542w';
-import { currentSpread, weaponOf, slotOf } from '../sim/combat.js?v=muuo542w';
-import { forward } from '../sim/movement.js?v=muuo542w';
-import { EDGE } from './nav.js?v=muuo542w';
+import { CTRL, WEAPONS, PLAYER, GRENADE, PRIMARIES, TICK } from '../sim/tuning.js?v=muuo6ksf';
+import { currentSpread, weaponOf, slotOf } from '../sim/combat.js?v=muuo6ksf';
+import { forward } from '../sim/movement.js?v=muuo6ksf';
+import { EDGE } from './nav.js?v=muuo6ksf';
 
 // Skill is a number from 0 (a first-time player) to 1 (a top player). Every trait is interpolated
 // between those two anchors; reaction time and aim error interpolate geometrically, since people are
@@ -183,14 +183,24 @@ export class Bot {
     // 2. Fight, the way this weapon is played.
     if (tmem && seeing) {
       const weak = (tmem.hp ?? 100) < 45 || this.enemyReloading(this.target);
-      if (style.perch && dist < near) {
-        // Too close for a scope: fall back off the perch, or finish with the pistol.
-        this.setGoal({ k: 'backoff', node: this.retreatNode(tmem, near + 4), target: this.target });
-      } else if (style.perch) this.setGoal({ k: 'hold', node: null, target: this.target });
+      if (style.perch && dist < 7) {
+        // Pushed: get out of their sight (hopping away, see tick), then fight from cover by peeking.
+        const c = this.goal?.k === 'escape' && !this.arrived() ? this.goal.node : this.findCover(tmem);
+        this.coverNode = c;
+        this.setGoal({ k: 'escape', node: c ?? this.retreatNode(tmem, 9), target: this.target });
+      } else if (style.perch && this.goal?.k === 'peek' && s.mag === 0) {
+        // Shot taken from the peek: back behind cover to reload.
+        this.setGoal({ k: 'cover', node: this.coverNode, until: m.tick + 60 });
+      } else if (style.perch) this.setGoal({ k: this.goal?.k === 'peek' ? 'peek' : 'hold', node: null, target: this.target });
       else if (dist > far || (weak && this.rnd() < style.rushHurt * this.per.aggression)) this.setGoal({ k: 'close', node: this.nav.nearest(tmem.x, tmem.y, tmem.z), target: this.target });
       else if (dist < near && s.id !== 'doubleYolker' && s.id !== 'beater') this.setGoal({ k: 'backoff', node: this.retreatNode(tmem, near + 2), target: this.target });
       else this.setGoal({ k: 'hold', node: null, target: this.target });
       return;
+    }
+    // Sniper in cover with a loaded gun and a fresh memory of the attacker: peek a line to them.
+    if (style.perch && tmem && !tmem.dead && m.tick - tmem.tick < 150 && s.mag > 0 && h.reload === 0 && ['cover', 'escape'].includes(this.goal?.k) && this.arrived()) {
+      const pk = this.peekNode(tmem);
+      if (pk !== null) { this.setGoal({ k: 'peek', node: pk, target: this.target }); return; }
     }
     // 3. Hunt the last known position (and pre-aim there: checking the corner). Snipers mostly don't
     //    leave their sightline to chase; shotguns and SMGs do.
@@ -209,6 +219,19 @@ export class Bot {
     if (obj) { this.setGoal(obj); return; }
     if (style.perch && (this.goal?.k !== 'perch' || this.arrived())) { this.setGoal({ k: 'perch', node: this.perchNode(), until: m.tick + Math.round((8 + this.rnd() * 10) / TICK) }); return; }
     if (!this.goal || this.goal.k !== 'roam' || this.arrived()) this.setGoal({ k: 'roam', node: style.ambush ? this.ambushNode(null) : this.roamNode() });
+  }
+  // A spot a few steps away with a clear line to where the enemy was (the peek), nearest first.
+  peekNode(mem) {
+    const N = this.nav.nodes, start = this.nav.nearest(this.body.x, this.body.y, this.body.z);
+    if (start === null) return null;
+    const seen = new Set([start]), queue = [[start, 0]];
+    while (queue.length) {
+      const [id, depth] = queue.shift(), n = N[id];
+      if (depth > 0 && this.m.grid.visible(n.x, n.y + PLAYER.eyeY, n.z, mem.x, mem.y + 0.3, mem.z)) return id;
+      if (depth >= 4) continue;
+      for (const e of n.edges) if (!seen.has(e.to) && e.kind === EDGE.walk) { seen.add(e.to); queue.push([e.to, depth + 1]); }
+    }
+    return null;
   }
   enemyReloading(id) { const q = this.m.players.get(id); return !!q && q.hands.reload > 0; }
   // Snipers: exposed, high, long sightlines, and not right next to known enemies.
@@ -430,15 +453,23 @@ export class Bot {
       const aimedAt = aimErr < 0.25, shotAt = this.underFire && m.tick - this.underFire < 20;
       let closeFoes = 0; for (const [id, mem] of this.mem) if (!mem.dead && m.tick - mem.tick < 20 && Math.hypot(mem.x - b.x, mem.z - b.z) < 10) closeFoes++;
       const style = STYLE[s.id] || STYLE.yolk47;
-      const canHop = style.hop > 0 && !style.perch && !h.ads && !w.scoped && h.melee === 0;
-      const urge = canHop ? (1 - Math.min(1, dist / 8)) * (aimedAt || shotAt ? 1 : 0.3) * (closeFoes <= 2 ? 1 : 0.5) * style.hop : 0;
+      // A sniper only hops when pushed: escaping someone inside 7 units, unscoped.
+      const escaping = style.perch && this.goal?.k === 'escape' && dist < 7 && !h.ads;
+      const canHop = escaping || (style.hop > 0 && !style.perch && !h.ads && !w.scoped && h.melee === 0);
+      const urge = escaping ? 1 : canHop ? (1 - Math.min(1, dist / 8)) * (aimedAt || shotAt ? 1 : 0.3) * (closeFoes <= 2 ? 1 : 0.5) * style.hop : 0;
       const threshold = 0.65 - this.per.hopper * 0.35 - this.skill * 0.15;
       const hop = urge > threshold;
       if (hop && !this.hopping) { this.orbit = wrap(yawTo(b.x - tb.x, b.z - tb.z) - tb.yaw) > 0 ? 1 : -1; } // circle away from their aim
       this.hopping = hop; this.hopWeapon = s.id;
       this.hopT = hop ? 2 : 0;
-      const standing = !this.hopT && (sniping || (!moveTolerant && this.phase === 'shoot' && h.reload === 0 && s.mag > 0));
-      if (this.hopT > 0) {
+      const standing = !this.hopT && this.goal?.k !== 'escape' && (sniping || (!moveTolerant && this.phase === 'shoot' && h.reload === 0 && s.mag > 0));
+      if (this.hopT > 0 && escaping) {
+        // Run for cover along the path, hopping to spoil their aim, sidestepping when it catches up.
+        if (b.onGround === 0 && aimErr < 0.06 && m.tick - (this.flipT || 0) > 12) { this.orbit = -this.orbit; this.flipT = m.tick; }
+        const f = forward(b.yaw), rx = -f[2], rz = f[0];
+        mx = move.x * 0.8 + rx * this.orbit * 0.4; mz = move.z * 0.8 + rz * this.orbit * 0.4;
+        if (b.onGround > 0 && !(this.ctrl & CTRL.jump)) ctrl |= CTRL.jump;
+      } else if (this.hopT > 0) {
         // Circle them: mostly sideways, drifting towards our preferred range.
         const tx = tb.x - b.x, tz = tb.z - b.z, l = Math.hypot(tx, tz) || 1, [near, far] = RANGE[s.id] || [3, 12];
         const radial = dist > far ? 0.5 : dist < near ? -0.5 : 0;

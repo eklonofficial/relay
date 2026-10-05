@@ -1,7 +1,7 @@
 // Omelet Arena (GDD §15.4): a symmetric duel box for 1v1/2v2. A raised centre dais with two stair
 // approaches, four corner towers reached by ladders (sniper perches, but exposed), low cover walls
 // and a ring corridor under arches around the edge for flanks. 22×22, six players.
-import { Builder, MAT } from './dsl.js?v=muuo542w';
+import { Builder, MAT } from './dsl.js?v=muuo6ksf';
 
 export default function omeletArena() {
   const N = 22, b = new Builder(N, 10, N);
