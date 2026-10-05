@@ -1,49 +1,49 @@
 // Blockhaven bootstrap: assets, menus, input, camera, frame loop.
-import './page.js?v=muujn2k9';
-import { surfaceDocument as document } from './surface.js?v=muujn2k9';
-import { registerApp } from './veil.js?v=muujn2k9';
-import { movementSamples } from './util/pointer.js?v=muujn2k9';
-import { ask, tell } from './dialog.js?v=muujn2k9';
-import { Demo, DEMO_SEED } from './demo.js?v=muujn2k9';
-import { armorLayerModel, armorLayer, ARMOR_MATERIALS, LEATHER_COLOR, elytraModel } from './data/armor.js?v=muujn2k9';
-import { humanoidPose, processSkin } from './entity/humanoid.js?v=muujn2k9';
-import { TEXTURES, TEX, B, BLOCKS, DIM, DIM_NAMES, SHAPE_OF, SHAPE, props, HEIGHT, STATE, VARIANT_MASK } from './data/blocks.js?v=muujn2k9';
-import { I, ITEMS } from './data/items.js?v=muujn2k9';
-import { MOBS, PROFESSIONS, playerModel, saddleModel, PLAYER_SKINS } from './data/mobs.js?v=muujn2k9';
-import { Net, cleanCode, cleanName, cleanKey, cleanChat, chatLine, MAX_PLAYERS, wakeRelays, diagnoseNetwork } from './net/net.js?v=muujn2k9';
-import { NameTags } from './net/nametags.js?v=muujn2k9';
-import { BIOMES } from './gen/biomes.js?v=muujn2k9';
-import { generateBlockTextures, drawBlockTexture } from './render/blocktex.js?v=muujn2k9';
-import { generateItemTextures, ITEM_LAYER, FX_LAYER, ITEM_LAYER_COUNT, flatTexFor } from './render/itemtex.js?v=muujn2k9';
-import { Zip, storedPack, savePack, removePack, applyBlockTextures, applyItemTextures, applyArmorTextures, readEntityTexture, indexSounds } from './render/pack.js?v=muujn2k9';
-import { packModel, paintModel, ENTITY, texFactor, faceRects } from './render/mobtex.js?v=muujn2k9';
-import { buildMipChain } from './render/atlas.js?v=muujn2k9';
-import { Renderer, Batch } from './render/renderer.js?v=muujn2k9';
-import { generateWeatherTextures, readWeatherTextures } from './render/weathertex.js?v=muujn2k9';
-import { precipitationAt, precipitationHeight } from './game/weather.js?v=muujn2k9';
-import { JavaRandom } from './core/jrandom.js?v=muujn2k9';
-import { collisionBoxes } from './data/shapes.js?v=muujn2k9';
-import { World, UNLOADED } from './world/world.js?v=muujn2k9';
-import { createGenerator } from './gen/index.js?v=muujn2k9';
-import { Game } from './game/game.js?v=muujn2k9';
-import { Interact, crossbowCharge } from './game/interact.js?v=muujn2k9';
-import { SpawnPrep, STATUS_COLOR } from './game/spawnprep.js?v=muujn2k9';
-import { splash } from './splash.js?v=muujn2k9';
-import { Commands } from './game/commands.js?v=muujn2k9';
-import { GUI, HUD } from './game/ui.js?v=muujn2k9';
-import { buildIcons, hudSprites } from './game/icons.js?v=muujn2k9';
-import { Sound } from './game/audio.js?v=muujn2k9';
-import { buildLogo, buttonTexture, dirtTexture, iconDataURL } from './render/logo.js?v=muujn2k9';
-import { computeEnv } from './game/env.js?v=muujn2k9';
-import { guideSections } from './game/guide.js?v=muujn2k9';
-import { listWorlds, loadWorld, saveWorld, deleteWorld } from './game/storage.js?v=muujn2k9';
-import { importJavaWorld, exportJavaWorld } from './game/javaworld.js?v=muujn2k9';
-import { drawModel, rootMatrix, M } from './entity/entity.js?v=muujn2k9';
-import { itemMesh, emitItemMesh, clearItemMeshes } from './entity/itemmesh.js?v=muujn2k9';
-import { Lightning, billboard } from './entity/objects.js?v=muujn2k9';
-import { compose, translation, rotationX, rotationY, rotationZ, scaling, forward, mat4 } from './core/math.js?v=muujn2k9';
-import { hasGlint } from './data/enchantments.js?v=muujn2k9';
-import { BarrelRoll } from './game/barrelroll.js?v=muujn2k9';
+import './page.js?v=muujnf54';
+import { surfaceDocument as document } from './surface.js?v=muujnf54';
+import { registerApp } from './veil.js?v=muujnf54';
+import { movementSamples } from './util/pointer.js?v=muujnf54';
+import { ask, tell } from './dialog.js?v=muujnf54';
+import { Demo, DEMO_SEED } from './demo.js?v=muujnf54';
+import { armorLayerModel, armorLayer, ARMOR_MATERIALS, LEATHER_COLOR, elytraModel } from './data/armor.js?v=muujnf54';
+import { humanoidPose, processSkin } from './entity/humanoid.js?v=muujnf54';
+import { TEXTURES, TEX, B, BLOCKS, DIM, DIM_NAMES, SHAPE_OF, SHAPE, props, HEIGHT, STATE, VARIANT_MASK } from './data/blocks.js?v=muujnf54';
+import { I, ITEMS } from './data/items.js?v=muujnf54';
+import { MOBS, PROFESSIONS, playerModel, saddleModel, PLAYER_SKINS } from './data/mobs.js?v=muujnf54';
+import { Net, cleanCode, cleanName, cleanKey, cleanChat, chatLine, MAX_PLAYERS, wakeRelays, diagnoseNetwork } from './net/net.js?v=muujnf54';
+import { NameTags } from './net/nametags.js?v=muujnf54';
+import { BIOMES } from './gen/biomes.js?v=muujnf54';
+import { generateBlockTextures, drawBlockTexture } from './render/blocktex.js?v=muujnf54';
+import { generateItemTextures, ITEM_LAYER, FX_LAYER, ITEM_LAYER_COUNT, flatTexFor } from './render/itemtex.js?v=muujnf54';
+import { Zip, storedPack, savePack, removePack, applyBlockTextures, applyItemTextures, applyArmorTextures, readEntityTexture, indexSounds } from './render/pack.js?v=muujnf54';
+import { packModel, paintModel, ENTITY, texFactor, faceRects } from './render/mobtex.js?v=muujnf54';
+import { buildMipChain } from './render/atlas.js?v=muujnf54';
+import { Renderer, Batch } from './render/renderer.js?v=muujnf54';
+import { generateWeatherTextures, readWeatherTextures } from './render/weathertex.js?v=muujnf54';
+import { precipitationAt, precipitationHeight } from './game/weather.js?v=muujnf54';
+import { JavaRandom } from './core/jrandom.js?v=muujnf54';
+import { collisionBoxes } from './data/shapes.js?v=muujnf54';
+import { World, UNLOADED } from './world/world.js?v=muujnf54';
+import { createGenerator } from './gen/index.js?v=muujnf54';
+import { Game } from './game/game.js?v=muujnf54';
+import { Interact, crossbowCharge } from './game/interact.js?v=muujnf54';
+import { SpawnPrep, STATUS_COLOR } from './game/spawnprep.js?v=muujnf54';
+import { splash } from './splash.js?v=muujnf54';
+import { Commands } from './game/commands.js?v=muujnf54';
+import { GUI, HUD } from './game/ui.js?v=muujnf54';
+import { buildIcons, hudSprites } from './game/icons.js?v=muujnf54';
+import { Sound } from './game/audio.js?v=muujnf54';
+import { buildLogo, buttonTexture, dirtTexture, iconDataURL } from './render/logo.js?v=muujnf54';
+import { computeEnv } from './game/env.js?v=muujnf54';
+import { guideSections } from './game/guide.js?v=muujnf54';
+import { listWorlds, loadWorld, saveWorld, deleteWorld } from './game/storage.js?v=muujnf54';
+import { importJavaWorld, exportJavaWorld } from './game/javaworld.js?v=muujnf54';
+import { drawModel, rootMatrix, M } from './entity/entity.js?v=muujnf54';
+import { itemMesh, emitItemMesh, clearItemMeshes } from './entity/itemmesh.js?v=muujnf54';
+import { Lightning, billboard } from './entity/objects.js?v=muujnf54';
+import { compose, translation, rotationX, rotationY, rotationZ, scaling, forward, mat4 } from './core/math.js?v=muujnf54';
+import { hasGlint } from './data/enchantments.js?v=muujnf54';
+import { BarrelRoll } from './game/barrelroll.js?v=muujnf54';
 
 const $ = id => document.getElementById(id);
 // Resolves after the page has painted what was just put on screen.
@@ -1298,12 +1298,25 @@ class App {
     for (const b of Object.values(B_)) b.reset();
     const right = [Math.cos(cam.yaw), 0, -Math.sin(cam.yaw)];
     const up = [Math.sin(cam.yaw) * Math.sin(cam.pitch), Math.cos(cam.pitch), Math.cos(cam.yaw) * Math.sin(cam.pitch)];
-    const ctx = { camPos: cam.pos, camRight: right, camUp: up, mobs: B_.mobs, mobsClear: B_.mobsClear, mobsSwirl: B_.mobsSwirl, items: B_.items, itemFx: B_.itemFx, blockParticles: B_.blockParticles, blockModels: [], labels: [] };
+    // The camera's view cone (the frustum's corners plus 2 degrees) for skipping what is off screen.
+    const tanV = Math.tan((this.fovCur / 2 + 2) * Math.PI / 180), aspect = this.renderer.width / Math.max(1, this.renderer.height);
+    const coneA = Math.atan(tanV * Math.sqrt(1 + aspect * aspect)), cx = cam.pos[0], cy = cam.pos[1], cz = cam.pos[2];
+    const inView = (x, y, z, r) => {
+      const dx = x - cx, dy = y - cy, dz = z - cz, d = Math.sqrt(dx * dx + dy * dy + dz * dz);
+      if (d <= r) return true;
+      const cos = (dx * f[0] + dy * f[1] + dz * f[2]) / d;
+      return Math.acos(Math.max(-1, Math.min(1, cos))) <= coneA + Math.asin(r / d);
+    };
+    const ctx = { camPos: cam.pos, camRight: right, camUp: up, mobs: B_.mobs, mobsClear: B_.mobsClear, mobsSwirl: B_.mobsSwirl, items: B_.items, itemFx: B_.itemFx, blockParticles: B_.blockParticles, blockModels: [], labels: [], inView };
     const maxD2 = (settings.renderDistance * 16) ** 2;
     for (const e of g.entities.list) {
       if (e.dead || e.frozen) continue;
       const dx = e.pos[0] - cam.pos[0], dz = e.pos[2] - cam.pos[2];
       if (dx * dx + dz * dz > Math.min(maxD2, e.mobType === 'ender_dragon' || e.mobType === 'ghast' ? 1e9 : 80 * 80)) continue;
+      // Off screen: mobs (unless they draw beams or bursts or spawn flames from their render), dropped
+      // items and XP orbs. The radius is generous: held items, wings and tails stick out of the box.
+      if ((e.isLiving ? !e.def.laser && !e.beam && e.def.kind !== 'boss' && e.mobType !== 'ghast' && !(e.fire > 0) : e.type === 'item' || e.type === 'xp')
+        && !inView(e.pos[0], e.pos[1] + e.h / 2, e.pos[2], Math.max(e.h, e.hw * 2) * 1.5 + 1)) continue;
       e.render(ctx);
     }
     g.particles.render(ctx);
@@ -1739,7 +1752,10 @@ class App {
     const boss = $('boss');
     boss.classList.toggle('hidden', !g.bossBar);
     if (g.bossBar) { boss.querySelector('.n').textContent = g.bossBar.name; const bar = boss.querySelector('.b div'); bar.style.width = `${g.bossBar.frac * 100}%`; bar.style.background = g.bossBar.color || ''; }
-    $('onfire').style.opacity = g.stats.fire > 0 && this.view === 0 && g.alive && g.survivalLike ? 1 : 0;
+    const burning = g.stats.fire > 0 && this.view === 0 && g.alive && g.survivalLike;
+    this.fireShownT = burning ? 0.3 : Math.max(0, (this.fireShownT || 0) - dt); // through the 0.25 s fade-out
+    $('onfire').style.opacity = burning ? 1 : 0;
+    $('onfire').classList.toggle('on', this.fireShownT > 0);
     const act = $('action');
     if (g.mode === 'spectator') { act.textContent = 'Spectator mode — fly through blocks · scroll to change speed · /gamemode to leave'; act.style.opacity = this.specHintT === undefined || this.specHintT > 0 ? 1 : 0; this.specHintT = (this.specHintT ?? 6) - dt; }
     else if (this.actionT > 0) { this.actionT -= dt; act.textContent = this.actionText; act.style.opacity = Math.min(1, this.actionT); this.specHintT = undefined; }

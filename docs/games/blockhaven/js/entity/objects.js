@@ -1,21 +1,25 @@
 // Non-living entities: dropped items, XP orbs, projectiles, falling blocks, primed TNT, lightning.
-import { Entity, M } from './entity.js?v=muujn2k9';
-import { itemMesh, emitItemMesh } from './itemmesh.js?v=muujn2k9';
-import { I } from '../data/items.js?v=muujn2k9';
-import { B, BLOCKS, SOLID, OPAQUE } from '../data/blocks.js?v=muujn2k9';
-import { compose, translation, rotationX, rotationY, rotationZ, scaling } from '../core/math.js?v=muujn2k9';
-import { maxStack } from '../data/items.js?v=muujn2k9';
-import { moveEntity } from './physics.js?v=muujn2k9';
-import { fluidPush } from '../game/fluid.js?v=muujn2k9';
-import { AreaCloud } from './cloud.js?v=muujn2k9';
-import { AQUATIC } from '../game/combat.js?v=muujn2k9';
-import { hasGlint } from '../data/enchantments.js?v=muujn2k9';
+import { Entity, M } from './entity.js?v=muujnf54';
+import { itemMesh, emitItemMesh } from './itemmesh.js?v=muujnf54';
+import { I } from '../data/items.js?v=muujnf54';
+import { B, BLOCKS, SOLID, OPAQUE } from '../data/blocks.js?v=muujnf54';
+import { compose, translation, rotationX, rotationY, rotationZ, scaling } from '../core/math.js?v=muujnf54';
+import { maxStack } from '../data/items.js?v=muujnf54';
+import { moveEntity } from './physics.js?v=muujnf54';
+import { fluidPush } from '../game/fluid.js?v=muujnf54';
+import { AreaCloud } from './cloud.js?v=muujnf54';
+import { AQUATIC } from '../game/combat.js?v=muujnf54';
+import { hasGlint } from '../data/enchantments.js?v=muujnf54';
 
 // Billboarded sprite quad facing the camera.
-export function billboard(batch, ctx, x, y, z, size, layer, color, uv = [0, 0, 1, 1]) {
+const BB = [[0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0]], BB_S = [-1, -1, 1, 1], BB_U = [-1, 1, 1, -1], FULL_UV = [0, 0, 1, 1];
+export function billboard(batch, ctx, x, y, z, size, layer, color, uv = FULL_UV) {
   const r = ctx.camRight, u = ctx.camUp, h = size / 2;
-  const c = (sr, su) => [x + (r[0] * sr + u[0] * su) * h, y + (r[1] * sr + u[1] * su) * h, z + (r[2] * sr + u[2] * su) * h];
-  batch.quad([c(-1, -1), c(-1, 1), c(1, 1), c(1, -1)], uv, layer, color);
+  for (let k = 0; k < 4; k++) {
+    const sr = BB_S[k], su = BB_U[k], p = BB[k];
+    p[0] = x + (r[0] * sr + u[0] * su) * h; p[1] = y + (r[1] * sr + u[1] * su) * h; p[2] = z + (r[2] * sr + u[2] * su) * h;
+  }
+  batch.quad(BB, uv, layer, color);
 }
 
 // Renders a stack in the world: blocks as mini cubes, everything else as an extruded sprite.

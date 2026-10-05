@@ -1,8 +1,8 @@
-import { CHUNK, TEX, DIM } from '../data/blocks.js?v=muujn2k9';
-import { meshSingleBlock, STRIDE } from '../mesh/mesher.js?v=muujn2k9';
-import * as S from './shaders.js?v=muujn2k9';
-import { uploadArray, updateLayer, uploadLayerChain, buildMipChain } from './atlas.js?v=muujn2k9';
-import { mat4, perspective, multiply, invert, viewMatrix, frustumPlanes, boxVisible } from '../core/math.js?v=muujn2k9';
+import { CHUNK, TEX, DIM } from '../data/blocks.js?v=muujnf54';
+import { meshSingleBlock, STRIDE } from '../mesh/mesher.js?v=muujnf54';
+import * as S from './shaders.js?v=muujnf54';
+import { uploadArray, updateLayer, uploadLayerChain, buildMipChain } from './atlas.js?v=muujnf54';
+import { mat4, perspective, multiply, invert, viewMatrix, frustumPlanes, boxVisible } from '../core/math.js?v=muujnf54';
 
 const NO_OPTS = {};
 
@@ -30,10 +30,9 @@ export class Batch {
     this.ensure();
     const d = this.data;
     let o = this.quads * 40;
-    const U = [uv[0], uv[0], uv[2], uv[2]], V = [uv[3], uv[1], uv[1], uv[3]];
     for (let k = 0; k < 4; k++) {
       d[o++] = p[k][0]; d[o++] = p[k][1]; d[o++] = p[k][2];
-      d[o++] = U[k]; d[o++] = V[k]; d[o++] = layer;
+      d[o++] = k < 2 ? uv[0] : uv[2]; d[o++] = k === 0 || k === 3 ? uv[3] : uv[1]; d[o++] = layer;
       d[o++] = c[0]; d[o++] = c[1]; d[o++] = c[2]; d[o++] = c[3];
     }
     this.quads++;

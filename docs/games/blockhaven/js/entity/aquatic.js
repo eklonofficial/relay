@@ -1,8 +1,8 @@
 // Java Edition's water mob models (SquidModel, CodModel, SalmonModel, TropicalFishModelA/B, the three
 // Pufferfish models, GuardianModel, DolphinModel, TurtleModel, AxolotlModel) with their texture
 // offsets, and their setupAnim poses. Coordinates as in entity/animals.js.
-import { jbox, pivot } from './humanoid.js?v=muujn2k9';
-import { P, child, rot, model, toOurs, R } from './animals.js?v=muujn2k9';
+import { jbox, pivot } from './humanoid.js?v=muujnf54';
+import { P, child, rot, model, toOurs, R } from './animals.js?v=muujnf54';
 
 const PI = Math.PI;
 
