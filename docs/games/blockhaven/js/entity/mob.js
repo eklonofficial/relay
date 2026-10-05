@@ -1,23 +1,23 @@
 // Living mobs: physics, AI archetypes, combat, breeding/taming, trading and animation.
-import { Entity, drawModel, rootMatrix, M } from './entity.js?v=musmwdx0';
-import { Projectile, renderStack } from './objects.js?v=musmwdx0';
-import { MOBS, PROFESSIONS } from '../data/mobs.js?v=musmwdx0';
-import { B, BLOCKS, SOLID, OPAQUE } from '../data/blocks.js?v=musmwdx0';
-import { UNLOADED } from '../world/world.js?v=musmwdx0';
-import { villagerTrades } from '../game/trades.js?v=musmwdx0';
-import { findPath, clearWalk } from './pathfind.js?v=musmwdx0';
-import { ARMOR_BYPASS, armorStats, armorReduce, applyInvul } from '../game/combat.js?v=musmwdx0';
-import { animalPose, chickenPose, wolfPose, horsePose } from './animals.js?v=musmwdx0';
-import { villagerPose, illagerPose, piglinPose } from './javamodels.js?v=musmwdx0';
-import { ironGolemPose, ironGolemSway, snowGolemPose, hoglinPose, striderPose, ravagerPose } from './beasts.js?v=musmwdx0';
-import { squidPose, fishPose, fishSway, pufferfishPose, guardianPose, dolphinPose, turtlePose, axolotlPose } from './aquatic.js?v=musmwdx0';
-import { witherPose, dragonPose, dragonHistory } from './bosses.js?v=musmwdx0';
-import { rabbitPose, ocelotPose, parrotPose, batPose, frogPose, camelPose } from './critters.js?v=musmwdx0';
-import { creeperPose, spiderPose, endermanPose, magmaPose, silverfishPose, blazePose, ghastPose, phantomPose } from './monsters.js?v=musmwdx0';
-import { humanoidPose } from './humanoid.js?v=musmwdx0';
-import { armorLayer } from '../data/armor.js?v=musmwdx0';
-import { I } from '../data/items.js?v=musmwdx0';
-import { dragonInit, dragonAI, dragonDamage, dragonDying, dragonHead } from './dragon.js?v=musmwdx0';
+import { Entity, drawModel, rootMatrix, M } from './entity.js?v=musmwq7w';
+import { Projectile, renderStack } from './objects.js?v=musmwq7w';
+import { MOBS, PROFESSIONS, DYE_DIFFUSE } from '../data/mobs.js?v=musmwq7w';
+import { B, BLOCKS, SOLID, OPAQUE } from '../data/blocks.js?v=musmwq7w';
+import { UNLOADED } from '../world/world.js?v=musmwq7w';
+import { villagerTrades } from '../game/trades.js?v=musmwq7w';
+import { findPath, clearWalk } from './pathfind.js?v=musmwq7w';
+import { ARMOR_BYPASS, armorStats, armorReduce, applyInvul } from '../game/combat.js?v=musmwq7w';
+import { animalPose, chickenPose, wolfPose, horsePose } from './animals.js?v=musmwq7w';
+import { villagerPose, illagerPose, piglinPose } from './javamodels.js?v=musmwq7w';
+import { ironGolemPose, ironGolemSway, snowGolemPose, hoglinPose, striderPose, ravagerPose } from './beasts.js?v=musmwq7w';
+import { squidPose, fishPose, fishSway, pufferfishPose, guardianPose, dolphinPose, turtlePose, axolotlPose } from './aquatic.js?v=musmwq7w';
+import { witherPose, dragonPose, dragonHistory } from './bosses.js?v=musmwq7w';
+import { rabbitPose, ocelotPose, parrotPose, batPose, frogPose, camelPose } from './critters.js?v=musmwq7w';
+import { creeperPose, spiderPose, endermanPose, magmaPose, silverfishPose, blazePose, ghastPose, phantomPose } from './monsters.js?v=musmwq7w';
+import { humanoidPose } from './humanoid.js?v=musmwq7w';
+import { armorLayer } from '../data/armor.js?v=musmwq7w';
+import { I } from '../data/items.js?v=musmwq7w';
+import { dragonInit, dragonAI, dragonDamage, dragonDying, dragonHead } from './dragon.js?v=musmwq7w';
 
 const rnd = (a, b) => a + Math.random() * (b - a);
 const rint = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
@@ -86,6 +86,8 @@ export class Mob extends Entity {
     this.persistent = !!(opts.persistent || d.persistent);
     this.home = opts.home || null;
     this.fuse = 0; this.charged = !!opts.charged; this.resting = !!opts.resting;
+    // A tropical fish's pattern and colours ([pattern 0-11, base colour, pattern colour]).
+    if (d.pickFish) this.fish = opts.fish || d.pickFish();
     // Its breed (Java's variant, data/mobs.js): handed down, saved, or picked for where it spawns.
     this.breed = opts.breed !== undefined ? opts.breed : d.pickBreed && game && game.world ? d.pickBreed(game.world.biomeAt(x, z)) : null;
     this.tamed = !!opts.tamed; this.sitting = !!opts.sitting;
@@ -1083,6 +1085,8 @@ export class Mob extends Entity {
   render(ctx) {
     const g = this.game;
     if (!this.model) { this.model = g.mobModel(this.skinKey); this.layer = g.mobLayer(this.skinKey); }
+    // TropicalFishRenderer: the small body (model A) or the large one (B) for its pattern.
+    if (this.fish) { const k = this.fish[0] >= 6 ? 'tropical_fish_large' : this.skinKey; this.model = g.mobModel(k); this.layer = g.mobLayer(k); }
     // PufferfishRenderer: the model for how puffed up it is.
     if (this.mobType === 'pufferfish' && this.def.forms) {
       const k = this.puff === 2 ? 'pufferfish_big' : this.puff === 1 ? 'pufferfish_mid' : this.skinKey;
@@ -1157,8 +1161,14 @@ export class Mob extends Entity {
       if (c) layer = g.mobLayer(`iron_golem_${c}`);
     }
     // (A tinted mob, like a tropical fish in its base colour.)
-    const tinted = (m, l) => m && m.tint ? [l[0] * m.tint[0], l[1] * m.tint[1], l[2] * m.tint[2]] : l;
-    const mats = drawModel(ctx.mobs, this.model, layer, root, this.lastPose, tinted(this.model, light), flash);
+    const tint = (l, t) => [l[0] * t[0], l[1] * t[1], l[2] * t[2]];
+    const tinted = (m, l) => m && m.tint ? tint(l, m.tint) : l;
+    const mats = drawModel(ctx.mobs, this.model, layer, root, this.lastPose, this.fish ? tint(light, DYE_DIFFUSE[this.fish[1]]) : tinted(this.model, light), flash);
+    if (this.fish) {
+      // TropicalFishPatternLayer: its pattern over it, in the pattern colour.
+      const [p, , c] = this.fish, k = `tropical_fish_pattern_${p >= 6 ? 'b' : 'a'}${(p % 6) + 1}`;
+      drawModel(ctx.mobs, g.mobModel(k), g.mobLayer(k), root, this.lastPose, tint(light, DYE_DIFFUSE[c]), flash);
+    }
     // MushroomCowMushroomLayer: two red mushrooms on a mooshroom's back and one on its head.
     if (this.mobType === 'mooshroom' && !this.baby) {
       const at = (m, x, y, z, a) => M.chain(m, M.t(x, y, z), M.ry(a), M.s(16), M.t(-0.5, -0.5, -0.5));
@@ -1231,14 +1241,14 @@ export class Mob extends Entity {
     if (this.deathT > 0) return null;
     return {
       t: 'mob', type: this.mobType, p: this.pos, yaw: this.yaw, health: this.health, baby: this.baby, size: this.size, tamed: this.tamed, sitting: this.sitting, saddled: this.saddled, rideSpeed: this.rideSpeed, jumpStrength: this.jumpStrength, temper: this.temper,
-      sheared: this.sheared, woolColor: this.woolColor, name: this.name, persistent: this.persistent, home: this.home, charged: this.charged, resting: this.resting, breed: this.breed,
+      sheared: this.sheared, woolColor: this.woolColor, name: this.name, persistent: this.persistent, home: this.home, charged: this.charged, resting: this.resting, breed: this.breed, fish: this.fish,
       profession: this.profession, level: this.level, xp: this.xp, trades: this.trades, equipment: this.equipment,
     };
   }
 }
 
 // Moves an entity without gravity handling (fliers/swimmers).
-import { moveEntity } from './physics.js?v=musmwdx0';
+import { moveEntity } from './physics.js?v=musmwq7w';
 function import_move(e, dt) { moveEntity(e.world, e, e.vel[0] * dt, e.vel[1] * dt, e.vel[2] * dt); }
 
 // Renders a held item using a part matrix (model units).
