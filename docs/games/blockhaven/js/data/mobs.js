@@ -1,14 +1,14 @@
 // Mob roster: stats, AI archetype, drops, box models and procedural skins.
 // Model space: 1 unit = 1/16 block, feet at y=0, the mob faces -Z.
-import { D, pal, shade as shadeHex } from '../render/mobtex.js?v=musmvqjf';
-import { pigModel as jPig, cowModel as jCow, sheepModel as jSheep, sheepFurModel as jSheepFur, chickenModel as jChicken, wolfModel as jWolf, foxModel as jFox, polarBearModel as jPolarBear, goatModel as jGoat, llamaModel as jLlama, horseModel as jHorse } from '../entity/animals.js?v=musmvqjf';
-import { creeperModel as jCreeper, spiderModel as jSpider, endermanModel as jEnderman, slimeModel as jSlime, slimeOuterModel as jSlimeOuter, magmaCubeModel as jMagma, silverfishModel as jSilverfish, endermiteModel as jEndermite, blazeModel as jBlaze, ghastModel as jGhast, phantomModel as jPhantom } from '../entity/monsters.js?v=musmvqjf';
-import { ironGolemModel as jIronGolem, snowGolemModel as jSnowGolem, hoglinModel as jHoglin, striderModel as jStrider, ravagerModel as jRavager } from '../entity/beasts.js?v=musmvqjf';
-import { squidModel as jSquid, codModel as jCod, salmonModel as jSalmon, tropicalFishModel as jTropical, pufferfishModel as jPuffer, guardianModel as jGuardian, dolphinModel as jDolphin, turtleModel as jTurtle, axolotlModel as jAxolotl } from '../entity/aquatic.js?v=musmvqjf';
-import { rabbitModel as jRabbit, ocelotModel as jOcelot, pandaModel as jPanda, parrotModel as jParrot, batModel as jBat, frogModel as jFrog, camelModel as jCamel } from '../entity/critters.js?v=musmvqjf';
-import { witherModel as jWither, dragonModel as jDragon } from '../entity/bosses.js?v=musmvqjf';
-import { villagerModel as jVillager, witchModel as jWitch, illagerModel as jIllager, piglinModel as jPiglin, zombieVillagerModel as jZombieVillager } from '../entity/javamodels.js?v=musmvqjf';
-import { playerModel as javaPlayerModel, mobHumanoid } from '../entity/humanoid.js?v=musmvqjf';
+import { D, pal, shade as shadeHex } from '../render/mobtex.js?v=musmw2di';
+import { pigModel as jPig, cowModel as jCow, sheepModel as jSheep, sheepFurModel as jSheepFur, chickenModel as jChicken, wolfModel as jWolf, foxModel as jFox, polarBearModel as jPolarBear, goatModel as jGoat, llamaModel as jLlama, horseModel as jHorse } from '../entity/animals.js?v=musmw2di';
+import { creeperModel as jCreeper, spiderModel as jSpider, endermanModel as jEnderman, slimeModel as jSlime, slimeOuterModel as jSlimeOuter, magmaCubeModel as jMagma, silverfishModel as jSilverfish, endermiteModel as jEndermite, blazeModel as jBlaze, ghastModel as jGhast, phantomModel as jPhantom } from '../entity/monsters.js?v=musmw2di';
+import { ironGolemModel as jIronGolem, snowGolemModel as jSnowGolem, hoglinModel as jHoglin, striderModel as jStrider, ravagerModel as jRavager } from '../entity/beasts.js?v=musmw2di';
+import { squidModel as jSquid, codModel as jCod, salmonModel as jSalmon, tropicalFishModel as jTropical, pufferfishModel as jPuffer, guardianModel as jGuardian, dolphinModel as jDolphin, turtleModel as jTurtle, axolotlModel as jAxolotl } from '../entity/aquatic.js?v=musmw2di';
+import { rabbitModel as jRabbit, ocelotModel as jOcelot, pandaModel as jPanda, parrotModel as jParrot, batModel as jBat, frogModel as jFrog, camelModel as jCamel } from '../entity/critters.js?v=musmw2di';
+import { witherModel as jWither, dragonModel as jDragon } from '../entity/bosses.js?v=musmw2di';
+import { villagerModel as jVillager, witchModel as jWitch, illagerModel as jIllager, piglinModel as jPiglin, zombieVillagerModel as jZombieVillager } from '../entity/javamodels.js?v=musmw2di';
+import { playerModel as javaPlayerModel, mobHumanoid } from '../entity/humanoid.js?v=musmw2di';
 
 const box = (o, s, style, extra = {}) => ({ o, s, style, ...extra });
 const part = (pivot, boxes, extra = {}) => ({ pivot, boxes, ...extra });
@@ -695,6 +695,11 @@ MOBS.silverfish.model = fromOld(MOBS.silverfish.model, jSilverfish, 'entity/silv
 MOBS.endermite.model = fromOld(MOBS.endermite.model, jEndermite, 'entity/endermite', s => ({ head: s('s0'), body: s('s1') }));
 MOBS.blaze.model = fromOld(MOBS.blaze.model, jBlaze, 'entity/blaze', s => ({ rod: s('rod0') }));
 MOBS.ghast.model = fromOld(MOBS.ghast.model, jGhast, 'entity/ghast/ghast', s => ({ tentacle: s('t0') }));
+// EnergySwirlLayer: a charged creeper (CreeperPowerLayer) and a wither below half health
+// (WitherArmorLayer) wear a scrolling energy skin, drawn additively over them. `swirl` gives the model
+// and xOffset(ticks).
+MOBS.creeper.swirl = { model: () => ({ ...jCreeper({}, 'entity/creeper/creeper_armor', 2), fill: true, swirlColor: [70, 140, 255] }), x: t => t * 0.01 };
+MOBS.wither.swirl = { model: () => ({ ...jWither({}, 'entity/wither/wither_armor', 0.5), fill: true, swirlColor: [110, 90, 255] }), x: t => Math.cos(t * 0.02) * 3 };
 // GhastRenderer: 4.5 times the model's size, and its own face while it readies a fireball.
 MOBS.ghast.scale = 4.5;
 MOBS.ghast.variants = { shooting: 'entity/ghast/ghast_shooting' };

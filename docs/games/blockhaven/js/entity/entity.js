@@ -1,8 +1,8 @@
 // Entity base class, manager and the box-model renderer shared by every mob.
-import { moveEntity } from './physics.js?v=musmvqjf';
-import { B } from '../data/blocks.js?v=musmvqjf';
-import { fluidPush } from '../game/fluid.js?v=musmvqjf';
-import { ENTITY, texFactor } from '../render/mobtex.js?v=musmvqjf';
+import { moveEntity } from './physics.js?v=musmw2di';
+import { B } from '../data/blocks.js?v=musmw2di';
+import { fluidPush } from '../game/fluid.js?v=musmw2di';
+import { ENTITY, texFactor } from '../render/mobtex.js?v=musmw2di';
 
 let nextId = 1;
 export class Entity {
@@ -130,6 +130,7 @@ const FACE_SHADE = [0.62, 0.62, 1.0, 0.5, 0.8, 0.8];
 const P = [[0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0]];
 
 // Emits one box (in part space) into a batch. uv: texture coords of the MC box unwrap in texels.
+let SHIFT_U = 0, SHIFT_V = 0;
 function emitBox(batch, m, box, layer, tw, th, light, alpha, java = false) {
   const [ox, oy, oz] = box.o, [w, h, d] = box.s, inf = box.inflate || 0;
   const x0 = ox - inf, y0 = oy - inf, z0 = oz - inf, x1 = ox + w + inf, y1 = oy + h + inf, z1 = oz + d + inf;
@@ -137,7 +138,7 @@ function emitBox(batch, m, box, layer, tw, th, light, alpha, java = false) {
   c(0, x0, y0, z0); c(1, x1, y0, z0); c(2, x1, y1, z0); c(3, x0, y1, z0);
   c(4, x0, y0, z1); c(5, x1, y0, z1); c(6, x1, y1, z1); c(7, x0, y1, z1);
   const [u, v] = box.uv, W = box.us ? box.us[0] : w, H = box.us ? box.us[1] : h, D = box.us ? box.us[2] : d;
-  const U = x => x / tw, V = y => y / th;
+  const U = x => x / tw + SHIFT_U, V = y => y / th + SHIFT_V;
   // MC unwrap: top (u+d, v), bottom (u+d+w, v), right (u, v+d), front (u+d, v+d), left (u+d+w, v+d), back (u+2d+w, v+d).
   // Entities face -Z in model space ("front" = -Z).
   const faces = [
@@ -186,7 +187,10 @@ function emitBox(batch, m, box, layer, tw, th, light, alpha, java = false) {
 
 // Draws a model: root matrix (world), poses per part, skin layer, light colour, hurt 0..1, alpha.
 export function drawModel(batch, model, layer, root, poses, light, hurt = 0, alpha = 1) {
-  const tw = ENTITY * texFactor(model), th = tw; // texels are measured against the (square) entity layer
+  // Texels are measured against the (square) entity layer, or against the texture itself when it
+  // fills the layer (a scrolling energy swirl, shifted by poses.uvShift).
+  const tw = model.fill ? model.texSize[0] : ENTITY * texFactor(model), th = model.fill ? model.texSize[1] : tw;
+  [SHIFT_U, SHIFT_V] = poses.uvShift || [0, 0];
   const mats = {};
   const partMatrix = name => {
     if (mats[name]) return mats[name];
@@ -210,6 +214,7 @@ export function drawModel(batch, model, layer, root, poses, light, hurt = 0, alp
       emitBox(batch, m, b, layer, tw, th, b.wool && poses.woolColor ? [light[0] * poses.woolColor[0], light[1] * poses.woolColor[1], light[2] * poses.woolColor[2]] : light, a, !!model.java);
     }
   }
+  SHIFT_U = SHIFT_V = 0;
   return mats;
 }
 
