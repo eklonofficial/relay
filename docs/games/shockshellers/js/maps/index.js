@@ -1,11 +1,15 @@
 // The map list (GDD §15.4). Each map module builds its grid on demand; builds are cached.
-import barnyard from './barnyard.js?v=muv7xl0m';
-import yolkQuarry from './yolk-quarry.js?v=muv7xl0m';
-import omeletArena from './omelet-arena.js?v=muv7xl0m';
+import barnyard from './barnyard.js?v=muv84lw6';
+import yolkQuarry from './yolk-quarry.js?v=muv84lw6';
+import henHouse from './hen-house.js?v=muv84lw6';
+import sunnySide from './sunny-side.js?v=muv84lw6';
+import omeletArena from './omelet-arena.js?v=muv84lw6';
 
 export const MAPS = [
   { id: 'barnyard', name: 'Barnyard', build: barnyard, maxPlayers: 18, modes: ['ffa', 'teams', 'spatula', 'roost'], public: true },
   { id: 'quarry', name: 'Yolk Quarry', build: yolkQuarry, maxPlayers: 14, modes: ['ffa', 'teams', 'spatula', 'roost'], public: true },
+  { id: 'henhouse', name: 'Hen House', build: henHouse, maxPlayers: 12, modes: ['ffa', 'teams', 'spatula', 'roost'], public: true },
+  { id: 'sunny', name: 'Sunny Side', build: sunnySide, maxPlayers: 16, modes: ['ffa', 'teams', 'spatula', 'roost'], public: true },
   { id: 'omelet', name: 'Omelet Arena', build: omeletArena, maxPlayers: 6, modes: ['ffa', 'teams', 'spatula'], public: true },
 ];
 const cache = new Map();

@@ -2,9 +2,9 @@
 // stand, edges for walking, stepping, ramps/stairs, drops, jump-ups, ladders and jump pads. Doubtful
 // edges are verified by running the real movement code, so a path the graph offers is one an egg can
 // actually walk. A* over a binary heap finds routes; costs prefer short, safe paths.
-import { PIECES, PIECE, facing } from '../maps/pieces.js?v=muv7xl0m';
-import { makeBody, stepBody } from '../sim/movement.js?v=muv7xl0m';
-import { CTRL, PLAYER } from '../sim/tuning.js?v=muv7xl0m';
+import { PIECES, PIECE, facing } from '../maps/pieces.js?v=muv84lw6';
+import { makeBody, stepBody } from '../sim/movement.js?v=muv84lw6';
+import { CTRL, PLAYER } from '../sim/tuning.js?v=muv84lw6';
 
 const R = PLAYER.collideRadius;
 export const EDGE = { walk: 0, jump: 1, drop: 2, ladder: 3, pad: 4 };
@@ -26,9 +26,10 @@ export class NavGraph {
       for (let y = 0; y < g.h; y++) {
         const p = PIECES[g.get(x, y, z)];
         if (!p.blocksPlayers) continue;
-        // Height of the floor at the cell centre (stairs/ramps: the middle step).
+        // The floor under the egg's middle (the central half of the cell): on stairs and ramps that is
+        // the higher part of the slope, where an egg actually rests.
         let top = -1;
-        for (const b of g.boxes(x, y, z)) if (b[0] <= 0.5 && b[3] >= 0.5 && b[2] <= 0.5 && b[5] >= 0.5) top = Math.max(top, y + b[4]);
+        for (const b of g.boxes(x, y, z)) if (b[0] < 0.75 && b[3] > 0.25 && b[2] < 0.75 && b[5] > 0.25) top = Math.max(top, y + b[4]);
         if (top < 0) continue;
         const fy = top + 0.002;
         if (g.collides(x + 0.5, fy + R + 0.02, z + 0.5, R - 0.06)) continue;

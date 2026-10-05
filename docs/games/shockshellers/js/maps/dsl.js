@@ -1,8 +1,8 @@
 // A small vocabulary for writing maps by hand: fill volumes with pieces, add stairs, ladders and
 // metadata layers (spawns, items, roost zones, spatula spawns, the overview camera). Maps are code,
 // so symmetric layouts are written once and mirrored.
-import { MapGrid } from './grid.js?v=muv7xl0m';
-import { PIECE } from './pieces.js?v=muv7xl0m';
+import { MapGrid } from './grid.js?v=muv84lw6';
+import { PIECE } from './pieces.js?v=muv84lw6';
 
 // Material families (render/materials.js gives each one textures and colours).
 export const MAT = { stone: 0, grass: 1, wood: 2, brick: 3, sand: 4, metal: 5, dirt: 6, plaster: 7, roof: 8, darkStone: 9, snow: 10, panel: 11, crate: 12, hay: 13, moon: 14, gold: 15, leaf: 16, water: 17, red: 18, blue: 19 };
@@ -44,7 +44,19 @@ export class Builder {
   // with `top` as the surface material. Where a column is exactly one higher than a neighbour and
   // `ramps` is on, the lower side gets a ramp up to it, so gentle slopes walk (cliffs of 2+ stay cliffs).
   terrain(x0, z0, x1, z1, h, mat = MAT.dirt, top = MAT.grass, ramps = true) {
-    const H = (x, z) => (x < x0 || x > x1 || z < z0 || z > z1) ? null : Math.max(0, Math.round(h(x, z)));
+    // Heights rounded to whole cells; with ramps on, no column may stand more than one above its lowest
+    // neighbour (lowered until true), so a slope never turns into a two-block cliff by rounding.
+    const w = x1 - x0 + 1, d = z1 - z0 + 1, hm = new Int16Array(w * d);
+    for (let z = 0; z < d; z++) for (let x = 0; x < w; x++) hm[z * w + x] = Math.max(0, Math.round(h(x + x0, z + z0)));
+    if (ramps) for (let changed = true, guard = 0; changed && guard < 64; guard++) {
+      changed = false;
+      for (let z = 0; z < d; z++) for (let x = 0; x < w; x++) {
+        let lo = Infinity;
+        for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const xx = x + dx, zz = z + dz; if (xx >= 0 && zz >= 0 && xx < w && zz < d) lo = Math.min(lo, hm[zz * w + xx]); }
+        if (hm[z * w + x] > lo + 1) { hm[z * w + x] = lo + 1; changed = true; }
+      }
+    }
+    const H = (x, z) => (x < x0 || x > x1 || z < z0 || z > z1) ? null : hm[(z - z0) * w + (x - x0)];
     for (let z = z0; z <= z1; z++) for (let x = x0; x <= x1; x++) {
       const t = H(x, z);
       for (let y = 1; y <= t; y++) this.put(x, y, z, 'block', 0, y === t ? top : mat);

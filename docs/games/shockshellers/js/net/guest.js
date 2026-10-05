@@ -4,11 +4,11 @@
 // snapshot says which input the host last used, we rewind to the host's state and replay the newer
 // inputs (reconciliation), easing any correction over a couple of ticks. Everyone else is drawn
 // 100 ms in the past, interpolated between snapshots (Blockhaven's remote players do the same).
-import { Match } from '../sim/match.js?v=muv7xl0m';
-import { getMap } from '../maps/index.js?v=muv7xl0m';
-import { TICK, SYNC_EVERY } from '../sim/tuning.js?v=muv7xl0m';
-import { Net } from './net.js?v=muv7xl0m';
-import { applyPlayer, applyOwn } from './protocol.js?v=muv7xl0m';
+import { Match } from '../sim/match.js?v=muv84lw6';
+import { getMap } from '../maps/index.js?v=muv84lw6';
+import { TICK, SYNC_EVERY } from '../sim/tuning.js?v=muv84lw6';
+import { Net } from './net.js?v=muv84lw6';
+import { applyPlayer, applyOwn } from './protocol.js?v=muv84lw6';
 
 const DELAY = 100; // ms behind the newest snapshot for other players
 const OWN = new Set(['shot', 'fire', 'reload', 'reloaded', 'dry', 'swap', 'swing', 'charge', 'jump', 'land']);
