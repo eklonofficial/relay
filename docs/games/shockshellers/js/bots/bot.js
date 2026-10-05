@@ -7,10 +7,10 @@
 // Bots drive the match through the same input struct as humans (control bits + yaw/pitch), so the
 // simulation holds them to identical movement, fire-rate, spread and damage rules. Difficulty only
 // changes human limits (reaction, aim error, turn speed, leading, decision noise), never knowledge.
-import { CTRL, WEAPONS, PLAYER, GRENADE, PRIMARIES, TICK } from '../sim/tuning.js?v=muuo146f';
-import { currentSpread, weaponOf, slotOf } from '../sim/combat.js?v=muuo146f';
-import { forward } from '../sim/movement.js?v=muuo146f';
-import { EDGE } from './nav.js?v=muuo146f';
+import { CTRL, WEAPONS, PLAYER, GRENADE, PRIMARIES, TICK } from '../sim/tuning.js?v=muuo542w';
+import { currentSpread, weaponOf, slotOf } from '../sim/combat.js?v=muuo542w';
+import { forward } from '../sim/movement.js?v=muuo542w';
+import { EDGE } from './nav.js?v=muuo542w';
 
 // Skill is a number from 0 (a first-time player) to 1 (a top player). Every trait is interpolated
 // between those two anchors; reaction time and aim error interpolate geometrically, since people are
@@ -40,6 +40,20 @@ export function traits(skill, rnd = Math.random, spread = 0.16) {
 // Where each weapon likes to fight from (units).
 const RANGE = { yolk47: [4, 12], doubleYolker: [0, 4.5], cageFree: [10, 30], yolkzooka: [5, 16], beater: [0, 8], poacher: [14, 45], triBoil: [5, 14], peck9mm: [0, 10] };
 
+// How each weapon is played. perch: hold exposed high ground with long sightlines; ambush: wait in cover
+// next to busy areas and flank through covered routes; hunt: chase last-known positions; avoidOpen:
+// how much paths avoid exposed ground; hop: duel-hopping tendency; rushHurt: close in on enemies that
+// are hurt or reloading.
+const STYLE = {
+  poacher: { perch: true, hunt: 0.15, avoidOpen: 0, hop: 0, rushHurt: 0 },
+  cageFree: { perch: true, hunt: 0.35, avoidOpen: 0, hop: 0.2, rushHurt: 0.2 },
+  doubleYolker: { ambush: true, hunt: 1, avoidOpen: 3, hop: 1.6, rushHurt: 1 },
+  beater: { hunt: 0.9, avoidOpen: 1.5, hop: 1.3, rushHurt: 0.8 },
+  yolk47: { hunt: 0.6, avoidOpen: 0.5, hop: 0.8, rushHurt: 0.5 },
+  triBoil: { hunt: 0.5, avoidOpen: 0.5, hop: 0.6, rushHurt: 0.4 },
+  yolkzooka: { hunt: 0.4, avoidOpen: 0.8, hop: 0.5, rushHurt: 0.2 },
+  peck9mm: { hunt: 0.6, avoidOpen: 1, hop: 1, rushHurt: 0.6 },
+};
 const wrap = a => { while (a > Math.PI) a -= Math.PI * 2; while (a < -Math.PI) a += Math.PI * 2; return a; };
 const yawTo = (dx, dz) => Math.atan2(-dx, -dz);
 
@@ -49,7 +63,7 @@ export class Bot {
     this.rnd = manager.rng;
     this.skill = drawSkill(difficulty, this.rnd);
     this.d = traits(this.skill, this.rnd);
-    this.per = { aggression: 0.3 + this.rnd() * 0.7, patience: this.rnd(), ...personality };
+    this.per = { aggression: 0.3 + this.rnd() * 0.7, patience: this.rnd(), hopper: Math.pow(this.rnd(), 1.6), ...personality };
     this.mem = new Map(); // enemy id → { x, y, z, vx, vy, vz, tick, seen, react, firstSeen, hp }
     this.target = null; this.path = null; this.pi = 0; this.goal = null;
     this.yaw = player.body.yaw; this.pitch = 0; this.yawV = 0; this.pitchV = 0;
@@ -57,7 +71,7 @@ export class Bot {
     this.strafe = 1; this.strafeT = 0; this.ctrl = 0; this.prevFire = false;
     this.thinkT = (player.id * 7) % 9; this.senseT = player.id % 3;
     this.stuckT = 0; this.lastPos = { x: 0, z: 0 }; this.progressT = 0;
-    this.nadeCooldown = 0; this.nadePlan = null; this.burst = 0; this.burstRest = 0; this.phase = 'move'; this.phaseT = 0;
+    this.nadeCooldown = 0; this.nadePlan = null; this.burst = 0; this.burstRest = 0; this.phase = 'move'; this.phaseT = 0; this.hopT = 0; this.hopCool = 0; this.orbit = 1;
     this.spawnDelay = 0; this.lookAround = 0; this.glance = null;
   }
   get body() { return this.p.body; }
@@ -165,25 +179,61 @@ export class Bot {
       if (c !== null) { this.setGoal({ k: 'cover', node: c, until: m.tick + 75 }); return; }
     }
     if (this.goal?.k === 'cover' && m.tick < this.goal.until && (h.reload > 0 || me.hp < 60)) return;
-    // 2. Fight: keep to the weapon's preferred range.
+    const style = STYLE[s.id] || STYLE.yolk47;
+    // 2. Fight, the way this weapon is played.
     if (tmem && seeing) {
-      if (dist > far) this.setGoal({ k: 'close', node: this.nav.nearest(tmem.x, tmem.y, tmem.z), target: this.target });
+      const weak = (tmem.hp ?? 100) < 45 || this.enemyReloading(this.target);
+      if (style.perch && dist < near) {
+        // Too close for a scope: fall back off the perch, or finish with the pistol.
+        this.setGoal({ k: 'backoff', node: this.retreatNode(tmem, near + 4), target: this.target });
+      } else if (style.perch) this.setGoal({ k: 'hold', node: null, target: this.target });
+      else if (dist > far || (weak && this.rnd() < style.rushHurt * this.per.aggression)) this.setGoal({ k: 'close', node: this.nav.nearest(tmem.x, tmem.y, tmem.z), target: this.target });
       else if (dist < near && s.id !== 'doubleYolker' && s.id !== 'beater') this.setGoal({ k: 'backoff', node: this.retreatNode(tmem, near + 2), target: this.target });
       else this.setGoal({ k: 'hold', node: null, target: this.target });
       return;
     }
-    // 3. Hunt the last known position (and pre-aim there: checking the corner).
-    if (tmem && m.tick - tmem.tick < 150 && this.per.aggression > 0.25 && !this.objectiveUrgent()) {
-      this.setGoal({ k: 'hunt', node: this.nav.nearest(tmem.x, tmem.y, tmem.z), target: this.target });
+    // 3. Hunt the last known position (and pre-aim there: checking the corner). Snipers mostly don't
+    //    leave their sightline to chase; shotguns and SMGs do.
+    if (tmem && m.tick - tmem.tick < 150 && this.per.aggression * style.hunt > 0.2 && !this.objectiveUrgent()) {
+      const node = style.ambush && this.rnd() < 0.5 ? this.ambushNode(tmem) : this.nav.nearest(tmem.x, tmem.y, tmem.z);
+      this.setGoal({ k: 'hunt', node, target: this.target });
       return;
     }
+    // A sniper on a perch stays a while, sweeping its sightlines, then relocates (after a shot or a hit).
+    if (style.perch && this.goal?.k === 'perch' && this.arrived() && m.tick < this.goal.until && !(this.underFire && m.tick - this.underFire < 20)) return;
     // 4. Restock if short.
     const item = this.wantItem();
     if (item) { this.setGoal({ k: 'item', node: item.node, item: item.id }); return; }
-    // 5. Objective, else roam to likely fights.
+    // 5. Objective, else take up a position that suits the weapon.
     const obj = this.objective();
     if (obj) { this.setGoal(obj); return; }
-    if (!this.goal || this.goal.k !== 'roam' || this.arrived()) this.setGoal({ k: 'roam', node: this.roamNode() });
+    if (style.perch && (this.goal?.k !== 'perch' || this.arrived())) { this.setGoal({ k: 'perch', node: this.perchNode(), until: m.tick + Math.round((8 + this.rnd() * 10) / TICK) }); return; }
+    if (!this.goal || this.goal.k !== 'roam' || this.arrived()) this.setGoal({ k: 'roam', node: style.ambush ? this.ambushNode(null) : this.roamNode() });
+  }
+  enemyReloading(id) { const q = this.m.players.get(id); return !!q && q.hands.reload > 0; }
+  // Snipers: exposed, high, long sightlines, and not right next to known enemies.
+  perchNode() {
+    const N = this.nav.nodes; let best = null, bs = -Infinity;
+    for (let k = 0; k < 24; k++) {
+      const n = N[Math.floor(this.rnd() * N.length)];
+      if (this.nav.comp[n.id] !== this.nav.main) continue;
+      let sc = n.sight * 0.15 + n.exposure * 2 + n.height * 3 + this.rnd();
+      for (const [, mem] of this.mem) if (!mem.dead) { const d = Math.hypot(mem.x - n.x, mem.z - n.z); if (d < 10) sc -= (10 - d) * 0.4; }
+      if (sc > bs) { bs = sc; best = n.id; }
+    }
+    return best;
+  }
+  // Shotguns: a covered spot right next to busy ground (or next to where the enemy was).
+  ambushNode(mem) {
+    const N = this.nav.nodes; let best = null, bs = -Infinity;
+    for (let k = 0; k < 24; k++) {
+      const n = N[Math.floor(this.rnd() * N.length)];
+      if (this.nav.comp[n.id] !== this.nav.main) continue;
+      let sc = (1 - n.exposure) * 2 + n.busy * 2 + this.rnd() * 0.5;
+      if (mem) sc -= Math.abs(Math.hypot(mem.x - n.x, mem.z - n.z) - 3) * 0.4;
+      if (sc > bs) { bs = sc; best = n.id; }
+    }
+    return best;
   }
   objectiveUrgent() { const k = this.m.mode.state().k; return k === 'roost' || k === 'spatula'; }
   objective() {
@@ -298,7 +348,8 @@ export class Bot {
     if (same) return;
     const start = this.nav.nearest(this.body.x, this.body.y, this.body.z);
     // Paths avoid known enemy sightlines a little when not looking for a fight.
-    const avoid = g.k === 'hunt' || g.k === 'close' ? null : n => this.danger(n);
+    const open = (STYLE[slotOf(this.p.hands).id] || STYLE.yolk47).avoidOpen;
+    const avoid = n => (g.k === 'hunt' || g.k === 'close' ? 0 : this.danger(n)) + n.exposure * open;
     this.path = this.nav.path(start, g.node, avoid);
     this.pi = 0; this.progressT = 0;
   }
@@ -371,18 +422,41 @@ export class Bot {
         const skill = this.d.discipline;
         this.phaseT = Math.round((this.phase === 'shoot' ? 0.35 + this.rnd() * 0.45 : (0.22 + this.rnd() * 0.35) * (1.4 - skill * 0.5)) / TICK);
       }
-      const standing = sniping || (!moveTolerant && this.phase === 'shoot' && h.reload === 0 && s.mag > 0);
-      if (standing && h.reload === 0) { mx = 0; mz = 0; }
+      // Duel hopping, only when it's the right call: a close fight (roughly one on one), the opponent
+      // aiming at us or shooting at us, and a weapon that still shoots straight while moving. Never with
+      // a sniper, a scope, or at range. It lasts as long as that situation does; personality and skill
+      // only decide how readily a bot sees the situation as a hopping one.
+      const tb = tq.body, aimErr = Math.abs(wrap(tb.yaw - yawTo(b.x - tb.x, b.z - tb.z)));
+      const aimedAt = aimErr < 0.25, shotAt = this.underFire && m.tick - this.underFire < 20;
+      let closeFoes = 0; for (const [id, mem] of this.mem) if (!mem.dead && m.tick - mem.tick < 20 && Math.hypot(mem.x - b.x, mem.z - b.z) < 10) closeFoes++;
+      const style = STYLE[s.id] || STYLE.yolk47;
+      const canHop = style.hop > 0 && !style.perch && !h.ads && !w.scoped && h.melee === 0;
+      const urge = canHop ? (1 - Math.min(1, dist / 8)) * (aimedAt || shotAt ? 1 : 0.3) * (closeFoes <= 2 ? 1 : 0.5) * style.hop : 0;
+      const threshold = 0.65 - this.per.hopper * 0.35 - this.skill * 0.15;
+      const hop = urge > threshold;
+      if (hop && !this.hopping) { this.orbit = wrap(yawTo(b.x - tb.x, b.z - tb.z) - tb.yaw) > 0 ? 1 : -1; } // circle away from their aim
+      this.hopping = hop; this.hopWeapon = s.id;
+      this.hopT = hop ? 2 : 0;
+      const standing = !this.hopT && (sniping || (!moveTolerant && this.phase === 'shoot' && h.reload === 0 && s.mag > 0));
+      if (this.hopT > 0) {
+        // Circle them: mostly sideways, drifting towards our preferred range.
+        const tx = tb.x - b.x, tz = tb.z - b.z, l = Math.hypot(tx, tz) || 1, [near, far] = RANGE[s.id] || [3, 12];
+        const radial = dist > far ? 0.5 : dist < near ? -0.5 : 0;
+        // Change direction in the air when their aim catches up with us (not at random).
+        if (b.onGround === 0 && aimErr < 0.06 && m.tick - (this.flipT || 0) > 12) { this.orbit = -this.orbit; this.flipT = m.tick; }
+        mx = (-tz / l) * this.orbit + (tx / l) * radial; mz = (tx / l) * this.orbit + (tz / l) * radial;
+        // Jump is a press: tap it on each landing.
+        if (b.onGround > 0 && !(this.ctrl & CTRL.jump)) ctrl |= CTRL.jump;
+      } else if (standing && h.reload === 0) { mx = 0; mz = 0; }
       else if (this.rnd() < this.d.strafe || this.strafeT > 0) {
         // Strafe across their line of fire, changing direction at irregular intervals.
         if (--this.strafeT <= 0) { this.strafe = this.rnd() < 0.5 ? -1 : 1; this.strafeT = Math.round((0.18 + this.rnd() * 0.5) / TICK); }
         const f = forward(b.yaw), rx = -f[2], rz = f[0];
         const k = this.goal?.k === 'hold' ? 1 : 0.7;
         mx = mx * (1 - k) + rx * this.strafe * k; mz = mz * (1 - k) + rz * this.strafe * k;
-        if (b.onGround > 0 && this.rnd() < this.d.jump * (s.id === 'doubleYolker' ? 2 : 1) && !sniping) ctrl |= CTRL.jump;
       }
       this.standing = standing;
-    } else this.standing = false;
+    } else { this.standing = false; this.hopping = false; this.hopT = 0; }
     ctrl |= this.moveBits(mx, mz, b.yaw);
     if (move.jump) ctrl |= CTRL.jump;
     if (move.ladder) { ctrl = (ctrl & ~(CTRL.left | CTRL.right | CTRL.down)) | CTRL.up; }
@@ -422,6 +496,20 @@ export class Bot {
   }
   lookAhead() {
     const b = this.body;
+    // On a perch: sweep between busy spots it can see, a few seconds on each.
+    if (this.goal?.k === 'perch' && this.arrived()) {
+      if (!this.watch || --this.watchT <= 0) {
+        this.watchT = Math.round((1.5 + this.rnd() * 2.5) / TICK); this.watch = null;
+        let bs = -Infinity;
+        for (let k = 0; k < 16; k++) {
+          const n = this.nav.nodes[Math.floor(this.rnd() * this.nav.nodes.length)], d = Math.hypot(n.x - b.x, n.z - b.z);
+          if (d < 6 || !this.m.grid.visible(b.x, b.y + 0.3, b.z, n.x, n.y + 0.3, n.z)) continue;
+          const sc = n.busy * 3 + Math.min(d, 30) * 0.05 + this.rnd();
+          if (sc > bs) { bs = sc; this.watch = n; }
+        }
+      }
+      if (this.watch) { const n = this.watch; return { yaw: yawTo(n.x - b.x, n.z - b.z), pitch: Math.atan2(n.y + 0.3 - (b.y + PLAYER.eyeY), Math.hypot(n.x - b.x, n.z - b.z)) }; }
+    }
     if (this.path && this.pi < this.path.length) {
       const n = this.nav.nodes[this.path[Math.min(this.path.length - 1, this.pi + 2)]];
       // Now and then glance off the path towards open ground (where people come from).
@@ -484,6 +572,8 @@ export class Bot {
       // Out of the fight: reload, or plan a grenade at a remembered position.
       if (s.mag < w.mag && s.store > 0 && h.reload === 0 && (s.mag < w.mag * 0.6 || this.rnd() < 0.02)) c |= CTRL.reload;
       if (mem && !mem.dead && m.tick - mem.tick < 60 && this.nadeCooldown === 0 && h.grenades > 0 && this.rnd() < this.d.nade * 0.08) this.planGrenade(mem);
+      // A good sniper holding a perch watches through the scope.
+      if (w.scoped && !w.rocket && this.goal?.k === 'perch' && this.arrived() && this.skill > 0.4 && h.reload === 0) c |= CTRL.scope;
       if (s.id === 'peck9mm' && h.slots.length > 1 && h.slots[0].store + h.slots[0].mag > 0 && h.swap === 0 && this.rnd() < 0.05) c |= CTRL.swap;
       return c;
     }

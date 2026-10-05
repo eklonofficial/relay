@@ -2,9 +2,9 @@
 // stand, edges for walking, stepping, ramps/stairs, drops, jump-ups, ladders and jump pads. Doubtful
 // edges are verified by running the real movement code, so a path the graph offers is one an egg can
 // actually walk. A* over a binary heap finds routes; costs prefer short, safe paths.
-import { PIECES, PIECE, facing } from '../maps/pieces.js?v=muuo146f';
-import { makeBody, stepBody } from '../sim/movement.js?v=muuo146f';
-import { CTRL, PLAYER } from '../sim/tuning.js?v=muuo146f';
+import { PIECES, PIECE, facing } from '../maps/pieces.js?v=muuo542w';
+import { makeBody, stepBody } from '../sim/movement.js?v=muuo542w';
+import { CTRL, PLAYER } from '../sim/tuning.js?v=muuo542w';
 
 const R = PLAYER.collideRadius;
 export const EDGE = { walk: 0, jump: 1, drop: 2, ladder: 3, pad: 4 };
@@ -63,6 +63,7 @@ export class NavGraph {
       if (n.pad) this.padEdges(n);
     }
     this.clusterRegions();
+    this.analyse();
   }
   add(x, y, z, piece) {
     const n = { id: this.nodes.length, x: x + 0.5, y, z: z + 0.5, cx: x, cz: z, edges: [], exposure: 0, ramp: !!piece.ramp, pad: piece.key === 'pad', ry: 0 };
@@ -127,6 +128,30 @@ export class NavGraph {
         if (body.y < n.y - 6) break;
       }
     }
+  }
+  // Tactical map (computed once): how exposed each spot is (the share of sampled standing spots that
+  // can see it), how long its sightlines are, and how busy it is (near the centre of the action).
+  // Snipers look for exposed spots with long sightlines and height; shotguns for covered spots
+  // next to busy ones.
+  analyse(samples = 48) {
+    const N = this.nodes, g = this.grid;
+    let seed = 12345; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+    const pick = Array.from({ length: Math.min(samples, N.length) }, () => N[Math.floor(rnd() * N.length)]);
+    let maxY = 0; for (const n of N) maxY = Math.max(maxY, n.y);
+    for (const n of N) {
+      let seen = 0, far = 0;
+      for (const o of pick) {
+        if (o === n) continue;
+        if (g.visible(n.x, n.y + 0.4, n.z, o.x, o.y + 0.4, o.z)) { seen++; far += Math.hypot(o.x - n.x, o.z - n.z); }
+      }
+      n.exposure = seen / pick.length;
+      n.sight = seen ? far / seen : 0;
+      n.height = maxY ? n.y / maxY : 0;
+    }
+    // Busy-ness: closeness to the middle of the walkable area, smoothed by exposure.
+    let cx = 0, cz = 0; for (const n of N) { cx += n.x; cz += n.z; } cx /= N.length; cz /= N.length;
+    let maxD = 1; for (const n of N) maxD = Math.max(maxD, Math.hypot(n.x - cx, n.z - cz));
+    for (const n of N) n.busy = (1 - Math.hypot(n.x - cx, n.z - cz) / maxD) * 0.7 + n.exposure * 0.3;
   }
   // Connected components (bots never path to an unreachable island).
   clusterRegions() {

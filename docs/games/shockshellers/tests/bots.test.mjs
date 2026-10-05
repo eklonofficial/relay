@@ -62,3 +62,28 @@ test('bots play the objective: they grab and score with the spatula', () => {
   assert.ok(r.m.mode.spat.last !== 0, 'someone picked up the spatula');
   assert.ok(st.s[0] + st.s[1] > 0 || r.m.mode.spat.carrier >= 0);
 });
+
+test('hopping is situational: close fights only, never with a sniper, and not all the time', () => {
+  const m = new Match(map, { mode: 'ffa', seed: 9 }), mgr = new BotManager(m, nav, 77);
+  const kit = ['poacher', 'doubleYolker', 'cageFree', 'beater', 'yolk47', 'doubleYolker'];
+  kit.forEach((w, i) => mgr.add(m.addPlayer({ id: i + 1, name: BOT_NAMES[i], bot: true }), 0.7, { primary: w, hopper: 0.8 }));
+  let hops = 0, alive = 0, closeFights = 0, hopInClose = 0;
+  for (let t = 0; t < 30 * 60 * 3; t++) {
+    mgr.tick(); m.step(); mgr.events(m.events); m.events.length = 0;
+    for (const b of mgr.bots.values()) {
+      if (!b.p.alive) continue;
+      alive++;
+      const w = b.p.hands.slots[b.p.hands.cur].id;
+      const q = b.target !== null ? m.players.get(b.target) : null;
+      const dist = q ? Math.hypot(q.body.x - b.p.body.x, q.body.z - b.p.body.z) : Infinity;
+      if (b.hopping && q) {
+        hops++;
+        assert.ok(b.hopWeapon !== 'poacher' && b.hopWeapon !== 'cageFree', `a sniper hopped (${b.hopWeapon})`);
+        assert.ok(dist < 8.5, `hopped at range ${dist.toFixed(1)}`);
+      }
+      if (dist < 5 && b.visible(b.target)) { closeFights++; if (b.hopping) hopInClose++; }
+    }
+  }
+  assert.ok(hopInClose > 0, 'bots do hop in close fights');
+  assert.ok(hops / alive < 0.3, `hopping ${Math.round(hops / alive * 100)}% of the time`);
+});
