@@ -1,16 +1,16 @@
 // Mob roster: stats, AI archetype, drops, box models and procedural skins.
 // Model space: 1 unit = 1/16 block, feet at y=0, the mob faces -Z.
-import { BIOMES, COLD as COLD_BIOMES } from '../gen/biomes.js?v=musmxd8k';
-import { COLORS } from './blocks.js?v=musmxd8k';
-import { D, pal, shade as shadeHex } from '../render/mobtex.js?v=musmxd8k';
-import { pigModel as jPig, cowModel as jCow, sheepModel as jSheep, sheepFurModel as jSheepFur, chickenModel as jChicken, wolfModel as jWolf, foxModel as jFox, polarBearModel as jPolarBear, goatModel as jGoat, llamaModel as jLlama, horseModel as jHorse } from '../entity/animals.js?v=musmxd8k';
-import { creeperModel as jCreeper, spiderModel as jSpider, endermanModel as jEnderman, slimeModel as jSlime, slimeOuterModel as jSlimeOuter, magmaCubeModel as jMagma, silverfishModel as jSilverfish, endermiteModel as jEndermite, blazeModel as jBlaze, ghastModel as jGhast, phantomModel as jPhantom } from '../entity/monsters.js?v=musmxd8k';
-import { ironGolemModel as jIronGolem, snowGolemModel as jSnowGolem, hoglinModel as jHoglin, striderModel as jStrider, ravagerModel as jRavager } from '../entity/beasts.js?v=musmxd8k';
-import { squidModel as jSquid, codModel as jCod, salmonModel as jSalmon, tropicalFishModel as jTropical, pufferfishModel as jPuffer, guardianModel as jGuardian, dolphinModel as jDolphin, turtleModel as jTurtle, axolotlModel as jAxolotl } from '../entity/aquatic.js?v=musmxd8k';
-import { rabbitModel as jRabbit, ocelotModel as jOcelot, pandaModel as jPanda, parrotModel as jParrot, batModel as jBat, frogModel as jFrog, camelModel as jCamel } from '../entity/critters.js?v=musmxd8k';
-import { witherModel as jWither, dragonModel as jDragon } from '../entity/bosses.js?v=musmxd8k';
-import { villagerModel as jVillager, witchModel as jWitch, illagerModel as jIllager, piglinModel as jPiglin, zombieVillagerModel as jZombieVillager } from '../entity/javamodels.js?v=musmxd8k';
-import { playerModel as javaPlayerModel, mobHumanoid } from '../entity/humanoid.js?v=musmxd8k';
+import { BIOMES, COLD as COLD_BIOMES } from '../gen/biomes.js?v=muujmd4c';
+import { COLORS } from './blocks.js?v=muujmd4c';
+import { D, pal, shade as shadeHex } from '../render/mobtex.js?v=muujmd4c';
+import { pigModel as jPig, cowModel as jCow, sheepModel as jSheep, sheepFurModel as jSheepFur, chickenModel as jChicken, wolfModel as jWolf, foxModel as jFox, polarBearModel as jPolarBear, goatModel as jGoat, llamaModel as jLlama, horseModel as jHorse } from '../entity/animals.js?v=muujmd4c';
+import { creeperModel as jCreeper, spiderModel as jSpider, endermanModel as jEnderman, slimeModel as jSlime, slimeOuterModel as jSlimeOuter, magmaCubeModel as jMagma, silverfishModel as jSilverfish, endermiteModel as jEndermite, blazeModel as jBlaze, ghastModel as jGhast, phantomModel as jPhantom } from '../entity/monsters.js?v=muujmd4c';
+import { ironGolemModel as jIronGolem, snowGolemModel as jSnowGolem, hoglinModel as jHoglin, striderModel as jStrider, ravagerModel as jRavager } from '../entity/beasts.js?v=muujmd4c';
+import { squidModel as jSquid, codModel as jCod, salmonModel as jSalmon, tropicalFishModel as jTropical, pufferfishModel as jPuffer, guardianModel as jGuardian, dolphinModel as jDolphin, turtleModel as jTurtle, axolotlModel as jAxolotl } from '../entity/aquatic.js?v=muujmd4c';
+import { rabbitModel as jRabbit, ocelotModel as jOcelot, pandaModel as jPanda, parrotModel as jParrot, batModel as jBat, frogModel as jFrog, camelModel as jCamel } from '../entity/critters.js?v=muujmd4c';
+import { witherModel as jWither, dragonModel as jDragon } from '../entity/bosses.js?v=muujmd4c';
+import { villagerModel as jVillager, witchModel as jWitch, illagerModel as jIllager, piglinModel as jPiglin, zombieVillagerModel as jZombieVillager } from '../entity/javamodels.js?v=muujmd4c';
+import { playerModel as javaPlayerModel, mobHumanoid } from '../entity/humanoid.js?v=muujmd4c';
 
 const box = (o, s, style, extra = {}) => ({ o, s, style, ...extra });
 const part = (pivot, boxes, extra = {}) => ({ pivot, boxes, ...extra });

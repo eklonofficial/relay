@@ -1,28 +1,28 @@
 // The running game: world + dimensions, player survival state, entities, simulation, weather and saving.
-import { B, BLOCKS, SOLID, OPAQUE, DIM, DIM_NAMES, HEIGHT, SEA, props, st, SHAPE_OF, SHAPE } from '../data/blocks.js?v=musmxd8k';
-import { importedVoidAt, emptyChunk } from './javaworld.js?v=musmxd8k';
-import { I, maxStack } from '../data/items.js?v=musmxd8k';
-import { SMELTING } from '../data/recipes.js?v=musmxd8k';
-import { MOBS } from '../data/mobs.js?v=musmxd8k';
-import { BIOMES, COLD } from '../gen/biomes.js?v=musmxd8k';
-import { World, UNLOADED, posKey } from '../world/world.js?v=musmxd8k';
-import { Player } from './player.js?v=musmxd8k';
-import { PlayerInventory, Container } from './inventory.js?v=musmxd8k';
-import { EntityManager } from '../entity/entity.js?v=musmxd8k';
-import { ItemEntity, XpOrb, FallingBlock, PrimedTnt, Lightning, Projectile } from '../entity/objects.js?v=musmxd8k';
-import { Mob, RIDEABLE } from '../entity/mob.js?v=musmxd8k';
-import { Particles } from './particles.js?v=musmxd8k';
-import { Sim } from './sim.js?v=musmxd8k';
-import { Redstone } from './redstone.js?v=musmxd8k';
-import { blockDrops } from './drops.js?v=musmxd8k';
-import { computeEnv } from './env.js?v=musmxd8k';
-import { fuelOf } from './ui.js?v=musmxd8k';
-import { unlockLevel } from './trades.js?v=musmxd8k';
-import { forward } from '../core/math.js?v=musmxd8k';
-import { EndCrystal } from '../entity/crystal.js?v=musmxd8k';
-import { migrateWorld } from './migrate.js?v=musmxd8k';
-import { ARMOR_BYPASS, armorReduce, applyInvul, isAxe, shieldFaces, applyKnockback, knockbackResist, protectionFactor, enchLv } from './combat.js?v=musmxd8k';
-import { deathText } from '../net/net.js?v=musmxd8k';
+import { B, BLOCKS, SOLID, OPAQUE, DIM, DIM_NAMES, HEIGHT, SEA, props, st, SHAPE_OF, SHAPE } from '../data/blocks.js?v=muujmd4c';
+import { importedVoidAt, emptyChunk } from './javaworld.js?v=muujmd4c';
+import { I, maxStack } from '../data/items.js?v=muujmd4c';
+import { SMELTING } from '../data/recipes.js?v=muujmd4c';
+import { MOBS } from '../data/mobs.js?v=muujmd4c';
+import { BIOMES, COLD } from '../gen/biomes.js?v=muujmd4c';
+import { World, UNLOADED, posKey } from '../world/world.js?v=muujmd4c';
+import { Player } from './player.js?v=muujmd4c';
+import { PlayerInventory, Container } from './inventory.js?v=muujmd4c';
+import { EntityManager } from '../entity/entity.js?v=muujmd4c';
+import { ItemEntity, XpOrb, FallingBlock, PrimedTnt, Lightning, Projectile } from '../entity/objects.js?v=muujmd4c';
+import { Mob, RIDEABLE } from '../entity/mob.js?v=muujmd4c';
+import { Particles } from './particles.js?v=muujmd4c';
+import { Sim } from './sim.js?v=muujmd4c';
+import { Redstone } from './redstone.js?v=muujmd4c';
+import { blockDrops } from './drops.js?v=muujmd4c';
+import { computeEnv } from './env.js?v=muujmd4c';
+import { fuelOf } from './ui.js?v=muujmd4c';
+import { unlockLevel } from './trades.js?v=muujmd4c';
+import { forward } from '../core/math.js?v=muujmd4c';
+import { EndCrystal } from '../entity/crystal.js?v=muujmd4c';
+import { migrateWorld } from './migrate.js?v=muujmd4c';
+import { ARMOR_BYPASS, armorReduce, applyInvul, isAxe, shieldFaces, applyKnockback, knockbackResist, protectionFactor, enchLv } from './combat.js?v=muujmd4c';
+import { deathText } from '../net/net.js?v=muujmd4c';
 
 export const DAY = 1200; // seconds per day
 const rnd = (a, b) => a + Math.random() * (b - a);
@@ -320,7 +320,7 @@ export class Game {
     if (be && be.items) for (const s of be.items) if (s) this.dropItem(x + 0.5, y + 0.5, z + 0.5, s);
     // Second halves.
     if (sh === SHAPE.DOOR) { const up = (m >> 6) & 1; const oy = up ? y - 1 : y + 1; if (w.getBlock(x, oy, z) === B.DOOR) w.setBlock(x, oy, z, B.AIR, 0); }
-    if (sh === SHAPE.BED) { const f = m & 3, head = (m >> 2) & 1, d = [[0, 1], [-1, 0], [0, -1], [1, 0]][f], s = head ? -1 : 1; if (w.getBlock(x + d[0] * s, y, z + d[1] * s) === B.BED) w.setBlock(x + d[0] * s, y, z + d[1] * s, B.AIR, 0); }
+    if (sh === SHAPE.BED) { const f = (m >> 4) & 3, head = (m >> 6) & 1, d = [[0, 1], [-1, 0], [0, -1], [1, 0]][f], s = head ? -1 : 1; if (w.getBlock(x + d[0] * s, y, z + d[1] * s) === B.BED) w.setBlock(x + d[0] * s, y, z + d[1] * s, B.AIR, 0); }
     if (id === B.NETHER_PORTAL) this.breakPortalAround(x, y, z);
     if (id === B.TNT && !player) this.igniteTnt(x, y, z);
     if (id === B.END_CRYSTAL_BASE) return;

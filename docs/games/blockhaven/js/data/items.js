@@ -1,6 +1,6 @@
 // Item registry: every block item plus tools, weapons, armor, food and materials.
-import { BLOCK_ITEMS, BLOCKS, COLORS, SHAPE, st } from './blocks.js?v=musmxd8k';
-import { EGG_MOBS } from './mobs.js?v=musmxd8k';
+import { BLOCK_ITEMS, BLOCKS, COLORS, SHAPE, st } from './blocks.js?v=muujmd4c';
+import { EGG_MOBS } from './mobs.js?v=muujmd4c';
 
 export const ITEMS = [];
 export const I = {};          // key -> item
@@ -19,7 +19,7 @@ for (const b of BLOCK_ITEMS) {
   const flat = [SHAPE.CROSS, SHAPE.TORCH, SHAPE.DOOR, SHAPE.LADDER, SHAPE.VINE, SHAPE.RAIL, SHAPE.PANE, SHAPE.LANTERN, SHAPE.FIRE, SHAPE.ROD, SHAPE.FLAT, SHAPE.CAMPFIRE, SHAPE.DIODE, SHAPE.LEVER, SHAPE.HOPPER].includes(blk.shape);
   add(b.key, { name: b.name, block: [b.id, b.meta], tab: b.tab, flat, kind: 'block' });
 }
-I.bed.stack = 1;
+for (const c of COLORS) I[`${c}_bed`].stack = 1; // (beds don't stack)
 // Pistons, observers and the like show their front in the hand.
 for (const k of ['piston', 'sticky_piston']) I[k].block = [I[k].block[0], (I[k].block[1] & 1) | (1 << 1)];
 for (const k of ['observer', 'dispenser', 'dropper']) I[k].block = [I[k].block[0], 3];

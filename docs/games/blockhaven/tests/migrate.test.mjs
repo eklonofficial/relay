@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { load } from './load.mjs';
 const { migrateWorld, blockPalette, SAVE_VERSION } = await load('game/migrate.js');
-const { B, BLOCKS } = await load('data/blocks.js');
+const { B, BLOCKS, STATE } = await load('data/blocks.js');
 const { GEN_VERSION } = await load('gen/versions.js');
 
 // An edit value is the block id in the low byte and the meta (variant/state) above it.
@@ -106,4 +106,15 @@ test('migrateWorld is idempotent', () => {
 test('null / undefined meta passes through', () => {
   assert.equal(migrateWorld(null), null);
   assert.equal(migrateWorld(undefined), undefined);
+});
+
+test('beds from before save version 4 become red beds in the new layout, and the bed item the red bed', () => {
+  // A bed head facing west (facing 1, head bit 2) in the old layout, and a bed in the inventory.
+  const meta = { saveVersion: 3, palette: blockPalette(), dims: { 0: { edits: { '0,0': [5, B.BED | (1 | 4) << 8] } } }, inventory: { slots: [{ key: 'bed', count: 1 }] } };
+  migrateWorld(meta);
+  const v = meta.dims[0].edits['0,0'][1], m = v >> 8;
+  assert.equal(v & 255, B.BED);
+  assert.equal(m & 15, STATE.red_bed[1]); assert.equal((m >> 4) & 3, 1); assert.equal((m >> 6) & 1, 1);
+  assert.equal(meta.inventory.slots[0].key, 'red_bed');
+  assert.equal(meta.saveVersion, 4);
 });

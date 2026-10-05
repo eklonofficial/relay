@@ -1,5 +1,5 @@
 // Tree and large-plant generators. (x, y, z) is the first air block above the ground; r is a seeded RNG.
-import { B } from '../data/blocks.js?v=musmxd8k';
+import { B } from '../data/blocks.js?v=muujmd4c';
 
 export const WOOD = { oak: 0, spruce: 1, birch: 2, jungle: 3, acacia: 4, dark_oak: 5, cherry: 6, mangrove: 7 };
 export const LEAF = { oak: 0, spruce: 1, birch: 2, jungle: 3, acacia: 4, dark_oak: 5, cherry: 6, mangrove: 7, azalea: 8, flowering_azalea: 9 };

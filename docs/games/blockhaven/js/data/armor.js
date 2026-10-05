@@ -3,8 +3,8 @@
 // layer 2 (the leggings) half a pixel; each is one 64x32 texture in Java's layout, so a resource
 // pack's textures/models/armor/<material>_layer_<n>.png replaces it directly. Without a pack the
 // layers are painted here, clear wherever the real textures are clear.
-import { D, pal } from '../render/mobtex.js?v=musmxd8k';
-import { armorModel as javaArmorModel, armorHide } from '../entity/humanoid.js?v=musmxd8k';
+import { D, pal } from '../render/mobtex.js?v=muujmd4c';
+import { armorModel as javaArmorModel, armorHide } from '../entity/humanoid.js?v=muujmd4c';
 
 export const ARMOR_MATERIALS = {
   leather: { c: '#a06540', pattern: 'noise', trim: '#7a4a2c' },
