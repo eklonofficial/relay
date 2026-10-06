@@ -2,7 +2,7 @@
 // (each with a hayloft reached by stairs: a covered upper lane with windows), metal silos with
 // ladders up to sniper perches, hay-bale and fence cover in the middle, a farmhouse on each flank
 // for close fights, and a dirt track around the field. Point-symmetric for team modes.
-import { Builder, MAT } from './dsl.js?v=muwzskxe';
+import { Builder, MAT } from './dsl.js?v=mux1bcsv';
 
 export default function barnyard() {
   const W = 40, D = 40, b = new Builder(W, 12, D);
@@ -22,7 +22,7 @@ export default function barnyard() {
     for (let x = x0 + 1; x <= x1 - 1; x += 3) b.put(x, 3, z0, 'window', 0, MAT.red);   // loft windows at eye level
     b.fill(x0, 5, z0, x1, 5, z1, 'slab', MAT.roof);   // roof
     b.fill(x0 + 1, 5, z0 + 2, x1 - 1, 5, z1 - 2, 'block', MAT.roof);
-    b.fill(x0 + 2, 1, z0 + 1, x0 + 3, 1, z0 + 1, 'hay', MAT.hay); b.put(x1 - 2, 1, z0 + 1, 'hay', 0, MAT.hay); b.put(x1 - 2, 2, z0 + 1, 'hay', 0, MAT.hay);
+    b.fill(x0 + 2, 1, z0 + 1, x0 + 3, 1, z0 + 1, 'hay', MAT.hay); b.put(x1 - 2, 1, z0 + 1, 'hay', 0, MAT.hay);  // (no second bale on top: it would punch a pit into the loft floor)
     // A silo beside each barn: 3×3 metal, 7 high, ladder up the outside to a fenced perch.
     b.fill(27, 1, 3, 29, 7, 5, 'block', MAT.metal);
     b.fill(27, 8, 3, 29, 8, 3, 'fence', MAT.metal); b.put(27, 8, 4, 'fence', 1, MAT.metal); b.put(27, 8, 5, 'fence', 1, MAT.metal);
