@@ -4,7 +4,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { load } from './load.mjs';
-const { aimAssist, assistOn, ASSIST } = await load('game/aim.js');
+const { aimAssist, assistOn, ASSIST, ASSIST_BY_GUN } = await load('game/aim.js');
 const { COLORS, PATTERNS, STAMPS, HATS, SKINS, NATURAL, sanitizeCosmetics, botCosmetics } = await load('game/cosmetics.js');
 const { PATTERN_IDS, STAMP_IDS } = await load('render/shellart.js');
 const { HAT_IDS } = await load('render/hats.js');
@@ -38,6 +38,15 @@ test('aim assist tracks part of a target sliding across the view, only while the
   }
   const st = {}; aimAssist(st, cam, [at(8, 0)], dt, { active: true });
   assert.equal(aimAssist(st, cam, [at(8, 0.09)], dt, { active: true }).dyaw, 0, 'a jump (a respawn, a teleport) is ignored');
+});
+
+test('aim assist suits the gun: most help up close, a gentle pull on the snipers, no tracking for the Yolkzooka', () => {
+  const near = gun => aimAssist({}, cam, [at(10, 0.04)], 1 / 60, { gun }).slow;
+  assert.ok(near('doubleYolker') < near('yolk47') && near('yolk47') < near('poacher'), 'friction: shotgun > rifle > sniper');
+  assert.equal(aimAssist({}, cam, [at(10, 0.09)], 1 / 60, { gun: 'poacher' }).slow, 1, "the sniper's cone is narrow");
+  const st = {}; aimAssist(st, cam, [at(8, 0)], 1 / 60, { gun: 'yolkzooka', active: true });
+  assert.ok(aimAssist(st, cam, [at(8, -0.01)], 1 / 60, { gun: 'yolkzooka', active: true }).dyaw === 0, 'the Yolkzooka is never turned for you');
+  for (const g of Object.values(ASSIST_BY_GUN)) assert.ok(Math.min(0.4, ASSIST.slow * g.slow) <= 0.4 && g.cone * ASSIST.cone < 0.15, 'still subtle for every gun');
 });
 
 test('aim assist is on for Chromebooks and gamepads by default, and the setting wins', () => {

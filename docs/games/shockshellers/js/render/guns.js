@@ -7,9 +7,9 @@
 // grip, support, eject) and its moving parts as their own child groups, pivoted where they move:
 // the magazine (or the shells, the round, the rocket), the slide or charging handle that kicks
 // back with each shot, the shotgun's barrels on their hinge, the sniper's bolt.
-import * as THREE from '../../vendor/three/three.module.js?v=muwxhwrn';
-import { mergeGeometries } from '../../vendor/three/BufferGeometryUtils.js?v=muwxhwrn';
-import { Kit, BASE, kitMaterial } from './kit.js?v=muwxhwrn';
+import * as THREE from '../../vendor/three/three.module.js?v=muwxqt91';
+import { mergeGeometries } from '../../vendor/three/BufferGeometryUtils.js?v=muwxqt91';
+import { Kit, BASE, kitMaterial } from './kit.js?v=muwxqt91';
 
 const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
 
@@ -113,7 +113,7 @@ const BUILD = {
     k.side('body', [[0.07, -0.035], [-0.16, -0.035], [-0.16, 0.05], [0.07, 0.05]], 0.05, 0, 0.005);
     k.side('dark', [[0.07, 0.05], [-0.16, 0.05], [-0.16, 0.066], [0.07, 0.066]], 0.044, 0, 0.003);
     k.side('dark', [[0.05, 0.066], [0.05, 0.1], [0.035, 0.1], [-0.11, 0.1], [-0.12, 0.066], [-0.09, 0.066], [-0.085, 0.086], [0.025, 0.086], [0.03, 0.066]], 0.02, 0, 0.003);
-    k.ring('dark', [0, 0.12, 0.045], 0.014, 0.0045, 0.008, 10); k.box('dark', [0, 0.106, 0.045], [0.012, 0.01, 0.008]);
+    k.ring('dark', [0, 0.12, 0.045], 0.0125, 0.0102, 0.004, 14); k.box('dark', [0, 0.1035, 0.045], [0.005, 0.008, 0.005], 0.0005);   // a thin ghost-ring aperture
     k.box('metal', [0.026, 0.035, -0.08], [0.006, 0.026, 0.06], 0.001);
     for (let i = 0; i < 3; i++) k.ball('dot', [0.026, 0.015, -0.02 - i * 0.016], 0.004, [0.6, 1, 1], 6, 4);   // burst lights
     // Ribbed handguard, barrel, front sight tower up to the sight line, bird-cage flash hider.

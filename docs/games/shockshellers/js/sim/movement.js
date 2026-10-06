@@ -3,7 +3,7 @@
 //
 // Conventions: position is the egg's feet origin; its collision sphere (r 0.31) is centred 0.31 above.
 // Yaw 0 looks towards -z, positive yaw turns left (three.js camera convention); pitch > 0 looks up.
-import { PLAYER, CTRL } from './tuning.js?v=muwxhwrn';
+import { PLAYER, CTRL } from './tuning.js?v=muwxqt91';
 
 const R = PLAYER.collideRadius;
 
@@ -85,7 +85,9 @@ export function stepBody(grid, b, ctrl, opts = {}) {
   let wx = ix * cy + iz * sy, wz = -ix * sy + iz * cy;
   const len = Math.hypot(wx, wz);
   if (len > 0) { wx /= len; wz /= len; }
-  const accel = PLAYER.moveAccel * (ads ? PLAYER.adsMoveMult : 1);
+  // Sprinting (double-tapped forward): faster while running forwards, never while aiming.
+  const sprint = (ctrl & CTRL.sprint) && (ctrl & CTRL.up) && !(ctrl & CTRL.down) && !ads;
+  const accel = PLAYER.moveAccel * (ads ? PLAYER.adsMoveMult : sprint ? PLAYER.sprintMult : 1);
 
   // Ladders (GDD §6.5): attach by touching one while holding forward, roughly facing it.
   const ladder = grid.ladderAt(b.x, b.y + R, b.z, R);
