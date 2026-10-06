@@ -5,9 +5,9 @@
 // baked into one mesh per material, for things whose parts never move on their own (props, the guns
 // other eggs hold, hats): a crate is 18 parts, and each part would otherwise be its own draw call.
 // Development loads the files; the production build inlines them as data: URLs.
-import * as THREE from '../../vendor/three/three.module.js?v=muw89qdu';
-import { GLTFLoader } from '../../vendor/three/GLTFLoader.js?v=muw89qdu';
-import { mergeGeometries } from '../../vendor/three/BufferGeometryUtils.js?v=muw89qdu';
+import * as THREE from '../../vendor/three/three.module.js?v=muwb4ktb';
+import { GLTFLoader } from '../../vendor/three/GLTFLoader.js?v=muwb4ktb';
+import { mergeGeometries } from '../../vendor/three/BufferGeometryUtils.js?v=muwb4ktb';
 
 const FILES = {
   guns: new URL('../../assets/models/guns.glb', import.meta.url).href,

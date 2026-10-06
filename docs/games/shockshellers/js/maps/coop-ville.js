@@ -2,7 +2,7 @@
 // houses you can walk through, flat rooftops with parapets reached by ladders (and joined by plank
 // walkways), a central plaza with a fountain and market stalls. Rooftops rule sightlines; streets and
 // interiors give the flanks. Point-symmetric for team modes.
-import { Builder, MAT } from './dsl.js?v=muw89qdu';
+import { Builder, MAT } from './dsl.js?v=muwb4ktb';
 
 // A house: walls `h` high with a door, windows, a flat roof with a parapet, and a ladder up the side.
 function house(b, x0, z0, w, d, h, mat, door, ladder) {

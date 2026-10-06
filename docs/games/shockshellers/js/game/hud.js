@@ -2,9 +2,9 @@
 // repaints the compositor); everything that moves every frame (crosshair, health ring, hit markers,
 // damage arcs, grenade charge, scope, off-screen markers, kill confirmations, the death recap) is
 // drawn on the HUD canvas.
-import { surfaceDocument as document } from '../surface.js?v=muw89qdu';
-import { WEAPONS, GRENADE, ROOST, STREAKS } from '../sim/tuning.js?v=muw89qdu';
-import { currentSpread, weaponOf, slotOf } from '../sim/combat.js?v=muw89qdu';
+import { surfaceDocument as document } from '../surface.js?v=muwb4ktb';
+import { WEAPONS, GRENADE, ROOST, STREAKS } from '../sim/tuning.js?v=muwb4ktb';
+import { currentSpread, weaponOf, slotOf } from '../sim/combat.js?v=muwb4ktb';
 
 const $ = id => document.getElementById(id);
 const POWER_NAMES = { hardBoiled: 'HARD BOILED!', shellBreaker: 'SHELL BREAKER!', restock: 'RESTOCK!', overheal: 'OVERHEAL!', doubleYolks: 'DOUBLE YOLKS!', quailEgg: 'QUAIL EGG!' };

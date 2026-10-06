@@ -9,7 +9,7 @@
 //
 // Where half-float targets can't be rendered (WebGL 1, very old GPUs) the renderer skips all of
 // this and draws straight to the canvas with three's own tone mapping, which looks nearly the same.
-import * as THREE from '../../vendor/three/three.module.js?v=muw89qdu';
+import * as THREE from '../../vendor/three/three.module.js?v=muwb4ktb';
 
 const VERT = 'varying vec2 vUv; void main(){ vUv = position.xy * 0.5 + 0.5; gl_Position = vec4(position.xy, 0.0, 1.0); }';
 
@@ -17,6 +17,7 @@ const VERT = 'varying vec2 vUv; void main(){ vUv = position.xy * 0.5 + 0.5; gl_P
 // what is above the threshold (with a soft knee) and tames single bright pixels so they don't flicker.
 const DOWN = `uniform sampler2D src; uniform vec2 texel; uniform float threshold; uniform float knee; uniform bool prefilter; varying vec2 vUv;
   vec3 pick(vec2 uv){ vec3 c = texture2D(src, uv).rgb;
+    if (any(isnan(c)) || any(isinf(c))) c = vec3(0.0); // one bad pixel must never smear across the glow
     if (prefilter) { float br = max(c.r, max(c.g, c.b)); float rq = clamp(br - threshold + knee, 0.0, 2.0 * knee); rq = rq * rq / (4.0 * knee + 1e-4);
       c *= max(rq, br - threshold) / max(br, 1e-4); c /= 1.0 + max(c.r, max(c.g, c.b)) * 0.25; }
     return c; }
@@ -50,6 +51,7 @@ const COMPOSITE = `uniform sampler2D scene; uniform sampler2D bloom; uniform boo
     vec3 c;
     if (aberration > 0.0) { vec2 o = q * aberration * r2; c = vec3(texture2D(scene, vUv + o).r, texture2D(scene, vUv).g, texture2D(scene, vUv - o).b); }
     else c = texture2D(scene, vUv).rgb;
+    if (any(isnan(c)) || any(isinf(c))) c = vec3(0.0);
     if (hasBloom) c += texture2D(bloom, vUv).rgb * bloomStrength;
     c *= exposure;
     c = neutral(c);

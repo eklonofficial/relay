@@ -1,33 +1,35 @@
 // Shock Shellers: boot, menus, the match flow (home → respawn screen → play → death → respawn) and
 // the frame loop. The simulation runs at a fixed 30 Hz inside the session; rendering interpolates.
-import './page.js?v=muw89qdu';
-import { surfaceDocument as document } from './surface.js?v=muw89qdu';
-import { registerApp } from './veil.js?v=muw89qdu';
-import { tell } from './dialog.js?v=muw89qdu';
-import { splash } from './splash.js?v=muw89qdu';
-import * as THREE from '../vendor/three/three.module.js?v=muw89qdu';
-import { Renderer } from './render/renderer.js?v=muw89qdu';
-import { EggAvatar, SHELL_COLORS, TEAM_COLORS } from './render/egg.js?v=muw89qdu';
-import { gunModel } from './render/guns.js?v=muw89qdu';
-import { Input } from './game/input.js?v=muw89qdu';
-import { SOUND_FILES } from './game/soundbank.js?v=muw89qdu';
-import { Sound, registerSamples } from './game/audio.js?v=muw89qdu';
-import { Hud } from './game/hud.js?v=muw89qdu';
-import { loadSettings, saveSettings, loadProfile, saveProfile } from './game/store.js?v=muw89qdu';
-import { ensureDaily, progress as challengeProgress, claim as claimChallenges } from './game/challenges.js?v=muw89qdu';
-import { HostSession } from './game/session.js?v=muw89qdu';
-import { GuestSession } from './net/guest.js?v=muw89qdu';
-import { pickPublicMap, mapDef, MAPS } from './maps/index.js?v=muw89qdu';
-import { WEAPONS, PRIMARIES, PLAYER, MODE_NAMES, MODE_MENU, ECONOMY, CTRL, TICK } from './sim/tuning.js?v=muw89qdu';
-import { weaponOf, slotOf } from './sim/combat.js?v=muw89qdu';
-import { eyePoint } from './sim/movement.js?v=muw89qdu';
-import { drawLogo, drawHowTo } from './ui/art.js?v=muw89qdu';
-import { loadModels } from './render/models.js?v=muw89qdu';
-import { HIT } from './maps/grid.js?v=muw89qdu';
-import { Menus } from './ui/menus.js?v=muw89qdu';
+import './page.js?v=muwb4ktb';
+import { surfaceDocument as document } from './surface.js?v=muwb4ktb';
+import { registerApp } from './veil.js?v=muwb4ktb';
+import { tell } from './dialog.js?v=muwb4ktb';
+import { splash } from './splash.js?v=muwb4ktb';
+import * as THREE from '../vendor/three/three.module.js?v=muwb4ktb';
+import { Renderer } from './render/renderer.js?v=muwb4ktb';
+import { EggAvatar, SHELL_COLORS, TEAM_COLORS } from './render/egg.js?v=muwb4ktb';
+import { gunModel } from './render/guns.js?v=muwb4ktb';
+import { Input } from './game/input.js?v=muwb4ktb';
+import { SOUND_FILES } from './game/soundbank.js?v=muwb4ktb';
+import { Sound, registerSamples } from './game/audio.js?v=muwb4ktb';
+import { Hud } from './game/hud.js?v=muwb4ktb';
+import { loadSettings, saveSettings, loadProfile, saveProfile } from './game/store.js?v=muwb4ktb';
+import { ensureDaily, progress as challengeProgress, claim as claimChallenges } from './game/challenges.js?v=muwb4ktb';
+import { HostSession } from './game/session.js?v=muwb4ktb';
+import { GuestSession } from './net/guest.js?v=muwb4ktb';
+import { pickPublicMap, mapDef, MAPS } from './maps/index.js?v=muwb4ktb';
+import { WEAPONS, PRIMARIES, PLAYER, MODE_NAMES, MODE_MENU, ECONOMY, CTRL, TICK, TICK_HZ } from './sim/tuning.js?v=muwb4ktb';
+import { weaponOf, slotOf } from './sim/combat.js?v=muwb4ktb';
+import { eyePoint } from './sim/movement.js?v=muwb4ktb';
+import { drawLogo, drawHowTo } from './ui/art.js?v=muwb4ktb';
+import { loadModels } from './render/models.js?v=muwb4ktb';
+import { HIT } from './maps/grid.js?v=muwb4ktb';
+import { Menus } from './ui/menus.js?v=muwb4ktb';
 
 const $ = id => document.getElementById(id);
 const show = (id, on = true) => { $(id).classList.toggle('hidden', !on); if (id === 'respawn') $('hud').classList.toggle('menu', on); };
+// Footsteps per ground material (maps/dsl.js MAT): playback rate and loudness.
+const STEP_SOUND = { 0: [1, 1], 1: [0.82, 0.75], 2: [1.18, 1.1], 4: [0.78, 0.7], 5: [1.4, 1.15], 6: [0.86, 0.8], 10: [0.8, 0.7], 11: [1.35, 1.1], 12: [1.15, 1.05], 13: [0.75, 0.7], 14: [0.9, 0.85], 15: [1.3, 1.1] };
 // Per map theme: reverb length (s) and level.
 const ROOMS = { farm: [1.2, 0.28], town: [1.6, 0.34], temple: [2.3, 0.45], hills: [0.9, 0.2], quarry: [2.5, 0.42], arena: [1.8, 0.38], space: [3.2, 0.22] };
 const LOAD_LINES = ['Cracking eggs…', 'Whisking servers…', 'Stacking teams…', 'Greasing the pan…', 'Counting chickens…', 'Hatching plans…'];
@@ -241,7 +243,7 @@ class App {
         case 'impact': fx.impact(e.x, e.y, e.z, e.nx, e.ny, e.nz); break;
         case 'hit': {
           const v = m.players.get(e.id);
-          fx.hitSplash(e.x, e.y, e.z, e.dx, e.dy, e.dz);
+          if (e.id !== s.myId || this.state !== 'play') fx.hitSplash(e.x, e.y, e.z, e.dx, e.dy, e.dz); // (not into our own lens)
           snd.play(e.hp <= 0 ? 'crackBig' : 'crack', [e.x, e.y, e.z], 0.9);
           if (e.by === s.myId && e.id !== s.myId) {
             this.hud.hit(e.hp <= 0); this.stat('damage', e.dmg);
@@ -268,7 +270,7 @@ class App {
           if (e.id === s.myId) this.onMyDeath(e, k);
           break;
         }
-        case 'spawn': if (mine) this.input.yaw = me.body.yaw; break;
+        case 'spawn': if (mine) this.input.yaw = me.body.yaw; else fx.sparkle(e.x, e.y + 0.4, e.z, 0xfff6dc, 16); break;
         case 'reload': snd.play('reload', mine ? null : pos(e.id), 0.8); break;
         case 'reloaded': snd.play(e.long ? 'reloadedLong' : 'reloaded', mine ? null : pos(e.id), 0.8); break;
         case 'dry': if (mine) snd.play('dry'); break;
@@ -287,8 +289,13 @@ class App {
           break;
         }
         case 'dud': fx.dud(e.x, e.y, e.z); snd.play('dud', [e.x, e.y, e.z]); break;
-        case 'collect': snd.play(e.kind === 'ammo' ? 'ammo' : 'pickupNade', mine ? null : pos(e.id)); break;
-        case 'land': if (mine) { snd.play('land', null, 0.5); R.view.land(this.fallSpeed); } break;
+        case 'collect': { snd.play(e.kind === 'ammo' ? 'ammo' : 'pickupNade', mine ? null : pos(e.id)); const it = m.items[e.item]; if (it) fx.sparkle(it.x, it.y, it.z, e.kind === 'ammo' ? 0xffc04a : 0x8dff7a); break; }
+        case 'land': {
+          if (mine) { snd.play('land', null, 0.5); R.view.land(this.fallSpeed); if (this.fallSpeed > 5) fx.dust(me.body.x, me.body.y, me.body.z, Math.min(1.5, this.fallSpeed / 7)); }
+          else { const p = m.players.get(e.id); if (p) fx.dust(p.body.x, p.body.y, p.body.z, 0.6); }
+          break;
+        }
+        case 'pad': { const p = m.players.get(e.id); if (p) { fx.pad(p.body.x, p.body.y, p.body.z); snd.play('jump', mine ? null : pos(e.id), 0.9, 1.4); } break; }
         case 'jump': if (mine) snd.play('jump', null, 0.5); break;
         case 'power': if (mine) { this.hud.power(e.k); snd.play('powerup'); } break;
         case 'shieldBreak': if (mine) snd.play('powerdown'); break;
@@ -326,7 +333,8 @@ class App {
     this.input.enabled = false;
     this.hud.died(killer && killer.id !== this.session.myId ? (this.settings.safeNames ? 'Egg' + killer.id : killer.name) : '', e.w === 'melee' ? 'whisk' : e.w, killer ? killer.hp : 0);
     this.sound.play('death', null, 0.8);
-    setTimeout(() => { if (this.state === 'play' || this.state === 'dead') { this.state = 'respawn'; this.input.exitLock(); show('respawn'); this.menus.refreshRespawn(); } }, 2000);
+    // The kill-cam runs two seconds of game time (not wall time, so a hitch can't cut it short).
+    this.deadTick = this.session.match.tick;
     this.state = 'dead';
   }
   stat(kind, amount) { if (kind === 'damage') { this.profile.stats.damage += amount; this.challenge({ k: 'damage', amount }); } }
@@ -353,6 +361,7 @@ class App {
       const info = this.renderer.gl.info.render;
       $('debug').textContent = `XYZ: ${b.x.toFixed(2)} / ${b.y.toFixed(2)} / ${b.z.toFixed(2)}\nFacing: ${(((this.input.yaw * 180 / Math.PI) % 360 + 360) % 360).toFixed(0)}°\nTick: ${s.match.tick}  Players: ${s.match.players.size}\nFPS: ${this.fps}  Ping: ${s.ping || 0}ms\nGraphics: ${this.renderer.q.name}  Draws: ${this.renderer.calls}  Tris: ${Math.round(this.renderer.tris / 1000)}k`;
     }
+    if (this.state === 'dead' && s.match.tick - this.deadTick >= 2 * TICK_HZ) { this.state = 'respawn'; this.input.exitLock(); show('respawn'); this.menus.refreshRespawn(); }
     if (this.state === 'respawn') this.menus.tickRespawn();
   }
   autoDetail() { if (globalThis.document.visibilityState !== 'hidden') this.renderer.adapt(this.fps); }
@@ -395,7 +404,14 @@ class App {
       if (v < 0.02) continue;
       this.strides ??= new Map();
       const d = (this.strides.get(p.id) || 0) + v * 30 * dt;
-      if (d > 1.15) { this.strides.set(p.id, 0); this.sound.play('step', p.id === s.myId ? null : [p.body.x, p.body.y, p.body.z], p.id === s.myId ? 0.35 : 0.6); }
+      if (d > 1.15) {
+        this.strides.set(p.id, 0);
+        // What's underfoot changes the step: soft on grass and sand, hollow on wood, ringing on metal.
+        const g = m.grid, cx = Math.floor(p.body.x), cy = Math.floor(p.body.y - 0.05), cz = Math.floor(p.body.z);
+        const mat = g.inside(cx, cy, cz) && g.cells[g.index(cx, cy, cz)] ? g.tint[g.index(cx, cy, cz)] : 0;
+        const [rate, gain] = STEP_SOUND[mat] || STEP_SOUND[0];
+        this.sound.play('step', p.id === s.myId ? null : [p.body.x, p.body.y, p.body.z], (p.id === s.myId ? 0.35 : 0.6) * gain, rate);
+      }
       else this.strides.set(p.id, d);
     }
     // Pickups, rockets, grenades, spatula, roost.
@@ -495,3 +511,4 @@ class App {
 
 const app = new App();
 registerApp(app);
+

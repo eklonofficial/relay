@@ -1,11 +1,11 @@
 // Turns a map grid into a few merged meshes (one per material family). Faces hidden against full
 // blocks are dropped, and every vertex gets baked ambient occlusion from the cells around it, which
 // gives the soft, lightmapped look of the reference maps without shipping any lightmap.
-import * as THREE from '../../vendor/three/three.module.js?v=muw89qdu';
-import { PIECES, BOXES, facing } from '../maps/pieces.js?v=muw89qdu';
-import { worldMaterial, TEX_SCALE, sway } from './materials.js?v=muw89qdu';
-import { clone, modelParts } from './models.js?v=muw89qdu';
-import { mergeGeometries } from '../../vendor/three/BufferGeometryUtils.js?v=muw89qdu';
+import * as THREE from '../../vendor/three/three.module.js?v=muwb4ktb';
+import { PIECES, BOXES, facing } from '../maps/pieces.js?v=muwb4ktb';
+import { worldMaterial, TEX_SCALE, sway } from './materials.js?v=muwb4ktb';
+import { clone, modelParts } from './models.js?v=muwb4ktb';
+import { mergeGeometries } from '../../vendor/three/BufferGeometryUtils.js?v=muwb4ktb';
 
 class Bucket {
   constructor(mat) { this.mat = mat; this.p = []; this.n = []; this.u = []; this.c = []; this.i = []; this.v = 0; this.s = TEX_SCALE[mat] ?? 0.5; }
@@ -52,7 +52,7 @@ export function buildWorld(map) {
       B.p.push(x, y, z); B.n.push(nx, ny, nz);
       const u = nx ? z : x, v = ny ? (nz ? y : z) : y;
       B.u.push((nx ? (nx > 0 ? -u : u) : nz < 0 ? -u : u) * B.s, (ny ? (ny > 0 ? -v : v) : v) * B.s);
-      const a = ao(x, y, z, nx, ny, nz); B.c.push(a, a, a);
+      B.c.push(ao(x, y, z, nx, ny, nz));
       B.v++;
     }
     B.i.push(base, base + 1, base + 2, base, base + 2, base + 3);
@@ -65,7 +65,7 @@ export function buildWorld(map) {
       B.p.push(p[0], p[1], p[2]); B.n.push(nx, ny, nz);
       const ax = Math.abs(nx), ay = Math.abs(ny);
       B.u.push((ay > ax ? p[0] : p[2] + p[0] * 0.3) * B.s, (ay > ax ? p[2] : p[1]) * B.s);
-      const o = flat ? ao(p[0], p[1], p[2], Math.round(nx), Math.round(ny), Math.round(nz)) : 1; B.c.push(o, o, o);
+      B.c.push(flat ? ao(p[0], p[1], p[2], Math.round(nx), Math.round(ny), Math.round(nz)) : 1);
       B.v++;
     }
     B.i.push(base, base + 1, base + 2);
@@ -168,7 +168,8 @@ export function buildWorld(map) {
     g.setAttribute('position', new THREE.Float32BufferAttribute(B.p, 3));
     g.setAttribute('normal', new THREE.Float32BufferAttribute(B.n, 3));
     g.setAttribute('uv', new THREE.Float32BufferAttribute(B.u, 2));
-    g.setAttribute('color', new THREE.Float32BufferAttribute(B.c, 3));
+    // Baked occlusion, one float per vertex (applied by the world material's shader).
+    g.setAttribute('ao', new THREE.Float32BufferAttribute(B.c, 1));
     g.setIndex(B.v > 65535 ? new THREE.Uint32BufferAttribute(B.i, 1) : new THREE.Uint16BufferAttribute(B.i, 1));
     g.computeBoundingSphere();
     const mesh = new THREE.Mesh(g, worldMaterial(B.mat));

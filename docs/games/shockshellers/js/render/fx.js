@@ -8,9 +8,9 @@
 // is flying: one per particle blend mode, one per shard shape, one each for streaks, chips and the
 // three kinds of decal. Lights never come and go during play (that would recompile every material);
 // two point lights stay in the scene and are just turned up and down. Nothing allocates per frame.
-import * as THREE from '../../vendor/three/three.module.js?v=muw89qdu';
-import { gunModel } from './guns.js?v=muw89qdu';
-import { TEAM_COLORS } from './egg.js?v=muw89qdu';
+import * as THREE from '../../vendor/three/three.module.js?v=muwb4ktb';
+import { gunModel } from './guns.js?v=muwb4ktb';
+import { TEAM_COLORS } from './egg.js?v=muwb4ktb';
 
 const rnd = () => Math.random() * 2 - 1;
 // Approximate colours of each map material family (maps/dsl.js MAT), for dust and chips.
@@ -337,7 +337,7 @@ export class Effects {
     for (let i = 0; i < n; i++) {
       const a = Math.random() * Math.PI * 2, h = Math.random();
       const o = [Math.cos(a), h - 0.3, Math.sin(a)];
-      this.shard(x + o[0] * 0.25, y + 0.05 + h * 0.6, z + o[2] * 0.25, color, 2.2 + Math.random(), floorY, o, 1.0);
+      this.shard(x + o[0] * 0.25, y + 0.05 + h * 0.6, z + o[2] * 0.25, color, 2.2 + Math.random(), floorY, o, 0.7);
     }
     for (let i = 0; i < this.n(16); i++) this.soft.emit(x, y + 0.35, z, rnd() * 2.2, Math.random() * 3, rnd() * 2.2, { size: 0.09 + Math.random() * 0.1, grow: -0.05, life: 0.6 + Math.random() * 0.3, color: i % 4 ? 0xffb400 : 0xfff6dc, tile: 2, drag: 0.8, gravity: 7 });
     for (let i = 0; i < this.n(8); i++) this.soft.emit(x, y + 0.35, z, rnd() * 2.5, Math.random() * 2, rnd() * 2.5, { size: 0.16 + Math.random() * 0.1, grow: 0.5, life: 0.45, color: 0xfffaf0, alpha: 0.75, drag: 3 });
@@ -352,12 +352,12 @@ export class Effects {
     for (let i = 0; i < this.n(18); i++) {
       const a = Math.random() * 6.28, b = Math.acos(rnd()), sp = 1.5 + Math.random() * radius * 1.2;
       const vx = Math.cos(a) * Math.sin(b), vy = Math.abs(Math.cos(b)) * 0.8 + 0.3, vz = Math.sin(a) * Math.sin(b);
-      this.glow.emit(x + vx * 0.2, y + 0.25 + vy * 0.2, z + vz * 0.2, vx * sp, vy * sp, vz * sp, { size: 0.35 + Math.random() * 0.4, grow: 1.4, life: 0.3 + Math.random() * 0.25, color: i % 3 ? 0xff9a3a : 0xffd27a, bright: 3.2, tile: 1, drag: 4.5, gravity: -1.5 });
+      this.glow.emit(x + vx * 0.2, y + 0.25 + vy * 0.2, z + vz * 0.2, vx * sp, vy * sp, vz * sp, { size: 0.35 + Math.random() * 0.4, grow: 1.4, life: 0.3 + Math.random() * 0.25, color: i % 3 ? 0xff7a1e : 0xffc04a, bright: 1.7, tile: 1, drag: 4.5, gravity: -1.5 });
     }
     // Sparks and embers arcing out.
     for (let i = 0; i < this.n(22); i++) this.glow.emit(x, y + 0.3, z, rnd() * 9, 3 + Math.random() * 7, rnd() * 9, { size: 0.03, life: 0.5 + Math.random() * 0.6, color: 0xffb050, bright: 4, tile: 3, drag: 0.8, gravity: 9, stretch: 0.18 });
     // Smoke: a dark, rising, spreading column that lingers.
-    for (let i = 0; i < this.n(14); i++) this.soft.emit(x + rnd() * radius * 0.3, y + 0.3 + Math.random() * 0.4, z + rnd() * radius * 0.3, rnd() * 1.4, 0.9 + Math.random() * 1.4, rnd() * 1.4, { size: 0.5 + Math.random() * 0.5, grow: 0.9, life: 1.8 + Math.random() * 1.2, color: i % 2 ? 0x5e5955 : 0x77706a, alpha: 0.7, drag: 1.2, gravity: -0.25, fadeIn: 0.12, spin: rnd() * 0.5 });
+    for (let i = 0; i < this.n(14); i++) this.soft.emit(x + rnd() * radius * 0.3, y + 0.3 + Math.random() * 0.4, z + rnd() * radius * 0.3, rnd() * 1.4, 0.9 + Math.random() * 1.4, rnd() * 1.4, { size: 0.5 + Math.random() * 0.5, grow: 0.9, life: 1.8 + Math.random() * 1.2, color: i % 2 ? 0x3e3935 : 0x57504a, alpha: 0.85, drag: 1.2, gravity: -0.25, fadeIn: 0.12, spin: rnd() * 0.5 });
     // Debris and dust from the ground.
     const fy = floorY ?? y;
     const ground = this.surfaceAt(x, fy, z, 0, 1, 0), col = SURFACE[ground] ?? 0x8f6a45;
@@ -369,6 +369,19 @@ export class Effects {
       r.material.color.setHex(team ? TEAM_COLORS[team] : 0xffe2b0).multiplyScalar(2);
       this.scorches.add(x, fy + 0.003, z, 0, 1, 0, radius * 0.9, 20);
     }
+  }
+  // Small world cues: dust kicked up by a landing (in the colour of the ground), a ring of sparkles
+  // where a pickup is collected or an egg spawns, a burst off a jump pad.
+  dust(x, y, z, k = 1) {
+    const col = SURFACE[this.surfaceAt(x, y, z, 0, 1, 0)] ?? 0xd8d0c0;
+    for (let i = 0; i < this.n(6 * k); i++) { const a = i / 6 * Math.PI * 2 + Math.random(); this.soft.emit(x + Math.cos(a) * 0.15, y + 0.05, z + Math.sin(a) * 0.15, Math.cos(a) * 1.2 * k, 0.25 + Math.random() * 0.3, Math.sin(a) * 1.2 * k, { size: 0.09 + Math.random() * 0.06, grow: 0.5, life: 0.5 + Math.random() * 0.3, color: col, alpha: 0.6, drag: 3.5 }); }
+  }
+  sparkle(x, y, z, color = 0xffe08a, n = 12) {
+    for (let i = 0; i < this.n(n); i++) { const a = Math.random() * 6.28, sp = 0.8 + Math.random() * 1.4; this.glow.emit(x, y, z, Math.cos(a) * sp, 0.6 + Math.random() * 1.8, Math.sin(a) * sp, { size: 0.035 + Math.random() * 0.03, life: 0.45 + Math.random() * 0.35, color, bright: 2.5, tile: 1, drag: 2, gravity: 2 }); }
+    this.glow.emit(x, y, z, 0, 0, 0, { size: 0.5, grow: 1.5, life: 0.18, color, bright: 1.5, tile: 1, drag: 0 });
+  }
+  pad(x, y, z) {
+    for (let i = 0; i < this.n(14); i++) { const a = i / 14 * Math.PI * 2; this.glow.emit(x + Math.cos(a) * 0.3, y + 0.05, z + Math.sin(a) * 0.3, Math.cos(a) * 0.6, 3 + Math.random() * 2, Math.sin(a) * 0.6, { size: 0.03, life: 0.4, color: 0x7af0ff, bright: 3, tile: 3, drag: 1.5, stretch: 0.2 }); }
   }
   dud(x, y, z) { for (let i = 0; i < this.n(6); i++) this.soft.emit(x, y, z, rnd() * 0.8, Math.random(), rnd() * 0.8, { size: 0.15, grow: 0.4, life: 0.6, color: 0xdddddd, alpha: 0.8, drag: 2 }); }
 

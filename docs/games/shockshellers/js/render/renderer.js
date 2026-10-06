@@ -5,15 +5,15 @@
 // Graphics quality comes in rungs (low, medium-low, medium, high). Auto Detail starts at medium and
 // steps down when the frame rate sags (and never climbs back above a rung it had to leave), so a
 // Chromebook settles on what it can hold at 60 and a desktop GPU gets the full picture.
-import * as THREE from '../../vendor/three/three.module.js?v=muw89qdu';
-import { buildWorld } from './world.js?v=muw89qdu';
-import { EggAvatar, TEAM_COLORS } from './egg.js?v=muw89qdu';
-import { Effects } from './fx.js?v=muw89qdu';
-import { ViewModel } from './viewmodel.js?v=muw89qdu';
-import { gunModel } from './guns.js?v=muw89qdu';
-import { clone, merged } from './models.js?v=muw89qdu';
-import { noiseTexture, WIND } from './materials.js?v=muw89qdu';
-import { Post } from './post.js?v=muw89qdu';
+import * as THREE from '../../vendor/three/three.module.js?v=muwb4ktb';
+import { buildWorld } from './world.js?v=muwb4ktb';
+import { EggAvatar, TEAM_COLORS } from './egg.js?v=muwb4ktb';
+import { Effects } from './fx.js?v=muwb4ktb';
+import { ViewModel } from './viewmodel.js?v=muwb4ktb';
+import { gunModel } from './guns.js?v=muwb4ktb';
+import { clone, merged } from './models.js?v=muwb4ktb';
+import { noiseTexture, WIND } from './materials.js?v=muwb4ktb';
+import { Post } from './post.js?v=muwb4ktb';
 
 // Sky palettes: zenith, ground below the horizon, sun, cloud light and shade, cloud cover (0 = none).
 // The horizon colour is the map's fog colour, so distant walls melt into the sky.
@@ -118,8 +118,8 @@ export const QUALITY_RUNG = { low: 0, medium: 2, high: 3 };
 // state's next rung. Drops after 2 s under 45 fps; climbs after 5 s at 60, but never above a rung
 // it has had to leave.
 export function adaptRung(st, fps) {
-  if (fps < 45) { if (++st.low >= 4) { st.low = 0; if (st.rung > 0) { st.ceiling = st.rung - 1; st.rung--; } } }
-  else if (fps > 57 && st.rung < st.ceiling) { if (--st.low <= -10) { st.low = 0; st.rung++; } }
+  if (fps < 45) { if (st.low < 0) st.low = 0; if (++st.low >= 4) { st.low = 0; if (st.rung > 0) { st.ceiling = st.rung - 1; st.rung--; } } }
+  else if (fps > 57 && st.rung < st.ceiling) { if (st.low > 0) st.low = 0; if (--st.low <= -10) { st.low = 0; st.rung++; } }
   else st.low = 0;
   return st.rung;
 }
@@ -264,7 +264,11 @@ export class Renderer {
   }
   // Draw a frame. cam: { x, y, z, yaw, pitch, roll, fovMul, shakeX, shakeY }. fx: post effects.
   render(cam, dt, t, fx = {}) {
-    this.camera.position.set(cam.x, cam.y, cam.z);
+    // A fraction of a millimetre off the grid: maps are built on whole and half cells and spawns face
+    // exact angles, which can put a world vertex exactly in the camera's plane (w = 0). Hardware
+    // clips that fine, but Chrome's software renderer (used where the GPU is blocklisted) turns the
+    // clipped triangle's colours into NaN.
+    this.camera.position.set(cam.x + 1.37e-4, cam.y + 0.73e-4, cam.z + 1.09e-4);
     this.camera.rotation.order = 'YXZ';
     this.camera.rotation.set(cam.pitch + (cam.shakeX || 0), cam.yaw + (cam.shakeY || 0), cam.roll || 0);
     const fov = this.baseFov * (cam.fovMul || 1);

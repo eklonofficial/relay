@@ -1,7 +1,7 @@
 // Procedural textures for the map's material families (maps/dsl.js MAT). Everything is drawn at
 // start-up on canvases: low-poly, bright, with visible tile seams and triangle noise (GDD §25), and
 // no image files to fetch. Each family has a base texture; maps tint them through per-cell variants.
-import * as THREE from '../../vendor/three/three.module.js?v=muw89qdu';
+import * as THREE from '../../vendor/three/three.module.js?v=muwb4ktb';
 
 const S = 256;
 // Deterministic noise so every player sees the same walls.
@@ -146,10 +146,11 @@ function shade(m, id) {
   const bevel = BEVELLED.has(id), macro = MACRO[id] ?? 0.1, grass = id === 1 || id === 16;
   m.onBeforeCompile = sh => {
     sh.uniforms.macroTex = { value: noiseTexture() };
-    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vWPos; varying vec3 vWNorm;')
-      .replace('#include <worldpos_vertex>', '#include <worldpos_vertex>\nvWPos = (modelMatrix * vec4(transformed, 1.0)).xyz; vWNorm = normalize(mat3(modelMatrix) * objectNormal);');
-    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec3 vWPos; varying vec3 vWNorm; uniform sampler2D macroTex;')
+    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nattribute float ao; varying float vAo; varying vec3 vWPos; varying vec3 vWNorm;')
+      .replace('#include <worldpos_vertex>', '#include <worldpos_vertex>\nvAo = ao; vWPos = (modelMatrix * vec4(transformed, 1.0)).xyz; vWNorm = normalize(mat3(modelMatrix) * objectNormal);');
+    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying float vAo; varying vec3 vWPos; varying vec3 vWNorm; uniform sampler2D macroTex;')
       .replace('#include <color_fragment>', `#include <color_fragment>
+        diffuseColor.rgb *= vAo;
         vec3 an = abs(vWNorm);
         vec2 mp = an.y > 0.5 ? vWPos.xz : (an.x > 0.5 ? vWPos.zy : vWPos.xy);
         float m1 = texture2D(macroTex, mp * 0.031).r, m2 = texture2D(macroTex, mp * 0.137 + 0.37).r;
@@ -169,7 +170,9 @@ function shade(m, id) {
 const mats = new Map();
 export function worldMaterial(id) {
   if (mats.has(id)) return mats.get(id);
-  const m = new THREE.MeshLambertMaterial({ map: materialTexture(id), vertexColors: true });
+  // (Occlusion comes in as a one-float "ao" attribute rather than three-float vertex colours: a third
+  // of the data for the biggest meshes in the game.)
+  const m = new THREE.MeshLambertMaterial({ map: materialTexture(id) });
   if (id === 17) { m.transparent = true; m.opacity = 0.8; }
   shade(m, id);
   mats.set(id, m);

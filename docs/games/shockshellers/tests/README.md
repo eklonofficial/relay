@@ -14,9 +14,10 @@ What the unit tests cover:
 
 - `sim.test.mjs`: movement, jumps, stairs and ladders, hit-angle damage, bloom recovery, reload timings, bursts, grenade charge, projectile flight, spawn shield, regeneration, streak power-ups, pickups, explosions and determinism, all against the GDD's numbers.
 - `bots.test.mjs`: nav coverage, fights without idling, skill deciding outcomes, skill ranges and per-bot variety, spatula play, and situational hopping.
+- `render.test.mjs`: the Auto Detail ladder (drops after two seconds under 45 fps, never climbs back above a rung it left), the quality rungs (Low skips post-processing, nothing renders above 1.5 device pixels per CSS pixel), iron sights landing on the eye line, the hip pose converging on the crosshair, and the first-person springs settling without ringing.
 - `conformance.test.mjs`: the compositor, quick-hide, dialogs, sealed channel, transport and Link stay identical to Blockhaven's; no globals on `window`; storage namespaced to `shockshellers`.
 - `security.test.mjs` and `stamp.test.mjs`: CSP generation and cache stamps, as in Blockhaven.
 
 Before pushing any change to `js/` or `index.html`, run `node docs/games/shockshellers/tools/stamp.mjs` (no flag) and commit the result. The same command synchronizes the CSP hashes in `index.html`, the shared `../calc.html` and the shared `../vercel.json`.
 
-Debugging in the browser: F3 shows position, facing, tick, players, FPS and ping.
+Debugging in the browser: F3 shows position, facing, tick, players, FPS and ping, plus the graphics rung, draw calls (shadow pass included) and triangles.
