@@ -5,13 +5,13 @@
 // Other eggs are drawn cheaply, since a full lobby puts eighteen of them on screen: the gun and both
 // mittens are one mesh, the hat is one mesh, and the shell has three levels of detail picked by
 // distance (lod()); far away, the gun and mittens are too small to see and aren't drawn at all.
-import * as THREE from '../../vendor/three/three.module.js?v=muwzay2r';
-import { gunModel, heldGeometry, gunAnchors } from './guns.js?v=muwzay2r';
-import { kitMaterial } from './kit.js?v=muwzay2r';
-import { hatMesh } from './hats.js?v=muwzay2r';
-import { merged } from './models.js?v=muwzay2r';
-import { paintShell, paintCracks } from './shellart.js?v=muwzay2r';
-import { COLORS, sanitizeCosmetics } from '../game/cosmetics.js?v=muwzay2r';
+import * as THREE from '../../vendor/three/three.module.js?v=muwzqnfo';
+import { gunModel, heldGeometry, gunAnchors } from './guns.js?v=muwzqnfo';
+import { kitMaterial } from './kit.js?v=muwzqnfo';
+import { hatMesh } from './hats.js?v=muwzqnfo';
+import { merged } from './models.js?v=muwzqnfo';
+import { paintShell, paintCracks } from './shellart.js?v=muwzqnfo';
+import { COLORS, sanitizeCosmetics } from '../game/cosmetics.js?v=muwzqnfo';
 
 export const SHELL_COLORS = COLORS;
 export const TEAM_COLORS = [0xbbbbbb, 0x2f86e8, 0xe8473c];

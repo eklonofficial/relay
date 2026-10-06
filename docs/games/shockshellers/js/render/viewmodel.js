@@ -10,9 +10,9 @@
 // Reloads are keyframed per kind of gun (magazine swap with the left mitten, break-open shotgun,
 // bolt-action round, rocket into the tube; a reload from empty adds the charging handle or slide).
 // Spent brass flies out of the ejection port; the muzzle flash is a star plus two crossed flames.
-import * as THREE from '../../vendor/three/three.module.js?v=muwzay2r';
-import { gunModel, LOADED_ONLY } from './guns.js?v=muwzay2r';
-import { clone } from './models.js?v=muwzay2r';
+import * as THREE from '../../vendor/three/three.module.js?v=muwzqnfo';
+import { gunModel, LOADED_ONLY } from './guns.js?v=muwzqnfo';
+import { clone } from './models.js?v=muwzqnfo';
 
 // Hip hold per gun: where the grip anchor sits in camera space (metres). The bore is then turned to
 // meet the view axis CONVERGE metres out, so every gun points where the crosshair does.
@@ -223,11 +223,21 @@ export class ViewModel {
     if (f < this.lastReloadF - 0.5) { this.dropT = -1; this.ejected = false; }   // a new reload began
     if (kind === 'mag' || kind === 'pistol') {
       if (kind === 'pistol' && long && f < 0.76) o.slide = 1;   // locked back until it's racked
-      // Tilt the gun to show the magazine well; ease back at the end.
-      const tilt = pop(f, 0, 0.1) * (1 - snap(f, long ? 0.9 : 0.86, 0.97));
+      // Tilt the gun to show the magazine well (overshooting into the pose and back out of it).
+      const tilt = pop(f, 0, 0.1) * (1 - pop(f, long ? 0.89 : 0.85, long ? 0.99 : 0.96));
       // Bring it up and in, turned and rolled so the well (and the mitten working it) is in view.
       const P = kind === 'pistol';
-      o.rz = -tilt * (P ? 0.45 : 0.55); o.rx = tilt * (P ? 0.22 : 0.12); o.ry = tilt * 0.22; o.y = tilt * (P ? 0.04 : 0.02); o.x = -tilt * (P ? 0.04 : 0.03); o.z = tilt * 0.015;
+      o.rz = -tilt * (P ? 0.72 : 0.82); o.rx = tilt * (P ? 0.3 : 0.2); o.ry = tilt * (P ? 0.3 : 0.36); o.y = tilt * (P ? 0.05 : 0.04); o.x = -tilt * (P ? 0.06 : 0.07); o.z = tilt * 0.02;
+      // Follow-through: the gun lifts away as the old magazine is yanked, rolls further to watch the
+      // hand fetch the new one, and dips to meet it just before it's slammed home.
+      o.y += bump(f, 0.15, 0.3) * 0.018; o.rx += bump(f, 0.15, 0.3) * 0.06;
+      const fetch = bump(f, 0.3, 0.6); o.rz -= fetch * 0.12; o.ry += fetch * 0.06; o.y -= fetch * 0.01;
+      const meet = bump(f, 0.55, 0.67); o.y -= meet * 0.025; o.rx -= meet * 0.07;
+      if (long) {
+        // From empty: rolled back the other way to rack the slide or yank the charging handle.
+        const rack = P ? bump(f, 0.7, 0.86) : bump(f, 0.71, 0.9);
+        o.rz += rack * (P ? 0.5 : 0.6); o.ry -= rack * 0.2; o.x += rack * 0.03; o.rx += rack * 0.08;
+      }
       const magIn = this.mag ? this.toHold(magHome, this.tmp) : rest;
       const grab = this.handTarget.copy(magIn).add(V(-0.01, -0.035, 0));
       const end = long ? 0.86 : 0.8;
@@ -265,8 +275,12 @@ export class ViewModel {
       // Break it open (muzzle drops), the spent hulls kick out, push two shells into the breech, snap
       // it shut with a flick.
       const open = pop(f, 0, 0.1) * (1 - snap(f, 0.77, 0.81)); o.hinge = open;
-      // (raised and turned in so the open breech faces you)
-      o.rx = -open * 0.3; o.rz = -open * 0.4; o.ry = open * 0.28; o.y = open * 0.05 + bump(f, 0.8, 0.92) * 0.02; o.x = -open * 0.06; o.rx += bump(f, 0.8, 0.9) * 0.14;
+      // (muzzle down and turned in so the open breech faces you, kept low so the stock doesn't fill
+      // the view; each shell is pushed in with a nudge; shut with an upward flick)
+      const lift = pop(f, 0, 0.12) * (1 - pop(f, 0.8, 0.95));
+      o.rx = -lift * 0.34; o.rz = -lift * 0.42; o.ry = lift * 0.14; o.y = -lift * 0.005; o.x = -lift * 0.04; o.z = -lift * 0.06;
+      o.rx -= (bump(f, 0.47, 0.53) + bump(f, 0.6, 0.66)) * 0.05; o.y -= (bump(f, 0.47, 0.53) + bump(f, 0.6, 0.66)) * 0.008;
+      o.rx += bump(f, 0.78, 0.9) * 0.3; o.y += bump(f, 0.78, 0.9) * 0.02;
       if (f > 0.14 && !this.ejected) { this.ejected = true; const b = this.mag ? magHome : V(0, 0.03, -0.02); for (const dx of [-0.024, 0.024]) this.spawnCase(V(b.x + dx, b.y, b.z + 0.04), 2.2, 0xc8342a, 0.8); }
       const breech = this.toHold(this.mag ? magHome : V(0, 0, 0.05), V(0, 0, 0));
       if (f < 0.4) o.hand = lerp3(V(0, 0, 0), rest, breech.clone().add(below), snap(f, 0.1, 0.3));
@@ -275,9 +289,10 @@ export class ViewModel {
       if (this.mag) { this.mag.visible = f > 0.4 && f < 0.7; if (this.mag.visible) { this.toGun(o.hand.clone().add(V(0.005, 0.02, -0.01)), this.tmp); this.mag.position.copy(this.tmp); } }
     } else if (kind === 'bolt') {
       // Roll the rifle, bolt up and back (the spent case flies), thumb a round in, bolt forward and down.
-      const roll = pop(f, 0, 0.11) * (1 - snap(f, 0.85, 0.97));
-      o.rz = -roll * 0.55; o.rx = roll * 0.1; o.ry = roll * 0.25; o.y = roll * 0.05; o.x = -roll * 0.06;
-      o.z += bump(f, 0.15, 0.3) * 0.02 - bump(f, 0.7, 0.82) * 0.02;
+      const roll = pop(f, 0, 0.11) * (1 - pop(f, 0.84, 0.97));
+      o.rz = -roll * 0.72; o.rx = roll * 0.14; o.ry = roll * 0.32; o.y = roll * 0.05; o.x = -roll * 0.07;
+      o.z += bump(f, 0.15, 0.3) * 0.03 - bump(f, 0.68, 0.8) * 0.03;
+      o.rz -= bump(f, 0.42, 0.58) * 0.08; o.y -= bump(f, 0.42, 0.58) * 0.012;   // thumbing the round in
       o.boltUp = snap(f, 0.15, 0.18) * (1 - snap(f, 0.75, 0.78)); o.boltBack = snap(f, 0.2, 0.25) * (1 - snap(f, 0.68, 0.72));
       if (f > 0.24 && !this.ejected) { this.ejected = true; this.spawnCase(V(0.03, 0.05, 0.0), 1.5, 0xd9a441); }
       const port = this.toHold(this.mag ? magHome : V(0, 0.02, 0.05), V(0, 0, 0));
@@ -288,8 +303,10 @@ export class ViewModel {
     } else {
       // Rocket: lower the tube, bring a rocket up to the muzzle and slide it in.
       const lower = pop(f, 0, 0.14) * (1 - pop(f, 0.8, 0.94));
-      // (the launcher dips mostly out of view, muzzle up, and comes back up loaded)
-      o.y = -lower * 0.1; o.x = -lower * 0.02; o.rx = lower * 0.35; o.rz = -lower * 0.12; o.z = lower * 0.03;
+      // (the launcher swings down off the shoulder and tips its mouth up and across to the mitten,
+      // takes the rocket with a shove, and swings back up loaded)
+      o.y = -lower * 0.12; o.x = -lower * 0.1; o.rx = lower * 0.5; o.rz = -lower * 0.62; o.ry = lower * 0.3; o.z = lower * 0.04;
+      o.y -= bump(f, 0.56, 0.66) * 0.025; o.rx -= bump(f, 0.56, 0.66) * 0.08;
       const mouth = this.toHold(this.gun.userData.muzzle || V(0, 0, -0.4), V(0, 0, 0));
       if (f < 0.4) o.hand = lerp3(V(0, 0, 0), rest, mouth.clone().add(below), snap(f, 0.1, 0.34));
       else if (f < 0.72) o.hand = lerp3(V(0, 0, 0), mouth.clone().add(below), mouth.clone().add(V(0, 0, 0.12)), seg(f, 0.4, 0.66));
