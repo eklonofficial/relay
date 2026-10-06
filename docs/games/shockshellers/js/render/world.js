@@ -1,11 +1,12 @@
 // Turns a map grid into a few merged meshes (one per material family). Faces hidden against full
 // blocks are dropped, and every vertex gets baked ambient occlusion from the cells around it, which
 // gives the soft, lightmapped look of the reference maps without shipping any lightmap.
-import * as THREE from '../../vendor/three/three.module.js?v=muwq6u6m';
-import { PIECES, BOXES, facing } from '../maps/pieces.js?v=muwq6u6m';
-import { worldMaterial, TEX_SCALE, sway } from './materials.js?v=muwq6u6m';
-import { clone, modelParts } from './models.js?v=muwq6u6m';
-import { mergeGeometries } from '../../vendor/three/BufferGeometryUtils.js?v=muwq6u6m';
+import * as THREE from '../../vendor/three/three.module.js?v=muwqd5r4';
+import { PIECES, BOXES, facing } from '../maps/pieces.js?v=muwqd5r4';
+import { worldMaterial, TEX_SCALE, sway } from './materials.js?v=muwqd5r4';
+import { clone, modelParts } from './models.js?v=muwqd5r4';
+import { propParts } from './props.js?v=muwqd5r4';
+import { mergeGeometries } from '../../vendor/three/BufferGeometryUtils.js?v=muwqd5r4';
 
 class Bucket {
   constructor(mat) { this.mat = mat; this.p = []; this.n = []; this.u = []; this.c = []; this.i = []; this.v = 0; this.s = TEX_SCALE[mat] ?? 0.5; }
@@ -188,7 +189,7 @@ const UP = new THREE.Vector3(0, 1, 0);
 function bakeProps(list) {
   const groups = new Map(), m = new THREE.Matrix4(), q = new THREE.Quaternion(), at = new THREE.Vector3(), sc = new THREE.Vector3();
   for (const e of list) {
-    const parts = modelParts(e.model); if (!parts) continue;
+    const parts = propParts(e.model) || modelParts(e.model); if (!parts) continue;
     m.compose(at.set(e.x, e.y, e.z), q.setFromAxisAngle(UP, e.ry * Math.PI / 2), sc.setScalar(e.scale || 1));
     const leafy = e.model === 'tree' || e.model === 'bush';
     for (const { mat, geo } of parts) {

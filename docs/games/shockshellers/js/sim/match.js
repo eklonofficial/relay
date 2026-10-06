@@ -4,11 +4,11 @@
 //
 // Players are humans or bots alike: each tick every player supplies { ctrl, yaw, pitch } (bots
 // through the same input struct, so they obey identical movement, fire-rate and spread rules).
-import { PLAYER, WEAPONS, MELEE, GRENADE, PICKUPS, STREAKS, DAMAGE, DEFAULT_OPTIONS, PRIMARIES, CTRL, TICK_HZ } from './tuning.js?v=muwq6u6m';
-import { makeBody, stepBody, movementInput, forward } from './movement.js?v=muwq6u6m';
-import { makeHands, stepHands, readyHands, refill, HandEvents, weaponOf, slotOf, grenadeLaunch, lcg } from './combat.js?v=muwq6u6m';
-import { makeMode } from './modes.js?v=muwq6u6m';
-import { HIT } from '../maps/grid.js?v=muwq6u6m';
+import { PLAYER, WEAPONS, MELEE, GRENADE, PICKUPS, STREAKS, DAMAGE, DEFAULT_OPTIONS, PRIMARIES, CTRL, TICK_HZ } from './tuning.js?v=muwqd5r4';
+import { makeBody, stepBody, movementInput, forward } from './movement.js?v=muwqd5r4';
+import { makeHands, stepHands, readyHands, refill, HandEvents, weaponOf, slotOf, grenadeLaunch, lcg } from './combat.js?v=muwqd5r4';
+import { makeMode } from './modes.js?v=muwqd5r4';
+import { HIT } from '../maps/grid.js?v=muwqd5r4';
 
 const HISTORY = 256;
 // Hit-angle damage (GDD §8.2): s = 0.2 + 0.8·dot(−d, n); mult = s^(4 + s^4).
