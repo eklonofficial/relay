@@ -8,9 +8,9 @@
 // is flying: one per particle blend mode, one per shard shape, one each for streaks, chips and the
 // three kinds of decal. Lights never come and go during play (that would recompile every material);
 // two point lights stay in the scene and are just turned up and down. Nothing allocates per frame.
-import * as THREE from '../../vendor/three/three.module.js?v=muwxo6oz';
-import { gunModel } from './guns.js?v=muwxo6oz';
-import { TEAM_COLORS } from './egg.js?v=muwxo6oz';
+import * as THREE from '../../vendor/three/three.module.js?v=muwxp155';
+import { gunModel } from './guns.js?v=muwxp155';
+import { TEAM_COLORS } from './egg.js?v=muwxp155';
 
 const rnd = () => Math.random() * 2 - 1;
 // Approximate colours of each map material family (maps/dsl.js MAT), for dust and chips.
@@ -341,9 +341,25 @@ export class Effects {
       const o = [Math.cos(a), h - 0.3, Math.sin(a)];
       this.shard(x + o[0] * 0.25, y + 0.05 + h * 0.6, z + o[2] * 0.25, color, 2.2 + Math.random(), floorY, o, 0.7);
     }
-    for (let i = 0; i < this.n(16); i++) this.soft.emit(x, y + 0.35, z, rnd() * 2.2, Math.random() * 3, rnd() * 2.2, { size: 0.09 + Math.random() * 0.1, grow: -0.05, life: 0.6 + Math.random() * 0.3, color: i % 4 ? 0xffb400 : 0xfff6dc, tile: 2, drag: 0.8, gravity: 7 });
-    for (let i = 0; i < this.n(8); i++) this.soft.emit(x, y + 0.35, z, rnd() * 2.5, Math.random() * 2, rnd() * 2.5, { size: 0.16 + Math.random() * 0.1, grow: 0.5, life: 0.45, color: 0xfffaf0, alpha: 0.75, drag: 3 });
-    this.splats.add(x, floorY + 0.002, z, 0, 1, 0, 1.0 + Math.random() * 0.35, 14);
+    // The yolk goes off like a little sun: a hot golden pop, then a burst of thick yolk globs flung
+    // up and out that arc down (streaking as they fly), a ring of spray along the ground, glittering
+    // specks, a puff of white, and yolk splattered across the floor.
+    const cy = y + 0.35;
+    this.glow.emit(x, cy, z, 0, 0, 0, { size: 0.35, grow: 3.2, life: 0.22, color: 0xffd23f, bright: 2.6, alpha: 0.9, drag: 0 });
+    this.glow.emit(x, cy, z, 0, 0.3, 0, { size: 0.25, grow: 1.6, life: 0.35, color: 0xffb400, bright: 1.6, alpha: 0.7, drag: 0 });
+    for (let i = 0; i < this.n(34); i++) {
+      const a = Math.random() * Math.PI * 2, up = 1.5 + Math.random() * 4.5, out = 1.5 + Math.random() * 3.5;
+      this.soft.emit(x, cy, z, Math.cos(a) * out, up, Math.sin(a) * out, { size: 0.07 + Math.random() * 0.12, grow: -0.06, life: 0.7 + Math.random() * 0.5, color: i % 5 ? (i % 2 ? 0xffb400 : 0xffc21a) : 0xfff6dc, tile: 2, drag: 0.6, gravity: 9, stretch: 0.6 });
+    }
+    for (let i = 0; i < this.n(18); i++) {
+      const a = i / 18 * Math.PI * 2 + rnd() * 0.2;
+      this.soft.emit(x, y + 0.1, z, Math.cos(a) * (3 + Math.random() * 2), 0.6 + Math.random(), Math.sin(a) * (3 + Math.random() * 2), { size: 0.06 + Math.random() * 0.06, grow: -0.03, life: 0.45 + Math.random() * 0.2, color: 0xffc21a, tile: 2, drag: 2.5, gravity: 6, stretch: 0.8 });
+    }
+    for (let i = 0; i < this.n(14); i++) this.glow.emit(x, cy, z, rnd() * 3, Math.random() * 4, rnd() * 3, { size: 0.03 + Math.random() * 0.03, grow: -0.02, life: 0.5 + Math.random() * 0.4, color: 0xffe08a, bright: 2, drag: 1, gravity: 4 });
+    for (let i = 0; i < this.n(8); i++) this.soft.emit(x, cy, z, rnd() * 2.5, Math.random() * 2, rnd() * 2.5, { size: 0.16 + Math.random() * 0.1, grow: 0.5, life: 0.45, color: 0xfffaf0, alpha: 0.75, drag: 3 });
+    this.light(x, cy, z, 5, 0.12);
+    this.splats.add(x, floorY + 0.002, z, 0, 1, 0, 1.5 + Math.random() * 0.5, 16);
+    for (let i = 0; i < 3; i++) { const a = Math.random() * Math.PI * 2, d = 0.8 + Math.random() * 0.9; this.splats.add(x + Math.cos(a) * d, floorY + 0.002 + i * 0.0005, z + Math.sin(a) * d, 0, 1, 0, 0.35 + Math.random() * 0.3, 12); }
   }
   explosion(x, y, z, radius, weapon, team = 0, floorY = null) {
     const big = weapon !== 'grenade';

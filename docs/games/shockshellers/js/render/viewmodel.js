@@ -10,9 +10,9 @@
 // Reloads are keyframed per kind of gun (magazine swap with the left mitten, break-open shotgun,
 // bolt-action round, rocket into the tube; a reload from empty adds the charging handle or slide).
 // Spent brass flies out of the ejection port; the muzzle flash is a star plus two crossed flames.
-import * as THREE from '../../vendor/three/three.module.js?v=muwxo6oz';
-import { gunModel, LOADED_ONLY } from './guns.js?v=muwxo6oz';
-import { clone } from './models.js?v=muwxo6oz';
+import * as THREE from '../../vendor/three/three.module.js?v=muwxp155';
+import { gunModel, LOADED_ONLY } from './guns.js?v=muwxp155';
+import { clone } from './models.js?v=muwxp155';
 
 // Hip hold per gun: where the grip anchor sits in camera space (metres). The bore is then turned to
 // meet the view axis CONVERGE metres out, so every gun points where the crosshair does.
