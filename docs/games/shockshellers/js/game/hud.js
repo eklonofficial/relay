@@ -8,9 +8,9 @@
 //   skipped on frames where nothing on it changed.
 // Page text is left for what is rare or needs the keyboard: chat, banners and toasts, the
 // objective bar, and the leaderboard on the respawn screen.
-import { surfaceDocument as document } from '../surface.js?v=muwxqt91';
-import { WEAPONS, GRENADE, ROOST, STREAKS } from '../sim/tuning.js?v=muwxqt91';
-import { currentSpread, weaponOf, slotOf } from '../sim/combat.js?v=muwxqt91';
+import { surfaceDocument as document } from '../surface.js?v=muwy3maj';
+import { WEAPONS, GRENADE, ROOST, STREAKS } from '../sim/tuning.js?v=muwy3maj';
+import { currentSpread, weaponOf, slotOf } from '../sim/combat.js?v=muwy3maj';
 
 const $ = id => document.getElementById(id);
 const POWER_NAMES = { hardBoiled: 'HARD BOILED!', shellBreaker: 'SHELL BREAKER!', restock: 'RESTOCK!', overheal: 'OVERHEAL!', doubleYolks: 'DOUBLE YOLKS!', quailEgg: 'QUAIL EGG!' };
@@ -204,13 +204,14 @@ export class Hud {
   drawPanel(v) {
     const me = v.me, alive = !!me?.alive, w = innerWidth, h = innerHeight, b = this.board, u = this.u || 1;
     const feedSig = this.feed.map(f => f.n + ':' + Math.ceil(Math.min(1, f.t / 0.4) * 8) + (this.icon(f.weapon) ? 'i' : '')).join(',');
-    const a = this.ammo, sig = `${w}x${h}|${u}|${b?.key}|${this.best}|${this.coins}|${this.fps}|${this.ping}|${feedSig}|${alive ? `${a.id}|${a.mag}|${a.store}|${a.nades}` : '-'}`;
+    const a = this.ammo, sig = `${!!this.replay}|${w}x${h}|${u}|${b?.key}|${this.best}|${this.coins}|${this.fps}|${this.ping}|${feedSig}|${alive ? `${a.id}|${a.mag}|${a.store}|${a.nades}` : '-'}`;
     if (sig === this.panelSig) return;
     this.panelSig = sig; this.panelDirty = true;
     const c = this.pctx, d = this.dpr || 1;
     c.setTransform(1, 0, 0, 1, 0, 0); c.clearRect(0, 0, this.panel.width, this.panel.height);
     c.setTransform(d * u, 0, 0, d * u, 0, 0);
     const W = w / u;
+    if (this.replay) return;   // (the instant replay has the screen to itself)
     if (b) this.drawBoard(c, b);
     this.drawCoins(c, W);
     this.drawPerf(c, W);
@@ -299,6 +300,18 @@ export class Hud {
     const ping = this.ping, pc = ping < 80 ? '#5cff7a' : ping < 160 ? '#ffd23f' : '#ff5545', ps = ping + ' MS', fs = this.fps + ' FPS  ';
     c.lineWidth = 3; c.strokeStyle = 'rgba(0,0,0,.55)'; c.strokeText(ps, w - 14, 40); c.fillStyle = pc; c.fillText(ps, w - 14, 40);
     const pw = c.measureText(ps).width; c.strokeText(fs, w - 14 - pw, 40); c.fillStyle = '#fff'; c.fillText(fs, w - 14 - pw, 40);
+    c.restore();
+  }
+  // The instant replay: cinema bars, a REPLAY tag, and SLOW-MO while the shot is in the air.
+  drawReplay(c, w, h) {
+    const bar = Math.round(h * 0.09);
+    c.fillStyle = '#000'; c.fillRect(0, 0, w, bar); c.fillRect(0, h - bar, w, bar);
+    c.save(); c.font = '400 20px s, sans-serif'; c.textBaseline = 'middle'; c.textAlign = 'left';
+    const blink = 0.6 + 0.4 * Math.sin(this.t * 6);
+    c.fillStyle = `rgba(255,59,42,${blink})`; c.beginPath(); c.arc(28, bar / 2, 7, 0, Math.PI * 2); c.fill();
+    c.fillStyle = '#fff'; c.fillText('REPLAY', 44, bar / 2 + 1);
+    if (this.replay.slow) { c.textAlign = 'right'; c.fillStyle = '#ffd23f'; c.fillText('SLOW-MO', w - 24, bar / 2 + 1); }
+    c.font = '800 13px n, sans-serif'; c.textAlign = 'center'; c.fillStyle = 'rgba(255,255,255,.6)'; c.fillText('Click to skip', w / 2, h - bar / 2);
     c.restore();
   }
   drawDeath(c, w, h) {
@@ -397,7 +410,7 @@ export class Hud {
     const busy = alive && (hands.swap > 0 || hands.melee > 0), scoped = alive && hands.ads && wpn.scoped;
     const lowMag = alive && s.mag <= Math.max(1, Math.floor(wpn.mag * 0.25));
     const val = alive ? (me.shield > 0 && !(me.overheal > 0) ? me.shield : me.hp) : 0;
-    const moving = this.death || this.kills.length || this.popups.length || this.nums.length || this.dmgArcs.length || this.vignette > 0 || this.hitT > 0 ||
+    const moving = this.replay || this.death || this.kills.length || this.popups.length || this.nums.length || this.dmgArcs.length || this.vignette > 0 || this.hitT > 0 ||
       (alive && (scoped || this.scopeA > 0 || (me.hp < 35 && !(me.shield > 0)) || (lowMag && !busy && !hands.charging) || hands.charging || v.reload > 0 || (v.markers && v.markers.length) || (v.bars && v.bars.length) ||
         this.gapKick > 0 || Math.abs(target - this.gap) > 0.05 || Math.abs(val - this.hpShown) > 0.05 || Math.abs(this.hpTrail - this.hpShown) > 0.05));
     const sig = alive ? `${w}x${h}|${val}|${s.id}|${s.mag}|${busy}|${v.enemy || 0}|${me.spawnShield > 0}|${me.power.shellBreaker > 0}|${this.settings.centerDot}` : `${w}x${h}|dead`;
@@ -405,6 +418,7 @@ export class Hud {
     this.sig = sig; this.dirty = true;
     c.setTransform(1, 0, 0, 1, 0, 0); c.clearRect(0, 0, W, H);
     c.setTransform(d, 0, 0, d, 0, 0);
+    if (this.replay) this.drawReplay(c, w, h);
     if (this.death) this.drawDeath(c, w, h);
     if (!alive) { this.kills.length = 0; this.nums.length = 0; return true; }
     if (v.project) { if (v.bars?.length) this.drawBars(c, dt, v.bars, v.project); else this.barShown.clear(); this.drawNumbers(c, dt, v.project); }

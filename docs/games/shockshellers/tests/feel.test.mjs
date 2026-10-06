@@ -98,3 +98,20 @@ test('PLAY moves around the map rotation instead of repeating the last few maps'
   const roost = MAPS.filter(m => m.public && m.modes.includes('roost')).map(m => m.id);
   assert.ok(roost.includes(pickPublicMap('roost', rnd, roost.slice(0, -1))), 'with every map recent, it still picks one');
 });
+
+test('the kill replay finds the shot that cracked you and plays its flight in slow motion', async () => {
+  const { Recorder, planReplay, replayRate, projectileAt } = await load('game/replay.js');
+  const rec = new Recorder(), players = new Map([[1, { body: { x: 0, y: 1, z: 0, yaw: 0, pitch: 0 }, alive: true }], [2, { body: { x: 0, y: 1, z: -6, yaw: Math.PI, pitch: 0 }, alive: true }]]);
+  for (let t = 0; t <= 60; t++) rec.record({ tick: t, players });
+  rec.shot(40, { id: 2, x: 0, y: 1.4, z: -6, dx: 1, dy: 0, dz: 0, w: 'yolk47' });                 // a miss, off to the side
+  rec.shot(56, { id: 2, x: 0, y: 1.4, z: -6, dx: 0, dy: -0.016, dz: 0.9999, w: 'yolk47' });     // the one that hit
+  const P = planReplay(rec, 2, 60, 'yolk47', 1.5, [0, 1.3, 0]);
+  assert.equal(P.shotTick, 56);
+  assert.ok(P.hitTick >= P.deathTick && P.start < P.shotTick && P.end > P.hitTick);
+  assert.ok(replayRate(P, P.start) === 1 && replayRate(P, P.shotTick + 1) < 0.35, 'real time, then slow motion for the shot');
+  const real = (P.hitTick - P.shotTick) / (30 * P.slow);
+  assert.ok(real > 0.6 && real < 2.5, `the flight lasts ${real.toFixed(2)} s on screen`);
+  const mid = projectileAt(P, (P.shotTick + P.hitTick) / 2);
+  assert.ok(mid && mid[2] > -6 && mid[2] < 0, 'the round is between the killer and you mid-flight');
+  assert.equal(planReplay(new Recorder(), 2, 60, 'yolk47', 1.5, [0, 1.3, 0]), null, 'nothing recorded, no replay');
+});

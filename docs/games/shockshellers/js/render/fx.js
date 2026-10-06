@@ -8,9 +8,9 @@
 // is flying: one per particle blend mode, one per shard shape, one each for streaks, chips and the
 // three kinds of decal. Lights never come and go during play (that would recompile every material);
 // two point lights stay in the scene and are just turned up and down. Nothing allocates per frame.
-import * as THREE from '../../vendor/three/three.module.js?v=muwxqt91';
-import { gunModel } from './guns.js?v=muwxqt91';
-import { TEAM_COLORS } from './egg.js?v=muwxqt91';
+import * as THREE from '../../vendor/three/three.module.js?v=muwy3maj';
+import { gunModel } from './guns.js?v=muwy3maj';
+import { TEAM_COLORS } from './egg.js?v=muwy3maj';
 
 const rnd = () => Math.random() * 2 - 1;
 // Approximate colours of each map material family (maps/dsl.js MAT), for dust and chips.

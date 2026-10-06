@@ -13,16 +13,16 @@
 // map (the map never moves) instead of every frame, and eggs get a soft blob shadow instead; no
 // muzzle-flash or explosion lights and no sky reflections (each costs every pixel of every lit
 // surface); no bloom or multisampling; fewer particles.
-import * as THREE from '../../vendor/three/three.module.js?v=muwxqt91';
-import { buildWorld } from './world.js?v=muwxqt91';
-import { EggAvatar, TEAM_COLORS } from './egg.js?v=muwxqt91';
-import { Effects } from './fx.js?v=muwxqt91';
-import { ViewModel } from './viewmodel.js?v=muwxqt91';
-import { gunModel } from './guns.js?v=muwxqt91';
-import { Kit, kitMaterial } from './kit.js?v=muwxqt91';
-import { clone, merged } from './models.js?v=muwxqt91';
-import { noiseTexture, WIND } from './materials.js?v=muwxqt91';
-import { Post } from './post.js?v=muwxqt91';
+import * as THREE from '../../vendor/three/three.module.js?v=muwy3maj';
+import { buildWorld } from './world.js?v=muwy3maj';
+import { EggAvatar, TEAM_COLORS } from './egg.js?v=muwy3maj';
+import { Effects } from './fx.js?v=muwy3maj';
+import { ViewModel } from './viewmodel.js?v=muwy3maj';
+import { gunModel } from './guns.js?v=muwy3maj';
+import { Kit, kitMaterial } from './kit.js?v=muwy3maj';
+import { clone, merged } from './models.js?v=muwy3maj';
+import { noiseTexture, WIND } from './materials.js?v=muwy3maj';
+import { Post } from './post.js?v=muwy3maj';
 
 // Sky palettes: zenith, ground below the horizon, sun, cloud light and shade, cloud cover (0 = none).
 // The horizon colour is the map's fog colour, so distant walls melt into the sky.
@@ -216,6 +216,12 @@ export class Renderer {
     // Blob shadows under the eggs (one instanced draw), where egg shadows aren't in the shadow map.
     this.blobs = new THREE.InstancedMesh(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ map: blobTexture(), transparent: true, depthWrite: false, fog: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2, toneMapped: false }), BLOBS);
     this.blobs.frustumCulled = false; this.blobs.count = 0; this.blobs.renderOrder = 1; this.blobs.instanceMatrix.setUsage(THREE.DynamicDrawUsage); this.scene.add(this.blobs);
+    // The killing shot in the instant replay: a hot slug with a glowing tail (main.js replayFrame).
+    this.replayBullet = new THREE.Group(); this.replayBullet.visible = false;
+    const hot = (c, k, o = 1) => new THREE.MeshBasicMaterial({ color: new THREE.Color(c).multiplyScalar(k), toneMapped: false, transparent: o < 1, opacity: o, blending: o < 1 ? THREE.AdditiveBlending : THREE.NormalBlending, depthWrite: o >= 1 });
+    const slug = new THREE.Mesh(new THREE.CapsuleGeometry(0.022, 0.07, 4, 8).rotateX(Math.PI / 2), hot(0xfff2c0, 3));
+    const tail = new THREE.Mesh(new THREE.ConeGeometry(0.03, 0.9, 8, 1, true).rotateX(-Math.PI / 2).translate(0, 0, -0.5), hot(0xffb040, 2.2, 0.55));
+    this.replayBullet.add(slug, tail); this.scene.add(this.replayBullet);
     this.rung = -1; this.auto = { rung: 2, ceiling: 3, low: 0 }; this.dyn = { res: 1, min: 0.7, max: 1, slow: 0, fast: 0 }; this.calls = 0; this.tris = 0;
     this.setQuality('auto');
   }
