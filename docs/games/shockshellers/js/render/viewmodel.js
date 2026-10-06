@@ -10,9 +10,9 @@
 // Reloads are keyframed per kind of gun (magazine swap with the left mitten, break-open shotgun,
 // bolt-action round, rocket into the tube; a reload from empty adds the charging handle or slide).
 // Spent brass flies out of the ejection port; the muzzle flash is a star plus two crossed flames.
-import * as THREE from '../../vendor/three/three.module.js?v=mux1bcsv';
-import { gunModel, LOADED_ONLY } from './guns.js?v=mux1bcsv';
-import { clone } from './models.js?v=mux1bcsv';
+import * as THREE from '../../vendor/three/three.module.js?v=mux1ipx3';
+import { gunModel, LOADED_ONLY } from './guns.js?v=mux1ipx3';
+import { clone } from './models.js?v=mux1ipx3';
 
 // Hip hold per gun: where the grip anchor sits in camera space (metres). The bore is then turned to
 // meet the view axis CONVERGE metres out, so every gun points where the crosshair does.
@@ -91,7 +91,21 @@ function flameTexture() {
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
 }
 
-const CASINGS = 24;
+// A soft, lumpy smoke puff (a few overlapping blobs), white so its material tints it.
+function smokeTexture() {
+  const c = new OffscreenCanvas(64, 64), x = c.getContext('2d');
+  let s = 11; const r = () => (s = (s * 16807) % 2147483647) / 2147483647;
+  for (let i = 0; i < 14; i++) {
+    const cx = 20 + r() * 24, cy = 20 + r() * 24, rad = 10 + r() * 14, g = x.createRadialGradient(cx, cy, 0, cx, cy, rad);
+    g.addColorStop(0, 'rgba(255,255,255,0.32)'); g.addColorStop(1, 'rgba(255,255,255,0)');
+    x.fillStyle = g; x.fillRect(0, 0, 64, 64);
+  }
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+}
+
+const CASINGS = 24, PUFFS = 12;
+// How much barrel smoke each gun leaves (a wisp per shot; sustained fire builds a haze).
+const SMOKE = { doubleYolker: 2, yolkzooka: 2.6, poacher: 1.4, cageFree: 1.1, yolk47: 0.75, triBoil: 0.75, beater: 0.6, peck9mm: 0.55 };
 
 export class ViewModel {
   constructor() {
@@ -122,6 +136,14 @@ export class ViewModel {
     this.casingList = Array.from({ length: CASINGS }, () => ({ life: 0, p: V(0, 0, 0), v: V(0, 0, 0), r: new THREE.Euler(), w: V(0, 0, 0), s: 1 }));
     for (let i = 0; i < CASINGS; i++) { this.casings.setColorAt(i, new THREE.Color(0xd9a441)); this.casings.setMatrixAt(i, new THREE.Matrix4().makeScale(0, 0, 0)); }
     this.root.add(this.casings); this.ci = 0;
+    // Barrel smoke: a few sprites that curl up off the muzzle after each shot and drift away.
+    const smoke = smokeTexture();
+    this.puffs = Array.from({ length: PUFFS }, () => {
+      const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: smoke, color: 0xb9b5ad, transparent: true, depthWrite: false, opacity: 0 }));
+      sp.visible = false; sp.renderOrder = 4; this.root.add(sp);
+      return { sp, life: 0, max: 1, v: V(0, 0, 0), size: 0, k: 1 };
+    });
+    this.puffI = 0; this.muzzleAt = V(0, 0, 0);
     this.t = 0; this.weapon = null; this.flashT = 0; this.adsBlend = 0;
     // Springs: position (x, y, z) and rotation (pitch, yaw, roll) offsets on the hold, plus the camera punch.
     this.sp = { x: new Spring(160), y: new Spring(140, 0.7), z: new Spring(260, 0.6), rx: new Spring(230, 0.58), ry: new Spring(170, 0.75), rz: new Spring(150, 0.62), swap: new Spring(90, 0.85) };
@@ -188,6 +210,34 @@ export class ViewModel {
     this.flame.scale.set(0.32 * k, 0.22 * k, 0.32 * k * (1 - a * 0.4)); this.flame.rotation.z = Math.random() * Math.PI;
     if (this.eject) this.spawnCase(this.eject, id === 'peck9mm' ? 0.75 : 1, 0xd9a441);
     this.slideK = 1;
+    // Smoke off the muzzle (hardly any while aiming, so it never clouds the sights).
+    const amt = (SMOKE[id] ?? 0.7) * (1 - a * 0.9);
+    if (amt > 0.08) {
+      this.flash.updateWorldMatrix(true, false); this.flash.getWorldPosition(this.muzzleAt);
+      for (let i = amt > 1.5 ? 2 : 1; i > 0; i--) this.puff(this.muzzleAt, amt);
+    }
+  }
+  puff(at, amt) {
+    const p = this.puffs[this.puffI = (this.puffI + 1) % PUFFS];
+    p.sp.position.copy(at).add(V(rnd() * 0.01, rnd() * 0.01, rnd() * 0.01));
+    p.life = p.max = 0.55 + Math.random() * 0.5;
+    // Up and back towards the shoulder, a little to the right: away from the crosshair.
+    p.v.set(0.03 + Math.random() * 0.03, 0.05 + Math.random() * 0.05, 0.02 + Math.random() * 0.02);
+    p.size = 0.05 * Math.sqrt(amt); p.k = Math.min(1, 0.45 + amt * 0.35);
+    p.sp.material.rotation = Math.random() * Math.PI * 2; p.sp.visible = true;
+  }
+  stepSmoke(dt) {
+    const fade = 1 - this.adsBlend * 0.85;
+    for (const p of this.puffs) {
+      if (p.life <= 0) continue;
+      p.life -= dt;
+      if (p.life <= 0) { p.sp.visible = false; p.sp.material.opacity = 0; continue; }
+      const t = 1 - p.life / p.max;
+      p.sp.position.addScaledVector(p.v, dt); p.v.multiplyScalar(Math.exp(-dt * 1.2)); p.v.y += dt * 0.04;
+      const sz = p.size * (1 + t * 3.6); p.sp.scale.set(sz, sz, 1);
+      p.sp.material.opacity = 0.6 * p.k * Math.min(1, t * 6) * (1 - t) * (1 - t) * fade;
+      p.sp.material.rotation += dt * 0.5;
+    }
   }
   // A case from a gun-space point, flung right, up and a little back, spinning.
   spawnCase(at, size, color, spread = 1) {
@@ -353,7 +403,7 @@ export class ViewModel {
   //      swap: 0..1|0, melee: 0..1|0, charge: 0..1|null, inspect: 0..1|0, shield, mouseDX, mouseDY, visible }
   update(s) {
     this.root.visible = s.visible;
-    this.stepCasings(s.dt);
+    this.stepCasings(s.dt); this.stepSmoke(s.dt);
     if (!s.visible || !this.gun) { this.wasAir = false; return; }
     const dt = s.dt; this.t += dt;
     // Aim blend: a quick ease, then smoothstepped so the sights settle rather than slide.
