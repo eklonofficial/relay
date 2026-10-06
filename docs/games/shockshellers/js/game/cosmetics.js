@@ -57,13 +57,9 @@ export function sanitizeCosmetics(c) {
   };
 }
 
-// A bot's look: mostly plain eggs, some dressed up, from the free catalogue.
-export function randomCosmetics(rnd = Math.random) {
-  const pick = list => list[Math.floor(rnd() * list.length)];
-  const free = HATS.filter(h => !h.price);
-  return {
-    color: Math.floor(rnd() * COLORS.length), pcolor: Math.floor(rnd() * COLORS.length),
-    hat: rnd() < 0.3 ? 'none' : pick(free).id, pattern: rnd() < 0.45 ? 'none' : pick(PATTERNS).id,
-    stamp: rnd() < 0.5 ? 'none' : pick(STAMPS).id, skin: rnd() < 0.5 ? 'factory' : pick(SKINS).id,
-  };
+// A bot's look: a plain egg in a natural shell colour (white, cream, tan, the browns), with no
+// pattern, stamp or hat and a factory gun, so real players (who dress up) stand out from bots.
+export const NATURAL = [14, 0, 1, 2, 3, 4];
+export function botCosmetics(rnd = Math.random) {
+  return { color: NATURAL[Math.floor(rnd() * NATURAL.length)], pcolor: 13, hat: 'none', pattern: 'none', stamp: 'none', skin: 'factory' };
 }

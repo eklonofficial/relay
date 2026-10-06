@@ -1,12 +1,12 @@
 // The map list (GDD §15.4). Each map module builds its grid on demand; builds are cached.
-import barnyard from './barnyard.js?v=muwqkdzr';
-import yolkQuarry from './yolk-quarry.js?v=muwqkdzr';
-import henHouse from './hen-house.js?v=muwqkdzr';
-import sunnySide from './sunny-side.js?v=muwqkdzr';
-import coopVille from './coop-ville.js?v=muwqkdzr';
-import moonHatch from './moon-hatch.js?v=muwqkdzr';
-import eggTemple from './egg-temple.js?v=muwqkdzr';
-import omeletArena from './omelet-arena.js?v=muwqkdzr';
+import barnyard from './barnyard.js?v=muws78am';
+import yolkQuarry from './yolk-quarry.js?v=muws78am';
+import henHouse from './hen-house.js?v=muws78am';
+import sunnySide from './sunny-side.js?v=muws78am';
+import coopVille from './coop-ville.js?v=muws78am';
+import moonHatch from './moon-hatch.js?v=muws78am';
+import eggTemple from './egg-temple.js?v=muws78am';
+import omeletArena from './omelet-arena.js?v=muws78am';
 
 export const MAPS = [
   { id: 'barnyard', name: 'Barnyard', build: barnyard, maxPlayers: 18, modes: ['ffa', 'teams', 'spatula', 'roost'], public: true },
@@ -25,8 +25,11 @@ export function getMap(id) {
   return cache.get(def.id);
 }
 export const mapDef = id => MAPS.find(m => m.id === id) || MAPS[0];
-// Public rotation for PLAY: a random public map that supports the chosen mode.
-export function pickPublicMap(mode, rnd = Math.random) {
-  const list = MAPS.filter(m => m.public && m.modes.includes(mode));
-  return (list.length ? list : MAPS)[Math.floor(rnd() * (list.length || MAPS.length))].id;
+// Public rotation for PLAY: a random public map that supports the chosen mode, never one of the
+// last few you played (recent: map ids, newest last) while there are others to choose from.
+export function pickPublicMap(mode, rnd = Math.random, recent = []) {
+  const list = MAPS.filter(m => m.public && m.modes.includes(mode)), all = list.length ? list : MAPS;
+  const avoid = new Set(recent.slice(-Math.min(recent.length, all.length - 1)));
+  const fresh = all.filter(m => !avoid.has(m.id)), pool = fresh.length ? fresh : all;
+  return pool[Math.floor(rnd() * pool.length)].id;
 }
