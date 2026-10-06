@@ -7,9 +7,9 @@
 // grip, support, eject) and its moving parts as their own child groups, pivoted where they move:
 // the magazine (or the shells, the round, the rocket), the slide or charging handle that kicks
 // back with each shot, the shotgun's barrels on their hinge, the sniper's bolt.
-import * as THREE from '../../vendor/three/three.module.js?v=muwqe2h8';
-import { mergeGeometries } from '../../vendor/three/BufferGeometryUtils.js?v=muwqe2h8';
-import { Kit, BASE, kitMaterial } from './kit.js?v=muwqe2h8';
+import * as THREE from '../../vendor/three/three.module.js?v=muwqkdzr';
+import { mergeGeometries } from '../../vendor/three/BufferGeometryUtils.js?v=muwqkdzr';
+import { Kit, BASE, kitMaterial } from './kit.js?v=muwqkdzr';
 
 const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
 
@@ -55,7 +55,7 @@ const BUILD = {
     // Receiver and dust cover, the rear sight block on the sight line.
     k.side('body', [[0.06, -0.03], [-0.26, -0.03], [-0.27, 0.0], [-0.27, 0.05], [-0.2, 0.058], [0.02, 0.062], [0.06, 0.05]], 0.05, 0, 0.005);
     k.side('dark', [[0.055, 0.05], [0.02, 0.064], [-0.2, 0.06], [-0.2, 0.052], [0.05, 0.046]], 0.044, 0, 0.003);
-    k.box('dark', [0, 0.072, 0.045], [0.034, 0.02, 0.03]); k.box('dark', [0.011, 0.084, 0.045], [0.009, 0.012, 0.022], 0.001); k.box('dark', [-0.011, 0.084, 0.045], [0.009, 0.012, 0.022], 0.001);
+    k.box('dark', [0, 0.068, 0.045], [0.028, 0.014, 0.026]); k.box('dark', [0.01, 0.0805, 0.045], [0.006, 0.019, 0.012], 0.001); k.box('dark', [-0.01, 0.0805, 0.045], [0.006, 0.019, 0.012], 0.001);
     k.box('metal', [0.026, 0.028, -0.07], [0.006, 0.026, 0.07], 0.001);             // ejection port
     k.box('dark', [0.026, 0.0, 0.0], [0.005, 0.012, 0.07], 0.001, [0, 0, 0]);      // selector lever
     // Wooden furniture: handguard (lower and upper), stock with a butt plate.
@@ -190,7 +190,7 @@ const BUILD = {
     // Side-by-side: an engraved receiver, wooden stock and fore-end; the barrels break open on a hinge.
     k.side('body', [[0.07, -0.03], [-0.07, -0.03], [-0.075, 0.0], [-0.07, 0.05], [0.04, 0.055], [0.07, 0.04]], 0.07, 0, 0.007);
     k.box('accent', [0.036, 0.012, -0.0], [0.003, 0.034, 0.1], 0.001); k.box('accent', [-0.036, 0.012, -0.0], [0.003, 0.034, 0.1], 0.001);
-    k.box('accent', [0, 0.06, 0.03], [0.014, 0.01, 0.03], 0.002);                                              // top lever
+    k.box('accent', [0.03, 0.045, 0.045], [0.012, 0.012, 0.03], 0.002);                                          // lever (off the sight line)
     k.side('wood', [[0.07, 0.04], [0.34, -0.02], [0.35, -0.03], [0.35, -0.135], [0.31, -0.135], [0.13, -0.08], [0.08, -0.07], [0.06, -0.03]], 0.054, 0, 0.01);
     k.side('woodDark', [[0.352, -0.02], [0.366, -0.02], [0.366, -0.138], [0.352, -0.138]], 0.056, 0, 0.003);
     k.guard(0.02, -0.03, 0.06, 'accent');

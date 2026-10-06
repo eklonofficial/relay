@@ -1,14 +1,14 @@
 // A match as this browser sees it. The host's session owns the real Match (and its bots); a guest's
 // session mirrors the host's snapshots and predicts only its own egg (net/guest.js). Either way the
 // view reads players, objects and events from here.
-import { Match } from '../sim/match.js?v=muwqe2h8';
-import { NavGraph } from '../bots/nav.js?v=muwqe2h8';
-import { BotManager, BOT_NAMES } from '../bots/bot.js?v=muwqe2h8';
-import { getMap } from '../maps/index.js?v=muwqe2h8';
-import { TICK, PRIMARIES } from '../sim/tuning.js?v=muwqe2h8';
-import { Net, cleanName } from '../net/net.js?v=muwqe2h8';
-import { encodePlayer, ownState, rosterEntry, sendable, trimEvent } from '../net/protocol.js?v=muwqe2h8';
-import { sanitizeCosmetics, randomCosmetics } from './cosmetics.js?v=muwqe2h8';
+import { Match } from '../sim/match.js?v=muwqkdzr';
+import { NavGraph } from '../bots/nav.js?v=muwqkdzr';
+import { BotManager, BOT_NAMES } from '../bots/bot.js?v=muwqkdzr';
+import { getMap } from '../maps/index.js?v=muwqkdzr';
+import { TICK, PRIMARIES } from '../sim/tuning.js?v=muwqkdzr';
+import { Net, cleanName } from '../net/net.js?v=muwqkdzr';
+import { encodePlayer, ownState, rosterEntry, sendable, trimEvent } from '../net/protocol.js?v=muwqkdzr';
+import { sanitizeCosmetics, randomCosmetics } from './cosmetics.js?v=muwqkdzr';
 export { sanitizeCosmetics };
 
 const navCache = new Map();

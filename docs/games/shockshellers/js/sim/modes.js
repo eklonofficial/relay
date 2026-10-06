@@ -1,7 +1,7 @@
 // Game modes (GDD §14): Free For All, Teams, Spatula Snatch, Rule the Roost. Each mode answers the
 // match's questions (teams, spawns, scoring) and keeps its own objective state, which the HUD and the
 // network read through state().
-import { ROOST, SPATULA, PLAYER } from './tuning.js?v=muwqe2h8';
+import { ROOST, SPATULA, PLAYER } from './tuning.js?v=muwqkdzr';
 
 export const TEAM_NAMES = ['', 'Blue', 'Red'];
 
