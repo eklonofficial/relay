@@ -7,11 +7,11 @@
 // Bots drive the match through the same input struct as humans (control bits + yaw/pitch), so the
 // simulation holds them to identical movement, fire-rate, spread and damage rules. Difficulty only
 // changes human limits (reaction, aim error, turn speed, leading, decision noise), never knowledge.
-import { CTRL, WEAPONS, PLAYER, GRENADE, PRIMARIES, TICK } from '../sim/tuning.js?v=muwy3maj';
-import { currentSpread, weaponOf, slotOf } from '../sim/combat.js?v=muwy3maj';
-import { forward } from '../sim/movement.js?v=muwy3maj';
-import { STRATEGIES, strategyProfile, choose } from './strategies.js?v=muwy3maj';
-import { EDGE } from './nav.js?v=muwy3maj';
+import { CTRL, WEAPONS, PLAYER, GRENADE, PRIMARIES, TICK } from '../sim/tuning.js?v=muwzay2r';
+import { currentSpread, weaponOf, slotOf } from '../sim/combat.js?v=muwzay2r';
+import { forward } from '../sim/movement.js?v=muwzay2r';
+import { STRATEGIES, strategyProfile, choose } from './strategies.js?v=muwzay2r';
+import { EDGE } from './nav.js?v=muwzay2r';
 
 // Skill is a number from 0 (a first-time player) to 1 (a top player). Every trait is interpolated
 // between those two anchors; reaction time and aim error interpolate geometrically, since people are
@@ -45,6 +45,8 @@ export function traits(skill, rnd = Math.random, spread = 0.16) {
 }
 // Where each weapon likes to fight from (units).
 const RANGE = { yolk47: [4, 12], doubleYolker: [0, 4.5], cageFree: [10, 30], yolkzooka: [5, 16], beater: [0, 8], poacher: [14, 45], triBoil: [5, 14], peck9mm: [0, 10] };
+// Goals that mean playing the mode (moving onto a zone, a spatula, a carrier).
+const OBJECTIVE_GOALS = new Set(['zone', 'spatula', 'carry', 'hunt', 'escort']);
 
 // How each weapon is played. perch: hold exposed high ground with long sightlines; ambush: wait in cover
 // next to busy areas and flank through covered routes; hunt: chase last-known positions; avoidOpen:
@@ -255,7 +257,10 @@ export class Bot {
       // Most of the team plays the zone; a few guard the approaches.
       const role = (me.id * 2654435761 >>> 0) % 4;
       if (role !== 3 || st.owner !== me.team) {
-        if (st.inZone(me) && this.goal?.k === 'zone') return this.rnd() < 0.15 ? { k: 'zone', node: this.zoneNode(z) } : this.goal;
+        // Keep the spot already picked while it's in this zone (a new random spot every think had
+        // bots re-planning on the spot instead of climbing in); once there, shuffle around inside now and then.
+        const g = this.goal, kept = g?.k === 'zone' && this.nodeInZone(g.node, z);
+        if (kept && (!st.inZone(me) || this.rnd() >= 0.15)) return g;
         return { k: 'zone', node: this.zoneNode(z) };
       }
       return { k: 'roam', node: this.nodeNear(z.cx, z.cy, z.cz, 8) };
@@ -270,6 +275,7 @@ export class Bot {
     }
     return null;
   }
+  nodeInZone(id, z) { const n = id !== null && id !== undefined ? this.nav.nodes[id] : null; return !!n && n.x >= z.x0 && n.x <= z.x1 && n.z >= z.z0 && n.z <= z.z1; }
   zoneNode(z) {
     const ids = [];
     for (let x = Math.floor(z.x0); x < z.x1; x++) for (let zz = Math.floor(z.z0); zz < z.z1; zz++) { const id = this.nav.at(x, z.y0, zz, 0.8); if (id !== null) ids.push(id); }
@@ -478,7 +484,8 @@ export class Bot {
         // Strafe across their line of fire, changing direction at irregular intervals.
         if (--this.strafeT <= 0) { this.strafe = this.rnd() < 0.5 ? -1 : 1; this.strafeT = Math.round((0.18 + this.rnd() * 0.5) / TICK); }
         const f = forward(b.yaw), rx = -f[2], rz = f[0];
-        const k = this.goal?.k === 'hold' ? 1 : 0.7;
+        // (Holding still: all strafe. Pushing onto an objective: mostly forward, a little sideways.)
+        const gk = this.goal?.k, k = gk === 'hold' ? 1 : OBJECTIVE_GOALS.has(gk) && !this.arrived() ? 0.3 : 0.7;
         mx = mx * (1 - k) + rx * this.strafe * k; mz = mz * (1 - k) + rz * this.strafe * k;
       }
       this.standing = standing;

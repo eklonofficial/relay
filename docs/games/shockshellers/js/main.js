@@ -1,32 +1,32 @@
 // Shock Shellers: boot, menus, the match flow (home → respawn screen → play → death → respawn) and
 // the frame loop. The simulation runs at a fixed 30 Hz inside the session; rendering interpolates.
-import './page.js?v=muwy3maj';
-import { surfaceDocument as document } from './surface.js?v=muwy3maj';
-import { registerApp } from './veil.js?v=muwy3maj';
-import { tell } from './dialog.js?v=muwy3maj';
-import { splash } from './splash.js?v=muwy3maj';
-import * as THREE from '../vendor/three/three.module.js?v=muwy3maj';
-import { Renderer } from './render/renderer.js?v=muwy3maj';
-import { RELOAD_KIND } from './render/viewmodel.js?v=muwy3maj';
-import { EggAvatar } from './render/egg.js?v=muwy3maj';
-import { Recorder, planReplay, replayRate, projectileAt } from './game/replay.js?v=muwy3maj';
-import { aimAssist, assistOn } from './game/aim.js?v=muwy3maj';
-import { Input } from './game/input.js?v=muwy3maj';
-import { SOUND_FILES } from './game/soundbank.js?v=muwy3maj';
-import { Sound, registerSamples } from './game/audio.js?v=muwy3maj';
-import { Hud } from './game/hud.js?v=muwy3maj';
-import { loadSettings, saveSettings, loadProfile, saveProfile } from './game/store.js?v=muwy3maj';
-import { ensureDaily, progress as challengeProgress, claim as claimChallenges } from './game/challenges.js?v=muwy3maj';
-import { HostSession } from './game/session.js?v=muwy3maj';
-import { GuestSession } from './net/guest.js?v=muwy3maj';
-import { pickPublicMap, mapDef, MAPS } from './maps/index.js?v=muwy3maj';
-import { WEAPONS, PRIMARIES, PLAYER, MODE_NAMES, MODE_MENU, ECONOMY, CTRL, TICK, TICK_HZ } from './sim/tuning.js?v=muwy3maj';
-import { weaponOf, slotOf } from './sim/combat.js?v=muwy3maj';
-import { eyePoint } from './sim/movement.js?v=muwy3maj';
-import { drawLogo, drawHowTo } from './ui/art.js?v=muwy3maj';
-import { loadModels } from './render/models.js?v=muwy3maj';
-import { HIT } from './maps/grid.js?v=muwy3maj';
-import { Menus } from './ui/menus.js?v=muwy3maj';
+import './page.js?v=muwzay2r';
+import { surfaceDocument as document } from './surface.js?v=muwzay2r';
+import { registerApp } from './veil.js?v=muwzay2r';
+import { tell } from './dialog.js?v=muwzay2r';
+import { splash } from './splash.js?v=muwzay2r';
+import * as THREE from '../vendor/three/three.module.js?v=muwzay2r';
+import { Renderer } from './render/renderer.js?v=muwzay2r';
+import { RELOAD_KIND } from './render/viewmodel.js?v=muwzay2r';
+import { EggAvatar } from './render/egg.js?v=muwzay2r';
+import { Recorder, planReplay, replayRate, projectileAt } from './game/replay.js?v=muwzay2r';
+import { aimAssist, assistOn } from './game/aim.js?v=muwzay2r';
+import { Input } from './game/input.js?v=muwzay2r';
+import { SOUND_FILES } from './game/soundbank.js?v=muwzay2r';
+import { Sound, registerSamples } from './game/audio.js?v=muwzay2r';
+import { Hud } from './game/hud.js?v=muwzay2r';
+import { loadSettings, saveSettings, loadProfile, saveProfile } from './game/store.js?v=muwzay2r';
+import { ensureDaily, progress as challengeProgress, claim as claimChallenges } from './game/challenges.js?v=muwzay2r';
+import { HostSession } from './game/session.js?v=muwzay2r';
+import { GuestSession } from './net/guest.js?v=muwzay2r';
+import { pickPublicMap, mapDef, MAPS } from './maps/index.js?v=muwzay2r';
+import { WEAPONS, PRIMARIES, PLAYER, MODE_NAMES, MODE_MENU, ECONOMY, CTRL, TICK, TICK_HZ } from './sim/tuning.js?v=muwzay2r';
+import { weaponOf, slotOf } from './sim/combat.js?v=muwzay2r';
+import { eyePoint } from './sim/movement.js?v=muwzay2r';
+import { drawLogo, drawHowTo } from './ui/art.js?v=muwzay2r';
+import { loadModels } from './render/models.js?v=muwzay2r';
+import { HIT } from './maps/grid.js?v=muwzay2r';
+import { Menus } from './ui/menus.js?v=muwzay2r';
 
 const $ = id => document.getElementById(id);
 const show = (id, on = true) => { $(id).classList.toggle('hidden', !on); if (id === 'respawn') $('hud').classList.toggle('menu', on); };
@@ -36,8 +36,8 @@ const STEP_SOUND = { 0: [1, 1], 1: [0.82, 0.75], 2: [1.18, 1.1], 4: [0.78, 0.7],
 const ROOMS = { farm: [1.2, 0.28], town: [1.6, 0.34], temple: [2.3, 0.45], hills: [0.9, 0.2], quarry: [2.5, 0.42], arena: [1.8, 0.38], space: [3.2, 0.22] };
 // When each reload step sounds (fraction of the reload; true: only when reloading from empty).
 const RELOAD_STEPS = {
-  mag: [[0.18, 'magOut'], [0.68, 'magIn'], [0.8, 'rack', true]], pistol: [[0.18, 'magOut'], [0.68, 'magIn'], [0.78, 'rack', true]],
-  break: [[0.12, 'breakOpen'], [0.5, 'shellIn'], [0.8, 'rack']], bolt: [[0.17, 'boltUp'], [0.73, 'boltDown']], rocket: [[0.64, 'rocketIn']],
+  mag: [[0.16, 'magOut'], [0.66, 'magIn'], [0.84, 'rack', true]], pistol: [[0.16, 'magOut'], [0.66, 'magIn'], [0.79, 'rack', true]],
+  break: [[0.04, 'breakOpen'], [0.6, 'shellIn'], [0.78, 'rack']], bolt: [[0.16, 'boltUp'], [0.68, 'boltDown']], rocket: [[0.62, 'rocketIn']],
 };
 const LOAD_LINES = ['Cracking eggs…', 'Whisking servers…', 'Stacking teams…', 'Greasing the pan…', 'Counting chickens…', 'Hatching plans…'];
 

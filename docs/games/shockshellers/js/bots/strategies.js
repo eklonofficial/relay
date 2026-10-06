@@ -6,8 +6,8 @@
 //             shooting windows, 'always', 'never'), hop ('duel' | 'escape' | 'none'), scope
 // A bot weighs them with its own taste for each (a per-bot profile) and its skill: good players pick
 // what the situation calls for and switch at the right time; weaker ones lean on habits and misjudge.
-import { PLAYER, TICK } from '../sim/tuning.js?v=muwy3maj';
-import { EDGE } from './nav.js?v=muwy3maj';
+import { PLAYER, TICK } from '../sim/tuning.js?v=muwzay2r';
+import { EDGE } from './nav.js?v=muwzay2r';
 
 const T = (strafe, stand, hop, ads = false) => ({ strafe, stand, hop, ads });
 const FIGHT = T(true, 'counter', 'duel');
@@ -128,11 +128,21 @@ export const STRATEGIES = [
     enter: (b, c) => b.setGoal({ k: 'item', node: c.item.node }),
   },
   {
-    id: 'objective', idle: true, tactic: FIGHT,
+    // Play the mode: take and hold the roost, grab the spatula, run it, chase down whoever has it.
+    // Chosen in a fight too: the bot keeps moving onto the objective and shoots on the way, the way
+    // real players treat a zone or a carrier, instead of stopping to trade like a deathmatch.
+    id: 'objective', fight: true, idle: true, tactic: T(true, 'never', 'none'),
     affinity: { any: 1, poacher: 0.6, cageFree: 0.7 },
-    // How pressing the objective is: a free spatula, an enemy carrier or a zone to take pulls hard (as it
-    // does real players); escorting or guarding approaches less so.
-    fit: (b, c) => { const k = c.objective?.k; return !k ? 0 : k === 'zone' || k === 'spatula' || k === 'hunt' || k === 'carry' ? 1.3 : 0.8; },
+    // How pressing it is: a zone to take or stand in, a free spatula, an enemy carrier or carrying it
+    // ourselves pull hard; escorting or guarding the approaches less so. In a fight the objective still
+    // wins unless the enemy is right on top of us (then fight them first) or we're nearly dead.
+    fit: (b, c) => {
+      const k = c.objective?.k; if (!k) return 0;
+      const hot = k === 'zone' || k === 'spatula' || k === 'hunt' || k === 'carry';
+      if (!c.seeing) return hot ? 1.7 : 0.9;
+      if (!hot) return 0;
+      return (k === 'carry' ? 1.2 : c.dist < c.near * 0.8 ? 0.55 : 1.05) - (c.lowHp && c.losing && k !== 'carry' ? 0.5 : 0);
+    },
     enter: (b, c) => b.setGoal(c.objective),
     update: (b, c) => { if (c.objective && (c.objective.node !== b.goal?.node || b.arrived())) b.setGoal(c.objective); },
   },
@@ -141,7 +151,8 @@ export const STRATEGIES = [
 // Each bot's taste for each strategy: around 1, some far above (a favourite), some below.
 export function strategyProfile(rnd) {
   const g = () => { let s = 0; for (let i = 0; i < 4; i++) s += rnd(); return (s - 2) * 1.2; };
-  return Object.fromEntries(STRATEGIES.map(s => [s.id, Math.exp(g() * 0.5)]));
+  // (Everyone plays the mode: the taste for the objective only varies a little.)
+  return Object.fromEntries(STRATEGIES.map(s => { const v = Math.exp(g() * 0.5); return [s.id, s.id === 'objective' ? 0.9 + Math.min(0.4, Math.abs(v - 1) * 0.3) : v]; }));
 }
 
 // Pick the strategy for this moment. Skill sharpens judgement (fit counts for more, habits and noise

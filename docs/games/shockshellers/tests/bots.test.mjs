@@ -73,6 +73,41 @@ test('bots play the objective: they grab and score with the spatula', () => {
   assert.ok(st.s[0] + st.s[1] > 0 || r.m.mode.spat.carrier >= 0);
 });
 
+test('no map has a pit or loft bots can get into but not out of (stairs that end in a wall)', () => {
+  for (const def of MAPS) {
+    const nv = new NavGraph(getMap(def.id).grid), main = nv.nodes.filter(n => nv.comp[n.id] === nv.main);
+    // The biggest set of ground where every spot can reach every other (Kosaraju's strongly connected components).
+    const N = nv.nodes.length, rev = Array.from({ length: N }, () => []), order = [], seen = new Uint8Array(N);
+    for (const n of nv.nodes) for (const e of n.edges) rev[e.to].push(n.id);
+    for (let s = 0; s < N; s++) {
+      if (seen[s]) continue; seen[s] = 1; const st = [[s, 0]];
+      while (st.length) { const top = st[st.length - 1], es = nv.nodes[top[0]].edges; if (top[1] < es.length) { const t = es[top[1]++].to; if (!seen[t]) { seen[t] = 1; st.push([t, 0]); } } else { order.push(top[0]); st.pop(); } }
+    }
+    const comp = new Int32Array(N).fill(-1), size = [];
+    for (let i = order.length - 1; i >= 0; i--) {
+      const s = order[i]; if (comp[s] >= 0) continue; const c = size.length; size.push(0); comp[s] = c; const q = [s];
+      while (q.length) { const x = q.pop(); size[c]++; for (const t of rev[x]) if (comp[t] < 0) { comp[t] = c; q.push(t); } }
+    }
+    // A trap: ground reachable from the main area (on foot, by dropping, by a pad) that can't get back to it.
+    const big = size.indexOf(Math.max(...size)), q = nv.nodes.filter(n => comp[n.id] === big).map(n => n.id), got = new Set(q);
+    while (q.length) for (const e of nv.nodes[q.pop()].edges) if (!got.has(e.to)) { got.add(e.to); q.push(e.to); }
+    const traps = [...got].filter(id => comp[id] !== big);
+    assert.ok(traps.length <= main.length * 0.025, `${def.id}: ${traps.length} spots can be got into but not out of, e.g. ${traps.slice(0, 3).map(id => { const n = nv.nodes[id]; return `${n.x},${n.y.toFixed(1)},${n.z}`; }).join(' ')}`);
+  }
+});
+
+test('bots play the roost: they climb into the zone and hold it', () => {
+  const qmap = getMap('quarry'), qnav = new NavGraph(qmap.grid), m = new Match(qmap, { mode: 'roost', seed: 1 }), mgr = new BotManager(m, qnav, 7);
+  for (let i = 0; i < 8; i++) mgr.add(m.addPlayer({ id: i + 1, name: BOT_NAMES[i], bot: true, team: 1 + (i % 2) }), 0.5);
+  let inside = 0, samples = 0;
+  for (let t = 0; t < 30 * 90; t++) {
+    mgr.tick(); m.step(); mgr.events(m.events); m.events.length = 0;
+    if (t % 15 || m.mode.zone < 0) continue;
+    for (const p of m.players.values()) if (p.alive) { samples++; if (m.mode.inZone(p)) inside++; }
+  }
+  assert.ok(inside / samples > 0.12, `only ${(100 * inside / samples).toFixed(1)}% of bot time in the zone`);
+});
+
 test('hopping is situational: close fights only, never with a sniper, and not all the time', () => {
   const m = new Match(map, { mode: 'ffa', seed: 9 }), mgr = new BotManager(m, nav, 77);
   const kit = ['poacher', 'doubleYolker', 'cageFree', 'beater', 'yolk47', 'doubleYolker'];

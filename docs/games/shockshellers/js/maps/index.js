@@ -1,12 +1,12 @@
 // The map list (GDD §15.4). Each map module builds its grid on demand; builds are cached.
-import barnyard from './barnyard.js?v=muwy3maj';
-import yolkQuarry from './yolk-quarry.js?v=muwy3maj';
-import henHouse from './hen-house.js?v=muwy3maj';
-import sunnySide from './sunny-side.js?v=muwy3maj';
-import coopVille from './coop-ville.js?v=muwy3maj';
-import moonHatch from './moon-hatch.js?v=muwy3maj';
-import eggTemple from './egg-temple.js?v=muwy3maj';
-import omeletArena from './omelet-arena.js?v=muwy3maj';
+import barnyard from './barnyard.js?v=muwzay2r';
+import yolkQuarry from './yolk-quarry.js?v=muwzay2r';
+import henHouse from './hen-house.js?v=muwzay2r';
+import sunnySide from './sunny-side.js?v=muwzay2r';
+import coopVille from './coop-ville.js?v=muwzay2r';
+import moonHatch from './moon-hatch.js?v=muwzay2r';
+import eggTemple from './egg-temple.js?v=muwzay2r';
+import omeletArena from './omelet-arena.js?v=muwzay2r';
 
 export const MAPS = [
   { id: 'barnyard', name: 'Barnyard', build: barnyard, maxPlayers: 18, modes: ['ffa', 'teams', 'spatula', 'roost'], public: true },

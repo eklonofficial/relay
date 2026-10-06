@@ -2,7 +2,7 @@
 // sandy floor; stair cuts on every side link the terraces, tunnels bore through the terrace walls at
 // the diagonals for flanks, mine carts (crates), barrels and timber props give cover, and ladders
 // climb the tall faces. Long sightlines across the pit, close fights in the tunnels.
-import { Builder, MAT } from './dsl.js?v=muwy3maj';
+import { Builder, MAT } from './dsl.js?v=muwzay2r';
 
 export default function yolkQuarry() {
   const N = 32, c = (N - 1) / 2, b = new Builder(N, 12, N);
@@ -18,7 +18,7 @@ export default function yolkQuarry() {
   }
   b.quartered(b => {
     // Stairs up each terrace on the north axis (four ways with the symmetry), 3 wide.
-    b.stairs(14, 1, 9, 2, 2, 3, MAT.stone);             // pit → first terrace (rising towards -z)
+    b.stairs(14, 1, 10, 2, 2, 3, MAT.stone);            // pit → first terrace (rising towards -z, from the pit floor)
     b.stairs(14, 3, 6, 2, 2, 3, MAT.stone);             // first → second
     b.stairs(14, 5, 3, 2, 2, 3, MAT.stone);             // second → rim
     // A sunken cut from the pit up into the first terrace near the corner: a covered flank route.
