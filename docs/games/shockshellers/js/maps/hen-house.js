@@ -2,7 +2,7 @@
 // A two-storey hen house in a fenced yard: rooms and doorways downstairs, an open atrium in the middle
 // overlooked by the upper gallery, stairwells and ladders between floors, nesting-box rows for cover,
 // and windows to shoot through. Point-symmetric for team modes.
-import { Builder, MAT } from './dsl.js?v=muwzskxe';
+import { Builder, MAT } from './dsl.js?v=mux1bcsv';
 
 export default function henHouse() {
   const N = 26, b = new Builder(N, 10, N);
@@ -30,7 +30,7 @@ export default function henHouse() {
     for (let x = 8; x <= 17; x++) if (x < 11 || x > 14) b.put(x, 4, 8, 'fence', 0, MAT.wood);
     // Stairwell up to the gallery (rising along the wall) and a ladder in the corner room.
     b.stairs(19, 1, 10, 3, 2, 2, MAT.wood);          // rises towards -z, reaches the gallery at z 7
-    b.clear(19, 3, 8, 20, 3, 9);                      // headroom over the stairs
+    b.clear(19, 3, 9, 20, 3, 10);                     // the stairwell: headroom through the turned gallery above (not the top step)
     b.ladder(4, 1, 9, 3, 2, MAT.wood);
     // A tree and a cart in the yard.
     b.put(1, 1, 9, 'tree', 0, MAT.wood); b.put(24, 1, 6, 'barrel', 0, MAT.metal);

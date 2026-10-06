@@ -245,3 +245,12 @@ test('the match is deterministic for identical inputs', () => {
   };
   assert.deepEqual(runOnce(), runOnce());
 });
+
+test('Hen House: an egg walks up the stairwell to the gallery (headroom through the floor above)', async () => {
+  const { Match } = await load('sim/match.js'), { getMap } = await load('maps/index.js'), { CTRL } = await load('sim/tuning.js');
+  const m = new Match(getMap('henhouse'), { mode: 'ffa', seed: 1 }), p = m.addPlayer({ id: 1, name: 'A' });
+  for (let i = 0; i < 5; i++) m.step();
+  Object.assign(p.body, { x: 19.9, y: 1, z: 11.5, vx: 0, vy: 0, vz: 0 }); p.alive = true; p.spawnShield = 1e9;
+  for (let t = 0; t < 120; t++) { m.setInput(1, CTRL.up, 0, 0); m.step(); }
+  assert.ok(p.body.y >= 3.9 && p.body.z < 7, `stuck at ${p.body.x.toFixed(2)},${p.body.y.toFixed(2)},${p.body.z.toFixed(2)}`);
+});

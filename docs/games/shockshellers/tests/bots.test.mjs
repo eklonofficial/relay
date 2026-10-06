@@ -92,7 +92,7 @@ test('no map has a pit or loft bots can get into but not out of (stairs that end
     const big = size.indexOf(Math.max(...size)), q = nv.nodes.filter(n => comp[n.id] === big).map(n => n.id), got = new Set(q);
     while (q.length) for (const e of nv.nodes[q.pop()].edges) if (!got.has(e.to)) { got.add(e.to); q.push(e.to); }
     const traps = [...got].filter(id => comp[id] !== big);
-    assert.ok(traps.length <= main.length * 0.025, `${def.id}: ${traps.length} spots can be got into but not out of, e.g. ${traps.slice(0, 3).map(id => { const n = nv.nodes[id]; return `${n.x},${n.y.toFixed(1)},${n.z}`; }).join(' ')}`);
+    assert.equal(traps.length, 0, `${def.id}: ${traps.length} spots can be got into but not out of, e.g. ${traps.slice(0, 3).map(id => { const n = nv.nodes[id]; return `${n.x},${n.y.toFixed(1)},${n.z}`; }).join(' ')}`);
   }
 });
 

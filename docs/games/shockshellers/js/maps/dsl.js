@@ -1,8 +1,8 @@
 // A small vocabulary for writing maps by hand: fill volumes with pieces, add stairs, ladders and
 // metadata layers (spawns, items, roost zones, spatula spawns, the overview camera). Maps are code,
 // so symmetric layouts are written once and mirrored.
-import { MapGrid } from './grid.js?v=muwzskxe';
-import { PIECE } from './pieces.js?v=muwzskxe';
+import { MapGrid } from './grid.js?v=mux1bcsv';
+import { PIECE } from './pieces.js?v=mux1bcsv';
 
 // Material families (render/materials.js gives each one textures and colours).
 export const MAT = { stone: 0, grass: 1, wood: 2, brick: 3, sand: 4, metal: 5, dirt: 6, plaster: 7, roof: 8, darkStone: 9, snow: 10, panel: 11, crate: 12, hay: 13, moon: 14, gold: 15, leaf: 16, water: 17, red: 18, blue: 19 };
