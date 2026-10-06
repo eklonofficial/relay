@@ -8,9 +8,9 @@
 //   skipped on frames where nothing on it changed.
 // Page text is left for what is rare or needs the keyboard: chat, banners and toasts, the
 // objective bar, and the leaderboard on the respawn screen.
-import { surfaceDocument as document } from '../surface.js?v=muwq4fsj';
-import { WEAPONS, GRENADE, ROOST, STREAKS } from '../sim/tuning.js?v=muwq4fsj';
-import { currentSpread, weaponOf, slotOf } from '../sim/combat.js?v=muwq4fsj';
+import { surfaceDocument as document } from '../surface.js?v=muwq6u6m';
+import { WEAPONS, GRENADE, ROOST, STREAKS } from '../sim/tuning.js?v=muwq6u6m';
+import { currentSpread, weaponOf, slotOf } from '../sim/combat.js?v=muwq6u6m';
 
 const $ = id => document.getElementById(id);
 const POWER_NAMES = { hardBoiled: 'HARD BOILED!', shellBreaker: 'SHELL BREAKER!', restock: 'RESTOCK!', overheal: 'OVERHEAL!', doubleYolks: 'DOUBLE YOLKS!', quailEgg: 'QUAIL EGG!' };
@@ -53,9 +53,9 @@ export class Hud {
   died(killer, weapon, hp) { this.death = { killer, weapon, hp, t: 0 }; }
   set(id, key, value, fn) { if (this.cache[key] === value) return; this.cache[key] = value; fn($(id), value); }
   text(id, value) { this.set(id, id + ':t', value, (e, v) => { e.textContent = v; }); }
-  // Drawn at up to 1.5 device pixels per CSS pixel: sharp text without uploading a 4K image a frame.
+  // Drawn at the renderer's final-image sharpness (maxDpr, at most 1.5 device pixels per CSS pixel).
   resize() {
-    const d = Math.min(1.5, devicePixelRatio || 1), w = Math.max(1, Math.round(innerWidth * d)), h = Math.max(1, Math.round(innerHeight * d));
+    const d = Math.min(this.maxDpr || 1.5, devicePixelRatio || 1), w = Math.max(1, Math.round(innerWidth * d)), h = Math.max(1, Math.round(innerHeight * d));
     for (const c of [this.canvas, this.panel]) { c.width = w; c.height = h; }
     this.dpr = d; this.sig = ''; this.panelSig = ''; this.resized = true;
   }

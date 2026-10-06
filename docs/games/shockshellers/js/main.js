@@ -1,31 +1,31 @@
 // Shock Shellers: boot, menus, the match flow (home → respawn screen → play → death → respawn) and
 // the frame loop. The simulation runs at a fixed 30 Hz inside the session; rendering interpolates.
-import './page.js?v=muwq4fsj';
-import { surfaceDocument as document } from './surface.js?v=muwq4fsj';
-import { registerApp } from './veil.js?v=muwq4fsj';
-import { tell } from './dialog.js?v=muwq4fsj';
-import { splash } from './splash.js?v=muwq4fsj';
-import * as THREE from '../vendor/three/three.module.js?v=muwq4fsj';
-import { Renderer } from './render/renderer.js?v=muwq4fsj';
-import { RELOAD_KIND } from './render/viewmodel.js?v=muwq4fsj';
-import { EggAvatar } from './render/egg.js?v=muwq4fsj';
-import { aimAssist, assistOn } from './game/aim.js?v=muwq4fsj';
-import { Input } from './game/input.js?v=muwq4fsj';
-import { SOUND_FILES } from './game/soundbank.js?v=muwq4fsj';
-import { Sound, registerSamples } from './game/audio.js?v=muwq4fsj';
-import { Hud } from './game/hud.js?v=muwq4fsj';
-import { loadSettings, saveSettings, loadProfile, saveProfile } from './game/store.js?v=muwq4fsj';
-import { ensureDaily, progress as challengeProgress, claim as claimChallenges } from './game/challenges.js?v=muwq4fsj';
-import { HostSession } from './game/session.js?v=muwq4fsj';
-import { GuestSession } from './net/guest.js?v=muwq4fsj';
-import { pickPublicMap, mapDef, MAPS } from './maps/index.js?v=muwq4fsj';
-import { WEAPONS, PRIMARIES, PLAYER, MODE_NAMES, MODE_MENU, ECONOMY, CTRL, TICK, TICK_HZ } from './sim/tuning.js?v=muwq4fsj';
-import { weaponOf, slotOf } from './sim/combat.js?v=muwq4fsj';
-import { eyePoint } from './sim/movement.js?v=muwq4fsj';
-import { drawLogo, drawHowTo } from './ui/art.js?v=muwq4fsj';
-import { loadModels } from './render/models.js?v=muwq4fsj';
-import { HIT } from './maps/grid.js?v=muwq4fsj';
-import { Menus } from './ui/menus.js?v=muwq4fsj';
+import './page.js?v=muwq6u6m';
+import { surfaceDocument as document } from './surface.js?v=muwq6u6m';
+import { registerApp } from './veil.js?v=muwq6u6m';
+import { tell } from './dialog.js?v=muwq6u6m';
+import { splash } from './splash.js?v=muwq6u6m';
+import * as THREE from '../vendor/three/three.module.js?v=muwq6u6m';
+import { Renderer } from './render/renderer.js?v=muwq6u6m';
+import { RELOAD_KIND } from './render/viewmodel.js?v=muwq6u6m';
+import { EggAvatar } from './render/egg.js?v=muwq6u6m';
+import { aimAssist, assistOn } from './game/aim.js?v=muwq6u6m';
+import { Input } from './game/input.js?v=muwq6u6m';
+import { SOUND_FILES } from './game/soundbank.js?v=muwq6u6m';
+import { Sound, registerSamples } from './game/audio.js?v=muwq6u6m';
+import { Hud } from './game/hud.js?v=muwq6u6m';
+import { loadSettings, saveSettings, loadProfile, saveProfile } from './game/store.js?v=muwq6u6m';
+import { ensureDaily, progress as challengeProgress, claim as claimChallenges } from './game/challenges.js?v=muwq6u6m';
+import { HostSession } from './game/session.js?v=muwq6u6m';
+import { GuestSession } from './net/guest.js?v=muwq6u6m';
+import { pickPublicMap, mapDef, MAPS } from './maps/index.js?v=muwq6u6m';
+import { WEAPONS, PRIMARIES, PLAYER, MODE_NAMES, MODE_MENU, ECONOMY, CTRL, TICK, TICK_HZ } from './sim/tuning.js?v=muwq6u6m';
+import { weaponOf, slotOf } from './sim/combat.js?v=muwq6u6m';
+import { eyePoint } from './sim/movement.js?v=muwq6u6m';
+import { drawLogo, drawHowTo } from './ui/art.js?v=muwq6u6m';
+import { loadModels } from './render/models.js?v=muwq6u6m';
+import { HIT } from './maps/grid.js?v=muwq6u6m';
+import { Menus } from './ui/menus.js?v=muwq6u6m';
 
 const $ = id => document.getElementById(id);
 const show = (id, on = true) => { $(id).classList.toggle('hidden', !on); if (id === 'respawn') $('hud').classList.toggle('menu', on); };
@@ -67,7 +67,7 @@ class App {
   resize() {
     const u = Math.max(0.55, Math.min(1.4, Math.min(innerWidth / 1500, innerHeight / 860)));
     document.documentElement.style.setProperty('--u', u + 'px');
-    this.renderer.resize(); this.hud.u = u; this.hud.resize();
+    this.renderer.resize(); this.hud.u = u; this.hud.maxDpr = this.renderer.uiDpr; this.hud.resize();
   }
   async boot() {
     drawLogo($('logo-load')); drawLogo($('logo-home'));

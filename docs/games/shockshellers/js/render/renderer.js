@@ -13,16 +13,16 @@
 // map (the map never moves) instead of every frame, and eggs get a soft blob shadow instead; no
 // muzzle-flash or explosion lights and no sky reflections (each costs every pixel of every lit
 // surface); no bloom or multisampling; fewer particles.
-import * as THREE from '../../vendor/three/three.module.js?v=muwq4fsj';
-import { buildWorld } from './world.js?v=muwq4fsj';
-import { EggAvatar, TEAM_COLORS } from './egg.js?v=muwq4fsj';
-import { Effects } from './fx.js?v=muwq4fsj';
-import { ViewModel } from './viewmodel.js?v=muwq4fsj';
-import { gunModel } from './guns.js?v=muwq4fsj';
-import { Kit, kitMaterial } from './kit.js?v=muwq4fsj';
-import { clone, merged } from './models.js?v=muwq4fsj';
-import { noiseTexture, WIND } from './materials.js?v=muwq4fsj';
-import { Post } from './post.js?v=muwq4fsj';
+import * as THREE from '../../vendor/three/three.module.js?v=muwq6u6m';
+import { buildWorld } from './world.js?v=muwq6u6m';
+import { EggAvatar, TEAM_COLORS } from './egg.js?v=muwq6u6m';
+import { Effects } from './fx.js?v=muwq6u6m';
+import { ViewModel } from './viewmodel.js?v=muwq6u6m';
+import { gunModel } from './guns.js?v=muwq6u6m';
+import { Kit, kitMaterial } from './kit.js?v=muwq6u6m';
+import { clone, merged } from './models.js?v=muwq6u6m';
+import { noiseTexture, WIND } from './materials.js?v=muwq6u6m';
+import { Post } from './post.js?v=muwq6u6m';
 
 // Sky palettes: zenith, ground below the horizon, sun, cloud light and shade, cloud cover (0 = none).
 // The horizon colour is the map's fog colour, so distant walls melt into the sky.
@@ -174,7 +174,8 @@ export class Renderer {
     this.canvas = canvas;
     // No multisampling on the canvas itself: the 3D view is drawn into its own (multisampled where the
     // rung allows) target and the canvas only receives the finished image and the HUD.
-    this.gl = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance', preserveDrawingBuffer: false, stencil: false });
+    // (Opaque: the browser can put the frame on screen without blending it with the page behind.)
+    this.gl = new THREE.WebGLRenderer({ canvas, antialias: false, alpha: false, powerPreference: 'high-performance', preserveDrawingBuffer: false, stencil: false });
     this.gl.debug.checkShaderErrors = false;
     this.gl.outputColorSpace = THREE.SRGBColorSpace;
     this.gl.toneMapping = THREE.NeutralToneMapping; this.gl.toneMappingExposure = 1.05;
@@ -185,6 +186,9 @@ export class Renderer {
     let gpu = '';
     try { const ext = ctx.getExtension('WEBGL_debug_renderer_info'); gpu = ctx.getParameter(ext ? ext.UNMASKED_RENDERER_WEBGL : ctx.RENDERER); } catch { /* unknown GPU */ }
     this.gpuName = String(gpu || ''); this.tier = gpuTier(this.gpuName, navigator.userAgent);
+    // The final image and HUD: up to 1.5 device pixels per CSS pixel, 1.25 on Chromebook-class GPUs
+    // (their screens are often 2x, and every pixel of the last pass costs), 1 in software.
+    this.uiDpr = [1, 1.25, UI_DPR][this.tier];
     this.post = new Post(this.gl);
     // The HUD: a 2D canvas laid over the finished frame (premultiplied, so it blends exactly as the
     // page would have drawn it).
@@ -259,7 +263,7 @@ export class Renderer {
   resize() {
     const w = innerWidth, h = innerHeight, q = this.q || RUNGS[2], dev = devicePixelRatio || 1;
     // The canvas (final image and HUD) at the screen's own sharpness; the 3D view at the rung's.
-    const ui = Math.min(UI_DPR, dev), view = Math.min(q.dpr, dev) * this.dyn.res;
+    const ui = Math.min(this.uiDpr ?? UI_DPR, dev), view = Math.min(q.dpr, dev) * this.dyn.res;
     this.viewScale = Math.min(1, view / ui);
     if (this.post.supported) { this.gl.setPixelRatio(ui); this.post.scale = this.home ? 1 : this.viewScale; }
     else this.gl.setPixelRatio(view);

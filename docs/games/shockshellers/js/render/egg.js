@@ -5,13 +5,13 @@
 // Other eggs are drawn cheaply, since a full lobby puts eighteen of them on screen: the gun and both
 // mittens are one mesh, the hat is one mesh, and the shell has three levels of detail picked by
 // distance (lod()); far away, the gun and mittens are too small to see and aren't drawn at all.
-import * as THREE from '../../vendor/three/three.module.js?v=muwq4fsj';
-import { gunModel, heldGeometry, gunAnchors } from './guns.js?v=muwq4fsj';
-import { kitMaterial } from './kit.js?v=muwq4fsj';
-import { hatMesh } from './hats.js?v=muwq4fsj';
-import { merged } from './models.js?v=muwq4fsj';
-import { paintShell, paintCracks } from './shellart.js?v=muwq4fsj';
-import { COLORS, sanitizeCosmetics } from '../game/cosmetics.js?v=muwq4fsj';
+import * as THREE from '../../vendor/three/three.module.js?v=muwq6u6m';
+import { gunModel, heldGeometry, gunAnchors } from './guns.js?v=muwq6u6m';
+import { kitMaterial } from './kit.js?v=muwq6u6m';
+import { hatMesh } from './hats.js?v=muwq6u6m';
+import { merged } from './models.js?v=muwq6u6m';
+import { paintShell, paintCracks } from './shellart.js?v=muwq6u6m';
+import { COLORS, sanitizeCosmetics } from '../game/cosmetics.js?v=muwq6u6m';
 
 export const SHELL_COLORS = COLORS;
 export const TEAM_COLORS = [0xbbbbbb, 0x2f86e8, 0xe8473c];
@@ -19,7 +19,7 @@ export const TEAM_COLORS = [0xbbbbbb, 0x2f86e8, 0xe8473c];
 // Egg profile: 0.62 tall, 0.56 wide, a touch wider below the middle. u runs once around (the front,
 // -z, is u = 0.5), v is height over the egg's height (as the texture is painted).
 const H = 0.62, W = 0.28;
-const LODS = [[32, 22], [18, 12], [11, 8]], LOD_FAR = [9, 24], HELD_FAR = 30;
+const LODS = [[32, 22], [18, 12], [11, 8]], LOD_FAR = [9, 24], HELD_FAR = 30, TAG_FAR = 34;
 const shellGeos = [];
 export function shellGeometry(level = 0) {
   if (shellGeos[level]) return shellGeos[level];
@@ -155,6 +155,7 @@ export class EggAvatar {
     const level = this.local ? 0 : dist < LOD_FAR[0] ? 0 : dist < LOD_FAR[1] ? 1 : 2;
     if (level !== this.level) { this.level = level; this.shell.geometry = shellGeometry(level); }
     if (this.held) this.held.visible = dist < HELD_FAR;
+    if (this.tag) this.tag.visible = dist < TAG_FAR;   // (unreadable further out; one draw call each)
   }
   // Pose for this frame: position (feet), yaw, pitch, scale (Quail Egg), effects. vx/vz/vy (units per
   // second) give the egg some life: it leans into its run, stretches as it jumps and squashes on landing.
