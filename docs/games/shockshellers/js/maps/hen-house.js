@@ -2,7 +2,7 @@
 // A two-storey hen house in a fenced yard: rooms and doorways downstairs, an open atrium in the middle
 // overlooked by the upper gallery, stairwells and ladders between floors, nesting-box rows for cover,
 // and windows to shoot through. Point-symmetric for team modes.
-import { Builder, MAT } from './dsl.js?v=muwxhwrn';
+import { Builder, MAT } from './dsl.js?v=muwxo6oz';
 
 export default function henHouse() {
   const N = 26, b = new Builder(N, 10, N);

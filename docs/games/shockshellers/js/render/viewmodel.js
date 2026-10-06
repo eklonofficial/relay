@@ -10,9 +10,9 @@
 // Reloads are keyframed per kind of gun (magazine swap with the left mitten, break-open shotgun,
 // bolt-action round, rocket into the tube; a reload from empty adds the charging handle or slide).
 // Spent brass flies out of the ejection port; the muzzle flash is a star plus two crossed flames.
-import * as THREE from '../../vendor/three/three.module.js?v=muwxhwrn';
-import { gunModel, LOADED_ONLY } from './guns.js?v=muwxhwrn';
-import { clone } from './models.js?v=muwxhwrn';
+import * as THREE from '../../vendor/three/three.module.js?v=muwxo6oz';
+import { gunModel, LOADED_ONLY } from './guns.js?v=muwxo6oz';
+import { clone } from './models.js?v=muwxo6oz';
 
 // Hip hold per gun: where the grip anchor sits in camera space (metres). The bore is then turned to
 // meet the view axis CONVERGE metres out, so every gun points where the crosshair does.
@@ -120,7 +120,7 @@ export class ViewModel {
     this.root.add(this.casings); this.ci = 0;
     this.t = 0; this.weapon = null; this.flashT = 0; this.adsBlend = 0;
     // Springs: position (x, y, z) and rotation (pitch, yaw, roll) offsets on the hold, plus the camera punch.
-    this.sp = { x: new Spring(160), y: new Spring(140), z: new Spring(220, 0.9), rx: new Spring(200, 0.8), ry: new Spring(160), rz: new Spring(140), swap: new Spring(90, 0.85) };
+    this.sp = { x: new Spring(160), y: new Spring(140), z: new Spring(260, 0.6), rx: new Spring(230, 0.58), ry: new Spring(170, 0.75), rz: new Spring(150, 0.62), swap: new Spring(90, 0.85) };
     this.cam = { pitch: new Spring(260, 1), yaw: new Spring(260, 1), roll: new Spring(120, 1) };
     this.bobPhase = 0; this.bobAmt = 0; this.wasAir = false; this.lastVy = 0; this.throwT = -1; this.lastCharge = null;
     // The spent magazine that falls away during a reload (a copy of the gun's own), and scratch vectors.
@@ -169,15 +169,19 @@ export class ViewModel {
     this.hinge = u.hinge || null; this.bolt = u.bolt || null; this.boltHome = this.bolt ? this.bolt.position.clone() : null;
   }
   // A shot: recoil impulses (randomised a little per shot), the flash, a case out of the port.
+  // A shot. From the hip the gun bucks: it slams back, the muzzle snaps up and twists, and the springs
+  // overshoot as it settles. Aiming, it recoils almost straight back into the shoulder and the flash
+  // shrinks, so the sights (and whatever they're on) stay in view.
   fire(id) {
-    const r = RECOIL[id] || RECOIL.yolk47, ads = 1 - this.adsBlend * 0.55;
-    this.sp.z.v += r[0] * 60 * ads; this.sp.rx.v += r[1] * 55 * ads; this.sp.ry.v += rnd() * r[2] * 50; this.sp.rz.v += rnd() * r[3] * 50;
-    this.sp.y.v += r[0] * 8;
-    this.cam.pitch.v += r[4] * 60; this.cam.yaw.v += rnd() * r[4] * 18;
+    const r = RECOIL[id] || RECOIL.yolk47, a = this.adsBlend, twist = (Math.random() < 0.5 ? -1 : 1) * (0.5 + Math.random() * 0.5);
+    this.sp.z.v += r[0] * 62 * (1 - a * 0.35); this.sp.rx.v += r[1] * 58 * (1 - a * 0.8);
+    this.sp.ry.v += rnd() * r[2] * 50 * (1 - a * 0.7); this.sp.rz.v += twist * r[3] * 60 * (1 - a * 0.65);
+    this.sp.y.v += r[0] * 8 * (1 - a);
+    this.cam.pitch.v += r[4] * 60 * (1 - a * 0.5); this.cam.yaw.v += rnd() * r[4] * 18 * (1 - a * 0.6);
     this.flashT = id === 'yolkzooka' ? 0.075 : id === 'doubleYolker' ? 0.06 : 0.045;
-    const k = (FLASH[id] || 1) * (0.85 + Math.random() * 0.3);
-    this.flashStar.scale.setScalar(0.2 * k); this.flashStar.material.rotation = Math.random() * Math.PI;
-    this.flame.scale.set(0.32 * k, 0.22 * k, 0.32 * k); this.flame.rotation.z = Math.random() * Math.PI;
+    const k = (FLASH[id] || 1) * (0.85 + Math.random() * 0.3) * (1 - a * 0.7);
+    this.flashStar.scale.setScalar(0.2 * k); this.flashStar.material.rotation = Math.random() * Math.PI; this.flashStar.material.opacity = 1 - a * 0.45;
+    this.flame.scale.set(0.32 * k, 0.22 * k, 0.32 * k * (1 - a * 0.4)); this.flame.rotation.z = Math.random() * Math.PI;
     if (this.eject) this.spawnCase(this.eject, id === 'peck9mm' ? 0.75 : 1, 0xd9a441);
     this.slideK = 1;
   }

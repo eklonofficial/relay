@@ -1,31 +1,31 @@
 // Shock Shellers: boot, menus, the match flow (home → respawn screen → play → death → respawn) and
 // the frame loop. The simulation runs at a fixed 30 Hz inside the session; rendering interpolates.
-import './page.js?v=muwxhwrn';
-import { surfaceDocument as document } from './surface.js?v=muwxhwrn';
-import { registerApp } from './veil.js?v=muwxhwrn';
-import { tell } from './dialog.js?v=muwxhwrn';
-import { splash } from './splash.js?v=muwxhwrn';
-import * as THREE from '../vendor/three/three.module.js?v=muwxhwrn';
-import { Renderer } from './render/renderer.js?v=muwxhwrn';
-import { RELOAD_KIND } from './render/viewmodel.js?v=muwxhwrn';
-import { EggAvatar } from './render/egg.js?v=muwxhwrn';
-import { aimAssist, assistOn } from './game/aim.js?v=muwxhwrn';
-import { Input } from './game/input.js?v=muwxhwrn';
-import { SOUND_FILES } from './game/soundbank.js?v=muwxhwrn';
-import { Sound, registerSamples } from './game/audio.js?v=muwxhwrn';
-import { Hud } from './game/hud.js?v=muwxhwrn';
-import { loadSettings, saveSettings, loadProfile, saveProfile } from './game/store.js?v=muwxhwrn';
-import { ensureDaily, progress as challengeProgress, claim as claimChallenges } from './game/challenges.js?v=muwxhwrn';
-import { HostSession } from './game/session.js?v=muwxhwrn';
-import { GuestSession } from './net/guest.js?v=muwxhwrn';
-import { pickPublicMap, mapDef, MAPS } from './maps/index.js?v=muwxhwrn';
-import { WEAPONS, PRIMARIES, PLAYER, MODE_NAMES, MODE_MENU, ECONOMY, CTRL, TICK, TICK_HZ } from './sim/tuning.js?v=muwxhwrn';
-import { weaponOf, slotOf } from './sim/combat.js?v=muwxhwrn';
-import { eyePoint } from './sim/movement.js?v=muwxhwrn';
-import { drawLogo, drawHowTo } from './ui/art.js?v=muwxhwrn';
-import { loadModels } from './render/models.js?v=muwxhwrn';
-import { HIT } from './maps/grid.js?v=muwxhwrn';
-import { Menus } from './ui/menus.js?v=muwxhwrn';
+import './page.js?v=muwxo6oz';
+import { surfaceDocument as document } from './surface.js?v=muwxo6oz';
+import { registerApp } from './veil.js?v=muwxo6oz';
+import { tell } from './dialog.js?v=muwxo6oz';
+import { splash } from './splash.js?v=muwxo6oz';
+import * as THREE from '../vendor/three/three.module.js?v=muwxo6oz';
+import { Renderer } from './render/renderer.js?v=muwxo6oz';
+import { RELOAD_KIND } from './render/viewmodel.js?v=muwxo6oz';
+import { EggAvatar } from './render/egg.js?v=muwxo6oz';
+import { aimAssist, assistOn } from './game/aim.js?v=muwxo6oz';
+import { Input } from './game/input.js?v=muwxo6oz';
+import { SOUND_FILES } from './game/soundbank.js?v=muwxo6oz';
+import { Sound, registerSamples } from './game/audio.js?v=muwxo6oz';
+import { Hud } from './game/hud.js?v=muwxo6oz';
+import { loadSettings, saveSettings, loadProfile, saveProfile } from './game/store.js?v=muwxo6oz';
+import { ensureDaily, progress as challengeProgress, claim as claimChallenges } from './game/challenges.js?v=muwxo6oz';
+import { HostSession } from './game/session.js?v=muwxo6oz';
+import { GuestSession } from './net/guest.js?v=muwxo6oz';
+import { pickPublicMap, mapDef, MAPS } from './maps/index.js?v=muwxo6oz';
+import { WEAPONS, PRIMARIES, PLAYER, MODE_NAMES, MODE_MENU, ECONOMY, CTRL, TICK, TICK_HZ } from './sim/tuning.js?v=muwxo6oz';
+import { weaponOf, slotOf } from './sim/combat.js?v=muwxo6oz';
+import { eyePoint } from './sim/movement.js?v=muwxo6oz';
+import { drawLogo, drawHowTo } from './ui/art.js?v=muwxo6oz';
+import { loadModels } from './render/models.js?v=muwxo6oz';
+import { HIT } from './maps/grid.js?v=muwxo6oz';
+import { Menus } from './ui/menus.js?v=muwxo6oz';
 
 const $ = id => document.getElementById(id);
 const show = (id, on = true) => { $(id).classList.toggle('hidden', !on); if (id === 'respawn') $('hud').classList.toggle('menu', on); };
@@ -252,9 +252,11 @@ class App {
             if (w !== 'yolkzooka' && w !== 'doubleYolker') snd.play('mech', null, 0.8, w === 'peck9mm' ? 1.2 : 1);
             const sl = slotOf(me.hands), low = Math.max(1, Math.floor(WEAPONS[w].mag * 0.25));
             if (sl.mag <= low && WEAPONS[w].mag > 2) snd.play('lowAmmo', null, 0.8, 1 + (low - sl.mag) / low * 0.5);
-            if (this.settings.shake) this.shake = Math.min(1, this.shake + WEAPONS[w].recoil / 60);
-            // A heavy shot punches the field of view out for a moment.
-            this.kick = Math.min(1, (this.kick || 0) + Math.min(0.8, WEAPONS[w].recoil / 40));
+            // (Aiming keeps the view steady: little shake, no field-of-view punch.)
+            const aiming = me.hands.ads;
+            if (this.settings.shake) this.shake = Math.min(1, this.shake + WEAPONS[w].recoil / 60 * (aiming ? 0.25 : 1));
+            // A heavy shot from the hip punches the field of view out for a moment.
+            if (!aiming) this.kick = Math.min(1, (this.kick || 0) + Math.min(0.8, WEAPONS[w].recoil / 40));
             // Our own shot lights the walls around us for a frame or two, and leaves the barrel smoking.
             const c = this.cam, fx2 = -Math.sin(c.yaw) * Math.cos(c.pitch), fy = Math.sin(c.pitch), fz = -Math.cos(c.yaw) * Math.cos(c.pitch);
             fx.light(c.x + fx2 * 0.8, c.y + fy * 0.8 - 0.1, c.z + fz * 0.8, w === 'doubleYolker' || w === 'yolkzooka' ? 7 : 4);
@@ -408,7 +410,7 @@ class App {
       targets.push({ id: p.id, x: T[0], y: T[1], z: T[2], visible: () => m.grid.visible(cam.x, cam.y, cam.z, T[0], T[1], T[2]) });
     }
     const moving = inp.held('up') || inp.held('down') || inp.held('left') || inp.held('right') || inp.held('fire');
-    const r = aimAssist(this.aim, cam, targets, dt, { ads: me.hands.ads, active: moving || performance.now() - inp.lookAt < 150 });
+    const r = aimAssist(this.aim, cam, targets, dt, { ads: me.hands.ads, active: moving || performance.now() - inp.lookAt < 150, gun: slotOf(me.hands).id });
     inp.assist = r.slow; inp.yaw += r.dyaw; inp.pitch = Math.max(-1.5, Math.min(1.5, inp.pitch + r.dpitch));
   }
   // (Only in a match: the menus are cheap to draw and would talk Auto Detail into rungs a fight can't hold.)
