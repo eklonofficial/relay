@@ -1,18 +1,21 @@
 // Menus and modals (GDD §16–21): home, respawn/pause screen, settings (3 tabs), play with friends,
 // custom matches, profile, shop/inventory, how to play, chat. All markup lives in index.html inside
 // the compositor; this module wires it up and keeps it current.
-import { surfaceDocument as document } from '../surface.js?v=muwb4ktb';
-import * as THREE from '../../vendor/three/three.module.js?v=muwb4ktb';
-import { ask, tell } from '../dialog.js?v=muwb4ktb';
-import { gunModel } from '../render/guns.js?v=muwb4ktb';
-import { SHELL_COLORS } from '../render/egg.js?v=muwb4ktb';
-import { WEAPONS, PRIMARIES, MODE_NAMES, MODE_MENU, TICK } from '../sim/tuning.js?v=muwb4ktb';
-import { ACTIONS, ACTION_NAMES, keyLabel, DEFAULT_KEYS } from '../game/input.js?v=muwb4ktb';
-import { DEFAULT_SETTINGS, saveSettings, saveProfile } from '../game/store.js?v=muwb4ktb';
-import { ensureDaily, def as challengeDef, reroll, timeLeft } from '../game/challenges.js?v=muwb4ktb';
-import { MAPS, mapDef } from '../maps/index.js?v=muwb4ktb';
-import { drawHowTo } from './art.js?v=muwb4ktb';
-import { wakeRelays, diagnoseNetwork } from '../net/net.js?v=muwb4ktb';
+import { surfaceDocument as document } from '../surface.js?v=muwpta38';
+import * as THREE from '../../vendor/three/three.module.js?v=muwpta38';
+import { ask, tell } from '../dialog.js?v=muwpta38';
+import { gunModel } from '../render/guns.js?v=muwpta38';
+import { EggAvatar } from '../render/egg.js?v=muwpta38';
+import { hatMesh } from '../render/hats.js?v=muwpta38';
+import { previewShell } from '../render/shellart.js?v=muwpta38';
+import { COLORS, PATTERNS, STAMPS, HATS, SKINS, sanitizeCosmetics } from '../game/cosmetics.js?v=muwpta38';
+import { WEAPONS, PRIMARIES, MODE_NAMES, MODE_MENU, TICK } from '../sim/tuning.js?v=muwpta38';
+import { ACTIONS, ACTION_NAMES, keyLabel, DEFAULT_KEYS } from '../game/input.js?v=muwpta38';
+import { DEFAULT_SETTINGS, saveSettings, saveProfile } from '../game/store.js?v=muwpta38';
+import { ensureDaily, def as challengeDef, reroll, timeLeft } from '../game/challenges.js?v=muwpta38';
+import { MAPS, mapDef } from '../maps/index.js?v=muwpta38';
+import { drawHowTo } from './art.js?v=muwpta38';
+import { wakeRelays, diagnoseNetwork } from '../net/net.js?v=muwpta38';
 
 const $ = id => document.getElementById(id);
 const show = (id, on = true) => $(id).classList.toggle('hidden', !on);
@@ -25,10 +28,49 @@ const REROLL = '<path d="M20 12a8 8 0 1 1-2.3-5.7M20 4v5h-5" fill="none" stroke=
 const CLOCK = '<circle cx="12" cy="12" r="9" fill="none" stroke="#ffd23f" stroke-width="3"/><path d="M12 7v5l3 3" fill="none" stroke="#ffd23f" stroke-width="3" stroke-linecap="round"/>';
 const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; };
 
+// The shop's tabs (cosmetics.js): everything is free but a few hats.
+const swatches = () => COLORS.map((c, i) => ({ id: i, name: '', price: 0 }));
 export const SHOP = {
-  color: SHELL_COLORS.map((c, i) => ({ id: i, price: i < 7 ? 0 : 2500 + i * 500 })),
-  hat: [{ id: 'none', price: 0 }, { id: 'cap', price: 0 }, { id: 'beanie', price: 1500 }, { id: 'chef', price: 3000 }, { id: 'tophat', price: 6000 }, { id: 'crown', price: 25000 }],
+  color: swatches(), pattern: PATTERNS.map(x => ({ ...x, price: 0 })), pcolor: swatches(), stamp: STAMPS.map(x => ({ ...x, price: 0 })),
+  hat: HATS, skin: SKINS.map(x => ({ ...x, price: 0 })),
 };
+const SHOP_TABS = [['color', 'Colors'], ['pattern', 'Patterns'], ['pcolor', 'Pattern Color'], ['stamp', 'Stamps'], ['hat', 'Hats'], ['skin', 'Gun Skins']];
+const hex = c => '#' + c.toString(16).padStart(6, '0');
+// An image (2D canvas) as a data: URL (img-src allows data:/blob: only).
+const dataUrl = cv => cv.convertToBlob().then(b => new Promise(res => { const r = new FileReader(); r.onload = () => res(r.result); r.readAsDataURL(b); }));
+
+// Little lit 3D portraits for the shop (an egg in a look, an egg in a hat, a gun in a skin), rendered
+// once each into a small target and kept as images.
+class Portraits {
+  constructor(renderer) {
+    this.R = renderer; this.size = 160; this.cache = new Map();
+    this.rt = new THREE.WebGLRenderTarget(this.size, this.size, { samples: 4 }); this.rt.texture.colorSpace = THREE.SRGBColorSpace;
+    this.scene = new THREE.Scene(); this.scene.environment = renderer.skyEnvironment('day');
+    this.scene.add(new THREE.HemisphereLight(0xeaf6ff, 0x5a8aa0, 1.6));
+    const key = new THREE.DirectionalLight(0xfff4e6, 2.2); key.position.set(-2, 3, 3); this.scene.add(key);
+    const rim = new THREE.DirectionalLight(0xffe2b8, 1.4); rim.position.set(2.5, 2, -3); this.scene.add(rim);
+    this.camera = new THREE.PerspectiveCamera(30, 1, 0.05, 20);
+    this.pixels = new Uint8Array(this.size * this.size * 4);
+  }
+  // obj framed by its bounding box, seen from (dir), returned as a data: URL (cached by key).
+  shot(key, obj, dir = [0.55, 0.25, -1]) {
+    if (this.cache.has(key)) return this.cache.get(key);
+    const gl = this.R.gl, S = this.size;
+    this.scene.add(obj); obj.updateMatrixWorld(true);
+    const box = new THREE.Box3().setFromObject(obj), c = box.getCenter(new THREE.Vector3()), r = box.getSize(new THREE.Vector3()).length() / 2;
+    const d = new THREE.Vector3(...dir).normalize();
+    this.camera.position.copy(c).addScaledVector(d, r / Math.sin(this.camera.fov / 2 * Math.PI / 180) * 0.92); this.camera.lookAt(c);
+    const shadows = gl.shadowMap.enabled; gl.shadowMap.enabled = false;
+    gl.setRenderTarget(this.rt); gl.setClearColor(0x000000, 0); gl.clear(); gl.render(this.scene, this.camera);
+    gl.readRenderTargetPixels(this.rt, 0, 0, S, S, this.pixels);
+    gl.setRenderTarget(null); gl.setClearColor(0x000000, 1); gl.shadowMap.enabled = shadows;
+    this.scene.remove(obj);
+    const cv = new OffscreenCanvas(S, S), x = cv.getContext('2d'), img = x.createImageData(S, S);
+    for (let y = 0; y < S; y++) img.data.set(this.pixels.subarray((S - 1 - y) * S * 4, (S - y) * S * 4), y * S * 4);
+    x.putImageData(img, 0, 0);
+    const p = dataUrl(cv); this.cache.set(key, p); return p;
+  }
+}
 
 export class Menus {
   constructor(app) { this.app = app; this.icons = {}; this.customCfg = { mode: 'ffa', map: 'omelet', bots: 6, difficulty: 'normal', gravity: 1, damage: 1, regen: 1, disabled: [], locked: false, noTeamChange: false, noTeamShuffle: false, botChat: true }; }
@@ -250,10 +292,13 @@ export class Menus {
     mouse.append(this.slider('Mouse Speed', 1, 100, 1, () => s.mouseSpeed, v => { s.mouseSpeed = v; }));
     mouse.append(this.check('Invert Mouse', () => s.invertMouse, v => { s.invertMouse = v; }));
     mouse.append(this.check('Fix Mouse Glitch (raw input)', () => s.rawInput, v => { s.rawInput = v; }));
+    // Aim assist: Auto turns it on for Chromebook trackpads and gamepads.
+    mouse.append(this.chips('Aim Assist', [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']], () => s.aimAssist || 'auto', v => { s.aimAssist = v; }));
     const pad = $('set-pad'); pad.replaceChildren();
     pad.append(el('div', 'note', 'Standard gamepad: A jump · RT fire · LT aim · X reload · Y swap · RB grenade · B melee · sticks move and look.'));
     pad.append(this.slider('Stick Sensitivity', 1, 100, 1, () => s.padSpeed, v => { s.padSpeed = v; }));
     pad.append(this.check('Invert Stick', () => s.padInvert, v => { s.padInvert = v; }));
+    pad.append(this.chips('Aim Assist', [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']], () => s.aimAssist || 'auto', v => { s.aimAssist = v; }));
     const misc = $('set-misc'); misc.replaceChildren();
     misc.append(this.slider('Sound Effects', 0, 100, 1, () => s.volume, v => { s.volume = v; this.app.sound.setVolume(v); }));
     misc.append(this.slider('Field of View', 60, 100, 1, () => s.fov, v => { s.fov = v; }));
@@ -283,6 +328,12 @@ export class Menus {
     const at = e => { const r = sl.getBoundingClientRect(); const f = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)); set(Math.round((min + f * (max - min)) / step) * step); draw(); };
     sl.addEventListener('pointerdown', e => { at(e); const mv = ev => at(ev), up = () => { document.removeEventListener('pointermove', mv); document.removeEventListener('pointerup', up); }; document.addEventListener('pointermove', mv); document.addEventListener('pointerup', up); });
     draw(); return row;
+  }
+  chips(label, options, get, set) {
+    const row = el('div', 'opt'), chips = el('div', 'chips');
+    const pick = () => { for (const b of chips.children) b.classList.toggle('on', b.dataset.v === get()); };
+    for (const [v, text] of options) { const b = el('button', '', text); b.dataset.v = v; b.onclick = () => { set(v); pick(); }; chips.append(b); }
+    pick(); row.append(el('span', '', label), chips); return row;
   }
   check(label, get, set) {
     const row = el('label', 'opt'), box = el('input'); box.type = 'checkbox'; box.checked = !!get();
@@ -356,27 +407,56 @@ export class Menus {
     for (const m of MODE_MENU) row(`${MODE_NAMES[m]} kills`, s.byMode[m] || 0);
     show('profile'); this.app.input.exitLock();
   }
-  openShop(tab = 'color') {
-    const p = this.app.profile, tabs = $('sh-tabs'); tabs.replaceChildren();
-    for (const [k, label] of [['color', 'Shell Colors'], ['hat', 'Hats']]) { const b = el('button', k === tab ? 'on' : '', label); b.onclick = () => this.openShop(k); tabs.append(b); }
-    const grid = $('shop-grid'); grid.replaceChildren();
+  // The shop: a portrait of your egg as it looks now, tabs of cosmetics with previews of each.
+  openShop(tab = this.shopTab || 'color') {
+    this.shopTab = tab;
+    const app = this.app, p = app.profile, tabs = $('sh-tabs'); tabs.replaceChildren();
+    this.portraits ??= new Portraits(app.renderer);
+    for (const [k, label] of SHOP_TABS) { const b = el('button', k === tab ? 'on' : '', label); b.onclick = () => this.openShop(k); tabs.append(b); }
+    const look = sanitizeCosmetics(p.equip);
+    const grid = $('shop-grid'); grid.replaceChildren(); grid.className = 'tab-' + tab;
     for (const item of SHOP[tab]) {
-      const owned = item.price === 0 || p.owned.includes(tab + ':' + item.id), on = p.equip[tab] === item.id;
+      const price = item.price || 0, owned = price === 0 || p.owned.includes(tab + ':' + item.id), on = look[tab] === item.id;
       const card = el('button', 'item-card' + (on ? ' on' : ''));
-      if (tab === 'color') { const sw = el('div', 'sw'); sw.style.background = '#' + SHELL_COLORS[item.id].toString(16).padStart(6, '0'); card.append(sw); }
-      else card.append(el('div', 'h', item.id === 'none' ? '—' : item.id.toUpperCase()));
-      card.append(el('div', '', owned ? (on ? 'EQUIPPED' : 'OWNED') : `${item.price.toLocaleString()} yolks`));
+      if (tab === 'color' || tab === 'pcolor') { const sw = el('div', 'sw'); sw.style.background = hex(COLORS[item.id]); card.append(sw); }
+      else {
+        const img = el('img'); img.alt = ''; card.append(img);
+        this.preview(tab, item.id, look).then(src => { if (src) img.src = src; });
+      }
+      if (item.name) card.append(el('div', 'nm', item.name));
+      if (!owned || on) card.append(el('div', 'st', owned ? 'EQUIPPED' : `${price.toLocaleString()} yolks`));
       card.onclick = async () => {
         if (!owned) {
-          if (p.coins < item.price) { tell('Not enough Golden Yolks yet. Kills and challenges earn more.'); return; }
-          if (!(await ask(`Buy this for ${item.price.toLocaleString()} Golden Yolks?`))) return;
-          p.coins -= item.price; p.owned.push(tab + ':' + item.id); this.app.sound.play('powerup');
+          if (p.coins < price) { tell('Not enough Golden Yolks yet. Kills and challenges earn more.'); return; }
+          if (!(await ask(`Buy this for ${price.toLocaleString()} Golden Yolks?`))) return;
+          p.coins -= price; p.owned.push(tab + ':' + item.id); app.sound.play('powerup');
         }
-        p.equip[tab] = item.id; saveProfile(p); this.openShop(tab); this.app.refreshHomeEgg();
+        p.equip[tab] = item.id; saveProfile(p); app.sound.play('click'); this.openShop(tab); app.refreshHomeEgg();
       };
       grid.append(card);
     }
+    // Your egg as it looks now.
+    const egg = new EggAvatar({ look, weapon: p.primary, local: true });
+    egg.pose(0, 0, 0, 0.35, 0, {});
+    const shell = $('sh-egg');
+    this.portraits.shot('egg:' + JSON.stringify(look) + p.primary, egg.group, [0.35, 0.25, -1]).then(src => { shell.src = src; egg.dispose(); });
     $('sh-coins').textContent = p.coins.toLocaleString();
-    show('shop'); this.app.input.exitLock();
+    show('shop'); app.input.exitLock();
+  }
+  // A card's picture: a flat shell for patterns and stamps, an egg in the hat, the gun in the skin.
+  preview(tab, id, look) {
+    if (tab === 'pattern' || tab === 'stamp') {
+      const l = { color: COLORS[look.color], pcolor: COLORS[look.pcolor], pattern: tab === 'pattern' ? id : look.pattern, stamp: tab === 'stamp' ? id : 'none' };
+      const key = JSON.stringify(l); this.flat ??= new Map();
+      if (!this.flat.has(key)) { const cv = new OffscreenCanvas(96, 112); previewShell(cv.getContext('2d'), 96, 112, l); this.flat.set(key, dataUrl(cv)); }
+      return this.flat.get(key);
+    }
+    if (tab === 'hat') {
+      const g = new THREE.Group(), egg = new EggAvatar({ look: { color: look.color }, weapon: 'peck9mm', local: true });
+      egg.arms.visible = false; g.add(egg.group); const h = hatMesh(id); if (h) { h.position.y = 0.58; egg.body.add(h); }
+      return this.portraits.shot(`hat:${id}:${look.color}`, g, [0.45, 0.35, -1]).then(src => { egg.dispose(); return src; });
+    }
+    if (tab === 'skin') return this.portraits.shot(`skin:${id}:${this.app.profile.primary}`, gunModel(this.app.profile.primary, false, id), [1, 0.25, -0.15]);
+    return Promise.resolve(null);
   }
 }

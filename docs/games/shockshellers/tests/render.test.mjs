@@ -1,10 +1,11 @@
-// Rendering logic that doesn't need a GPU: the Auto Detail ladder, the quality rungs, the aim pose
+// Rendering logic that doesn't need a GPU: the Auto Detail ladder, the quality rungs, dynamic
+// resolution, the GPU tiers that pick the starting rung, the aim pose
 // (iron sights on the eye line) and the hip pose (the bore meeting the crosshair), and the springs
 // that move the first-person gun.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { load } from './load.mjs';
-const { adaptRung, RUNGS, QUALITY_RUNG } = await load('render/renderer.js');
+const { adaptRung, adaptScale, gpuTier, RUNGS, QUALITY_RUNG, UI_DPR } = await load('render/renderer.js');
 const { sightOnAxis, convergeAngles, Spring } = await load('render/viewmodel.js');
 
 const feed = (st, fps, n) => { for (let i = 0; i < n; i++) adaptRung(st, fps); return st.rung; };
@@ -30,14 +31,39 @@ test('Auto Detail climbs after five seconds at 60, but never back above a rung i
   assert.equal(feed(fixed, 60, 100), 0, 'a fixed choice never climbs');
 });
 
-test('quality rungs: Low draws straight to the canvas, nothing renders above 1.5 pixels per CSS pixel', () => {
-  assert.equal(RUNGS[QUALITY_RUNG.low].post, false);
-  assert.ok(RUNGS[QUALITY_RUNG.medium].post && RUNGS[QUALITY_RUNG.high].post);
+test('quality rungs: each costs at least the one below; Low drops bloom, MSAA, extra lights and reflections; nothing above 1.5 pixels per CSS pixel', () => {
+  const low = RUNGS[QUALITY_RUNG.low];
+  assert.ok(low.levels === 0 && low.samples === 0 && !low.lights && !low.env && !low.live);
+  assert.ok(RUNGS[QUALITY_RUNG.medium].levels > 0 && RUNGS[QUALITY_RUNG.high].levels > 0);
   for (let i = 1; i < RUNGS.length; i++) {
     const a = RUNGS[i - 1], b = RUNGS[i];
-    assert.ok(b.dpr * b.scale >= a.dpr * a.scale && b.levels >= a.levels && b.shadow >= a.shadow, `${b.name} is no cheaper than ${a.name}`);
+    assert.ok(b.dpr * b.scale >= a.dpr * a.scale && b.minScale >= a.minScale && b.levels >= a.levels && b.shadow >= a.shadow && b.samples >= a.samples, `${b.name} is no cheaper than ${a.name}`);
   }
-  for (const r of RUNGS) assert.ok(r.dpr <= 1.5 && r.scale <= 1, r.name);
+  for (const r of RUNGS) assert.ok(r.dpr <= 1.5 && r.scale <= 1 && r.minScale > 0 && r.minScale <= r.scale, r.name);
+  assert.ok(UI_DPR <= 1.5);
+});
+
+test('dynamic resolution: 10% down after a second under 50 fps, 5% up after four seconds at 58, within the rung', () => {
+  const st = { res: 1, min: 0.6, max: 1, slow: 0, fast: 0 };
+  assert.equal(adaptScale(st, 40), false, 'one slow sample is not enough');
+  assert.equal(adaptScale(st, 40), true); assert.equal(st.res, 0.9);
+  assert.equal(adaptScale(st, 55), false); assert.equal(adaptScale(st, 40), false, 'a middling sample resets the count');
+  for (let i = 0; i < 20; i++) adaptScale(st, 20);
+  assert.equal(st.res, 0.6, 'never below the rung floor');
+  for (let i = 0; i < 7; i++) assert.equal(adaptScale(st, 60), false);
+  assert.equal(adaptScale(st, 60), true); assert.equal(st.res, 0.65);
+  for (let i = 0; i < 200; i++) adaptScale(st, 60);
+  assert.equal(st.res, 1, 'never above the rung ceiling');
+});
+
+test('GPU tiers: software rendering and Chromebook / phone-class GPUs start low', () => {
+  assert.equal(gpuTier('ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)'), 0);
+  assert.equal(gpuTier('llvmpipe (LLVM 15.0.7, 256 bits)'), 0);
+  assert.equal(gpuTier('ANGLE (Intel, Mesa Intel(R) UHD Graphics 600 (GLK 2), OpenGL ES 3.2)'), 1);
+  assert.equal(gpuTier('ANGLE (ARM, Mali-G72, OpenGL ES 3.2)'), 1);
+  assert.equal(gpuTier('ANGLE (NVIDIA, NVIDIA GeForce RTX 3060 Direct3D11 vs_5_0 ps_5_0, D3D11)'), 2);
+  assert.equal(gpuTier('ANGLE (NVIDIA, NVIDIA GeForce RTX 3060 Direct3D11 vs_5_0 ps_5_0, D3D11)', 'Mozilla/5.0 (X11; CrOS x86_64 14541.0.0) AppleWebKit/537.36'), 1, 'any Chromebook');
+  assert.equal(gpuTier(''), 2, 'unknown: start in the middle and adapt');
 });
 
 test('aiming puts the sight anchor exactly on the eye line, at the eye relief', () => {

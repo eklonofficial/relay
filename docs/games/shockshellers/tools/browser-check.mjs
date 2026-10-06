@@ -133,11 +133,12 @@ try {
   } });
   await page.waitForFunction(b => window.testRoot.getElementById('debug').textContent.match(/Facing: (\d+)/)?.[1] !== b, beforeLook, { timeout: 15000, polling: 100 }).catch(() => {});
   assert.notEqual(await facing(), beforeLook, 'locked pointer input must turn the camera');
-  // Firing spends rounds: the HUD's magazine count drops (the Beater was picked above).
-  const ammo = async () => Number((await text('ammo-n')).split('/')[0]);
+  // Firing spends rounds: the magazine count drops (the Beater was picked above). The HUD draws it
+  // inside the 3D canvas, so the check reads it from the F3 overlay.
+  const ammo = async () => Number((await text('debug')).match(/Ammo: (\d+)\//)[1]);
   const fullMag = await ammo();
   await page.mouse.down(); await page.waitForTimeout(700); await page.mouse.up();
-  await page.waitForFunction(n => Number(window.testRoot.getElementById('ammo-n').textContent.split('/')[0]) < n, fullMag, { timeout: 15000, polling: 100 });
+  await page.waitForFunction(n => Number(window.testRoot.getElementById('debug').textContent.match(/Ammo: (\d+)\//)?.[1]) < n, fullMag, { timeout: 15000, polling: 100 });
   await page.screenshot({ path: resolve(captures, 'play.png') });
   // Chat: Enter opens it, typed text stays in the closed tree, Enter sends.
   await page.keyboard.press('Enter');

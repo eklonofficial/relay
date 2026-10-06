@@ -10,9 +10,9 @@
 // Reloads are keyframed per kind of gun (magazine swap with the left mitten, break-open shotgun,
 // bolt-action round, rocket into the tube; a reload from empty adds the charging handle or slide).
 // Spent brass flies out of the ejection port; the muzzle flash is a star plus two crossed flames.
-import * as THREE from '../../vendor/three/three.module.js?v=muwb4ktb';
-import { gunModel } from './guns.js?v=muwb4ktb';
-import { clone } from './models.js?v=muwb4ktb';
+import * as THREE from '../../vendor/three/three.module.js?v=muwpta38';
+import { gunModel, LOADED_ONLY } from './guns.js?v=muwpta38';
+import { clone } from './models.js?v=muwpta38';
 
 // Hip hold per gun: where the grip anchor sits in camera space (metres). The bore is then turned to
 // meet the view axis CONVERGE metres out, so every gun points where the crosshair does.
@@ -29,15 +29,9 @@ const RECOIL = {
   peck9mm: [0.03, 0.13, 0.02, 0.05, 0.005], cageFree: [0.05, 0.1, 0.015, 0.03, 0.009], poacher: [0.085, 0.17, 0.02, 0.06, 0.016],
   doubleYolker: [0.095, 0.22, 0.03, 0.07, 0.016], yolkzooka: [0.11, 0.12, 0.02, 0.04, 0.016],
 };
-// Ejection port (gun space) and what comes out of it; empty for guns that don't eject on firing.
-const EJECT = {
-  yolk47: [0.032, 0.035, -0.06], beater: [0.036, 0.04, 0.12], triBoil: [0.032, 0.04, -0.08], cageFree: [0.03, 0.035, -0.06], peck9mm: [0.018, 0.035, -0.02],
-};
 const FLASH = { doubleYolker: 1.6, yolkzooka: 1.8, poacher: 1.35, cageFree: 1.15, yolk47: 1, triBoil: 1, beater: 0.8, peck9mm: 0.75 };
-// Parts that only exist while loading (shotgun shells, the sniper round, the rocket).
-const LOADED_ONLY = new Set(['doubleYolker', 'poacher', 'yolkzooka']);
 // How each gun reloads.
-const RELOAD_KIND = { yolk47: 'mag', beater: 'mag', triBoil: 'mag', cageFree: 'mag', peck9mm: 'pistol', doubleYolker: 'break', poacher: 'bolt', yolkzooka: 'rocket' };
+export const RELOAD_KIND = { yolk47: 'mag', beater: 'mag', triBoil: 'mag', cageFree: 'mag', peck9mm: 'pistol', doubleYolker: 'break', poacher: 'bolt', yolkzooka: 'rocket' };
 
 // Keyframe helpers: progress of f through [a,b] (clamped), smoothed; a bump that rises and falls in [a,b].
 const ss = t => t <= 0 ? 0 : t >= 1 ? 1 : t * t * (3 - 2 * t);
@@ -139,11 +133,11 @@ export class ViewModel {
     const g = new THREE.SphereGeometry(0.05, 18, 14); g.scale(1, 0.85, 1.25);
     return new THREE.Mesh(g, this.gloveMat);
   }
-  setWeapon(id) {
-    if (this.weapon === id) return;
-    this.weapon = id;
+  setWeapon(id, skin = 'factory') {
+    if (this.weapon === id && this.skin === skin) return;
+    this.weapon = id; this.skin = skin;
     if (this.gun) this.hold.remove(this.gun);
-    this.gun = gunModel(id); this.hold.add(this.gun);
+    this.gun = gunModel(id, false, skin); this.hold.add(this.gun);
     this.gun.traverse(o => { if (o.isMesh) { o.castShadow = false; o.receiveShadow = false; o.frustumCulled = false; } });
     const u = this.gun.userData;
     const grip = u.grip || V(0, -0.07, 0), support = u.support || V(0, -0.03, -0.25);
@@ -168,7 +162,11 @@ export class ViewModel {
     if (this.mag && LOADED_ONLY.has(id)) this.mag.visible = false;
     this.flash.position.copy(u.muzzle);
     this.flashLight.position.copy(u.muzzle).add(V(0, 0.02, 0.05));
-    this.eject = EJECT[id] ? V(...EJECT[id]) : null;
+    this.eject = u.eject ? u.eject.clone() : null;
+    // Moving parts: the slide or charging handle (kicks back with each shot), the shotgun's barrels
+    // (break open to load), the sniper's bolt.
+    this.slide = u.slide || null; this.slideHome = this.slide ? this.slide.position.clone() : null; this.slideTravel = u.slideTravel || 0; this.slideK = 0;
+    this.hinge = u.hinge || null; this.bolt = u.bolt || null; this.boltHome = this.bolt ? this.bolt.position.clone() : null;
   }
   // A shot: recoil impulses (randomised a little per shot), the flash, a case out of the port.
   fire(id) {
@@ -181,6 +179,7 @@ export class ViewModel {
     this.flashStar.scale.setScalar(0.2 * k); this.flashStar.material.rotation = Math.random() * Math.PI;
     this.flame.scale.set(0.32 * k, 0.22 * k, 0.32 * k); this.flame.rotation.z = Math.random() * Math.PI;
     if (this.eject) this.spawnCase(this.eject, id === 'peck9mm' ? 0.75 : 1, 0xd9a441);
+    this.slideK = 1;
   }
   // A case from a gun-space point, flung right, up and a little back, spinning.
   spawnCase(at, size, color, spread = 1) {
@@ -209,12 +208,13 @@ export class ViewModel {
   // One reload frame at progress f (0..1 of the real reload time): the gun's pose offset, where the
   // left mitten is, and what the magazine/shells/round/rocket are doing.
   reloadPose(f, long) {
-    const kind = RELOAD_KIND[this.weapon] || 'mag', o = { x: 0, y: 0, z: 0, rx: 0, ry: 0, rz: 0, hand: null };
+    const kind = RELOAD_KIND[this.weapon] || 'mag', o = { x: 0, y: 0, z: 0, rx: 0, ry: 0, rz: 0, hand: null, slide: null, hinge: 0, boltUp: 0, boltBack: 0 };
     this.tmpInv = this.tmpInv || new THREE.Matrix4();
     const rest = this.gloveLRest, magHome = this.magHome;
     const below = V(-0.06, -0.32, 0.06);                      // off the bottom of the screen (fetching)
     if (f < this.lastReloadF - 0.5) { this.dropT = -1; this.ejected = false; }   // a new reload began
     if (kind === 'mag' || kind === 'pistol') {
+      if (kind === 'pistol' && long && f < 0.76) o.slide = 1;   // locked back until it's racked
       // Tilt the gun to show the magazine well; ease back at the end.
       const tilt = seg(f, 0, 0.14) * (1 - seg(f, long ? 0.9 : 0.86, 1));
       // Bring it up and in, turned and rolled so the well (and the mitten working it) is in view.
@@ -242,12 +242,13 @@ export class ViewModel {
       } else if (long && kind === 'pistol' && f < end) {        // empty pistol: rack the slide (a sharp kick back)
         if (this.mag) this.mag.position.copy(magHome);
         o.hand = grab.clone(); o.z += bump(f, 0.74, 0.82) * 0.03; o.rx += bump(f, 0.74, 0.8) * 0.15;
+        o.slide = 1 - seg(f, 0.76, 0.8);
       } else if (long && f < end) {                             // empty: work the charging handle
         if (this.mag) this.mag.position.copy(magHome);
         const side = this.toHold(this.handlePoint(), V(0, 0, 0));
         const pull = bump(f, 0.76, 0.84);
         o.hand = lerp3(V(0, 0, 0), grab, side, seg(f, 0.72, 0.76)).add(V(0, 0, 0.05 * pull));
-        o.z += pull * 0.012; o.rx -= bump(f, 0.82, 0.86) * 0.06;
+        o.z += pull * 0.012; o.rx -= bump(f, 0.82, 0.86) * 0.06; o.slide = pull;
       } else {                                                  // back to the support hand
         if (this.mag) this.mag.position.copy(magHome);
         o.hand = lerp3(V(0, 0, 0), long && kind !== 'pistol' ? this.toHold(this.handlePoint(), V(0, 0, 0)) : grab, rest, seg(f, long ? end : 0.72, long ? 0.95 : 0.85));
@@ -255,7 +256,7 @@ export class ViewModel {
     } else if (kind === 'break') {
       // Break it open (muzzle drops), the spent hulls kick out, push two shells into the breech, snap
       // it shut with a flick.
-      const open = seg(f, 0, 0.16) * (1 - seg(f, 0.76, 0.84));
+      const open = seg(f, 0, 0.16) * (1 - seg(f, 0.76, 0.84)); o.hinge = open;
       // (raised and turned in so the open breech faces you)
       o.rx = -open * 0.3; o.rz = -open * 0.4; o.ry = open * 0.28; o.y = open * 0.05 + bump(f, 0.8, 0.92) * 0.02; o.x = -open * 0.06; o.rx += bump(f, 0.8, 0.9) * 0.14;
       if (f > 0.14 && !this.ejected) { this.ejected = true; const b = this.mag ? magHome : V(0, 0.03, -0.02); for (const dx of [-0.024, 0.024]) this.spawnCase(V(b.x + dx, b.y, b.z + 0.04), 2.2, 0xc8342a, 0.8); }
@@ -269,6 +270,7 @@ export class ViewModel {
       const roll = seg(f, 0, 0.15) * (1 - seg(f, 0.85, 1));
       o.rz = -roll * 0.55; o.rx = roll * 0.1; o.ry = roll * 0.25; o.y = roll * 0.05; o.x = -roll * 0.06;
       o.z += bump(f, 0.15, 0.3) * 0.02 - bump(f, 0.7, 0.82) * 0.02;
+      o.boltUp = seg(f, 0.15, 0.2) * (1 - seg(f, 0.74, 0.8)); o.boltBack = seg(f, 0.2, 0.27) * (1 - seg(f, 0.66, 0.73));
       if (f > 0.24 && !this.ejected) { this.ejected = true; this.spawnCase(V(0.03, 0.05, 0.0), 1.5, 0xd9a441); }
       const port = this.toHold(this.mag ? magHome : V(0, 0.02, 0.05), V(0, 0, 0));
       if (f < 0.35) o.hand = lerp3(V(0, 0, 0), rest, port.clone().add(below), seg(f, 0.1, 0.33));
@@ -322,14 +324,25 @@ export class ViewModel {
     const rx0 = this.sp.rx.step(-swy * 3 + brx * 0.3, dt), ry0 = this.sp.ry.step(swx * 4, dt), rz0 = this.sp.rz.step(-lean * 0.09 + swx * 3, dt);
     let x = p.x + bx + px, y = p.y + by + py + bry, z = p.z + pz;
     let rx = this.hipRot.x * (1 - a) + rx0, ry = this.hipRot.y * (1 - a) + ry0, rz = broll + rz0;
-    let hand = null; // where the left mitten goes this frame (hold space), if it leaves its rest
+    let hand = null, R = null; // where the left mitten goes this frame (hold space), if it leaves its rest
     if (s.reload) {
-      const R = this.reloadPose(Math.min(1, Math.max(0, s.reload.f)), s.reload.long);
+      R = this.reloadPose(Math.min(1, Math.max(0, s.reload.f)), s.reload.long);
       x += R.x; y += R.y; z += R.z; rx += R.rx; ry += R.ry; rz += R.rz; hand = R.hand;
     } else {
       if (this.mag) { this.mag.position.copy(this.magHome); this.mag.visible = !LOADED_ONLY.has(this.weapon); }
       this.lastReloadF = 1;
     }
+    // Moving parts: the slide snaps back with a shot and eases home (an empty pistol's stays locked
+    // back), the shotgun breaks open, the bolt lifts and draws back.
+    this.slideK = Math.max(0, this.slideK - dt * 16);
+    if (this.slide) {
+      let k = this.slideK > 0.75 ? (1 - this.slideK) / 0.25 : this.slideK / 0.75;
+      if (R && R.slide !== null) k = R.slide;
+      else if (s.empty && !R && this.weapon === 'peck9mm') k = 1;
+      this.slide.position.copy(this.slideHome); this.slide.position.z += this.slideTravel * k;
+    }
+    if (this.hinge) this.hinge.rotation.x = -(R ? R.hinge : 0) * 0.55;
+    if (this.bolt) { this.bolt.rotation.z = (R ? R.boltUp : 0) * 1.1; this.bolt.position.copy(this.boltHome); this.bolt.position.z += (R ? R.boltBack : 0) * 0.07; }
     // Swap: stow down and out to the right, the next gun rises with a little settle.
     const sw = this.sp.swap.step(s.swap ? (s.swap < 0.5 ? ss(s.swap * 2) : 1 - ss((s.swap - 0.5) * 2)) : 0, dt);
     y -= sw * 0.3; x += sw * 0.05; rx -= sw * 0.9; rz -= sw * 0.4;

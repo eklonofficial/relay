@@ -8,9 +8,9 @@
 // is flying: one per particle blend mode, one per shard shape, one each for streaks, chips and the
 // three kinds of decal. Lights never come and go during play (that would recompile every material);
 // two point lights stay in the scene and are just turned up and down. Nothing allocates per frame.
-import * as THREE from '../../vendor/three/three.module.js?v=muwb4ktb';
-import { gunModel } from './guns.js?v=muwb4ktb';
-import { TEAM_COLORS } from './egg.js?v=muwb4ktb';
+import * as THREE from '../../vendor/three/three.module.js?v=muwpta38';
+import { gunModel } from './guns.js?v=muwpta38';
+import { TEAM_COLORS } from './egg.js?v=muwpta38';
 
 const rnd = () => Math.random() * 2 - 1;
 // Approximate colours of each map material family (maps/dsl.js MAT), for dust and chips.
@@ -269,6 +269,8 @@ export class Effects {
     this.tmpM = new THREE.Matrix4(); this.tmpV = new THREE.Vector3(); this.up = new THREE.Vector3(0, 0, 1); this.sc = new THREE.Vector3();
   }
   setGrid(grid) { this.grid = grid; }
+  // The two lights cost every lit pixel; the lowest rung goes without them (flashes still glow).
+  lights(on) { for (const l of [this.flash, this.boom]) { if (on) this.scene.add(l); else this.scene.remove(l); } }
   clear() {
     this.soft.clear(); this.glow.clear(); this.holes.clear(); this.splats.clear(); this.scorches.clear();
     for (const s of this.shards) s.clear(); this.chips.clear();

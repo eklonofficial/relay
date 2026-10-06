@@ -2,7 +2,7 @@
 // A grass courtyard ringed by crenellated stone walls with a walkway on top (reached by mid-wall stairs:
 // the sniper lane), a raised central dais with two stair approaches and a cover lip, L-shaped cover in
 // each quadrant, crates and barrels for mid-height cover, and trees in the corners. 24×24, six players.
-import { Builder, MAT } from './dsl.js?v=muwb4ktb';
+import { Builder, MAT } from './dsl.js?v=muwpta38';
 
 export default function omeletArena() {
   const N = 24, b = new Builder(N, 10, N);

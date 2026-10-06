@@ -1,6 +1,7 @@
-// Post-processing: the frame is drawn into a multisampled half-float target (linear, unclamped), then
-// one composite pass tone-maps it with a soft filmic shoulder, grades it, adds bloom, a vignette and
-// the damage and low-health treatments, dithers it and writes it to the canvas.
+// Post-processing: the frame is drawn into a half-float target (linear, unclamped; multisampled where
+// the rung allows; at the dynamic resolution, often below the screen's), then one composite pass
+// scales it up to the canvas, tone-maps it with a soft filmic shoulder, grades it, adds bloom, a
+// vignette and the damage and low-health treatments, and dithers it.
 //
 // Bloom is the dual-filter kind (Bjørge, 2015): the bright part of the frame is shrunk through a few
 // half-size steps and grown back, each step a handful of bilinear taps, so even a Chromebook's GPU
@@ -9,7 +10,8 @@
 //
 // Where half-float targets can't be rendered (WebGL 1, very old GPUs) the renderer skips all of
 // this and draws straight to the canvas with three's own tone mapping, which looks nearly the same.
-import * as THREE from '../../vendor/three/three.module.js?v=muwb4ktb';
+// scale: the 3D view's resolution as a fraction of the canvas's.
+import * as THREE from '../../vendor/three/three.module.js?v=muwpta38';
 
 const VERT = 'varying vec2 vUv; void main(){ vUv = position.xy * 0.5 + 0.5; gl_Position = vec4(position.xy, 0.0, 1.0); }';
 
@@ -81,7 +83,7 @@ export class Post {
     this.gl = gl;
     const ext = gl.extensions;
     this.supported = gl.capabilities.isWebGL2 && (ext.has('EXT_color_buffer_float') || ext.has('EXT_color_buffer_half_float'));
-    this.enabled = false; this.levels = 0; this.samples = 4;
+    this.enabled = false; this.levels = 0; this.samples = 4; this.scale = 1;
     // One big triangle covers the screen (no diagonal seam, a little cheaper than a quad).
     const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute([-1, -1, 0, 3, -1, 0, -1, 3, 0], 3));
     this.quad = new THREE.Mesh(g); this.quad.frustumCulled = false;
@@ -105,18 +107,19 @@ export class Post {
     this.dispose();
     if (enabled) this.resize(true);
   }
+  setScale(k) { if (k !== this.scale) { this.scale = k; this.resize(true); } }
   dispose() { this.target?.dispose(); this.target = null; for (const t of this.chain) t.dispose(); this.chain = []; }
   resize(force = false) {
     if (!this.enabled) return;
-    const s = this.gl.getDrawingBufferSize(this.size), w = Math.max(1, s.x), h = Math.max(1, s.y);
+    const s = this.gl.getDrawingBufferSize(this.size), w = Math.max(1, Math.round(s.x * this.scale)), h = Math.max(1, Math.round(s.y * this.scale));
     if (!force && this.target && this.target.width === w && this.target.height === h) return;
     this.dispose();
-    this.target = new THREE.WebGLRenderTarget(w, h, { type: THREE.HalfFloatType, samples: this.samples, depthBuffer: true });
+    this.target = new THREE.WebGLRenderTarget(w, h, { type: THREE.HalfFloatType, samples: this.samples, depthBuffer: true, minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter });
     for (let i = 0, cw = w, ch = h; i < this.levels; i++) {
       cw = Math.max(1, cw >> 1); ch = Math.max(1, ch >> 1);
       this.chain.push(new THREE.WebGLRenderTarget(cw, ch, { type: THREE.HalfFloatType, depthBuffer: false, minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter }));
     }
-    this.composite.uniforms.res.value.set(w, h);
+    this.composite.uniforms.res.value.set(s.x, s.y); // (the dither is per screen pixel)
   }
   // Start a frame: everything drawn until end() lands in the HDR target.
   begin() { if (this.enabled) { this.resize(); this.gl.setRenderTarget(this.target); } else this.gl.setRenderTarget(null); }

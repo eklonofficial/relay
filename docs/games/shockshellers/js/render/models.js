@@ -1,16 +1,15 @@
-// The modelled assets (assets/models/*.glb, built by tools/models/build_models.py in Blender):
-// guns, eggs, gloves, hats and props. Loaded once at start-up; clone() hands out a copy of any named
-// model with its attachment points (muzzle, sight, grip, support) read from the file's empties and its
-// magazine part ("mag") found for reload animation. merged() hands out a static copy with every part
-// baked into one mesh per material, for things whose parts never move on their own (props, the guns
-// other eggs hold, hats): a crate is 18 parts, and each part would otherwise be its own draw call.
-// Development loads the files; the production build inlines them as data: URLs.
-import * as THREE from '../../vendor/three/three.module.js?v=muwb4ktb';
-import { GLTFLoader } from '../../vendor/three/GLTFLoader.js?v=muwb4ktb';
-import { mergeGeometries } from '../../vendor/three/BufferGeometryUtils.js?v=muwb4ktb';
+// The modelled assets (assets/models/*.glb, built by tools/models/build_models.py in Blender): the
+// egg, the first-person mitten and the props (guns and hats are modelled in code: guns.js, hats.js).
+// Loaded once at start-up; clone() hands out a copy of any named model with its attachment points
+// read from the file's empties. merged() hands out a static copy with every part baked into one mesh
+// per material, for things whose parts never move on their own: a crate is 18 parts, and each part
+// would otherwise be its own draw call. Development loads the files; the production build inlines
+// them as data: URLs.
+import * as THREE from '../../vendor/three/three.module.js?v=muwpta38';
+import { GLTFLoader } from '../../vendor/three/GLTFLoader.js?v=muwpta38';
+import { mergeGeometries } from '../../vendor/three/BufferGeometryUtils.js?v=muwpta38';
 
 const FILES = {
-  guns: new URL('../../assets/models/guns.glb', import.meta.url).href,
   eggs: new URL('../../assets/models/eggs.glb', import.meta.url).href,
   props: new URL('../../assets/models/props.glb', import.meta.url).href,
 };

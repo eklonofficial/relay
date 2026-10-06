@@ -1,9 +1,9 @@
 // Keyboard, mouse and gamepad into the control bitmask (GDD §18). Mouse look and pointer lock are
 // Blockhaven's approach, kept as is: raw (unadjusted) movement where the browser supports it, every
 // coalesced sample summed, spikes when the lock engages filtered out.
-import { surfaceDocument as document } from '../surface.js?v=muwb4ktb';
-import { movementSamples } from '../util/pointer.js?v=muwb4ktb';
-import { CTRL } from '../sim/tuning.js?v=muwb4ktb';
+import { surfaceDocument as document } from '../surface.js?v=muwpta38';
+import { movementSamples } from '../util/pointer.js?v=muwpta38';
+import { CTRL } from '../sim/tuning.js?v=muwpta38';
 
 // Default bindings: the live Settings defaults (Mouse 2 aims, V is melee). 'M0'/'M1'/'M2' are mouse buttons.
 export const DEFAULT_KEYS = {
@@ -29,13 +29,17 @@ export class Input {
     this.locked = false; this.enabled = false; this.aimToggled = false;
     this.onLockChange = null; this.onKey = null;
     this.mouseAvg = 0; this.lockedAt = 0;
+    // Aim assist's friction (a look-speed multiplier set each frame), when the player last turned, and
+    // whether a gamepad is in use.
+    this.assist = 1; this.lookAt = -1e9; this.padAt = -1e9;
     const take = (dx, dy) => {
       if (!dx && !dy) return;
       const mag = Math.abs(dx) + Math.abs(dy), avg = this.mouseAvg;
       if (performance.now() - this.lockedAt < 60 || (mag > 1200 && mag > avg * 12 + 400)) { this.mouseAvg = avg * 0.9; return; }
       this.mouseAvg = avg * 0.8 + mag * 0.2;
       // Mouse speed 1–100 (default 100) → radians per count; aiming scales by the zoom.
-      const sens = (this.settings.mouseSpeed / 100) * 0.0028 * (this.zoom || 1);
+      const sens = (this.settings.mouseSpeed / 100) * 0.0028 * (this.zoom || 1) * this.assist;
+      this.lookAt = performance.now();
       const inv = this.settings.invertMouse ? -1 : 1;
       this.yaw -= dx * sens; this.pitch = Math.max(-1.5, Math.min(1.5, this.pitch - dy * sens * inv));
       this.dx += dx; this.dy += dy;
@@ -94,9 +98,11 @@ export class Input {
     if (b(3)) c |= CTRL.swap; if (b(5)) c |= CTRL.grenade; if (b(1)) c |= CTRL.melee;
     const [lx, ly, rx, ry] = p.axes, dz = 0.2;
     if (ly < -dz) c |= CTRL.up; if (ly > dz) c |= CTRL.down; if (lx < -dz) c |= CTRL.left; if (lx > dz) c |= CTRL.right;
-    const s = (this.settings.padSpeed ?? 50) / 50 * 0.05 * (this.zoom || 1);
+    const s = (this.settings.padSpeed ?? 50) / 50 * 0.05 * (this.zoom || 1) * this.assist;
     if (Math.abs(rx) > 0.15) this.yaw -= rx * s;
     if (Math.abs(ry) > 0.15) this.pitch = Math.max(-1.5, Math.min(1.5, this.pitch - ry * s * (this.settings.padInvert ? -1 : 1)));
+    if (Math.abs(rx) > 0.15 || Math.abs(ry) > 0.15) this.lookAt = performance.now();
+    if (c || Math.abs(rx) > 0.15 || Math.abs(ry) > 0.15 || Math.abs(lx) > dz || Math.abs(ly) > dz) this.padAt = performance.now();
     return c;
   }
   // Raw input where available (Blockhaven's requestLock).

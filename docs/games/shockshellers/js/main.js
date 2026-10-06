@@ -1,30 +1,31 @@
 // Shock Shellers: boot, menus, the match flow (home → respawn screen → play → death → respawn) and
 // the frame loop. The simulation runs at a fixed 30 Hz inside the session; rendering interpolates.
-import './page.js?v=muwb4ktb';
-import { surfaceDocument as document } from './surface.js?v=muwb4ktb';
-import { registerApp } from './veil.js?v=muwb4ktb';
-import { tell } from './dialog.js?v=muwb4ktb';
-import { splash } from './splash.js?v=muwb4ktb';
-import * as THREE from '../vendor/three/three.module.js?v=muwb4ktb';
-import { Renderer } from './render/renderer.js?v=muwb4ktb';
-import { EggAvatar, SHELL_COLORS, TEAM_COLORS } from './render/egg.js?v=muwb4ktb';
-import { gunModel } from './render/guns.js?v=muwb4ktb';
-import { Input } from './game/input.js?v=muwb4ktb';
-import { SOUND_FILES } from './game/soundbank.js?v=muwb4ktb';
-import { Sound, registerSamples } from './game/audio.js?v=muwb4ktb';
-import { Hud } from './game/hud.js?v=muwb4ktb';
-import { loadSettings, saveSettings, loadProfile, saveProfile } from './game/store.js?v=muwb4ktb';
-import { ensureDaily, progress as challengeProgress, claim as claimChallenges } from './game/challenges.js?v=muwb4ktb';
-import { HostSession } from './game/session.js?v=muwb4ktb';
-import { GuestSession } from './net/guest.js?v=muwb4ktb';
-import { pickPublicMap, mapDef, MAPS } from './maps/index.js?v=muwb4ktb';
-import { WEAPONS, PRIMARIES, PLAYER, MODE_NAMES, MODE_MENU, ECONOMY, CTRL, TICK, TICK_HZ } from './sim/tuning.js?v=muwb4ktb';
-import { weaponOf, slotOf } from './sim/combat.js?v=muwb4ktb';
-import { eyePoint } from './sim/movement.js?v=muwb4ktb';
-import { drawLogo, drawHowTo } from './ui/art.js?v=muwb4ktb';
-import { loadModels } from './render/models.js?v=muwb4ktb';
-import { HIT } from './maps/grid.js?v=muwb4ktb';
-import { Menus } from './ui/menus.js?v=muwb4ktb';
+import './page.js?v=muwpta38';
+import { surfaceDocument as document } from './surface.js?v=muwpta38';
+import { registerApp } from './veil.js?v=muwpta38';
+import { tell } from './dialog.js?v=muwpta38';
+import { splash } from './splash.js?v=muwpta38';
+import * as THREE from '../vendor/three/three.module.js?v=muwpta38';
+import { Renderer } from './render/renderer.js?v=muwpta38';
+import { RELOAD_KIND } from './render/viewmodel.js?v=muwpta38';
+import { EggAvatar } from './render/egg.js?v=muwpta38';
+import { aimAssist, assistOn } from './game/aim.js?v=muwpta38';
+import { Input } from './game/input.js?v=muwpta38';
+import { SOUND_FILES } from './game/soundbank.js?v=muwpta38';
+import { Sound, registerSamples } from './game/audio.js?v=muwpta38';
+import { Hud } from './game/hud.js?v=muwpta38';
+import { loadSettings, saveSettings, loadProfile, saveProfile } from './game/store.js?v=muwpta38';
+import { ensureDaily, progress as challengeProgress, claim as claimChallenges } from './game/challenges.js?v=muwpta38';
+import { HostSession } from './game/session.js?v=muwpta38';
+import { GuestSession } from './net/guest.js?v=muwpta38';
+import { pickPublicMap, mapDef, MAPS } from './maps/index.js?v=muwpta38';
+import { WEAPONS, PRIMARIES, PLAYER, MODE_NAMES, MODE_MENU, ECONOMY, CTRL, TICK, TICK_HZ } from './sim/tuning.js?v=muwpta38';
+import { weaponOf, slotOf } from './sim/combat.js?v=muwpta38';
+import { eyePoint } from './sim/movement.js?v=muwpta38';
+import { drawLogo, drawHowTo } from './ui/art.js?v=muwpta38';
+import { loadModels } from './render/models.js?v=muwpta38';
+import { HIT } from './maps/grid.js?v=muwpta38';
+import { Menus } from './ui/menus.js?v=muwpta38';
 
 const $ = id => document.getElementById(id);
 const show = (id, on = true) => { $(id).classList.toggle('hidden', !on); if (id === 'respawn') $('hud').classList.toggle('menu', on); };
@@ -32,6 +33,11 @@ const show = (id, on = true) => { $(id).classList.toggle('hidden', !on); if (id 
 const STEP_SOUND = { 0: [1, 1], 1: [0.82, 0.75], 2: [1.18, 1.1], 4: [0.78, 0.7], 5: [1.4, 1.15], 6: [0.86, 0.8], 10: [0.8, 0.7], 11: [1.35, 1.1], 12: [1.15, 1.05], 13: [0.75, 0.7], 14: [0.9, 0.85], 15: [1.3, 1.1] };
 // Per map theme: reverb length (s) and level.
 const ROOMS = { farm: [1.2, 0.28], town: [1.6, 0.34], temple: [2.3, 0.45], hills: [0.9, 0.2], quarry: [2.5, 0.42], arena: [1.8, 0.38], space: [3.2, 0.22] };
+// When each reload step sounds (fraction of the reload; true: only when reloading from empty).
+const RELOAD_STEPS = {
+  mag: [[0.18, 'magOut'], [0.68, 'magIn'], [0.8, 'rack', true]], pistol: [[0.18, 'magOut'], [0.68, 'magIn'], [0.78, 'rack', true]],
+  break: [[0.12, 'breakOpen'], [0.5, 'shellIn'], [0.8, 'rack']], bolt: [[0.17, 'boltUp'], [0.73, 'boltDown']], rocket: [[0.64, 'rocketIn']],
+};
 const LOAD_LINES = ['Cracking eggs…', 'Whisking servers…', 'Stacking teams…', 'Greasing the pan…', 'Counting chickens…', 'Hatching plans…'];
 
 class App {
@@ -52,7 +58,7 @@ class App {
     this.session = null; this.state = 'boot';
     this.t = 0; this.last = performance.now(); this.fps = 60; this.fpsN = 0; this.fpsT = 0; this.lowFps = 0;
     this.shake = 0; this.cam = { x: 0, y: 0, z: 0, yaw: 0, pitch: 0, roll: 0, fovMul: 1 }; this.fovMul = 1; this.lean = 0; this.fallSpeed = 0; this.hurt = 0; this.lowHp = 0; this.heat = 0; this.beatT = 0;
-    this.lifeKills = 0; this.spawnTick = 0;
+    this.lifeKills = 0; this.spawnTick = 0; this.aim = {}; this.marked = new Map();
     this.resize(); addEventListener('resize', () => this.resize());
     this.boot();
   }
@@ -61,7 +67,7 @@ class App {
   resize() {
     const u = Math.max(0.55, Math.min(1.4, Math.min(innerWidth / 1500, innerHeight / 860)));
     document.documentElement.style.setProperty('--u', u + 'px');
-    this.renderer.resize(); this.hud.resize();
+    this.renderer.resize(); this.hud.u = u; this.hud.resize();
   }
   async boot() {
     drawLogo($('logo-load')); drawLogo($('logo-home'));
@@ -123,7 +129,7 @@ class App {
     const h = this.home; if (!h) return;
     if (h.egg) h.scene.remove(h.egg.group);
     const e = this.profile.equip;
-    h.egg = new EggAvatar({ name: '', color: e.color, hat: e.hat, weapon: this.profile.primary, local: true });
+    h.egg = new EggAvatar({ name: '', look: e, weapon: this.profile.primary, local: true });
     h.egg.group.scale.setScalar(1.15);
     h.egg.group.traverse(o => { if (o.isMesh) o.castShadow = true; });
     h.scene.add(h.egg.group);
@@ -223,7 +229,13 @@ class App {
             const a = R.avatars.get(e.id);
             // The streak starts at the visible muzzle: the viewmodel's for us, the avatar's gun for others.
             fx.streak(e.x, e.y - (mine ? 0.06 : 0), e.z, e.dx, e.dy, e.dz, e.len, WEAPONS[e.w].vel, e.tracer);
-            if (!mine && a) { const mz = a.gun.localToWorld(a.gun.userData.muzzle.clone()); fx.muzzle(mz.x, mz.y, mz.z, e.w === 'doubleYolker'); }
+            if (!mine && a && a.group.visible) { const mz = a.muzzleWorld(new THREE.Vector3()); fx.muzzle(mz.x, mz.y, mz.z, e.w === 'doubleYolker'); }
+            // Someone else's bullet passing close to our head whizzes by.
+            if (!mine && me.alive && this.state === 'play') {
+              const c = this.cam, t = Math.max(0, Math.min(e.len, (c.x - e.x) * e.dx + (c.y - e.y) * e.dy + (c.z - e.z) * e.dz));
+              const px = e.x + e.dx * t, py = e.y + e.dy * t, pz = e.z + e.dz * t, d = Math.hypot(px - c.x, py - c.y, pz - c.z);
+              if (d < 1.4 && t > 1.5 && t < e.len - 0.3) snd.play('whiz', [px, py, pz], 0.5 + (1.4 - d) * 0.5);
+            }
           }
           break;
         }
@@ -232,7 +244,13 @@ class App {
           snd.play(w, mine ? null : pos(e.id), mine ? 0.7 : 1);
           if (mine) {
             R.view.fire(w);
+            // The mechanism cycling under the bang, and a rising tick as the magazine runs low.
+            if (w !== 'yolkzooka' && w !== 'doubleYolker') snd.play('mech', null, 0.8, w === 'peck9mm' ? 1.2 : 1);
+            const sl = slotOf(me.hands), low = Math.max(1, Math.floor(WEAPONS[w].mag * 0.25));
+            if (sl.mag <= low && WEAPONS[w].mag > 2) snd.play('lowAmmo', null, 0.8, 1 + (low - sl.mag) / low * 0.5);
             if (this.settings.shake) this.shake = Math.min(1, this.shake + WEAPONS[w].recoil / 60);
+            // A heavy shot punches the field of view out for a moment.
+            this.kick = Math.min(1, (this.kick || 0) + Math.min(0.8, WEAPONS[w].recoil / 40));
             // Our own shot lights the walls around us for a frame or two, and leaves the barrel smoking.
             const c = this.cam, fx2 = -Math.sin(c.yaw) * Math.cos(c.pitch), fy = Math.sin(c.pitch), fz = -Math.cos(c.yaw) * Math.cos(c.pitch);
             fx.light(c.x + fx2 * 0.8, c.y + fy * 0.8 - 0.1, c.z + fz * 0.8, w === 'doubleYolker' || w === 'yolkzooka' ? 7 : 4);
@@ -240,15 +258,19 @@ class App {
           }
           break;
         }
-        case 'impact': fx.impact(e.x, e.y, e.z, e.nx, e.ny, e.nz); break;
+        case 'impact': fx.impact(e.x, e.y, e.z, e.nx, e.ny, e.nz); if (e.by === s.myId) snd.play('impact', [e.x, e.y, e.z], 0.7); break;
         case 'hit': {
           const v = m.players.get(e.id);
           if (e.id !== s.myId || this.state !== 'play') fx.hitSplash(e.x, e.y, e.z, e.dx, e.dy, e.dz); // (not into our own lens)
           snd.play(e.hp <= 0 ? 'crackBig' : 'crack', [e.x, e.y, e.z], 0.9);
           if (e.by === s.myId && e.id !== s.myId) {
             this.hud.hit(e.hp <= 0); this.stat('damage', e.dmg);
+            // How much it did, where it landed; and their health shows over them for a while.
+            this.hud.damageNumber(e.id, e.x, e.y, e.z, e.dmg, e.hp <= 0);
+            if (e.hp > 0) this.marked.set(e.id, this.t); else this.marked.delete(e.id);
             // The hit tick (pitched up as the egg weakens), and a heavier crunch for the crack that kills.
             snd.play('hitmark', null, e.hp <= 0 ? 0.9 : 0.55, e.hp <= 0 ? 0.8 : 1 + (1 - Math.max(0, e.hp) / 100) * 0.35);
+            snd.play('hitBody', null, e.hp <= 0 ? 0.9 : 0.7, e.hp <= 0 ? 0.8 : 1);
             if (e.hp <= 0) snd.play('killConfirm', null, 0.8);
           }
           if (e.id === s.myId) {
@@ -316,7 +338,9 @@ class App {
     this.lifeKills++;
     const yolks = ECONOMY.perKill * ([0, 6].includes(new Date().getDay()) ? ECONOMY.weekendMult : 1) * (me.power.doubleYolks > 0 ? 2 : 1);
     this.profile.coins += yolks;
-    this.hud.confirmKill(victim ? victim.name : '', me.streak, yolks);
+    const shown = victim && this.settings.safeNames ? 'Egg' + victim.id : victim?.name || '';
+    this.hud.confirmKill(shown, me.streak, yolks, this.renderer.avatars.get(e.id)?.color);
+    this.marked.delete(e.id);
     const st = this.profile.stats;
     st.kills++; st.bestStreak = Math.max(st.bestStreak, me.streak);
     st.byWeapon[e.w] = (st.byWeapon[e.w] || 0) + 1;
@@ -351,6 +375,7 @@ class App {
     if (this.state === 'home' || this.state === 'boot') { this.drawHome(dt); return; }
     const s = this.session; if (!s) return;
     const playing = this.state === 'play';
+    if (playing && this.input.locked) this.assist(dt); else this.input.assist = 1;
     const input = playing && this.input.locked ? { ctrl: this.input.controls(), yaw: this.input.yaw, pitch: this.input.pitch } : { ctrl: 0, yaw: this.input.yaw, pitch: this.input.pitch };
     s.advance(dt, input);
     this.handle(s.takeEvents());
@@ -359,12 +384,31 @@ class App {
     if (this.debug && (this.debugT = (this.debugT || 0) - dt) <= 0) {
       this.debugT = 0.25; const b = s.me.body;
       const info = this.renderer.gl.info.render;
-      $('debug').textContent = `XYZ: ${b.x.toFixed(2)} / ${b.y.toFixed(2)} / ${b.z.toFixed(2)}\nFacing: ${(((this.input.yaw * 180 / Math.PI) % 360 + 360) % 360).toFixed(0)}°\nTick: ${s.match.tick}  Players: ${s.match.players.size}\nFPS: ${this.fps}  Ping: ${s.ping || 0}ms\nGraphics: ${this.renderer.q.name}  Draws: ${this.renderer.calls}  Tris: ${Math.round(this.renderer.tris / 1000)}k`;
+      const sl = slotOf(s.me.hands), R = this.renderer;
+      $('debug').textContent = `XYZ: ${b.x.toFixed(2)} / ${b.y.toFixed(2)} / ${b.z.toFixed(2)}\nFacing: ${(((this.input.yaw * 180 / Math.PI) % 360 + 360) % 360).toFixed(0)}°\nTick: ${s.match.tick}  Players: ${s.match.players.size}\nFPS: ${this.fps}  Ping: ${s.ping || 0}ms\nAmmo: ${sl.mag}/${sl.store}  Assist: ${this.input.assist < 1 ? 'on target' : '-'}\nGraphics: ${R.q.name} @ ${Math.round(R.resolution * 100)}%  GPU tier ${R.tier}\nDraws: ${R.calls}  Tris: ${Math.round(R.tris / 1000)}k`;
     }
     if (this.state === 'dead' && s.match.tick - this.deadTick >= 2 * TICK_HZ) { this.state = 'respawn'; this.input.exitLock(); show('respawn'); this.menus.refreshRespawn(); }
     if (this.state === 'respawn') this.menus.tickRespawn();
   }
-  autoDetail() { if (globalThis.document.visibilityState !== 'hidden') this.renderer.adapt(this.fps); }
+  // Aim assist (aim.js): friction on the look speed and a little tracking, on a visible enemy near the
+  // crosshair, for trackpads and gamepads.
+  assist(dt) {
+    const s = this.session, m = s.match, me = s.me, inp = this.input;
+    if (!me.alive || !assistOn(this.settings.aimAssist || 'auto', navigator.userAgent, performance.now() - inp.padAt < 5000)) { inp.assist = 1; return; }
+    const P = [0, 0, 0]; s.lerpPos(me, P);
+    const E = eyePoint({ x: P[0], y: P[1], z: P[2], yaw: inp.yaw, pitch: inp.pitch }), cam = { x: E[0], y: E[1], z: E[2], yaw: inp.yaw, pitch: inp.pitch };
+    const targets = [];
+    for (const p of m.players.values()) {
+      if (p.id === s.myId || !p.alive || (m.mode.teams && p.team === me.team) || p.spawnShield > 0) continue;
+      const T = [0, 0, 0]; s.lerpPos(p, T); T[1] += PLAYER.hitCenterY;
+      targets.push({ id: p.id, x: T[0], y: T[1], z: T[2], visible: () => m.grid.visible(cam.x, cam.y, cam.z, T[0], T[1], T[2]) });
+    }
+    const moving = inp.held('up') || inp.held('down') || inp.held('left') || inp.held('right') || inp.held('fire');
+    const r = aimAssist(this.aim, cam, targets, dt, { ads: me.hands.ads, active: moving || performance.now() - inp.lookAt < 150 });
+    inp.assist = r.slow; inp.yaw += r.dyaw; inp.pitch = Math.max(-1.5, Math.min(1.5, inp.pitch + r.dpitch));
+  }
+  // (Only in a match: the menus are cheap to draw and would talk Auto Detail into rungs a fight can't hold.)
+  autoDetail() { if (globalThis.document.visibilityState !== 'hidden' && (this.state === 'play' || this.state === 'dead')) this.renderer.adapt(this.fps); }
   drawHome(dt) {
     const h = this.home; if (!h) return;
     // Idle: the egg faces you three-quarters on (gun in view) and sways gently, as if breathing.
@@ -385,18 +429,23 @@ class App {
   }
   drawMatch(dt) {
     const s = this.session, m = s.match, me = s.me, R = this.renderer;
-    const P = [0, 0, 0];
-    // Eggs.
+    const P = [0, 0, 0], cam = this.cam, blobs = this.blobList || (this.blobList = []);
+    blobs.length = 0;
+    // Eggs: detail by distance from the camera, and a soft shadow on the floor beneath each.
     for (const p of m.players.values()) {
-      const a = R.avatar(p.id, { name: this.settings.safeNames && p.id !== s.myId ? 'Egg' + p.id : p.name, color: p.cosmetics?.color || 0, hat: p.cosmetics?.hat || 'none', team: p.team, weapon: slotOf(p.hands).id, friendly: m.mode.teams && p.team === me.team && p.id !== s.myId, local: p.id === s.myId });
+      const a = R.avatar(p.id, { name: this.settings.safeNames && p.id !== s.myId ? 'Egg' + p.id : p.name, look: p.cosmetics, team: p.team, weapon: slotOf(p.hands).id, friendly: m.mode.teams && p.team === me.team && p.id !== s.myId, local: p.id === s.myId });
       const visible = p.alive && (p.id !== s.myId || this.state === 'dead' || this.state === 'respawn');
       a.group.visible = visible && p.id !== s.myId;
       if (!a.group.visible) continue;
       s.lerpPos(p, P);
+      a.lod(Math.hypot(P[0] - cam.x, P[1] - cam.y, P[2] - cam.z));
+      const fl = m.grid.floorBelow(P[0], P[1] + 0.3, P[2]);
+      if (fl > -Infinity && P[1] - fl < 3) { const k = p.power.quailEgg > 0 ? 0.5 : 1, hgt = P[1] - fl; blobs.push([P[0], fl, P[2], 0.62 * k * (1 + hgt * 0.15), Math.max(0.2, 1 - hgt / 3)]); }
       a.setWeapon(slotOf(p.hands).id); a.setHp(p.hp);
       a.pose(P[0], P[1], P[2], p.body.yaw, p.body.pitch, { scale: p.power.quailEgg > 0 ? 0.5 : 1, shield: p.shield > 0 || p.spawnShield > 0, breaker: p.power.shellBreaker > 0, bob: this.t * 10 * Math.min(1, Math.hypot(p.body.vx, p.body.vz) * 25), vx: p.body.vx * 30, vy: p.body.onGround > 0 ? 0 : p.body.vy * 30, vz: p.body.vz * 30 });
     }
     for (const id of [...R.avatars.keys()]) if (!m.players.has(id)) R.dropAvatar(id);
+    R.setBlobs(blobs);
     // Footsteps: one per stride of ground travel, for everyone (they give positions away, as they should).
     for (const p of m.players.values()) {
       if (!p.alive || p.body.onGround <= 0 || p.body.climbing) continue;
@@ -430,7 +479,6 @@ class App {
       this.hud.capturers = 0;
     }
     // Camera: first person while alive; an orbit over the map while dead or on the respawn screen.
-    const cam = this.cam;
     if (me.alive && this.state === 'play') {
       s.lerpPos(me, P);
       // The eye pivots on the head like the reference's (it is also where shots leave from).
@@ -451,7 +499,9 @@ class App {
       cam.yaw = Math.atan2(-(o.cx - cam.x), -(o.cz - cam.z)); cam.pitch = -Math.atan2(cam.y - o.cy, o.r); cam.fovMul = 1;
     }
     // Zoom eases in and out rather than snapping.
-    this.fovMul += (cam.fovMul - this.fovMul) * Math.min(1, dt * 14); cam.fovMul = this.fovMul;
+    this.fovMul += (cam.fovMul - this.fovMul) * Math.min(1, dt * 14);
+    this.kick = Math.max(0, (this.kick || 0) - dt * 9);
+    cam.fovMul = this.fovMul * (1 + this.kick * this.kick * 0.035);
     // Recoil kicks the view up a touch and recovers (the setting turns the shake off, not the punch).
     const punch = R.view.takePunch(dt);
     cam.pitch += punch[0]; cam.yaw += punch[1];
@@ -465,14 +515,18 @@ class App {
     this.sound.listener(cam.x, cam.y, cam.z, cam.yaw);
     // Hands.
     const h = me.hands, w = weaponOf(h), [mdx, mdy] = this.input.takeMouse();
-    R.view.setWeapon(slotOf(h).id);
+    R.view.setWeapon(slotOf(h).id, this.profile.equip.skin);
     if (this.input.inspectPressed) { this.input.inspectPressed = false; if (h.reload === 0 && h.swap === 0) h.inspect = 45; }
+    const rel = h.reload > 0 ? { f: 1 - h.reload / (h.reloadRounds && slotOf(h).mag === 0 ? w.reload[1] : w.reload[0]), long: w.reload[1] !== w.reload[0] && slotOf(h).mag === 0 } : null;
+    // Reload steps you can hear: the magazine out and in, the bolt, the slide, the barrels.
+    if (rel && me.alive) { for (const [at, name, longOnly] of RELOAD_STEPS[RELOAD_KIND[slotOf(h).id]] || []) if ((this.lastRf ?? 1) < at && rel.f >= at && (!longOnly || rel.long)) this.sound.play(name, null, 0.9); this.lastRf = rel.f; }
+    else this.lastRf = 0;
     R.view.update({
       dt, visible: me.alive && this.state === 'play', speed: Math.hypot(me.body.vx, me.body.vz) * 30, strafe, vy: me.body.vy * 30, air: me.body.onGround === 0, climbing: !!me.body.climbing,
       ads: h.ads, scoped: w.scoped, mouseDX: mdx, mouseDY: mdy,
-      reload: h.reload > 0 ? { f: 1 - h.reload / (h.reloadRounds && slotOf(h).mag === 0 ? w.reload[1] : w.reload[0]), long: w.reload[1] !== w.reload[0] && slotOf(h).mag === 0 } : null,
+      reload: rel,
       swap: h.swap > 0 ? 1 - h.swap / 26 : 0, melee: h.melee > 0 ? 1 - h.melee / 17 : 0, charge: h.charging ? h.power : null,
-      inspect: h.inspect > 0 ? 1 - h.inspect / 45 : 0, shield: me.spawnShield > 0,
+      inspect: h.inspect > 0 ? 1 - h.inspect / 45 : 0, shield: me.spawnShield > 0, empty: slotOf(h).mag === 0,
     });
     this.fallSpeed = Math.max(0, -me.body.vy * 30);
     // Low on health: the heart pounds.
@@ -491,21 +545,41 @@ class App {
     const low = me.alive && this.state === 'play' ? Math.max(0, (35 - me.hp) / 35) : 0;
     this.lowHp = (this.lowHp || 0) + (low - (this.lowHp || 0)) * Math.min(1, dt * 3);
     const pulse = this.lowHp > 0.01 ? (0.5 + 0.5 * Math.sin(this.t * 6.5)) * 0.35 * this.lowHp : 0;
-    R.render(cam, dt, this.t, { hurt: Math.min(0.7, this.hurt * 0.6 + pulse), lowHp: this.lowHp * 0.8, aberration: this.hurt * 0.035 + (this.shake > 0.6 ? (this.shake - 0.6) * 0.02 : 0) });
-    // HUD.
+    // HUD (drawn first so the frame can lay it over the image): projected with this frame's camera.
+    R.place(cam);
     const ranked = m.standings();
     this.hud.leaderboard(ranked, s.myId, m.mode.teams);
     this.hud.stats(me, this.profile.coins, this.fps, s.ping || 0);
     this.hud.objective(st, m.mode.teams);
-    const markers = [];
-    const project = (x, y, z) => { const v = new THREE.Vector3(x, y, z).project(R.camera); return { x: (v.x + 1) / 2 * innerWidth, y: (1 - v.y) / 2 * innerHeight, behind: v.z > 1 }; };
+    const markers = [], V3 = this.v3 || (this.v3 = new THREE.Vector3());
+    const project = (x, y, z) => { const v = V3.set(x, y, z).project(R.camera); return { x: (v.x + 1) / 2 * innerWidth, y: (1 - v.y) / 2 * innerHeight, behind: v.z > 1 }; };
     if (st.k === 'roost' && R.roostZone) markers.push({ screen: project(R.roostZone.cx, R.roostZone.y0 + 2.6, R.roostZone.cz), color: '#ffc531', label: Math.round(Math.hypot(R.roostZone.cx - me.body.x, R.roostZone.cz - me.body.z)) + 'u' });
     if (st.k === 'spatula' && st.c >= 0 && st.c !== s.myId) { const c = m.players.get(st.c); if (c) markers.push({ screen: project(c.body.x, c.body.y + 1.1, c.body.z), color: c.team === 1 ? '#4aa3ff' : '#ff6a5c', label: 'SPATULA' }); }
-    // Distance to whatever the crosshair is on (the Yolkzooka reticle turns red inside arming range).
+    // Distance to whatever the crosshair is on (the Yolkzooka reticle turns red inside arming range),
+    // and whether that's an egg (the crosshair turns red on an enemy, blue on a teammate).
     const f = [-Math.sin(cam.yaw) * Math.cos(cam.pitch), Math.sin(cam.pitch), -Math.cos(cam.yaw) * Math.cos(cam.pitch)];
-    const aimDist = m.grid.raycast(cam.x, cam.y, cam.z, f[0], f[1], f[2], 10, HIT) ? HIT.t : 99;
+    const wallT = m.grid.raycast(cam.x, cam.y, cam.z, f[0], f[1], f[2], 60, HIT) ? HIT.t : 99;
+    const aimDist = Math.min(wallT, 99) > 10 ? 99 : wallT;
+    let enemy = 0, near = 99;
+    const bars = [];
+    for (const p of m.players.values()) {
+      if (p.id === s.myId || !p.alive) continue;
+      s.lerpPos(p, P);
+      const cx = P[0] - cam.x, cy = P[1] + PLAYER.hitCenterY - cam.y, cz = P[2] - cam.z, t = cx * f[0] + cy * f[1] + cz * f[2];
+      const r = PLAYER.hitRadius * (p.power.quailEgg > 0 ? 0.5 : 1);
+      if (t > 0 && t < near && t < wallT && cx * cx + cy * cy + cz * cz - t * t < r * r) { near = t; enemy = m.mode.teams && p.team === me.team ? 2 : 1; }
+      // Health over the eggs we've hurt lately, while they're in sight.
+      const at = this.marked.get(p.id);
+      if (at !== undefined) {
+        const age = this.t - at, d = Math.hypot(cx, cy, cz);
+        if (age > 4 || p.hp >= 100) { this.marked.delete(p.id); continue; }
+        if (d < 45 && m.grid.visible(cam.x, cam.y, cam.z, P[0], P[1] + 0.5, P[2])) bars.push({ id: p.id, x: P[0], y: P[1] + 0.82 * (p.power.quailEgg > 0 ? 0.5 : 1), z: P[2], hp: p.hp, shield: p.shield, dist: d, fade: Math.min(1, (4 - age) * 2) });
+      }
+    }
     const rl = me.hands.reload > 0 ? 1 - me.hands.reload / (me.hands.reloadWasLong ? w.reload[1] : w.reload[0]) : 0;
-    this.hud.draw(dt, { me: this.state === 'play' ? me : null, yaw: cam.yaw, pitch: cam.pitch, speed: Math.hypot(me.body.vx, me.body.vz) * 30, air: me.body.onGround <= 0, fov: R.camera.fov, markers, aimDist, reload: rl });
+    const playing = this.state === 'play';
+    this.hud.draw(dt, { me: playing ? me : null, yaw: cam.yaw, pitch: cam.pitch, speed: Math.hypot(me.body.vx, me.body.vz) * 30, air: me.body.onGround <= 0, fov: R.camera.fov, markers, aimDist, reload: rl, project, bars, enemy });
+    R.render(cam, dt, this.t, { hurt: Math.min(0.7, this.hurt * 0.6 + pulse), lowHp: this.lowHp * 0.8, aberration: this.hurt * 0.035 + (this.shake > 0.6 ? (this.shake - 0.6) * 0.02 : 0) }, playing || this.state === 'dead' ? this.hud : null);
   }
 }
 

@@ -9,7 +9,7 @@
 const SAMPLE_URLS = {}; // name → URL, filled by registerSamples() from the sound bank module
 // How much of each sound goes to the reverb.
 const SEND = { explode: 0.55, yolkzooka: 0.45, poacher: 0.45, cageFree: 0.38, doubleYolker: 0.38, yolk47: 0.3, triBoil: 0.3, beater: 0.26, peck9mm: 0.26, crackBig: 0.25, splat: 0.2, squawk: 0.25, bounce: 0.15, melee: 0.15, step: 0.08, land: 0.1 };
-const UI = new Set(['uiHover', 'uiClick', 'pop', 'click', 'challenge', 'hitmark', 'killConfirm', 'heartbeat', 'death']);
+const UI = new Set(['uiHover', 'uiClick', 'pop', 'click', 'challenge', 'hitmark', 'hitBody', 'killConfirm', 'heartbeat', 'death', 'lowAmmo']);
 
 export class Sound {
   constructor(settings) { this.settings = settings; this.ctx = null; this.buffers = new Map(); this.loops = new Map(); this.lx = 0; this.ly = 0; this.lz = 0; this.occluded = null; this.ambient = []; }
@@ -193,6 +193,26 @@ const SYNTH = {
   uiHover: (s, o) => tone(s, o, { f: 2100, dur: 0.012, type: 'sine', peak: 0.05 }),
   uiClick: (s, o) => { tone(s, o, { f: 900, f2: 1300, dur: 0.04, type: 'triangle', peak: 0.18 }); noise(s, o, { dur: 0.02, type: 'highpass', f: 3000, peak: 0.08 }); },
   tinnitus: (s, o) => tone(s, o, { f: 3900, dur: 1.4, type: 'sine', peak: 0.025, a: 0.05 }),
+  // Our shot landed on an egg: a short meaty thump and a crunch of shell under the hit tick, so a
+  // hit never sounds like a miss.
+  hitBody: (s, o, r = 1) => { tone(s, o, { f: 180 * r, f2: 70, dur: 0.07, type: 'sine', peak: 0.55 }); noise(s, o, { dur: 0.045, type: 'bandpass', f: 3200 * r, q: 1.4, peak: 0.45, sweep: 1600 }); },
+  // A bullet passing close: a fast rising-falling whine.
+  whiz: (s, o) => { noise(s, o, { dur: 0.16, type: 'bandpass', f: 2600, q: 3, peak: 0.55, a: 0.03, sweep: 900 }); tone(s, o, { f: 1900, f2: 1100, dur: 0.14, type: 'sine', peak: 0.05, a: 0.03 }); },
+  // Where our misses land: a dull knock on the wall (and the odd ricochet).
+  impact: (s, o) => { noise(s, o, { dur: 0.05, type: 'bandpass', f: 1100, q: 1.2, peak: 0.35 }); if (Math.random() < 0.18) tone(s, o, { t: 0.01, f: 3600, f2: 1800, dur: 0.18, type: 'sine', peak: 0.04 }); },
+  // The last quarter of a magazine: each shot adds a light, rising tick.
+  lowAmmo: (s, o, r = 1) => tone(s, o, { f: 2600 * r, dur: 0.025, type: 'triangle', peak: 0.07 }),
+  // Reload steps, keyed to the hands' animation.
+  magOut: (s, o) => { noise(s, o, { dur: 0.05, type: 'bandpass', f: 1500, q: 1.5, peak: 0.35 }); tone(s, o, { f: 700, f2: 500, dur: 0.04, type: 'square', peak: 0.05 }); },
+  magIn: (s, o) => { noise(s, o, { dur: 0.04, type: 'bandpass', f: 2200, q: 2, peak: 0.45 }); tone(s, o, { t: 0.02, f: 1300, dur: 0.03, type: 'square', peak: 0.08 }); tone(s, o, { f: 160, f2: 90, dur: 0.05, peak: 0.3 }); },
+  rack: (s, o) => { noise(s, o, { dur: 0.06, type: 'bandpass', f: 1800, q: 1.2, peak: 0.4, sweep: 3200 }); noise(s, o, { t: 0.09, dur: 0.05, type: 'bandpass', f: 2600, q: 1.5, peak: 0.5 }); tone(s, o, { t: 0.09, f: 1400, dur: 0.03, type: 'square', peak: 0.08 }); },
+  breakOpen: (s, o) => { noise(s, o, { dur: 0.07, type: 'bandpass', f: 1200, q: 1, peak: 0.45 }); tone(s, o, { f: 600, f2: 900, dur: 0.06, type: 'triangle', peak: 0.08 }); },
+  shellIn: (s, o) => { noise(s, o, { dur: 0.04, type: 'bandpass', f: 1700, q: 1.5, peak: 0.35 }); noise(s, o, { t: 0.12, dur: 0.04, type: 'bandpass', f: 1600, q: 1.5, peak: 0.35 }); },
+  boltUp: (s, o) => { noise(s, o, { dur: 0.05, type: 'bandpass', f: 1600, q: 1.5, peak: 0.4, sweep: 2600 }); tone(s, o, { t: 0.04, f: 1100, dur: 0.03, type: 'square', peak: 0.07 }); },
+  boltDown: (s, o) => { noise(s, o, { dur: 0.05, type: 'bandpass', f: 2600, q: 1.5, peak: 0.45, sweep: 1500 }); tone(s, o, { t: 0.05, f: 1500, dur: 0.03, type: 'square', peak: 0.09 }); },
+  rocketIn: (s, o) => { noise(s, o, { dur: 0.25, type: 'bandpass', f: 700, q: 0.8, peak: 0.3, sweep: 300 }); tone(s, o, { t: 0.22, f: 120, f2: 70, dur: 0.08, peak: 0.4 }); },
+  // The mechanism cycling after one of our own shots (a little click under the bang).
+  mech: (s, o, r = 1) => tone(s, o, { t: 0.035, f: 2900 * r, dur: 0.015, type: 'square', peak: 0.035 }),
 };
 // Map beds: each part starts on the ambience bus and returns a function that stops it.
 function windBed(s, out, f = 380, level = 0.05) {

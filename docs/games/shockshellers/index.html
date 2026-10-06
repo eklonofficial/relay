@@ -93,7 +93,7 @@
   #news { position: absolute; right: calc(var(--u)*-6); top: calc(var(--u)*82); width: calc(var(--u)*300); border-radius: calc(var(--u)*12) 0 0 calc(var(--u)*12); }
   #news .item > div:last-child { flex: 1; min-width: 0; padding-right: calc(var(--u)*12); }
   #chal-list { overflow: hidden; }
-  #hud.menu #perf, #hud.menu #hud-coins, #hud.menu #feed, #hud.menu #ammo, #hud.menu #hud-canvas { display: none; }
+  #hud.menu #hud-coins, #hud.menu #feed { display: none; }
   #news .item { display: flex; gap: calc(var(--u)*10); align-items: center; background: var(--pale); border-top: calc(var(--u)*3) solid var(--blue); padding: calc(var(--u)*8) calc(var(--u)*10); font-size: calc(var(--u)*14); color: var(--ink); font-weight: 700; line-height: 1.25; }
   #news .thumb { flex: none; width: calc(var(--u)*42); height: calc(var(--u)*42); border-radius: calc(var(--u)*6); border: calc(var(--u)*2) solid var(--blue-e); display: flex; align-items: center; justify-content: center; }
   #news .thumb svg { width: calc(var(--u)*30); height: calc(var(--u)*30); }
@@ -155,7 +155,6 @@
 
   /* HUD */
   #hud { pointer-events: none; z-index: 5; }
-  #hud-canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
   #board { position: absolute; left: calc(var(--u)*8); top: calc(var(--u)*6); display: flex; gap: calc(var(--u)*12); align-items: flex-start; }
   #board-list { display: flex; flex-direction: column; gap: calc(var(--u)*2); width: calc(var(--u)*200); }
   .lb { display: flex; justify-content: space-between; font-size: calc(var(--u)*14); padding: calc(var(--u)*1) calc(var(--u)*8); background: rgba(40,40,40,.35); border-radius: calc(var(--u)*2); color: rgba(255,255,255,.75); }
@@ -166,23 +165,13 @@
   #streak { display: flex; align-items: center; gap: calc(var(--u)*4); }
   #streak .n { font-family: "s", sans-serif; font-weight: 400; color: var(--yellow); font-size: calc(var(--u)*34); text-shadow: 0 calc(var(--u)*3) 0 var(--ink); }
   #streak .l { font-family: "s", sans-serif; font-weight: 400; font-size: calc(var(--u)*13); line-height: 1; text-shadow: 0 calc(var(--u)*2) 0 var(--ink); }
-  #perf { position: absolute; right: calc(var(--u)*8); top: calc(var(--u)*46); width: calc(var(--u)*86); text-align: center; padding: calc(var(--u)*6) calc(var(--u)*4); font-size: calc(var(--u)*13); }
-  #perf .k { font-family: "s", sans-serif; font-weight: 400; color: var(--yellow); font-size: calc(var(--u)*15); }
   #hud-coins { position: absolute; right: calc(var(--u)*12); top: calc(var(--u)*6); }
   #hud-coins.coins { font-size: calc(var(--u)*24); }
   #hud-coins svg { width: calc(var(--u)*24); height: calc(var(--u)*24); }
-  #feed { position: absolute; right: calc(var(--u)*104); top: calc(var(--u)*46); display: flex; flex-direction: column; align-items: flex-end; gap: calc(var(--u)*3); font-size: calc(var(--u)*14); }
+  #feed { position: absolute; right: calc(var(--u)*12); top: calc(var(--u)*62); display: flex; flex-direction: column; align-items: flex-end; gap: calc(var(--u)*3); font-size: calc(var(--u)*14); }
   #feed > div { background: rgba(0,0,0,.35); border-radius: calc(var(--u)*4); padding: calc(var(--u)*2) calc(var(--u)*8); display: flex; gap: calc(var(--u)*6); align-items: center; }
   #feed img { height: calc(var(--u)*15); }
   #feed > div.mine { background: rgba(247,148,29,.6); }
-  #ammo { position: absolute; right: calc(var(--u)*18); bottom: calc(var(--u)*8); text-align: right; }
-  #ammo .row { display: flex; align-items: center; gap: calc(var(--u)*10); justify-content: flex-end; }
-  #ammo .n { font-family: "n", sans-serif; font-weight: 900; font-size: calc(var(--u)*52); text-shadow: 0 calc(var(--u)*3) calc(var(--u)*2) rgba(0,0,0,.45); }
-  #ammo .n.empty { color: #ff5545; }
-  #ammo .bullets { width: calc(var(--u)*40); height: calc(var(--u)*46); }
-  #nades { display: flex; gap: calc(var(--u)*8); justify-content: flex-end; margin-bottom: calc(var(--u)*2); }
-  #nades svg { width: calc(var(--u)*30); height: calc(var(--u)*38); }
-  #nades svg.off path { fill: rgba(20,70,85,.85); }
   #chat { position: absolute; left: calc(var(--u)*8); bottom: calc(var(--u)*8); width: calc(var(--u)*400); display: flex; flex-direction: column; gap: calc(var(--u)*4); padding: calc(var(--u)*8) calc(var(--u)*10); font-size: calc(var(--u)*15); font-weight: 800; border-radius: calc(var(--u)*10); background: rgba(11,69,96,.32); border: calc(var(--u)*2) solid rgba(11,91,125,.45); text-shadow: 0 calc(var(--u)*1) calc(var(--u)*2) rgba(0,0,0,.8); }
   #chat.open { background: rgba(11,69,96,.7); border-color: rgba(11,91,125,.95); }
   #chat-lines { display: flex; flex-direction: column; gap: calc(var(--u)*2); max-height: calc(var(--u)*150); overflow: hidden; justify-content: flex-end; }
@@ -232,9 +221,15 @@
   .note.diag.ok { color: #1b7a2c; } .note.diag.err { color: #c0392b; }
   .cols { display: flex; gap: calc(var(--u)*28); justify-content: center; }
   .cols > div { display: flex; flex-direction: column; align-items: center; gap: calc(var(--u)*10); width: calc(var(--u)*240); }
-  #shop-grid { display: grid; grid-template-columns: repeat(4, calc(var(--u)*124)); gap: calc(var(--u)*10); }
-  .item-card { height: calc(var(--u)*120); display: flex; flex-direction: column; align-items: center; justify-content: space-between; font-family: "n", sans-serif; font-weight: 900; font-size: calc(var(--u)*13); padding: calc(var(--u)*8); }
-  .item-card .sw { width: calc(var(--u)*50); height: calc(var(--u)*62); border-radius: 50% 50% 46% 46% / 58% 58% 42% 42%; border: calc(var(--u)*3) solid var(--blue-e); }
+  .shop-wrap { display: flex; gap: calc(var(--u)*14); align-items: flex-start; }
+  #sh-egg { width: calc(var(--u)*200); height: calc(var(--u)*200); border-radius: calc(var(--u)*12); background: radial-gradient(circle at 50% 40%, #d4f0fb, #7fc9e6); border: calc(var(--u)*3) solid var(--blue-e); }
+  #shop-grid { display: grid; grid-template-columns: repeat(5, calc(var(--u)*98)); grid-auto-rows: calc(var(--u)*112); gap: calc(var(--u)*8); max-height: calc(var(--u)*372); overflow-y: auto; padding-right: calc(var(--u)*8); }
+  #shop-grid.tab-color, #shop-grid.tab-pcolor { grid-template-columns: repeat(8, calc(var(--u)*58)); grid-auto-rows: calc(var(--u)*72); }
+  .item-card { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: calc(var(--u)*2); font-family: "n", sans-serif; font-weight: 900; font-size: calc(var(--u)*11); padding: calc(var(--u)*4); }
+  .item-card img { width: calc(var(--u)*64); height: calc(var(--u)*64); object-fit: contain; }
+  .item-card .nm { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+  .item-card .st { font-size: calc(var(--u)*9); opacity: .85; }
+  .item-card .sw { width: calc(var(--u)*34); height: calc(var(--u)*42); border-radius: 50% 50% 46% 46% / 58% 58% 42% 42%; border: calc(var(--u)*3) solid var(--blue-e); }
   .item-card.on { --c: var(--orange); --e: var(--orange-e); }
   #stats { font-size: calc(var(--u)*15); color: var(--ink); border-collapse: collapse; }
   #stats td { padding: calc(var(--u)*3) calc(var(--u)*12); border-bottom: calc(var(--u)*2) solid rgba(11,91,125,.2); }
@@ -243,7 +238,7 @@
 </head>
 <body>
 <div id="boot"><canvas id="boot-canvas"></canvas></div>
-<script type="module" id="boot-script" src="js/splash.js?v=muwb4ktb" data-modules="55"></script>
+<script type="module" id="boot-script" src="js/splash.js?v=muwpta38" data-modules="60"></script>
 <canvas id="game" tabindex="-1"></canvas>
 
 <div class="screen hidden" id="loading">
@@ -323,19 +318,13 @@
 </div>
 
 <div class="screen hidden" id="hud">
-  <canvas id="hud-canvas"></canvas>
   <div id="board"><div id="board-list"></div><div id="streak"><div class="n" id="best-streak">x0</div><div class="l">BEST<br>STREAK</div></div></div>
   <div class="coins" id="hud-coins"><svg viewBox="0 0 24 24"><ellipse cx="12" cy="13" rx="9" ry="10" fill="#f2a500"/><ellipse cx="12" cy="12" rx="8" ry="9" fill="#ffd23f"/><ellipse cx="9" cy="8" rx="2.5" ry="3.5" fill="#fff6c4"/></svg><span id="hud-coin-n">0</span></div>
-  <div class="glass" id="perf"><div class="k">FPS</div><div id="fps">0</div><div class="k">PING</div><div id="ping">0ms</div></div>
   <div id="feed"></div>
   <div class="glass hidden" id="debug"></div>
   <div id="objective" class="hidden"><div class="scores"><span class="b" id="score-b">0</span><span id="score-sep">·</span><span class="r" id="score-r">0</span></div><div id="obj-bar"><div id="obj-fill"></div></div><div id="obj-text"></div></div>
   <div class="h hidden" id="banner"></div>
   <div class="glass hidden" id="toast"></div>
-  <div id="ammo">
-    <div id="nades"><svg viewBox="0 0 30 38"><path d="M11 3h8v5h-8zM15 8c8 0 13 6 13 15s-6 13-13 13S2 32 2 23 7 8 15 8z" fill="#fff"/></svg><svg viewBox="0 0 30 38"><path d="M11 3h8v5h-8zM15 8c8 0 13 6 13 15s-6 13-13 13S2 32 2 23 7 8 15 8z" fill="#fff"/></svg><svg viewBox="0 0 30 38"><path d="M11 3h8v5h-8zM15 8c8 0 13 6 13 15s-6 13-13 13S2 32 2 23 7 8 15 8z" fill="#fff"/></svg></div>
-    <div class="row"><div class="n" id="ammo-n">30/240</div><svg class="bullets" viewBox="0 0 40 46"><g fill="#fff"><path d="M3 14q3-10 6 0v30H3z"/><path d="M13 14q3-10 6 0v30h-6z"/><path d="M23 14q3-10 6 0v30h-6z"/><path d="M33 14q3-10 6 0v30h-6z"/></g></svg></div>
-  </div>
   <div id="chat"><div id="chat-lines"></div><input type="text" id="chat-input" class="hidden" maxlength="200" spellcheck="false" autocomplete="off" placeholder="Say something… (/t for team)"><div id="chat-hint">Press Enter to chat</div></div>
 </div>
 
@@ -385,7 +374,7 @@
 
 <div class="modal hidden" id="shop">
   <div class="panel"><div class="head">COOP SHOP</div><button class="icon red close" id="sh-close"><svg viewBox="0 0 24 24"><path d="M5 5l14 14M19 5 5 19" stroke="#fff" stroke-width="4" stroke-linecap="round"/></svg></button>
-    <div class="body"><div class="tabbar" id="sh-tabs"></div><div id="shop-grid"></div></div>
+    <div class="body"><div class="tabbar" id="sh-tabs"></div><div class="shop-wrap"><img id="sh-egg" alt=""><div id="shop-grid"></div></div></div>
     <div class="foot"><div class="coins"><svg viewBox="0 0 24 24"><ellipse cx="12" cy="13" rx="9" ry="10" fill="#f2a500"/><ellipse cx="12" cy="12" rx="8" ry="9" fill="#ffd23f"/><ellipse cx="9" cy="8" rx="2.5" ry="3.5" fill="#fff6c4"/></svg><span id="sh-coins">0</span></div></div>
   </div>
 </div>
@@ -397,7 +386,7 @@
   </div>
 </div>
 
-<script defer src="net-config.js?v=muwb4ktb"></script>
-<script type="module" src="js/main.js?v=muwb4ktb"></script>
+<script defer src="net-config.js?v=muwpta38"></script>
+<script type="module" src="js/main.js?v=muwpta38"></script>
 </body>
 </html>
