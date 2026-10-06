@@ -9,6 +9,9 @@
 const SAMPLE_URLS = {}; // name → URL, filled by registerSamples() from the sound bank module
 // How much of each sound goes to the reverb.
 const SEND = { explode: 0.55, yolkzooka: 0.45, poacher: 0.45, cageFree: 0.38, doubleYolker: 0.38, yolk47: 0.3, triBoil: 0.3, beater: 0.26, peck9mm: 0.26, crackBig: 0.25, splat: 0.2, squawk: 0.25, bounce: 0.15, melee: 0.15, step: 0.08, land: 0.1 };
+// Voice budget and what gives way first; what earns HRTF panning when close.
+const VOICES = 24, MINOR = new Set(['step', 'bounce', 'land', 'jump', 'impact', 'mech', 'whiz', 'dust']);
+const LOUD = new Set(['yolk47', 'beater', 'triBoil', 'peck9mm', 'cageFree', 'poacher', 'doubleYolker', 'yolkzooka', 'explode', 'whiz', 'crackBig', 'squawk']);
 const UI = new Set(['uiHover', 'uiClick', 'pop', 'click', 'challenge', 'hitmark', 'hitBody', 'killConfirm', 'heartbeat', 'death', 'lowAmmo']);
 
 export class Sound {
@@ -69,12 +72,14 @@ export class Sound {
     else { L.setPosition(x, y, z); L.setOrientation(fx, 0, fz, 0, 1, 0); }
   }
   // An output node at a world position (or straight to the bus when pos is null: our own sounds).
-  out(pos, gain = 1, send = 0, ui = false) {
+  // (HRTF panning, the convincing 3D kind, convolves every voice on the audio thread; on a two-core
+  // Chromebook that competes with the game, so only loud sounds close by get it.)
+  out(pos, gain = 1, send = 0, ui = false, hrtf = false) {
     const c = this.ctx, g = c.createGain(); g.gain.value = gain;
     if (pos) {
-      const p = c.createPanner(); p.panningModel = 'HRTF'; p.distanceModel = 'inverse'; p.refDistance = 2.5; p.rolloffFactor = 1.1; p.maxDistance = 120;
       // Air and walls: far sounds lose their top end; through a wall they are dull and quieter.
       const d = Math.hypot(pos[0] - this.lx, pos[1] - this.ly, pos[2] - this.lz), blocked = this.occluded?.(pos[0], pos[1], pos[2]);
+      const p = c.createPanner(); p.panningModel = hrtf && d < 12 ? 'HRTF' : 'equalpower'; p.distanceModel = 'inverse'; p.refDistance = 2.5; p.rolloffFactor = 1.1; p.maxDistance = 120;
       const lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = Math.max(blocked ? 700 : 1500, Math.min(20000, 20000 * Math.exp(-d / 28))) * (blocked ? 0.6 : 1);
       if (blocked) g.gain.value = gain * 0.6;
       place(p, pos); g.connect(lp); lp.connect(p); p.connect(this.bus); g.panner = p;
@@ -88,10 +93,16 @@ export class Sound {
   play(name, pos = null, gain = 1, rate = 1) {
     if (!this.ctx || this.ctx.state !== 'running') return;
     if (pos && Math.hypot(pos[0] - this.lx, pos[1] - this.ly, pos[2] - this.lz) > 90) return;
-    const out = this.out(pos, gain, SEND[name] || 0, UI.has(name));
+    // A busy fight can ask for dozens of sounds at once: past the voice budget, the small ones
+    // (footsteps, bounces) give way.
+    if (this.voices >= VOICES && MINOR.has(name)) return;
+    const out = this.out(pos, gain, SEND[name] || 0, UI.has(name), LOUD.has(name));
     const b = this.pick(name);
-    if (b) { const s = this.ctx.createBufferSource(); s.buffer = b; s.playbackRate.value = rate * (0.96 + Math.random() * 0.08); s.connect(out); s.start(); return; }
+    this.voices = (this.voices || 0) + 1;
+    const done = () => { this.voices--; };
+    if (b) { const s = this.ctx.createBufferSource(); s.buffer = b; s.playbackRate.value = rate * (0.96 + Math.random() * 0.08); s.connect(out); s.onended = done; s.start(); return; }
     (SYNTH[name] || SYNTH.pop)(this, out, rate);
+    setTimeout(done, 400);
   }
   // A recorded sample for this name, choosing among numbered variants (crack0, crack1…) when there are some.
   pick(name) {
