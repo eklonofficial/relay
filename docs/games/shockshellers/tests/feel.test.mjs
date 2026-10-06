@@ -5,7 +5,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { load } from './load.mjs';
 const { aimAssist, assistOn, ASSIST } = await load('game/aim.js');
-const { COLORS, PATTERNS, STAMPS, HATS, SKINS, sanitizeCosmetics, randomCosmetics } = await load('game/cosmetics.js');
+const { COLORS, PATTERNS, STAMPS, HATS, SKINS, NATURAL, sanitizeCosmetics, botCosmetics } = await load('game/cosmetics.js');
 const { PATTERN_IDS, STAMP_IDS } = await load('render/shellart.js');
 const { HAT_IDS } = await load('render/hats.js');
 const { SKIN_IDS, GUN_IDS, gunAnchors } = await load('render/guns.js');
@@ -64,7 +64,7 @@ test('cosmetics from the network: known values pass, anything else falls back', 
   assert.deepEqual(sanitizeCosmetics(null), sanitizeCosmetics({}));
   assert.deepEqual(sanitizeCosmetics({ color: 3, hat: 'cap' }), { color: 3, pcolor: 13, hat: 'cap', pattern: 'none', stamp: 'none', skin: 'factory' }, 'old profiles keep their look');
   let s = 1; const rnd = () => (s = (s * 16807) % 2147483647) / 2147483647;
-  for (let i = 0; i < 200; i++) { const c = randomCosmetics(rnd); assert.deepEqual(sanitizeCosmetics(c), c); assert.ok(!HATS.find(h => h.id === c.hat).price, 'bots wear free hats'); }
+  for (let i = 0; i < 200; i++) { const c = botCosmetics(rnd); assert.deepEqual(sanitizeCosmetics(c), c); assert.ok(NATURAL.includes(c.color) && c.hat === 'none' && c.pattern === 'none' && c.stamp === 'none', 'bots are plain eggs in natural colours'); }
 });
 
 test('every gun has the attachment points the hands and camera need', () => {
@@ -74,4 +74,18 @@ test('every gun has the attachment points the hands and camera need', () => {
     for (const k of ['muzzle', 'sight', 'grip', 'support']) assert.ok(u[k]?.isVector3, `${id}.${k}`);
     assert.ok(u.muzzle.z < u.grip.z && u.sight.y > u.grip.y, `${id}: muzzle ahead of the grip, sights above it`);
   }
+});
+
+test('PLAY moves around the map rotation instead of repeating the last few maps', async () => {
+  const { pickPublicMap, MAPS } = await load('maps/index.js');
+  let s = 3; const rnd = () => (s = (s * 16807) % 2147483647) / 2147483647;
+  const recent = [];
+  for (let i = 0; i < 60; i++) {
+    const id = pickPublicMap('ffa', rnd, recent.slice(-4));
+    assert.ok(!recent.slice(-4).includes(id), `${id} came up again within four plays`);
+    recent.push(id);
+  }
+  assert.ok(new Set(recent).size >= 6, 'most of the rotation shows up');
+  const roost = MAPS.filter(m => m.public && m.modes.includes('roost')).map(m => m.id);
+  assert.ok(roost.includes(pickPublicMap('roost', rnd, roost.slice(0, -1))), 'with every map recent, it still picks one');
 });

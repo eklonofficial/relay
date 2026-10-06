@@ -4,11 +4,11 @@
 //
 // Players are humans or bots alike: each tick every player supplies { ctrl, yaw, pitch } (bots
 // through the same input struct, so they obey identical movement, fire-rate and spread rules).
-import { PLAYER, WEAPONS, MELEE, GRENADE, PICKUPS, STREAKS, DAMAGE, DEFAULT_OPTIONS, PRIMARIES, CTRL, TICK_HZ } from './tuning.js?v=muwqkdzr';
-import { makeBody, stepBody, movementInput, forward } from './movement.js?v=muwqkdzr';
-import { makeHands, stepHands, readyHands, refill, HandEvents, weaponOf, slotOf, grenadeLaunch, lcg } from './combat.js?v=muwqkdzr';
-import { makeMode } from './modes.js?v=muwqkdzr';
-import { HIT } from '../maps/grid.js?v=muwqkdzr';
+import { PLAYER, WEAPONS, MELEE, GRENADE, PICKUPS, STREAKS, DAMAGE, DEFAULT_OPTIONS, PRIMARIES, CTRL, TICK_HZ } from './tuning.js?v=muwxhwrn';
+import { makeBody, stepBody, movementInput, forward } from './movement.js?v=muwxhwrn';
+import { makeHands, stepHands, readyHands, refill, HandEvents, weaponOf, slotOf, grenadeLaunch, lcg } from './combat.js?v=muwxhwrn';
+import { makeMode } from './modes.js?v=muwxhwrn';
+import { HIT } from '../maps/grid.js?v=muwxhwrn';
 
 const HISTORY = 256;
 // Hit-angle damage (GDD §8.2): s = 0.2 + 0.8·dot(−d, n); mult = s^(4 + s^4).
@@ -274,16 +274,17 @@ export class Match {
         } else {
           if (hitT <= wallT && victim) this.damage(victim, w.directDmg * this.options.damage, owner, 'yolkzooka', { x, y, z, dx: r.dx, dy: r.dy, dz: r.dz });
           const off = wallT < hitT ? 0.05 : 0;
-          this.explode(x + HIT.nx * off, y + HIT.ny * off, z + HIT.nz * off, w.dmg, w.radius, owner, 'yolkzooka', victim);
+          this.explode(x + HIT.nx * off, y + HIT.ny * off, z + HIT.nz * off, w.dmg, w.radius, owner, 'yolkzooka', victim, w.falloff);
         }
         this.rockets.splice(i, 1); continue;
       }
       r.x += r.dx * seg; r.y += r.dy * seg; r.z += r.dz * seg; r.travelled += seg;
-      if (r.travelled >= w.range - 1e-6) { this.explode(r.x, r.y, r.z, w.dmg, w.radius, this.players.get(r.owner), 'yolkzooka', null); this.rockets.splice(i, 1); }
+      if (r.travelled >= w.range - 1e-6) { this.explode(r.x, r.y, r.z, w.dmg, w.radius, this.players.get(r.owner), 'yolkzooka', null, w.falloff); this.rockets.splice(i, 1); }
     }
   }
-  // Linear falloff to 0 at the edge; walls shield; self-damage yes, teammates no.
-  explode(x, y, z, dmg, radius, owner, weapon, skip) {
+  // Falloff to 0 at the edge (linear, or gentler with falloff > 1: the Yolkzooka's blast stays strong
+  // further out); walls shield; self-damage yes, teammates no.
+  explode(x, y, z, dmg, radius, owner, weapon, skip, falloff = 1) {
     this.emit({ t: 'boom', x, y, z, r: radius, w: weapon, team: owner ? owner.team : 0 });
     const victims = [];
     for (const q of this.players.values()) {
@@ -293,7 +294,7 @@ export class Match {
       const d = Math.hypot(cx - x, cy - y, cz - z);
       if (d >= radius) continue;
       if (!this.grid.visible(x, y, z, cx, cy, cz)) continue;
-      const amount = dmg * (1 - d / radius) * this.options.damage;
+      const amount = dmg * (1 - Math.pow(d / radius, falloff)) * this.options.damage;
       victims.push(q);
       this.damage(q, amount, owner, weapon, { x, y, z, dx: cx - x, dy: cy - y, dz: cz - z, splash: true });
     }

@@ -1,31 +1,31 @@
 // Shock Shellers: boot, menus, the match flow (home → respawn screen → play → death → respawn) and
 // the frame loop. The simulation runs at a fixed 30 Hz inside the session; rendering interpolates.
-import './page.js?v=muwqkdzr';
-import { surfaceDocument as document } from './surface.js?v=muwqkdzr';
-import { registerApp } from './veil.js?v=muwqkdzr';
-import { tell } from './dialog.js?v=muwqkdzr';
-import { splash } from './splash.js?v=muwqkdzr';
-import * as THREE from '../vendor/three/three.module.js?v=muwqkdzr';
-import { Renderer } from './render/renderer.js?v=muwqkdzr';
-import { RELOAD_KIND } from './render/viewmodel.js?v=muwqkdzr';
-import { EggAvatar } from './render/egg.js?v=muwqkdzr';
-import { aimAssist, assistOn } from './game/aim.js?v=muwqkdzr';
-import { Input } from './game/input.js?v=muwqkdzr';
-import { SOUND_FILES } from './game/soundbank.js?v=muwqkdzr';
-import { Sound, registerSamples } from './game/audio.js?v=muwqkdzr';
-import { Hud } from './game/hud.js?v=muwqkdzr';
-import { loadSettings, saveSettings, loadProfile, saveProfile } from './game/store.js?v=muwqkdzr';
-import { ensureDaily, progress as challengeProgress, claim as claimChallenges } from './game/challenges.js?v=muwqkdzr';
-import { HostSession } from './game/session.js?v=muwqkdzr';
-import { GuestSession } from './net/guest.js?v=muwqkdzr';
-import { pickPublicMap, mapDef, MAPS } from './maps/index.js?v=muwqkdzr';
-import { WEAPONS, PRIMARIES, PLAYER, MODE_NAMES, MODE_MENU, ECONOMY, CTRL, TICK, TICK_HZ } from './sim/tuning.js?v=muwqkdzr';
-import { weaponOf, slotOf } from './sim/combat.js?v=muwqkdzr';
-import { eyePoint } from './sim/movement.js?v=muwqkdzr';
-import { drawLogo, drawHowTo } from './ui/art.js?v=muwqkdzr';
-import { loadModels } from './render/models.js?v=muwqkdzr';
-import { HIT } from './maps/grid.js?v=muwqkdzr';
-import { Menus } from './ui/menus.js?v=muwqkdzr';
+import './page.js?v=muwxhwrn';
+import { surfaceDocument as document } from './surface.js?v=muwxhwrn';
+import { registerApp } from './veil.js?v=muwxhwrn';
+import { tell } from './dialog.js?v=muwxhwrn';
+import { splash } from './splash.js?v=muwxhwrn';
+import * as THREE from '../vendor/three/three.module.js?v=muwxhwrn';
+import { Renderer } from './render/renderer.js?v=muwxhwrn';
+import { RELOAD_KIND } from './render/viewmodel.js?v=muwxhwrn';
+import { EggAvatar } from './render/egg.js?v=muwxhwrn';
+import { aimAssist, assistOn } from './game/aim.js?v=muwxhwrn';
+import { Input } from './game/input.js?v=muwxhwrn';
+import { SOUND_FILES } from './game/soundbank.js?v=muwxhwrn';
+import { Sound, registerSamples } from './game/audio.js?v=muwxhwrn';
+import { Hud } from './game/hud.js?v=muwxhwrn';
+import { loadSettings, saveSettings, loadProfile, saveProfile } from './game/store.js?v=muwxhwrn';
+import { ensureDaily, progress as challengeProgress, claim as claimChallenges } from './game/challenges.js?v=muwxhwrn';
+import { HostSession } from './game/session.js?v=muwxhwrn';
+import { GuestSession } from './net/guest.js?v=muwxhwrn';
+import { pickPublicMap, mapDef, MAPS } from './maps/index.js?v=muwxhwrn';
+import { WEAPONS, PRIMARIES, PLAYER, MODE_NAMES, MODE_MENU, ECONOMY, CTRL, TICK, TICK_HZ } from './sim/tuning.js?v=muwxhwrn';
+import { weaponOf, slotOf } from './sim/combat.js?v=muwxhwrn';
+import { eyePoint } from './sim/movement.js?v=muwxhwrn';
+import { drawLogo, drawHowTo } from './ui/art.js?v=muwxhwrn';
+import { loadModels } from './render/models.js?v=muwxhwrn';
+import { HIT } from './maps/grid.js?v=muwxhwrn';
+import { Menus } from './ui/menus.js?v=muwxhwrn';
 
 const $ = id => document.getElementById(id);
 const show = (id, on = true) => { $(id).classList.toggle('hidden', !on); if (id === 'respawn') $('hud').classList.toggle('menu', on); };
@@ -147,7 +147,11 @@ class App {
   // PLAY: host a fresh bot-filled public-style room on a random map for the chosen mode.
   play() {
     const mode = this.profile.mode;
-    this.startMatch({ map: pickPublicMap(mode), mode, options: {}, bots: undefined, difficulty: 'public', private: false });
+    // (The last four maps are skipped, so PLAY moves around the rotation.)
+    const recent = Array.isArray(this.profile.recentMaps) ? this.profile.recentMaps : [];
+    const map = pickPublicMap(mode, Math.random, recent.slice(-4));
+    this.profile.recentMaps = [...recent.filter(id => id !== map), map].slice(-6);
+    this.startMatch({ map, mode, options: {}, bots: undefined, difficulty: 'public', private: false });
   }
   startMatch(cfg) {
     this.sound.unlock();
