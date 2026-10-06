@@ -1,9 +1,10 @@
 // The in-game HUD (GDD §19.6). Text elements only change when their value changes (each DOM change
 // repaints the compositor); everything that moves every frame (crosshair, health ring, hit markers,
-// damage arcs, grenade charge, scope, off-screen markers) is drawn on the HUD canvas.
-import { surfaceDocument as document } from '../surface.js?v=muvmvc5o';
-import { WEAPONS, GRENADE, ROOST, STREAKS } from '../sim/tuning.js?v=muvmvc5o';
-import { currentSpread, weaponOf, slotOf } from '../sim/combat.js?v=muvmvc5o';
+// damage arcs, grenade charge, scope, off-screen markers, kill confirmations, the death recap) is
+// drawn on the HUD canvas.
+import { surfaceDocument as document } from '../surface.js?v=muw89qdu';
+import { WEAPONS, GRENADE, ROOST, STREAKS } from '../sim/tuning.js?v=muw89qdu';
+import { currentSpread, weaponOf, slotOf } from '../sim/combat.js?v=muw89qdu';
 
 const $ = id => document.getElementById(id);
 const POWER_NAMES = { hardBoiled: 'HARD BOILED!', shellBreaker: 'SHELL BREAKER!', restock: 'RESTOCK!', overheal: 'OVERHEAL!', doubleYolks: 'DOUBLE YOLKS!', quailEgg: 'QUAIL EGG!' };
@@ -15,8 +16,22 @@ export class Hud {
     this.canvas = $('hud-canvas'); this.ctx = this.canvas.getContext('2d');
     this.cache = {}; this.feed = []; this.hitT = 0; this.hitKill = false; this.dmgArcs = [];
     this.bannerT = 0; this.toastT = 0; this.chatLines = [];
-    this.weaponIcons = {};
+    this.weaponIcons = {}; this.iconImgs = {};
+    this.gap = 8; this.hpShown = 100; this.hpTrail = 100; this.t = 0; this.confirms = []; this.death = null; this.popups = [];
   }
+  // A weapon icon as an image the canvas can draw (decoded once from its data: URL).
+  icon(id) {
+    if (this.iconImgs[id]) return this.iconImgs[id].complete ? this.iconImgs[id] : null;
+    const src = this.weaponIcons[id]; if (!src) return null;
+    const img = new Image(); img.src = src; this.iconImgs[id] = img; return null;
+  }
+  // We cracked someone: the name pops in under the crosshair with the streak, and the reward floats up.
+  confirmKill(name, streak, yolks) {
+    this.confirms.unshift({ name, streak, t: 0 }); if (this.confirms.length > 3) this.confirms.pop();
+    if (yolks) this.popups.push({ text: '+' + yolks, t: 0 });
+  }
+  // We got cracked: who did it, with what, and how much they had left.
+  died(killer, weapon, hp) { this.death = { killer, weapon, hp, t: 0 }; }
   set(id, key, value, fn) { if (this.cache[key] === value) return; this.cache[key] = value; fn($(id), value); }
   text(id, value) { this.set(id, id + ':t', value, (e, v) => { e.textContent = v; }); }
   resize() { const d = Math.min(2, devicePixelRatio || 1); this.canvas.width = Math.round(innerWidth * d); this.canvas.height = Math.round(innerHeight * d); this.dpr = d; }
@@ -65,8 +80,9 @@ export class Hud {
     this.text('obj-text', text);
     this.set('obj-fill', 'objFill', Math.round(fill * 100) + color, e => { e.style.width = Math.round(fill * 100) + '%'; e.style.background = color; });
   }
-  kill(killerName, victimName, weapon, killerTeam, victimTeam) {
+  kill(killerName, victimName, weapon, killerTeam, victimTeam, mine = false) {
     const row = document.createElement('div');
+    if (mine) row.className = 'mine';
     const a = document.createElement('span'); a.textContent = killerName || ''; a.style.color = TEAM[killerTeam] || '#fff';
     const w = document.createElement('img'); w.src = this.weaponIcons[weapon] || this.weaponIcons.yolk47 || '';
     const b = document.createElement('span'); b.textContent = victimName; b.style.color = TEAM[victimTeam] || '#fff';
@@ -76,7 +92,8 @@ export class Hud {
     this.feed.push({ row, t: 5 });
     while (feed.children.length > 5) { feed.lastChild.remove(); this.feed.shift(); }
   }
-  banner(text, seconds = 2.5) { const e = $('banner'); e.textContent = text; e.classList.remove('hidden'); this.bannerT = seconds; }
+  // (Hidden and shown again so its entrance animation replays even if one is already up.)
+  banner(text, seconds = 2.5) { const e = $('banner'); e.classList.add('hidden'); void e.offsetWidth; e.textContent = text; e.classList.remove('hidden'); this.bannerT = seconds; }
   power(k) { this.banner(POWER_NAMES[k] || k); }
   toast(text, seconds = 3) { const e = $('toast'); e.textContent = text; e.classList.remove('hidden'); this.toastT = seconds; }
   chat(text, color = '#fff') {
@@ -88,7 +105,7 @@ export class Hud {
     lines.append(d); this.chatLines.push({ d, t: 20 });
     while (lines.children.length > 7) { lines.firstChild.remove(); this.chatLines.shift(); }
   }
-  hit(kill) { this.hitT = 0.25; this.hitKill = kill; }
+  hit(kill) { this.hitT = kill ? 0.45 : 0.25; this.hitMax = this.hitT; this.hitKill = kill; this.gapKick = Math.min(10, (this.gapKick || 0) + 4); }
   damageFrom(angle) { this.dmgArcs.push({ a: angle, t: 1 }); if (this.dmgArcs.length > 6) this.dmgArcs.shift(); this.vignette = 0.6; }
   tick(dt) {
     for (const f of this.feed) if ((f.t -= dt) <= 0 && f.row.isConnected) f.row.remove();
@@ -99,6 +116,48 @@ export class Hud {
     if (this.toastT > 0 && (this.toastT -= dt) <= 0) $('toast').classList.add('hidden');
   }
 
+  drawConfirms(c, cx, cy, dt) {
+    let y = cy + 74;
+    for (const k of this.confirms) {
+      k.t += dt;
+      const f = Math.min(1, k.t / 0.18), out = k.t > 1.8 ? Math.max(0, 1 - (k.t - 1.8) / 0.4) : 1;
+      if (out <= 0) continue;
+      const s = 1 + (1 - f) * 0.6 + Math.max(0, Math.sin(Math.min(1, k.t / 0.3) * Math.PI)) * 0.08;
+      c.save(); c.globalAlpha = out * f; c.translate(cx, y); c.scale(s, s);
+      c.textAlign = 'center'; c.textBaseline = 'middle'; c.lineJoin = 'round';
+      c.font = '400 20px s, sans-serif'; c.lineWidth = 6; c.strokeStyle = '#0b4560';
+      const head = 'CRACKED', name = k.name;
+      c.strokeText(head, 0, -12); c.fillStyle = '#ff5545'; c.fillText(head, 0, -12);
+      c.font = '900 17px n, sans-serif'; c.lineWidth = 5; c.strokeText(name, 0, 12); c.fillStyle = '#fff'; c.fillText(name, 0, 12);
+      if (k.streak > 1) {
+        const tw = c.measureText(name).width / 2 + 26;
+        c.font = '400 18px s, sans-serif'; c.lineWidth = 5; c.strokeText('x' + k.streak, tw, 11); c.fillStyle = '#ffd23f'; c.fillText('x' + k.streak, tw, 11);
+      }
+      c.restore();
+      y += 52 * out; break; // only the newest is shown; older ones just finish their fade
+    }
+    this.confirms = this.confirms.filter(k => k.t < 2.2);
+  }
+  drawDeath(c, w, h) {
+    const d = this.death, f = Math.min(1, d.t / 0.25), out = d.t > 1.75 ? Math.max(0, 1 - (d.t - 1.75) / 0.25) : 1;
+    const y = h * 0.3;
+    c.save(); c.globalAlpha = f * out;
+    const bw = Math.min(460, w - 40), bh = 92, x = (w - bw) / 2;
+    const g = c.createLinearGradient(x, 0, x + bw, 0); g.addColorStop(0, 'rgba(11,69,96,0)'); g.addColorStop(0.15, 'rgba(11,69,96,.82)'); g.addColorStop(0.85, 'rgba(11,69,96,.82)'); g.addColorStop(1, 'rgba(11,69,96,0)');
+    c.fillStyle = g; c.fillRect(x, y - bh / 2, bw, bh);
+    c.textAlign = 'center'; c.textBaseline = 'middle'; c.lineJoin = 'round';
+    c.font = '400 28px s, sans-serif'; c.lineWidth = 7; c.strokeStyle = '#0b4560';
+    const title = d.killer ? 'YOU GOT CRACKED' : 'YOU CRACKED';
+    c.strokeText(title, w / 2, y - 18); c.fillStyle = '#ff5545'; c.fillText(title, w / 2, y - 18);
+    if (d.killer) {
+      c.font = '900 17px n, sans-serif'; c.fillStyle = '#fff';
+      const label = `by ${d.killer}` + (d.hp > 0 ? `  ·  ${Math.ceil(d.hp)} HP left` : '');
+      const img = this.icon(d.weapon), iw = img ? 46 : 0, tw = c.measureText(label).width;
+      c.fillText(label, w / 2 + iw / 2, y + 20);
+      if (img) c.drawImage(img, w / 2 - tw / 2 - iw / 2 - 8, y + 9, iw, 23);
+    }
+    c.restore();
+  }
   drawScope(c, w, h, dt, v, id) {
     const A = this.scopeA, r = Math.min(w, h) * 0.46;
     // Sway: the lens lags behind the view (a damped spring fed by turning), plus a walk bob and breathing.
@@ -166,7 +225,10 @@ export class Hud {
     c.setTransform(d, 0, 0, d, 0, 0);
     const w = innerWidth, h = innerHeight, cx = w / 2, cy = h / 2;
     const me = v.me, hands = me?.hands;
-    if (!me || !me.alive) return;
+    this.t += dt;
+    if (this.death) { this.death.t += dt; if (this.death.t > 2.1 || me?.alive) this.death = null; }
+    if (this.death) this.drawDeath(c, w, h);
+    if (!me || !me.alive) { this.confirms.length = 0; return; }
     const wpn = weaponOf(hands), s = slotOf(hands);
     // Damage vignette and arcs.
     if (this.vignette > 0) {
@@ -177,9 +239,12 @@ export class Hud {
     }
     for (const a of this.dmgArcs) {
       a.t -= dt; if (a.t <= 0) continue;
-      const ang = a.a - v.yaw;
-      c.strokeStyle = `rgba(255,40,30,${a.t * 0.8})`; c.lineWidth = 10; c.lineCap = 'round';
-      c.beginPath(); c.arc(cx, cy, Math.min(w, h) * 0.18, -Math.PI / 2 - ang - 0.35, -Math.PI / 2 - ang + 0.35); c.stroke();
+      // A tapered red wedge on a ring around the crosshair, pointing at whoever shot us.
+      const ang = -Math.PI / 2 - (a.a - v.yaw), r = Math.min(w, h) * 0.2;
+      c.save(); c.translate(cx, cy); c.rotate(ang);
+      const g = c.createLinearGradient(r - 14, 0, r + 10, 0); g.addColorStop(0, `rgba(255,60,40,0)`); g.addColorStop(1, `rgba(255,40,30,${Math.min(1, a.t) * 0.9})`);
+      c.fillStyle = g; c.beginPath(); c.moveTo(r + 12, 0); c.arc(0, 0, r, -0.32, 0.32); c.closePath(); c.fill();
+      c.restore();
     }
     this.dmgArcs = this.dmgArcs.filter(a => a.t > 0);
     // Scope overlay (Cage Free, Poacher, Yolkzooka when aiming): fades in as the gun comes up, sways
@@ -193,7 +258,10 @@ export class Hud {
     if (!busy && !scoped) {
       const spread = currentSpread(hands, wpn);
       const fovPx = h / 2 / Math.tan(v.fov / 2 * Math.PI / 180);
-      const gap = Math.max(4, Math.tan(spread / 2) * fovPx);
+      // The gap chases the real spread quickly (no jitter), and a hit kicks it open for a moment.
+      this.gapKick = Math.max(0, (this.gapKick || 0) - dt * 40);
+      this.gap += (Math.max(4, Math.tan(spread / 2) * fovPx) - this.gap) * Math.min(1, dt * 22);
+      const gap = this.gap + this.gapKick;
       c.strokeStyle = 'rgba(255,255,255,.95)'; c.lineWidth = 2; c.shadowColor = 'rgba(0,0,0,.6)'; c.shadowBlur = 2;
       if (s.id === 'doubleYolker') {
         c.beginPath(); c.ellipse(cx, cy, gap * 1.0, gap * WEAPONS.doubleYolker.vSpreadMul, 0, 0, Math.PI * 2); c.stroke();
@@ -213,11 +281,35 @@ export class Hud {
     // Hit marker.
     if (this.hitT > 0 && this.settings.hitMarkers) {
       this.hitT -= dt;
-      c.strokeStyle = this.hitKill ? 'rgba(255,70,50,.95)' : 'rgba(255,255,255,.95)'; c.lineWidth = 2.5;
-      const a = 6, b = 14; c.beginPath();
+      // Pops out a little then settles; a kill is red, bigger, and lingers.
+      const f = 1 - this.hitT / this.hitMax, pop = 1 + Math.sin(Math.min(1, f * 3) * Math.PI) * 0.35, k = this.hitKill ? 1.35 : 1;
+      c.globalAlpha = Math.min(1, this.hitT / this.hitMax * 2.5);
+      c.lineCap = 'round';
+      const a = 6 * pop * k, b = 15 * pop * k;
+      c.strokeStyle = 'rgba(0,0,0,.55)'; c.lineWidth = this.hitKill ? 5.5 : 4.5; c.beginPath();
       for (const [sx, sy] of [[1, 1], [1, -1], [-1, 1], [-1, -1]]) { c.moveTo(cx + sx * a, cy + sy * a); c.lineTo(cx + sx * b, cy + sy * b); }
       c.stroke();
+      c.strokeStyle = this.hitKill ? '#ff3b2a' : '#ffffff'; c.lineWidth = this.hitKill ? 3 : 2.5; c.stroke();
+      c.globalAlpha = 1;
     }
+    // Reloading: a thin ring around the crosshair fills with the reload.
+    if (v.reload && !scoped) {
+      const R = 22;
+      c.lineWidth = 3; c.strokeStyle = 'rgba(0,0,0,.35)'; c.beginPath(); c.arc(cx, cy, R, 0, Math.PI * 2); c.stroke();
+      c.strokeStyle = '#ffd23f'; c.beginPath(); c.arc(cx, cy, R, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * v.reload); c.stroke();
+    } else if (!busy && !hands.charging) {
+      // Running low: a nudge to reload (or to find ammo).
+      const lowMag = s.mag <= Math.max(1, Math.floor(wpn.mag * 0.25));
+      if (lowMag) {
+        const out = s.mag === 0 && s.store === 0, label = out ? 'NO AMMO' : 'RELOAD';
+        c.globalAlpha = 0.65 + 0.35 * Math.sin(this.t * 7);
+        c.font = '900 15px n, sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle';
+        c.lineWidth = 4; c.strokeStyle = 'rgba(0,0,0,.6)'; c.strokeText(label, cx, cy + 46);
+        c.fillStyle = out || s.mag === 0 ? '#ff5545' : '#ffd23f'; c.fillText(label, cx, cy + 46);
+        c.globalAlpha = 1;
+      }
+    }
+    this.drawConfirms(c, cx, cy, dt);
     // Grenade charge meter beside the crosshair.
     if (hands.charging) {
       const p = Math.max(0, hands.power), x = cx + 42, y = cy - 30;
@@ -225,17 +317,35 @@ export class Hud {
       c.fillStyle = p > 0.95 ? '#ff5545' : '#ffd23f'; c.fillRect(x, y + 60 * (1 - p), 10, 60 * p);
       c.strokeStyle = '#fff'; c.lineWidth = 2; c.strokeRect(x, y, 10, 60);
     }
-    // Health meter: white disc, teal outline, draining orange ring (blue shield / cracked timer).
+    // Health meter: white disc, teal outline, draining orange ring (blue shield / cracked timer). Damage
+    // leaves a pale chunk that catches up a moment later; low health beats red.
     const hx = cx, hy = h - 56, R = 34;
-    c.fillStyle = '#fff'; c.beginPath(); c.arc(hx, hy, R, 0, Math.PI * 2); c.fill();
-    c.lineWidth = 6; c.strokeStyle = '#174e5e'; c.beginPath(); c.arc(hx, hy, R + 3, 0, Math.PI * 2); c.stroke();
     const shield = me.shield > 0 && !(me.overheal > 0);
-    const frac = shield ? me.shield / STREAKS.hardBoiledHp : Math.min(1, me.hp / 100);
-    c.lineWidth = 9; c.strokeStyle = shield ? '#7fd3ff' : me.hp > 100 ? '#ff4fb0' : '#f39a25';
-    c.beginPath(); c.arc(hx, hy, R - 9, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * frac); c.stroke();
-    if (me.power.shellBreaker > 0) { c.lineWidth = 4; c.strokeStyle = '#ff3b2f'; c.beginPath(); c.arc(hx, hy, R - 16, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * me.power.shellBreaker / STREAKS.shellBreaker.cap); c.stroke(); }
-    c.fillStyle = '#174e5e'; c.font = '900 20px n, sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle';
-    c.fillText(String(Math.ceil(shield ? me.shield : me.hp)), hx, hy + 1);
+    const val = shield ? me.shield : me.hp, frac = shield ? me.shield / STREAKS.hardBoiledHp : Math.min(1, me.hp / 100);
+    if (val < this.hpShown) this.hpShown = val; else this.hpShown += (val - this.hpShown) * Math.min(1, dt * 6);
+    if (this.hpTrail < this.hpShown) this.hpTrail = this.hpShown; else this.hpTrail = Math.max(this.hpShown, this.hpTrail - dt * 60);
+    const low = !shield && me.hp < 35, beat = low ? Math.pow(Math.max(0, Math.sin(this.t * 6.5)), 6) : 0;
+    const scale = 1 + beat * 0.06;
+    c.save(); c.translate(hx, hy); c.scale(scale, scale);
+    c.fillStyle = 'rgba(0,0,0,.25)'; c.beginPath(); c.arc(0, 3, R + 5, 0, Math.PI * 2); c.fill();
+    c.fillStyle = low ? `rgb(255,${235 - beat * 80 | 0},${235 - beat * 80 | 0})` : '#fff'; c.beginPath(); c.arc(0, 0, R, 0, Math.PI * 2); c.fill();
+    c.lineWidth = 6; c.strokeStyle = low ? '#7a1d16' : '#174e5e'; c.beginPath(); c.arc(0, 0, R + 3, 0, Math.PI * 2); c.stroke();
+    c.lineWidth = 9; c.strokeStyle = 'rgba(23,78,94,.12)'; c.beginPath(); c.arc(0, 0, R - 9, 0, Math.PI * 2); c.stroke();
+    const max = shield ? STREAKS.hardBoiledHp : 100, trail = Math.min(1, this.hpTrail / max);
+    if (trail > frac + 0.005) { c.strokeStyle = 'rgba(255,240,200,.95)'; c.beginPath(); c.arc(0, 0, R - 9, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * trail); c.stroke(); }
+    c.strokeStyle = shield ? '#7fd3ff' : me.hp > 100 ? '#ff4fb0' : low ? '#ff3b2f' : '#f39a25';
+    c.beginPath(); c.arc(0, 0, R - 9, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * Math.min(1, this.hpShown / max)); c.stroke();
+    if (me.power.shellBreaker > 0) { c.lineWidth = 4; c.strokeStyle = '#ff3b2f'; c.beginPath(); c.arc(0, 0, R - 16, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * me.power.shellBreaker / STREAKS.shellBreaker.cap); c.stroke(); }
+    c.fillStyle = low ? '#9b1d16' : '#174e5e'; c.font = '900 20px n, sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle';
+    c.fillText(String(Math.ceil(val)), 0, 1);
+    c.restore();
+    // Yolk rewards float up beside the meter.
+    for (const p of this.popups) {
+      p.t += dt; const a = Math.max(0, 1 - p.t / 1.4);
+      c.globalAlpha = a; c.font = '900 22px n, sans-serif'; c.lineWidth = 5; c.strokeStyle = 'rgba(11,69,96,.85)';
+      c.strokeText(p.text, hx + 70, hy - 10 - p.t * 30); c.fillStyle = '#ffd23f'; c.fillText(p.text, hx + 70, hy - 10 - p.t * 30);
+    }
+    c.globalAlpha = 1; this.popups = this.popups.filter(p => p.t < 1.4);
     // Spawn shield hint.
     if (me.spawnShield > 0) { c.fillStyle = 'rgba(120,255,140,.9)'; c.font = '800 15px n, sans-serif'; c.fillText('SPAWN SHIELD', hx, hy - R - 16); }
     // Off-screen markers: roost crown and the spatula carrier (shown through walls).

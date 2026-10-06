@@ -1,9 +1,9 @@
 // The egg: a smooth ovoid shell (cracks grow at 80/60/40/20 HP, GDD §5), two floating cartoon
 // gloves holding the gun, an optional hat, a team ring for teammates and a name tag. Third-person
 // only; the first-person hands are viewmodel.js.
-import * as THREE from '../../vendor/three/three.module.js?v=muvmvc5o';
-import { gunModel } from './guns.js?v=muvmvc5o';
-import { clone } from './models.js?v=muvmvc5o';
+import * as THREE from '../../vendor/three/three.module.js?v=muw89qdu';
+import { gunModel } from './guns.js?v=muw89qdu';
+import { clone, merged } from './models.js?v=muw89qdu';
 
 export const SHELL_COLORS = [0xfff6e5, 0xf2d0a4, 0xc98e5a, 0x8a5a3b, 0x5b3a26, 0xe9e1ff, 0xd7f0ff, 0xff9eb5, 0x9ee6a0, 0xffd34e, 0x7fb6ff, 0xb98cff, 0xff7a59, 0x2e2e34];
 export const TEAM_COLORS = [0xbbbbbb, 0x2f86e8, 0xe8473c];
@@ -132,7 +132,7 @@ export const HATS = {
 
 // The modelled mitten (scaled for a third-person egg), or a simple ball before models load.
 function mitten() {
-  const m = clone('glove');
+  const m = merged('glove');
   if (!m) return glove();
   m.scale.setScalar(0.75);
   return m;
@@ -153,11 +153,12 @@ export class EggAvatar {
     this.group = new THREE.Group();
     this.color = SHELL_COLORS[color] ?? SHELL_COLORS[0];
     this.stage = -1;
-    this.shellMat = new THREE.MeshStandardMaterial({ roughness: 0.42, metalness: 0.0 });
+    // A glossy shell: it catches the sky in a soft highlight like a real egg.
+    this.shellMat = new THREE.MeshStandardMaterial({ roughness: 0.34, metalness: 0.0, envMapIntensity: 0.85 });
     const modelled = clone('egg')?.getObjectByProperty('isMesh', true);
-    this.shell = new THREE.Mesh(modelled ? modelled.geometry : eggGeometry(), this.shellMat); this.shell.castShadow = true;
+    this.shell = new THREE.Mesh(modelled ? modelled.geometry : eggGeometry(), this.shellMat); this.shell.castShadow = true; this.shell.receiveShadow = true;
     this.body = new THREE.Group(); this.body.add(this.shell); this.group.add(this.body);
-    this.hat = clone('hat_' + hat) || HATS[hat]?.() || null; if (this.hat) { this.hat.position.y = H - 0.04; this.body.add(this.hat); }
+    this.hat = merged('hat_' + hat) || HATS[hat]?.() || null; if (this.hat) { this.hat.position.y = H - 0.04; this.body.add(this.hat); }
     // Hands + gun pivot at chest height, pitched with the view.
     this.arms = new THREE.Group(); this.arms.position.set(0, 0.32, 0); this.body.add(this.arms);
     this.gloveR = mitten(); this.gloveL = mitten(); this.arms.add(this.gloveR, this.gloveL);
@@ -167,20 +168,26 @@ export class EggAvatar {
       this.ring = new THREE.Mesh(new THREE.RingGeometry(0.26, 0.34, 32).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: TEAM_COLORS[team], transparent: true, opacity: 0.85, depthWrite: false }));
       this.ring.position.y = 0.02; this.group.add(this.ring);
     }
+    // Only the shell casts a shadow: hats, mittens and the gun add little to its shape and would double
+    // every egg's cost in the shadow pass.
+    if (!local) this.body.traverse(o => { if (o.isMesh && o !== this.shell) o.castShadow = false; });
     this.tag = local ? null : nameSprite(name, team ? '#' + TEAM_COLORS[team].toString(16).padStart(6, '0') : '#e8e8e8');
     if (this.tag) this.group.add(this.tag);
     this.setHp(100);
-    this.sparkle = 0; this.flash = 0;
+    this.sparkle = 0; this.flash = 0; this.squash = 0; this.lean = 0; this.side = 0; this.last = performance.now();
   }
+  // Struck: the shell flashes white for a moment.
+  hit(kill) { this.flash = kill ? 1.4 : 1; }
   setWeapon(id) {
     if (this.weaponId === id) return;
     this.weaponId = id;
     if (this.gun) this.arms.remove(this.gun);
-    this.gun = gunModel(id);
+    this.gun = gunModel(id, true);
     const scale = id === 'peck9mm' ? 0.75 : 0.55;
     // Gloves and gun float clearly outside the shell, to the egg's right, as the reference style does.
     this.gun.scale.setScalar(scale); this.gun.position.set(0.27, -0.02, -0.2);
     this.arms.add(this.gun);
+    if (this.tag !== null) this.gun.traverse(o => { if (o.isMesh) o.castShadow = false; });
     const u = this.gun.userData, s2 = scale;
     const g = u.grip ? u.grip.clone().multiplyScalar(s2).add(this.gun.position) : new THREE.Vector3(0.27, -0.07, -0.16);
     const sp = u.support ? u.support.clone().multiplyScalar(s2).add(this.gun.position) : new THREE.Vector3(0.2, -0.03, -0.34);
@@ -191,14 +198,29 @@ export class EggAvatar {
     if (st === this.stage) return;
     this.stage = st; this.shellMat.map = shellTexture(this.color, st); this.shellMat.needsUpdate = true;
   }
-  // Pose for this frame: position (feet), yaw, pitch, scale (Quail Egg), effects.
-  pose(x, y, z, yaw, pitch, { scale = 1, shield = false, breaker = false, bob = 0 } = {}) {
+  // Pose for this frame: position (feet), yaw, pitch, scale (Quail Egg), effects. vx/vz/vy (units per
+  // second) give the egg some life: it leans into its run, stretches as it jumps and squashes on landing.
+  pose(x, y, z, yaw, pitch, { scale = 1, shield = false, breaker = false, bob = 0, vx = 0, vy = 0, vz = 0 } = {}) {
+    const now = performance.now(), dt = Math.min(0.1, (now - this.last) / 1000); this.last = now;
     this.group.position.set(x, y, z);
+    this.body.rotation.order = 'YXZ';
     this.body.rotation.y = yaw;
-    this.body.scale.setScalar(scale);
-    this.body.position.y = Math.abs(Math.sin(bob)) * 0.02;
+    // Lean: forward speed tips it forward, sideways speed rolls it.
+    const fwd = -(vx * Math.sin(yaw) + vz * Math.cos(yaw)), side = vx * Math.cos(yaw) - vz * Math.sin(yaw);
+    this.lean += (Math.max(-0.2, Math.min(0.2, -fwd * 0.045)) - this.lean) * Math.min(1, dt * 10);
+    this.side += (Math.max(-0.15, Math.min(0.15, -side * 0.035)) - this.side) * Math.min(1, dt * 10);
+    this.body.rotation.x = this.lean; this.body.rotation.z = this.side;
+    // Squash and stretch along its height with vertical speed (and a little at landing, via vy jumps).
+    const target = Math.max(-0.12, Math.min(0.1, vy * 0.018));
+    this.squash += (target - this.squash) * Math.min(1, dt * 14);
+    const k = 1 + this.squash;
+    this.body.scale.set(scale / Math.sqrt(k), scale * k, scale / Math.sqrt(k));
+    this.body.position.y = Math.abs(Math.sin(bob)) * 0.025;
     this.arms.rotation.x = pitch * 0.8;
-    this.shellMat.emissive.setHex(breaker ? 0x661100 : shield ? 0x113355 : 0x000000);
+    this.flash = Math.max(0, this.flash - dt * 6);
+    const f = Math.min(1, this.flash);
+    if (f > 0) this.shellMat.emissive.setRGB(f * 0.9, f * 0.75, f * 0.6);
+    else this.shellMat.emissive.setHex(breaker ? 0x661100 : shield ? 0x113355 : 0x000000);
     if (this.tag) this.tag.position.y = 0.95 * scale;
   }
   dispose() { this.shellMat.dispose(); this.tag?.material.map.dispose(); this.tag?.material.dispose(); }

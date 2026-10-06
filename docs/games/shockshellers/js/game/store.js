@@ -1,6 +1,6 @@
 // Saved settings and the local profile (GDD §20–22). Everything lives in this browser only, under
 // keys namespaced to the game; every access is wrapped because storage can throw or come back empty.
-import { DEFAULT_KEYS } from './input.js?v=muvmvc5o';
+import { DEFAULT_KEYS } from './input.js?v=muw89qdu';
 
 export const SETTINGS_KEY = 'shockshellers.settings.v1';
 export const PROFILE_KEY = 'shockshellers.profile.v1';
@@ -10,6 +10,7 @@ export const DEFAULT_SETTINGS = {
   padSpeed: 50, padInvert: false,
   volume: 60, holdToAim: true, chat: true, safeNames: false, autoDetail: true, preventClose: false,
   shake: true, centerDot: true, hitMarkers: true, fov: 72, seenHowTo: false, botChat: true,
+  quality: 'auto', // 'auto' (adapts to the frame rate) | 'low' | 'medium' | 'high'
 };
 
 function read(key) { try { return JSON.parse(localStorage.getItem(key)); } catch { return null; } }

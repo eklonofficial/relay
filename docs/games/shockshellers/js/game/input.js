@@ -1,9 +1,9 @@
 // Keyboard, mouse and gamepad into the control bitmask (GDD §18). Mouse look and pointer lock are
 // Blockhaven's approach, kept as is: raw (unadjusted) movement where the browser supports it, every
 // coalesced sample summed, spikes when the lock engages filtered out.
-import { surfaceDocument as document } from '../surface.js?v=muvmvc5o';
-import { movementSamples } from '../util/pointer.js?v=muvmvc5o';
-import { CTRL } from '../sim/tuning.js?v=muvmvc5o';
+import { surfaceDocument as document } from '../surface.js?v=muw89qdu';
+import { movementSamples } from '../util/pointer.js?v=muw89qdu';
+import { CTRL } from '../sim/tuning.js?v=muw89qdu';
 
 // Default bindings: the live Settings defaults (Mouse 2 aims, V is melee). 'M0'/'M1'/'M2' are mouse buttons.
 export const DEFAULT_KEYS = {
@@ -24,6 +24,7 @@ export class Input {
   constructor(canvas, settings) {
     this.canvas = canvas; this.settings = settings;
     this.keys = new Set(); // held codes (also what veil.js clears on quick-hide)
+    this.taps = new Set(); // pressed since the last controls() read, so a quick tap is never lost to a slow frame
     this.yaw = 0; this.pitch = 0; this.dx = 0; this.dy = 0;
     this.locked = false; this.enabled = false; this.aimToggled = false;
     this.onLockChange = null; this.onKey = null;
@@ -51,7 +52,7 @@ export class Input {
     document.addEventListener('pointerlockchange', () => {
       this.locked = globalThis.document.pointerLockElement === canvas;
       if (this.locked) { this.lockedAt = performance.now(); this.mouseAvg = 0; }
-      else this.keys.clear();
+      else { this.keys.clear(); this.taps.clear(); }
       this.onLockChange?.(this.locked);
     });
     document.addEventListener('mousedown', e => { if (this.locked && this.enabled) { this.press('M' + e.button); e.preventDefault(); } });
@@ -64,20 +65,21 @@ export class Input {
       if (!e.repeat) this.press(e.code);
     });
     document.addEventListener('keyup', e => this.release(e.code));
-    window.addEventListener('blur', () => this.keys.clear());
+    window.addEventListener('blur', () => { this.keys.clear(); this.taps.clear(); });
   }
   press(code) {
-    this.keys.add(code);
+    this.keys.add(code); this.taps.add(code);
     if (code === this.binding('scope') && !this.settings.holdToAim) this.aimToggled = !this.aimToggled;
     if (code === this.binding('inspect')) this.inspectPressed = true;
   }
   release(code) { this.keys.delete(code); }
   binding(a) { return (this.settings.keys || {})[a] || DEFAULT_KEYS[a]; }
-  held(a) { return this.keys.has(this.binding(a)); }
-  // The control bits for this tick.
+  held(a) { const k = this.binding(a); return this.keys.has(k) || this.taps.has(k); }
+  // The control bits for this frame (a key pressed and released since the last frame counts once).
   controls() {
     let c = 0;
     for (const a of ['up', 'down', 'left', 'right', 'jump', 'fire', 'reload', 'swap', 'grenade', 'melee']) if (this.held(a)) c |= CTRL[a];
+    this.taps.clear();
     if (this.settings.holdToAim ? this.held('scope') : this.aimToggled) c |= CTRL.scope;
     c |= this.pad();
     return c;

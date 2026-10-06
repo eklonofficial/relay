@@ -1,33 +1,35 @@
 // Shock Shellers: boot, menus, the match flow (home → respawn screen → play → death → respawn) and
 // the frame loop. The simulation runs at a fixed 30 Hz inside the session; rendering interpolates.
-import './page.js?v=muvmvc5o';
-import { surfaceDocument as document } from './surface.js?v=muvmvc5o';
-import { registerApp } from './veil.js?v=muvmvc5o';
-import { tell } from './dialog.js?v=muvmvc5o';
-import { splash } from './splash.js?v=muvmvc5o';
-import * as THREE from '../vendor/three/three.module.js?v=muvmvc5o';
-import { Renderer } from './render/renderer.js?v=muvmvc5o';
-import { EggAvatar, SHELL_COLORS, TEAM_COLORS } from './render/egg.js?v=muvmvc5o';
-import { gunModel } from './render/guns.js?v=muvmvc5o';
-import { Input } from './game/input.js?v=muvmvc5o';
-import { SOUND_FILES } from './game/soundbank.js?v=muvmvc5o';
-import { Sound, registerSamples } from './game/audio.js?v=muvmvc5o';
-import { Hud } from './game/hud.js?v=muvmvc5o';
-import { loadSettings, saveSettings, loadProfile, saveProfile } from './game/store.js?v=muvmvc5o';
-import { ensureDaily, progress as challengeProgress, claim as claimChallenges } from './game/challenges.js?v=muvmvc5o';
-import { HostSession } from './game/session.js?v=muvmvc5o';
-import { GuestSession } from './net/guest.js?v=muvmvc5o';
-import { pickPublicMap, mapDef, MAPS } from './maps/index.js?v=muvmvc5o';
-import { WEAPONS, PRIMARIES, PLAYER, MODE_NAMES, MODE_MENU, ECONOMY, CTRL, TICK } from './sim/tuning.js?v=muvmvc5o';
-import { weaponOf, slotOf } from './sim/combat.js?v=muvmvc5o';
-import { eyePoint } from './sim/movement.js?v=muvmvc5o';
-import { drawLogo, drawHowTo } from './ui/art.js?v=muvmvc5o';
-import { loadModels } from './render/models.js?v=muvmvc5o';
-import { HIT } from './maps/grid.js?v=muvmvc5o';
-import { Menus } from './ui/menus.js?v=muvmvc5o';
+import './page.js?v=muw89qdu';
+import { surfaceDocument as document } from './surface.js?v=muw89qdu';
+import { registerApp } from './veil.js?v=muw89qdu';
+import { tell } from './dialog.js?v=muw89qdu';
+import { splash } from './splash.js?v=muw89qdu';
+import * as THREE from '../vendor/three/three.module.js?v=muw89qdu';
+import { Renderer } from './render/renderer.js?v=muw89qdu';
+import { EggAvatar, SHELL_COLORS, TEAM_COLORS } from './render/egg.js?v=muw89qdu';
+import { gunModel } from './render/guns.js?v=muw89qdu';
+import { Input } from './game/input.js?v=muw89qdu';
+import { SOUND_FILES } from './game/soundbank.js?v=muw89qdu';
+import { Sound, registerSamples } from './game/audio.js?v=muw89qdu';
+import { Hud } from './game/hud.js?v=muw89qdu';
+import { loadSettings, saveSettings, loadProfile, saveProfile } from './game/store.js?v=muw89qdu';
+import { ensureDaily, progress as challengeProgress, claim as claimChallenges } from './game/challenges.js?v=muw89qdu';
+import { HostSession } from './game/session.js?v=muw89qdu';
+import { GuestSession } from './net/guest.js?v=muw89qdu';
+import { pickPublicMap, mapDef, MAPS } from './maps/index.js?v=muw89qdu';
+import { WEAPONS, PRIMARIES, PLAYER, MODE_NAMES, MODE_MENU, ECONOMY, CTRL, TICK } from './sim/tuning.js?v=muw89qdu';
+import { weaponOf, slotOf } from './sim/combat.js?v=muw89qdu';
+import { eyePoint } from './sim/movement.js?v=muw89qdu';
+import { drawLogo, drawHowTo } from './ui/art.js?v=muw89qdu';
+import { loadModels } from './render/models.js?v=muw89qdu';
+import { HIT } from './maps/grid.js?v=muw89qdu';
+import { Menus } from './ui/menus.js?v=muw89qdu';
 
 const $ = id => document.getElementById(id);
 const show = (id, on = true) => { $(id).classList.toggle('hidden', !on); if (id === 'respawn') $('hud').classList.toggle('menu', on); };
+// Per map theme: reverb length (s) and level.
+const ROOMS = { farm: [1.2, 0.28], town: [1.6, 0.34], temple: [2.3, 0.45], hills: [0.9, 0.2], quarry: [2.5, 0.42], arena: [1.8, 0.38], space: [3.2, 0.22] };
 const LOAD_LINES = ['Cracking eggs…', 'Whisking servers…', 'Stacking teams…', 'Greasing the pan…', 'Counting chickens…', 'Hatching plans…'];
 
 class App {
@@ -38,6 +40,7 @@ class App {
     this.canvas = $('game');
     this.renderer = new Renderer(this.canvas);
     this.renderer.baseFov = this.settings.fov;
+    this.applyQuality();
     this.input = new Input(this.canvas, this.settings);
     this.keys = this.input.keys; // veil.js clears these on quick-hide
     registerSamples(SOUND_FILES);
@@ -46,11 +49,13 @@ class App {
     this.menus = new Menus(this);
     this.session = null; this.state = 'boot';
     this.t = 0; this.last = performance.now(); this.fps = 60; this.fpsN = 0; this.fpsT = 0; this.lowFps = 0;
-    this.shake = 0; this.cam = { x: 0, y: 0, z: 0, yaw: 0, pitch: 0, fovMul: 1 };
+    this.shake = 0; this.cam = { x: 0, y: 0, z: 0, yaw: 0, pitch: 0, roll: 0, fovMul: 1 }; this.fovMul = 1; this.lean = 0; this.fallSpeed = 0; this.hurt = 0; this.lowHp = 0; this.heat = 0; this.beatT = 0;
     this.lifeKills = 0; this.spawnTick = 0;
     this.resize(); addEventListener('resize', () => this.resize());
     this.boot();
   }
+  // Graphics quality: a fixed rung, or Auto (adapts to the frame rate unless Auto Detail is off).
+  applyQuality() { const q = this.settings.quality || 'auto'; this.renderer.setQuality(q, q === 'auto' && this.settings.autoDetail !== false); }
   resize() {
     const u = Math.max(0.55, Math.min(1.4, Math.min(innerWidth / 1500, innerHeight / 860)));
     document.documentElement.style.setProperty('--u', u + 'px');
@@ -78,16 +83,37 @@ class App {
   // ---------------- home scene ----------------
   buildHome() {
     const s = new THREE.Scene();
-    // The menu's sky gradient as the background.
+    // The menu's sky gradient as the background, a studio key light, a cool fill and a warm rim, and the
+    // sky for reflections, so the shell and the gun's metal catch real highlights.
     const bg = new OffscreenCanvas(4, 256), bx = bg.getContext('2d'), grad = bx.createLinearGradient(0, 0, 0, 256);
-    grad.addColorStop(0, '#2290b5'); grad.addColorStop(1, '#a6dcef'); bx.fillStyle = grad; bx.fillRect(0, 0, 4, 256);
+    grad.addColorStop(0, '#1e86ad'); grad.addColorStop(0.65, '#7fc9e6'); grad.addColorStop(1, '#b4e2f2'); bx.fillStyle = grad; bx.fillRect(0, 0, 4, 256);
     s.background = new THREE.CanvasTexture(bg); s.background.colorSpace = THREE.SRGBColorSpace;
-    s.add(new THREE.HemisphereLight(0xffffff, 0x88aabb, 1.8));
-    const sun = new THREE.DirectionalLight(0xffffff, 2); sun.position.set(-2, 4, 3); s.add(sun);
-    const rim = new THREE.DirectionalLight(0xfff1d6, 1.6); rim.position.set(2.5, 2, -3); s.add(rim);   // a warm rim from behind
-    const shadow = new THREE.Mesh(new THREE.CircleGeometry(0.45, 32).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0x0e3440, transparent: true, opacity: 0.25, depthWrite: false }));
-    shadow.position.y = 0.002; s.add(shadow);
-    this.home = { scene: s, camera: new THREE.PerspectiveCamera(28, 1, 0.1, 50), egg: null, spin: 0 };
+    s.environment = this.renderer.skyEnvironment('day');
+    s.add(new THREE.HemisphereLight(0xeaf6ff, 0x5a8aa0, 1.3));
+    const key = new THREE.DirectionalLight(0xfff4e6, 2.4); key.position.set(-2, 4, 3); key.castShadow = true;
+    key.shadow.mapSize.set(1024, 1024); key.shadow.camera.left = key.shadow.camera.bottom = -1.2; key.shadow.camera.right = key.shadow.camera.top = 1.2; key.shadow.bias = -0.0005; key.shadow.normalBias = 0.01;
+    s.add(key);
+    const rim = new THREE.DirectionalLight(0xffe2b8, 2.2); rim.position.set(2.5, 2, -3); s.add(rim);   // a warm rim from behind
+    const fill = new THREE.DirectionalLight(0x9fd8ff, 0.7); fill.position.set(3, 0.5, 2); s.add(fill);
+    // A glossy turntable under the egg, with a lit rim.
+    const ped = new THREE.Group();
+    const top = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.42, 0.05, 64), new THREE.MeshStandardMaterial({ color: 0xd7e6ee, roughness: 0.3, envMapIntensity: 0.8 }));
+    top.position.y = -0.025; top.receiveShadow = true; ped.add(top);
+    const base = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.5, 0.07, 64), new THREE.MeshStandardMaterial({ color: 0x0b5b7d, roughness: 0.45, envMapIntensity: 0.7 }));
+    base.position.y = -0.085; ped.add(base);
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.425, 0.008, 8, 96).rotateX(Math.PI / 2), new THREE.MeshBasicMaterial({ color: new THREE.Color(0xffd23f).multiplyScalar(3), toneMapped: false }));
+    ring.position.y = -0.05; ped.add(ring);
+    s.add(ped);
+    // A soft glow behind the egg and a few motes drifting up through the light.
+    const glowTex = (() => { const c = new OffscreenCanvas(128, 128), x = c.getContext('2d'), g = x.createRadialGradient(64, 64, 0, 64, 64, 64); g.addColorStop(0, 'rgba(255,250,230,0.9)'); g.addColorStop(0.4, 'rgba(255,240,200,0.3)'); g.addColorStop(1, 'rgba(255,240,200,0)'); x.fillStyle = g; x.fillRect(0, 0, 128, 128); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t; })();
+    const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, transparent: true, depthWrite: false, opacity: 0.55, blending: THREE.AdditiveBlending }));
+    glow.position.set(0, 0.45, -1.2); glow.scale.set(3.4, 3.4, 1); s.add(glow);
+    const N = 40, pos = new Float32Array(N * 3), seed = new Float32Array(N);
+    for (let i = 0; i < N; i++) { pos[i * 3] = (Math.random() - 0.5) * 3; pos[i * 3 + 1] = Math.random() * 1.8 - 0.3; pos[i * 3 + 2] = -0.4 - Math.random() * 1.2; seed[i] = Math.random(); }
+    const pg = new THREE.BufferGeometry(); pg.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    const motes = new THREE.Points(pg, new THREE.PointsMaterial({ map: glowTex, size: 0.06, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, color: 0xfff3c8, opacity: 0.8 }));
+    s.add(motes);
+    this.home = { scene: s, camera: new THREE.PerspectiveCamera(28, 1, 0.1, 50), egg: null, spin: 0, ped, motes, seed, hop: -1 };
     this.home.camera.position.set(0, 0.62, 4.2); this.home.camera.lookAt(0, 0.12, 0);
     this.refreshHomeEgg();
   }
@@ -97,6 +123,7 @@ class App {
     const e = this.profile.equip;
     h.egg = new EggAvatar({ name: '', color: e.color, hat: e.hat, weapon: this.profile.primary, local: true });
     h.egg.group.scale.setScalar(1.15);
+    h.egg.group.traverse(o => { if (o.isMesh) o.castShadow = true; });
     h.scene.add(h.egg.group);
   }
   goHome() {
@@ -137,6 +164,11 @@ class App {
     session.onChat = (text, color) => this.hud.chat(text, color);
     session.onDisconnected = reason => { if (this.session === session) { this.goHome(); tell(reason); } };
     this.renderer.loadMap(session.map);
+    // The map's acoustics and background bed; world sounds behind walls come through muffled.
+    const meta = session.map.meta, room = ROOMS[meta.theme] || ROOMS.farm;
+    this.sound.setRoom(room[0], room[1]);
+    this.sound.ambience(meta.id === 'henhouse' ? 'indoor' : meta.sky || 'day');
+    this.sound.occluded = (x, y, z) => this.session === session && !session.match.grid.visible(this.sound.lx, this.sound.ly, this.sound.lz, x, y, z);
     this.state = 'respawn'; this.diedAt = 0; this.killer = null;
     this.lifeKills = 0;
     show('home', false); show('hud'); show('respawn');
@@ -199,6 +231,10 @@ class App {
           if (mine) {
             R.view.fire(w);
             if (this.settings.shake) this.shake = Math.min(1, this.shake + WEAPONS[w].recoil / 60);
+            // Our own shot lights the walls around us for a frame or two, and leaves the barrel smoking.
+            const c = this.cam, fx2 = -Math.sin(c.yaw) * Math.cos(c.pitch), fy = Math.sin(c.pitch), fz = -Math.cos(c.yaw) * Math.cos(c.pitch);
+            fx.light(c.x + fx2 * 0.8, c.y + fy * 0.8 - 0.1, c.z + fz * 0.8, w === 'doubleYolker' || w === 'yolkzooka' ? 7 : 4);
+            this.heat = Math.min(3, (this.heat || 0) + (w === 'doubleYolker' || w === 'yolkzooka' || w === 'poacher' ? 1.2 : 0.22));
           }
           break;
         }
@@ -207,13 +243,19 @@ class App {
           const v = m.players.get(e.id);
           fx.hitSplash(e.x, e.y, e.z, e.dx, e.dy, e.dz);
           snd.play(e.hp <= 0 ? 'crackBig' : 'crack', [e.x, e.y, e.z], 0.9);
-          if (e.by === s.myId && e.id !== s.myId) { this.hud.hit(e.hp <= 0); this.stat('damage', e.dmg); }
+          if (e.by === s.myId && e.id !== s.myId) {
+            this.hud.hit(e.hp <= 0); this.stat('damage', e.dmg);
+            // The hit tick (pitched up as the egg weakens), and a heavier crunch for the crack that kills.
+            snd.play('hitmark', null, e.hp <= 0 ? 0.9 : 0.55, e.hp <= 0 ? 0.8 : 1 + (1 - Math.max(0, e.hp) / 100) * 0.35);
+            if (e.hp <= 0) snd.play('killConfirm', null, 0.8);
+          }
           if (e.id === s.myId) {
             const src = m.players.get(e.by);
             if (src) this.hud.damageFrom(Math.atan2(-(src.body.x - me.body.x), -(src.body.z - me.body.z)));
             else this.hud.damageFrom(this.cam.yaw);
           }
-          if (v) R.avatars.get(e.id)?.setHp(e.hp);
+          if (v) { const a = R.avatars.get(e.id); a?.setHp(e.hp); a?.hit(e.hp <= 0); }
+          if (e.id === s.myId) this.hurt = Math.min(1, this.hurt + 0.25 + e.dmg / 120);
           break;
         }
         case 'kill': {
@@ -221,7 +263,7 @@ class App {
           const a = R.avatars.get(e.id);
           fx.shatter(e.x, e.y, e.z, a ? a.color : 0xfff6e5, m.grid.floorBelow(e.x, e.y + 0.3, e.z) === -Infinity ? e.y : m.grid.floorBelow(e.x, e.y + 0.3, e.z));
           snd.play('splat', [e.x, e.y + 0.3, e.z]);
-          if (v) this.hud.kill(k ? k.name : '', v.name, e.w, k?.team || 0, v.team);
+          if (v) this.hud.kill(k ? k.name : '', v.name, e.w === 'melee' ? 'whisk' : e.w, k?.team || 0, v.team, e.by === s.myId || e.id === s.myId);
           if (e.by === s.myId && e.id !== s.myId) this.onMyKill(e, v);
           if (e.id === s.myId) this.onMyDeath(e, k);
           break;
@@ -236,14 +278,17 @@ class App {
         case 'bounce': snd.play('bounce', [e.x, e.y, e.z], 0.6); break;
         case 'rocket': snd.play('yolkzooka', mine ? null : [e.x, e.y, e.z]); break;
         case 'boom': {
-          fx.explosion(e.x, e.y, e.z, e.r, e.w, e.team); snd.play('explode', [e.x, e.y, e.z], 1.2); if (e.w === 'grenade') snd.play('squawk', [e.x, e.y + 0.3, e.z], 0.8);
+          const fl = m.grid.floorBelow(e.x, e.y + 0.2, e.z);
+          fx.explosion(e.x, e.y, e.z, e.r, e.w, e.team, fl === -Infinity ? null : fl); snd.play('explode', [e.x, e.y, e.z], 1.2); if (e.w === 'grenade') snd.play('squawk', [e.x, e.y + 0.3, e.z], 0.8);
           const d = Math.hypot(e.x - me.body.x, e.y - me.body.y, e.z - me.body.z);
           if (this.settings.shake && d < e.r * 1.5 * 3) this.shake = Math.min(1.5, this.shake + (1 - d / (e.r * 4.5)) * 1.2);
+          // Close enough to feel it: the world goes dull for a moment (and rings, right on top of it).
+          if (me.alive && d < e.r * 2.2) { snd.dull(d < e.r ? 380 : 900, d < e.r ? 1.6 : 0.9); if (d < e.r) snd.play('tinnitus'); }
           break;
         }
         case 'dud': fx.dud(e.x, e.y, e.z); snd.play('dud', [e.x, e.y, e.z]); break;
         case 'collect': snd.play(e.kind === 'ammo' ? 'ammo' : 'pickupNade', mine ? null : pos(e.id)); break;
-        case 'land': if (mine) snd.play('land', null, 0.5); break;
+        case 'land': if (mine) { snd.play('land', null, 0.5); R.view.land(this.fallSpeed); } break;
         case 'jump': if (mine) snd.play('jump', null, 0.5); break;
         case 'power': if (mine) { this.hud.power(e.k); snd.play('powerup'); } break;
         case 'shieldBreak': if (mine) snd.play('powerdown'); break;
@@ -264,6 +309,7 @@ class App {
     this.lifeKills++;
     const yolks = ECONOMY.perKill * ([0, 6].includes(new Date().getDay()) ? ECONOMY.weekendMult : 1) * (me.power.doubleYolks > 0 ? 2 : 1);
     this.profile.coins += yolks;
+    this.hud.confirmKill(victim ? victim.name : '', me.streak, yolks);
     const st = this.profile.stats;
     st.kills++; st.bestStreak = Math.max(st.bestStreak, me.streak);
     st.byWeapon[e.w] = (st.byWeapon[e.w] || 0) + 1;
@@ -278,7 +324,9 @@ class App {
     const st = this.profile.stats; st.deaths++; st.deathsByWeapon[e.w] = (st.deathsByWeapon[e.w] || 0) + 1; saveProfile(this.profile);
     this.diedAt = performance.now(); this.killer = killer?.id ?? null;
     this.input.enabled = false;
-    setTimeout(() => { if (this.state === 'play' || this.state === 'dead') { this.state = 'respawn'; this.input.exitLock(); show('respawn'); this.menus.refreshRespawn(); } }, 1600);
+    this.hud.died(killer && killer.id !== this.session.myId ? (this.settings.safeNames ? 'Egg' + killer.id : killer.name) : '', e.w === 'melee' ? 'whisk' : e.w, killer ? killer.hp : 0);
+    this.sound.play('death', null, 0.8);
+    setTimeout(() => { if (this.state === 'play' || this.state === 'dead') { this.state = 'respawn'; this.input.exitLock(); show('respawn'); this.menus.refreshRespawn(); } }, 2000);
     this.state = 'dead';
   }
   stat(kind, amount) { if (kind === 'damage') { this.profile.stats.damage += amount; this.challenge({ k: 'damage', amount }); } }
@@ -302,25 +350,29 @@ class App {
     this.hud.tick(dt);
     if (this.debug && (this.debugT = (this.debugT || 0) - dt) <= 0) {
       this.debugT = 0.25; const b = s.me.body;
-      $('debug').textContent = `XYZ: ${b.x.toFixed(2)} / ${b.y.toFixed(2)} / ${b.z.toFixed(2)}\nFacing: ${(((this.input.yaw * 180 / Math.PI) % 360 + 360) % 360).toFixed(0)}°\nTick: ${s.match.tick}  Players: ${s.match.players.size}\nFPS: ${this.fps}  Ping: ${s.ping || 0}ms`;
+      const info = this.renderer.gl.info.render;
+      $('debug').textContent = `XYZ: ${b.x.toFixed(2)} / ${b.y.toFixed(2)} / ${b.z.toFixed(2)}\nFacing: ${(((this.input.yaw * 180 / Math.PI) % 360 + 360) % 360).toFixed(0)}°\nTick: ${s.match.tick}  Players: ${s.match.players.size}\nFPS: ${this.fps}  Ping: ${s.ping || 0}ms\nGraphics: ${this.renderer.q.name}  Draws: ${this.renderer.calls}  Tris: ${Math.round(this.renderer.tris / 1000)}k`;
     }
     if (this.state === 'respawn') this.menus.tickRespawn();
   }
-  autoDetail() {
-    if (!this.settings.autoDetail) return;
-    const r = this.renderer;
-    if (this.fps < 45) { if (++this.lowFps >= 4) { this.lowFps = 0; r.setDetail(r.detail >= 1 ? 0.5 : 0); } }
-    else if (this.fps > 58 && r.detail < 1) { if (--this.lowFps <= -10) { this.lowFps = 0; r.setDetail(r.detail === 0 ? 0.5 : 1); } }
-    else this.lowFps = 0;
-  }
+  autoDetail() { if (globalThis.document.visibilityState !== 'hidden') this.renderer.adapt(this.fps); }
   drawHome(dt) {
     const h = this.home; if (!h) return;
     // Idle: the egg faces you three-quarters on (gun in view) and sways gently, as if breathing.
     h.spin += dt;
-    if (h.egg) { h.egg.pose(0, 0, 0, Math.PI + 0.5 + Math.sin(h.spin * 0.45) * 0.35, Math.sin(h.spin * 0.7) * 0.06, { bob: this.t * 2 }); h.egg.setWeapon(this.profile.primary); }
-    const gl = this.renderer.gl;
+    if (h.egg) {
+      // Picking a new gun: the egg hops and catches it.
+      if (h.egg.weaponId !== this.profile.primary) { h.egg.setWeapon(this.profile.primary); h.hop = 0; }
+      let y = 0, vy = 0;
+      if (h.hop >= 0) { h.hop += dt; const f = h.hop / 0.42; if (f >= 1) h.hop = -1; else { y = Math.sin(f * Math.PI) * 0.16; vy = Math.cos(f * Math.PI) * 4; } }
+      h.egg.pose(0, y, 0, Math.PI + 0.5 + Math.sin(h.spin * 0.45) * 0.35 + (h.hop >= 0 ? h.hop / 0.42 * Math.PI * 2 : 0), Math.sin(h.spin * 0.7) * 0.06, { bob: this.t * 2, vy });
+    }
+    h.ped.rotation.y = h.spin * 0.1;
+    const p = h.motes.geometry.attributes.position;
+    for (let i = 0; i < p.count; i++) { let yy = p.getY(i) + dt * (0.05 + h.seed[i] * 0.08); if (yy > 1.6) yy = -0.3; p.setY(i, yy); p.setX(i, p.getX(i) + Math.sin(this.t * 0.6 + h.seed[i] * 9) * dt * 0.03); }
+    p.needsUpdate = true;
     h.camera.aspect = innerWidth / innerHeight; h.camera.updateProjectionMatrix();
-    gl.setClearColor(0x000000, 1); gl.clear(); gl.render(h.scene, h.camera);
+    this.renderer.renderScene(h.scene, h.camera, this.t);
   }
   drawMatch(dt) {
     const s = this.session, m = s.match, me = s.me, R = this.renderer;
@@ -333,7 +385,7 @@ class App {
       if (!a.group.visible) continue;
       s.lerpPos(p, P);
       a.setWeapon(slotOf(p.hands).id); a.setHp(p.hp);
-      a.pose(P[0], P[1], P[2], p.body.yaw, p.body.pitch, { scale: p.power.quailEgg > 0 ? 0.5 : 1, shield: p.shield > 0 || p.spawnShield > 0, breaker: p.power.shellBreaker > 0, bob: this.t * 10 * Math.min(1, Math.hypot(p.body.vx, p.body.vz) * 25) });
+      a.pose(P[0], P[1], P[2], p.body.yaw, p.body.pitch, { scale: p.power.quailEgg > 0 ? 0.5 : 1, shield: p.shield > 0 || p.spawnShield > 0, breaker: p.power.shellBreaker > 0, bob: this.t * 10 * Math.min(1, Math.hypot(p.body.vx, p.body.vz) * 25), vx: p.body.vx * 30, vy: p.body.onGround > 0 ? 0 : p.body.vy * 30, vz: p.body.vz * 30 });
     }
     for (const id of [...R.avatars.keys()]) if (!m.players.has(id)) R.dropAvatar(id);
     // Footsteps: one per stride of ground travel, for everyone (they give positions away, as they should).
@@ -382,23 +434,48 @@ class App {
       cam.x = o.cx + Math.cos(a) * o.r; cam.z = o.cz + Math.sin(a) * o.r; cam.y = o.cy + o.r * 0.55;
       cam.yaw = Math.atan2(-(o.cx - cam.x), -(o.cz - cam.z)); cam.pitch = -Math.atan2(cam.y - o.cy, o.r); cam.fovMul = 1;
     }
+    // Zoom eases in and out rather than snapping.
+    this.fovMul += (cam.fovMul - this.fovMul) * Math.min(1, dt * 14); cam.fovMul = this.fovMul;
     // Recoil kicks the view up a touch and recovers (the setting turns the shake off, not the punch).
-    cam.pitch += R.view.takePunch(dt);
+    const punch = R.view.takePunch(dt);
+    cam.pitch += punch[0]; cam.yaw += punch[1];
+    // Strafing leans the view a hair, and recoil and landings can roll it.
+    const yawNow = this.input.yaw, strafe = me.alive && this.state === 'play' ? (me.body.vx * Math.cos(yawNow) - me.body.vz * Math.sin(yawNow)) * 30 : 0;
+    this.lean += (-strafe * 0.0035 - this.lean) * Math.min(1, dt * 8);
+    cam.roll = this.lean + punch[2];
     this.shake = Math.max(0, this.shake - dt * 4);
-    cam.shakeX = (Math.random() - 0.5) * this.shake * 0.02; cam.shakeY = (Math.random() - 0.5) * this.shake * 0.02;
+    const sk = this.shake * this.shake;
+    cam.shakeX = (Math.random() - 0.5) * sk * 0.03; cam.shakeY = (Math.random() - 0.5) * sk * 0.03;
     this.sound.listener(cam.x, cam.y, cam.z, cam.yaw);
     // Hands.
     const h = me.hands, w = weaponOf(h), [mdx, mdy] = this.input.takeMouse();
     R.view.setWeapon(slotOf(h).id);
     if (this.input.inspectPressed) { this.input.inspectPressed = false; if (h.reload === 0 && h.swap === 0) h.inspect = 45; }
     R.view.update({
-      dt, visible: me.alive && this.state === 'play', speed: Math.hypot(me.body.vx, me.body.vz) * 30, air: me.body.onGround === 0, climbing: !!me.body.climbing,
+      dt, visible: me.alive && this.state === 'play', speed: Math.hypot(me.body.vx, me.body.vz) * 30, strafe, vy: me.body.vy * 30, air: me.body.onGround === 0, climbing: !!me.body.climbing,
       ads: h.ads, scoped: w.scoped, mouseDX: mdx, mouseDY: mdy,
       reload: h.reload > 0 ? { f: 1 - h.reload / (h.reloadRounds && slotOf(h).mag === 0 ? w.reload[1] : w.reload[0]), long: w.reload[1] !== w.reload[0] && slotOf(h).mag === 0 } : null,
       swap: h.swap > 0 ? 1 - h.swap / 26 : 0, melee: h.melee > 0 ? 1 - h.melee / 17 : 0, charge: h.charging ? h.power : null,
       inspect: h.inspect > 0 ? 1 - h.inspect / 45 : 0, shield: me.spawnShield > 0,
     });
-    R.render(cam, dt, this.t);
+    this.fallSpeed = Math.max(0, -me.body.vy * 30);
+    // Low on health: the heart pounds.
+    if (me.alive && this.state === 'play' && me.hp < 35 && !(me.shield > 0)) { if ((this.beatT -= dt) <= 0) { this.beatT = 0.55 + me.hp / 35 * 0.4; this.sound.play('heartbeat', null, 0.5 + (35 - me.hp) / 70); } }
+    else this.beatT = 0;
+    // A hot barrel smokes for a moment after a burst.
+    if (this.heat > 0) {
+      this.heat = Math.max(0, this.heat - dt * 1.4);
+      if (this.heat > 0.5 && me.alive && !h.ads && Math.random() < dt * 14) {
+        const sy = Math.sin(cam.yaw), cy = Math.cos(cam.yaw);
+        R.fx.wisp(cam.x - sy * 0.75 + cy * 0.14, cam.y - 0.13, cam.z - cy * 0.75 - sy * 0.14);
+      }
+    }
+    // Post: the hurt flash fades, low health desaturates and pulses.
+    this.hurt = Math.max(0, (this.hurt || 0) - dt * 1.6);
+    const low = me.alive && this.state === 'play' ? Math.max(0, (35 - me.hp) / 35) : 0;
+    this.lowHp = (this.lowHp || 0) + (low - (this.lowHp || 0)) * Math.min(1, dt * 3);
+    const pulse = this.lowHp > 0.01 ? (0.5 + 0.5 * Math.sin(this.t * 6.5)) * 0.35 * this.lowHp : 0;
+    R.render(cam, dt, this.t, { hurt: Math.min(0.7, this.hurt * 0.6 + pulse), lowHp: this.lowHp * 0.8, aberration: this.hurt * 0.035 + (this.shake > 0.6 ? (this.shake - 0.6) * 0.02 : 0) });
     // HUD.
     const ranked = m.standings();
     this.hud.leaderboard(ranked, s.myId, m.mode.teams);
@@ -411,7 +488,8 @@ class App {
     // Distance to whatever the crosshair is on (the Yolkzooka reticle turns red inside arming range).
     const f = [-Math.sin(cam.yaw) * Math.cos(cam.pitch), Math.sin(cam.pitch), -Math.cos(cam.yaw) * Math.cos(cam.pitch)];
     const aimDist = m.grid.raycast(cam.x, cam.y, cam.z, f[0], f[1], f[2], 10, HIT) ? HIT.t : 99;
-    this.hud.draw(dt, { me: this.state === 'play' ? me : null, yaw: cam.yaw, pitch: cam.pitch, speed: Math.hypot(me.body.vx, me.body.vz) * 30, air: me.body.onGround <= 0, fov: R.camera.fov, markers, aimDist });
+    const rl = me.hands.reload > 0 ? 1 - me.hands.reload / (me.hands.reloadWasLong ? w.reload[1] : w.reload[0]) : 0;
+    this.hud.draw(dt, { me: this.state === 'play' ? me : null, yaw: cam.yaw, pitch: cam.pitch, speed: Math.hypot(me.body.vx, me.body.vz) * 30, air: me.body.onGround <= 0, fov: R.camera.fov, markers, aimDist, reload: rl });
   }
 }
 

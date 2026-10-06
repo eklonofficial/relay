@@ -174,6 +174,7 @@
   #feed { position: absolute; right: calc(var(--u)*104); top: calc(var(--u)*46); display: flex; flex-direction: column; align-items: flex-end; gap: calc(var(--u)*3); font-size: calc(var(--u)*14); }
   #feed > div { background: rgba(0,0,0,.35); border-radius: calc(var(--u)*4); padding: calc(var(--u)*2) calc(var(--u)*8); display: flex; gap: calc(var(--u)*6); align-items: center; }
   #feed img { height: calc(var(--u)*15); }
+  #feed > div.mine { background: rgba(247,148,29,.6); }
   #ammo { position: absolute; right: calc(var(--u)*18); bottom: calc(var(--u)*8); text-align: right; }
   #ammo .row { display: flex; align-items: center; gap: calc(var(--u)*10); justify-content: flex-end; }
   #ammo .n { font-family: "n", sans-serif; font-weight: 900; font-size: calc(var(--u)*52); text-shadow: 0 calc(var(--u)*3) calc(var(--u)*2) rgba(0,0,0,.45); }
@@ -194,7 +195,10 @@
   #obj-text { font-family: "s", sans-serif; font-weight: 400; font-size: calc(var(--u)*17); text-shadow: 0 calc(var(--u)*2) 0 var(--ink); }
   .scores { display: flex; gap: calc(var(--u)*12); font-family: "s", sans-serif; font-weight: 400; font-size: calc(var(--u)*24); text-shadow: 0 calc(var(--u)*2) 0 var(--ink); }
   .scores .b { color: #6fb6ff; } .scores .r { color: #ff7a6e; }
-  #banner { position: absolute; left: 50%; top: 20%; transform: translateX(-50%); font-size: calc(var(--u)*40); white-space: nowrap; }
+  #banner { position: absolute; left: 50%; top: 20%; transform: translateX(-50%); font-size: calc(var(--u)*40); white-space: nowrap; animation: pop .4s cubic-bezier(.2,1.5,.45,1) both; }
+  @keyframes pop { from { transform: translateX(-50%) scale(.3); opacity: 0; } to { transform: translateX(-50%) scale(1); opacity: 1; } }
+  #toast { animation: drop .3s ease-out both; }
+  @keyframes drop { from { transform: translate(-50%, calc(var(--u)*-16)); opacity: 0; } to { transform: translate(-50%, 0); opacity: 1; } }
   #debug { position: absolute; left: calc(var(--u)*300); top: calc(var(--u)*8); padding: calc(var(--u)*6) calc(var(--u)*10); font-family: "n", sans-serif; font-size: calc(var(--u)*13); white-space: pre; line-height: 1.35; }
   #toast { position: absolute; left: 50%; top: calc(var(--u)*70); transform: translateX(-50%); font-size: calc(var(--u)*17); padding: calc(var(--u)*8) calc(var(--u)*16); }
 
@@ -239,7 +243,7 @@
 </head>
 <body>
 <div id="boot"><canvas id="boot-canvas"></canvas></div>
-<script type="module" id="boot-script" src="js/splash.js?v=muvmvc5o" data-modules="54"></script>
+<script type="module" id="boot-script" src="js/splash.js?v=muw89qdu" data-modules="55"></script>
 <canvas id="game" tabindex="-1"></canvas>
 
 <div class="screen hidden" id="loading">
@@ -393,7 +397,7 @@
   </div>
 </div>
 
-<script defer src="net-config.js?v=muvmvc5o"></script>
-<script type="module" src="js/main.js?v=muvmvc5o"></script>
+<script defer src="net-config.js?v=muw89qdu"></script>
+<script type="module" src="js/main.js?v=muw89qdu"></script>
 </body>
 </html>

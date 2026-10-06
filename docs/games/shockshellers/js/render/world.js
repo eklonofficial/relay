@@ -1,10 +1,11 @@
 // Turns a map grid into a few merged meshes (one per material family). Faces hidden against full
 // blocks are dropped, and every vertex gets baked ambient occlusion from the cells around it, which
 // gives the soft, lightmapped look of the reference maps without shipping any lightmap.
-import * as THREE from '../../vendor/three/three.module.js?v=muvmvc5o';
-import { PIECES, BOXES, facing } from '../maps/pieces.js?v=muvmvc5o';
-import { worldMaterial, TEX_SCALE } from './materials.js?v=muvmvc5o';
-import { clone } from './models.js?v=muvmvc5o';
+import * as THREE from '../../vendor/three/three.module.js?v=muw89qdu';
+import { PIECES, BOXES, facing } from '../maps/pieces.js?v=muw89qdu';
+import { worldMaterial, TEX_SCALE, sway } from './materials.js?v=muw89qdu';
+import { clone, modelParts } from './models.js?v=muw89qdu';
+import { mergeGeometries } from '../../vendor/three/BufferGeometryUtils.js?v=muw89qdu';
 
 class Bucket {
   constructor(mat) { this.mat = mat; this.p = []; this.n = []; this.u = []; this.c = []; this.i = []; this.v = 0; this.s = TEX_SCALE[mat] ?? 0.5; }
@@ -174,8 +175,41 @@ export function buildWorld(map) {
     mesh.castShadow = true; mesh.receiveShadow = true; mesh.matrixAutoUpdate = false;
     group.add(mesh);
   }
-  for (const e of extras) group.add(buildExtra(e));
+  // Modelled props are baked into the world too: one mesh per material for every crate, barrel, tree
+  // and bush on the map together (a crate alone is 18 parts).
+  for (const m of bakeProps(extras.filter(e => e.kind === 'model'))) group.add(m);
+  group.userData.pulses = [];
+  for (const e of extras) if (e.kind !== 'model') { const o = buildExtra(e); if (o.userData.pulse) group.userData.pulses.push(o); group.add(o); }
   return group;
+}
+
+const UP = new THREE.Vector3(0, 1, 0);
+function bakeProps(list) {
+  const groups = new Map(), m = new THREE.Matrix4(), q = new THREE.Quaternion(), at = new THREE.Vector3(), sc = new THREE.Vector3();
+  for (const e of list) {
+    const parts = modelParts(e.model); if (!parts) continue;
+    m.compose(at.set(e.x, e.y, e.z), q.setFromAxisAngle(UP, e.ry * Math.PI / 2), sc.setScalar(e.scale || 1));
+    const leafy = e.model === 'tree' || e.model === 'bush';
+    for (const { mat, geo } of parts) {
+      const g = geo.clone(), pos = g.attributes.position, w = new Float32Array(pos.count);
+      // How much each vertex sways in the wind: nothing at the trunk, most at the crown's edge.
+      if (leafy && mat.name === 'leaf') for (let i = 0; i < pos.count; i++) w[i] = e.model === 'tree' ? Math.min(1, Math.max(0, (pos.getY(i) - 1.0) / 1.6)) : Math.min(1, Math.max(0, pos.getY(i) / 0.7)) * 0.6;
+      g.setAttribute('sway', new THREE.BufferAttribute(w, 1));
+      g.applyMatrix4(m);
+      if (!groups.has(mat)) groups.set(mat, []);
+      groups.get(mat).push(g);
+    }
+  }
+  const out = [];
+  for (const [mat, list] of groups) {
+    const indexed = list.every(g => g.index);
+    const geo = mergeGeometries(indexed ? list : list.map(g => g.index ? g.toNonIndexed() : g));
+    geo.computeBoundingSphere();
+    const mesh = new THREE.Mesh(geo, mat.name === 'leaf' ? sway(mat) : mat);
+    mesh.castShadow = true; mesh.receiveShadow = true; mesh.matrixAutoUpdate = false;
+    out.push(mesh);
+  }
+  return out;
 }
 
 function rotateVisual([x0, y0, z0, x1, y1, z1], ry) {

@@ -1,8 +1,8 @@
 // The eight weapons and the whisk, modelled in code: each part is a 2D side profile extruded with a
 // bevel (crisp low-poly silhouettes with soft edges), plus a few turned parts (barrels, scopes).
 // Units: metres-ish, the gun's muzzle points along -z, the grip sits near the origin.
-import * as THREE from '../../vendor/three/three.module.js?v=muvmvc5o';
-import { clone } from './models.js?v=muvmvc5o';
+import * as THREE from '../../vendor/three/three.module.js?v=muw89qdu';
+import { clone, merged } from './models.js?v=muw89qdu';
 
 const M = {};
 function mat(key) {
@@ -143,8 +143,10 @@ const BUILD = {
 };
 
 const cache = new Map();
-export function gunModel(id) {
-  const modelled = clone(id);
+// A gun to hold. still = true gives the merged copy (one mesh per material) for guns whose parts never
+// move on their own: the ones other eggs carry, icons, pickups.
+export function gunModel(id, still = false) {
+  const modelled = still ? merged(id) : clone(id);
   if (modelled) return modelled;
   if (!cache.has(id)) cache.set(id, (BUILD[id] || BUILD.yolk47)());
   const src = cache.get(id), g = src.clone();

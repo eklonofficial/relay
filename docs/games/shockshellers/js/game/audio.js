@@ -1,17 +1,33 @@
 // Sound (GDD §24): positional 3D audio for world sounds, one SFX volume for everything. Recorded
 // samples (assets/sounds, decoded from the bundle) are used where present; anything without a sample
 // is synthesised, so the game is never silent. `ctx` is what quick-hide suspends and resumes.
+//
+// The mix: every world sound is filtered by distance (far shots lose their top end) and muffled when
+// a wall stands between it and you; gunfire and explosions also feed a convolution reverb whose size
+// follows the map (a tight barn, an open quarry). Each map has a quiet synthesised bed (wind and birds,
+// crickets, the hum of space). A blast close by, or your own death, briefly dulls everything.
 const SAMPLE_URLS = {}; // name → URL, filled by registerSamples() from the sound bank module
+// How much of each sound goes to the reverb.
+const SEND = { explode: 0.55, yolkzooka: 0.45, poacher: 0.45, cageFree: 0.38, doubleYolker: 0.38, yolk47: 0.3, triBoil: 0.3, beater: 0.26, peck9mm: 0.26, crackBig: 0.25, splat: 0.2, squawk: 0.25, bounce: 0.15, melee: 0.15, step: 0.08, land: 0.1 };
+const UI = new Set(['uiHover', 'uiClick', 'pop', 'click', 'challenge', 'hitmark', 'killConfirm', 'heartbeat', 'death']);
 
 export class Sound {
-  constructor(settings) { this.settings = settings; this.ctx = null; this.buffers = new Map(); this.loops = new Map(); this.lx = 0; this.ly = 0; this.lz = 0; }
+  constructor(settings) { this.settings = settings; this.ctx = null; this.buffers = new Map(); this.loops = new Map(); this.lx = 0; this.ly = 0; this.lz = 0; this.occluded = null; this.ambient = []; }
   unlock() {
     if (this.ctx) { if (this.ctx.state === 'suspended') this.ctx.resume(); return; }
     try { this.ctx = new AudioContext({ latencyHint: 'interactive' }); } catch { return; }
     const c = this.ctx;
     this.master = c.createGain(); this.master.connect(c.destination);
     this.comp = c.createDynamicsCompressor(); this.comp.threshold.value = -14; this.comp.ratio.value = 4; this.comp.connect(this.master);
-    this.bus = c.createGain(); this.bus.connect(this.comp);
+    // The muffle: a low-pass over the whole game mix (not the interface), opened wide normally.
+    this.muffle = c.createBiquadFilter(); this.muffle.type = 'lowpass'; this.muffle.frequency.value = 20000; this.muffle.Q.value = 0.5; this.muffle.connect(this.comp);
+    this.bus = c.createGain(); this.bus.connect(this.muffle);
+    this.ui = c.createGain(); this.ui.connect(this.comp);
+    this.wet = c.createGain(); this.wet.gain.value = 0.5; this.wet.connect(this.muffle);
+    this.reverb = c.createConvolver(); this.reverb.connect(this.wet);
+    this.send = c.createGain(); this.send.connect(this.reverb);
+    this.amb = c.createGain(); this.amb.gain.value = 0.0; this.amb.connect(this.muffle);
+    this.setRoom(1.4, 0.35);
     this.setVolume(this.settings.volume);
     const n = c.sampleRate * 2, buf = c.createBuffer(1, n, c.sampleRate), d = buf.getChannelData(0);
     for (let i = 0; i < n; i++) d[i] = Math.random() * 2 - 1;
@@ -22,8 +38,26 @@ export class Sound {
       const base = name.replace(/\d+$/, '');
       if (base !== name) { if (!this.variants.has(base)) this.variants.set(base, []); this.variants.get(base).push(name); }
     }
+    if (this.pendingAmbience) this.ambience(this.pendingAmbience);
   }
   setVolume(v) { if (this.master) this.master.gain.value = (v / 100) ** 1.5 * 0.9; }
+  // The reverb: a decaying stereo noise tail with a few early reflections (seconds, wet level).
+  setRoom(decay, wet) {
+    if (!this.ctx) return;
+    const c = this.ctx, len = Math.max(0.2, decay) * c.sampleRate | 0, ir = c.createBuffer(2, len, c.sampleRate);
+    for (let ch = 0; ch < 2; ch++) {
+      const d = ir.getChannelData(ch);
+      for (let i = 0; i < len; i++) { const t = i / c.sampleRate; d[i] = (Math.random() * 2 - 1) * Math.exp(-t * 6.9 / decay) * (t < 0.008 ? t / 0.008 : 1); }
+      for (let k = 0; k < 6; k++) { const at = (0.011 + k * 0.017 + Math.random() * 0.01) * c.sampleRate | 0; if (at < len) d[at] += (Math.random() < 0.5 ? -1 : 1) * 0.6 * Math.exp(-k * 0.5); }
+    }
+    this.reverb.buffer = ir; this.wet.gain.value = wet;
+  }
+  // Muffle everything for a moment (an explosion beside you, your own death): down to `freq`, back over `time`.
+  dull(freq = 500, time = 1.2) {
+    if (!this.ctx) return;
+    const f = this.muffle.frequency, t = this.ctx.currentTime;
+    f.cancelScheduledValues(t); f.setValueAtTime(Math.min(f.value, freq), t); f.exponentialRampToValueAtTime(20000, t + time);
+  }
   async load(name, url) {
     try { const r = await fetch(url); const a = await r.arrayBuffer(); this.buffers.set(name, await this.ctx.decodeAudioData(a)); } catch { /* synthesised instead */ }
   }
@@ -35,18 +69,26 @@ export class Sound {
     else { L.setPosition(x, y, z); L.setOrientation(fx, 0, fz, 0, 1, 0); }
   }
   // An output node at a world position (or straight to the bus when pos is null: our own sounds).
-  out(pos, gain = 1) {
+  out(pos, gain = 1, send = 0, ui = false) {
     const c = this.ctx, g = c.createGain(); g.gain.value = gain;
     if (pos) {
       const p = c.createPanner(); p.panningModel = 'HRTF'; p.distanceModel = 'inverse'; p.refDistance = 2.5; p.rolloffFactor = 1.1; p.maxDistance = 120;
-      place(p, pos); g.connect(p); p.connect(this.bus); g.panner = p;
-    } else g.connect(this.bus);
+      // Air and walls: far sounds lose their top end; through a wall they are dull and quieter.
+      const d = Math.hypot(pos[0] - this.lx, pos[1] - this.ly, pos[2] - this.lz), blocked = this.occluded?.(pos[0], pos[1], pos[2]);
+      const lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = Math.max(blocked ? 700 : 1500, Math.min(20000, 20000 * Math.exp(-d / 28))) * (blocked ? 0.6 : 1);
+      if (blocked) g.gain.value = gain * 0.6;
+      place(p, pos); g.connect(lp); lp.connect(p); p.connect(this.bus); g.panner = p;
+      if (send) { const s = c.createGain(); s.gain.value = send * (blocked ? 1.3 : 1); p.connect(s); s.connect(this.send); }
+    } else {
+      g.connect(ui ? this.ui : this.bus);
+      if (send) { const s = c.createGain(); s.gain.value = send * 0.8; g.connect(s); s.connect(this.send); }
+    }
     return g;
   }
   play(name, pos = null, gain = 1, rate = 1) {
     if (!this.ctx || this.ctx.state !== 'running') return;
     if (pos && Math.hypot(pos[0] - this.lx, pos[1] - this.ly, pos[2] - this.lz) > 90) return;
-    const out = this.out(pos, gain);
+    const out = this.out(pos, gain, SEND[name] || 0, UI.has(name));
     const b = this.pick(name);
     if (b) { const s = this.ctx.createBufferSource(); s.buffer = b; s.playbackRate.value = rate * (0.96 + Math.random() * 0.08); s.connect(out); s.start(); return; }
     (SYNTH[name] || SYNTH.pop)(this, out, rate);
@@ -67,7 +109,17 @@ export class Sound {
     if (l.out.panner) place(l.out.panner, pos);
   }
   sweepLoops() { for (const [id, l] of this.loops) { if (!l.seen) { l.stop(); this.loops.delete(id); } else l.seen = false; } }
-  stopAll() { for (const l of this.loops.values()) l.stop(); this.loops.clear(); }
+  stopAll() { for (const l of this.loops.values()) l.stop(); this.loops.clear(); this.ambience(null); }
+  // The map's background bed: 'day' | 'dusk' | 'night' | 'space' | 'indoor' | null (silence).
+  ambience(kind) {
+    this.pendingAmbience = kind;
+    for (const stop of this.ambient) stop();
+    this.ambient = [];
+    if (!this.ctx || !kind) return;
+    const t = this.ctx.currentTime;
+    this.amb.gain.cancelScheduledValues(t); this.amb.gain.setValueAtTime(0, t); this.amb.gain.linearRampToValueAtTime(1, t + 2.5);
+    for (const part of AMBIENCE[kind] || []) this.ambient.push(part(this, this.amb));
+  }
 }
 function place(p, pos) { if (p.positionX) { p.positionX.value = pos[0]; p.positionY.value = pos[1]; p.positionZ.value = pos[2]; } else p.setPosition(pos[0], pos[1], pos[2]); }
 export function registerSamples(map) { Object.assign(SAMPLE_URLS, map); }
@@ -134,6 +186,45 @@ const SYNTH = {
   shield: (s, o) => tone(s, o, { f: 400, f2: 800, dur: 0.2, type: 'sine', peak: 0.2 }),
   respawn: (s, o) => tone(s, o, { f: 440, f2: 880, dur: 0.2, type: 'sine', peak: 0.25 }),
   challenge: (s, o) => [784, 988, 1175].forEach((f, i) => tone(s, o, { t: i * 0.08, f, dur: 0.15, type: 'triangle', peak: 0.3 })),
+  // A bright two-note ding with a soft thump under it: the crack that finished someone.
+  killConfirm: (s, o) => { tone(s, o, { f: 1318, dur: 0.12, type: 'triangle', peak: 0.28 }); tone(s, o, { t: 0.07, f: 1975, dur: 0.22, type: 'triangle', peak: 0.24 }); tone(s, o, { f: 140, f2: 60, dur: 0.12, type: 'sine', peak: 0.5 }); },
+  death: (s, o) => { tone(s, o, { f: 320, f2: 70, dur: 0.7, type: 'sawtooth', peak: 0.12 }); noise(s, o, { dur: 0.6, type: 'lowpass', f: 600, peak: 0.25, sweep: 120 }); s.dull(380, 1.6); },
+  heartbeat: (s, o) => { tone(s, o, { f: 62, f2: 38, dur: 0.11, type: 'sine', peak: 0.9 }); tone(s, o, { t: 0.2, f: 55, f2: 34, dur: 0.12, type: 'sine', peak: 0.7 }); },
+  uiHover: (s, o) => tone(s, o, { f: 2100, dur: 0.012, type: 'sine', peak: 0.05 }),
+  uiClick: (s, o) => { tone(s, o, { f: 900, f2: 1300, dur: 0.04, type: 'triangle', peak: 0.18 }); noise(s, o, { dur: 0.02, type: 'highpass', f: 3000, peak: 0.08 }); },
+  tinnitus: (s, o) => tone(s, o, { f: 3900, dur: 1.4, type: 'sine', peak: 0.025, a: 0.05 }),
+};
+// Map beds: each part starts on the ambience bus and returns a function that stops it.
+function windBed(s, out, f = 380, level = 0.05) {
+  const c = s.ctx, n = c.createBufferSource(); n.buffer = s.noise; n.loop = true;
+  const bp = c.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = f; bp.Q.value = 0.6;
+  const g = c.createGain(); g.gain.value = level;
+  // Gusts: a slow wobble on level and pitch.
+  const lfo = c.createOscillator(), lg = c.createGain(); lfo.frequency.value = 0.09; lg.gain.value = level * 0.7; lfo.connect(lg); lg.connect(g.gain);
+  const lfo2 = c.createOscillator(), lg2 = c.createGain(); lfo2.frequency.value = 0.05; lg2.gain.value = f * 0.35; lfo2.connect(lg2); lg2.connect(bp.frequency);
+  n.connect(bp); bp.connect(g); g.connect(out); n.start(); lfo.start(); lfo2.start();
+  return () => { try { n.stop(); lfo.stop(); lfo2.stop(); } catch { /* stopped */ } };
+}
+function scheduled(s, out, every, fn) {
+  let on = true;
+  const next = () => { if (!on || !s.ctx) return; if (s.ctx.state === 'running') fn(s, out); setTimeout(next, every[0] + Math.random() * every[1]); };
+  setTimeout(next, 800 + Math.random() * 2000);
+  return () => { on = false; };
+}
+function panned(s, out) { const p = s.ctx.createStereoPanner(); p.pan.value = Math.random() * 1.6 - 0.8; p.connect(out); return p; }
+const birds = (s, out) => { const p = panned(s, out), base = 2400 + Math.random() * 1600; for (let i = 0, n = 2 + Math.floor(Math.random() * 4); i < n; i++) tone(s, p, { t: i * (0.09 + Math.random() * 0.05), f: base * (0.9 + Math.random() * 0.25), f2: base * (1.15 + Math.random() * 0.3), dur: 0.06, type: 'sine', peak: 0.03 }); };
+const crickets = (s, out) => { const p = panned(s, out); for (let i = 0; i < 3; i++) tone(s, p, { t: i * 0.07, f: 4300 + Math.random() * 300, dur: 0.035, type: 'sine', peak: 0.012 }); };
+function drone(s, out) {
+  const c = s.ctx, g = c.createGain(); g.gain.value = 0.03; g.connect(out);
+  const oscs = [55, 55.4, 82.6].map(f => { const o = c.createOscillator(); o.frequency.value = f; o.type = 'sine'; o.connect(g); o.start(); return o; });
+  return () => { for (const o of oscs) try { o.stop(); } catch { /* stopped */ } };
+}
+const AMBIENCE = {
+  day: [(s, o) => windBed(s, o, 380, 0.045), (s, o) => scheduled(s, o, [2500, 5000], birds)],
+  dusk: [(s, o) => windBed(s, o, 300, 0.04), (s, o) => scheduled(s, o, [4000, 6000], birds), (s, o) => scheduled(s, o, [900, 1600], crickets)],
+  night: [(s, o) => windBed(s, o, 260, 0.03), (s, o) => scheduled(s, o, [500, 900], crickets)],
+  space: [drone, (s, o) => windBed(s, o, 140, 0.02)],
+  indoor: [(s, o) => windBed(s, o, 180, 0.02)],
 };
 const SYNTH_LOOP = {
   cluck(s, out) {

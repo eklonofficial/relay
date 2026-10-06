@@ -1,18 +1,18 @@
 // Menus and modals (GDD §16–21): home, respawn/pause screen, settings (3 tabs), play with friends,
 // custom matches, profile, shop/inventory, how to play, chat. All markup lives in index.html inside
 // the compositor; this module wires it up and keeps it current.
-import { surfaceDocument as document } from '../surface.js?v=muvmvc5o';
-import * as THREE from '../../vendor/three/three.module.js?v=muvmvc5o';
-import { ask, tell } from '../dialog.js?v=muvmvc5o';
-import { gunModel } from '../render/guns.js?v=muvmvc5o';
-import { SHELL_COLORS } from '../render/egg.js?v=muvmvc5o';
-import { WEAPONS, PRIMARIES, MODE_NAMES, MODE_MENU, TICK } from '../sim/tuning.js?v=muvmvc5o';
-import { ACTIONS, ACTION_NAMES, keyLabel, DEFAULT_KEYS } from '../game/input.js?v=muvmvc5o';
-import { DEFAULT_SETTINGS, saveSettings, saveProfile } from '../game/store.js?v=muvmvc5o';
-import { ensureDaily, def as challengeDef, reroll, timeLeft } from '../game/challenges.js?v=muvmvc5o';
-import { MAPS, mapDef } from '../maps/index.js?v=muvmvc5o';
-import { drawHowTo } from './art.js?v=muvmvc5o';
-import { wakeRelays, diagnoseNetwork } from '../net/net.js?v=muvmvc5o';
+import { surfaceDocument as document } from '../surface.js?v=muw89qdu';
+import * as THREE from '../../vendor/three/three.module.js?v=muw89qdu';
+import { ask, tell } from '../dialog.js?v=muw89qdu';
+import { gunModel } from '../render/guns.js?v=muw89qdu';
+import { SHELL_COLORS } from '../render/egg.js?v=muw89qdu';
+import { WEAPONS, PRIMARIES, MODE_NAMES, MODE_MENU, TICK } from '../sim/tuning.js?v=muw89qdu';
+import { ACTIONS, ACTION_NAMES, keyLabel, DEFAULT_KEYS } from '../game/input.js?v=muw89qdu';
+import { DEFAULT_SETTINGS, saveSettings, saveProfile } from '../game/store.js?v=muw89qdu';
+import { ensureDaily, def as challengeDef, reroll, timeLeft } from '../game/challenges.js?v=muw89qdu';
+import { MAPS, mapDef } from '../maps/index.js?v=muw89qdu';
+import { drawHowTo } from './art.js?v=muw89qdu';
+import { wakeRelays, diagnoseNetwork } from '../net/net.js?v=muw89qdu';
 
 const $ = id => document.getElementById(id);
 const show = (id, on = true) => $(id).classList.toggle('hidden', !on);
@@ -109,6 +109,10 @@ export class Menus {
     this.chatBind();
     this.settingsBind();
     this.customBind();
+    // Interface sounds: a soft tick on hover, a click on press (the first click also wakes the audio).
+    let hovered = null;
+    document.addEventListener('mouseover', e => { const b = e.target.closest?.('button'); if (b && b !== hovered && !b.disabled) app.sound.play('uiHover'); hovered = b; });
+    document.addEventListener('click', e => { const b = e.target.closest?.('button'); if (!b || b.disabled) return; app.sound.unlock(); app.sound.play('uiClick'); });
   }
   refreshHome() {
     const app = this.app, p = app.profile;
@@ -233,7 +237,7 @@ export class Menus {
     $('set-reset').onclick = () => { const seen = this.app.settings.seenHowTo; Object.assign(this.app.settings, structuredClone(DEFAULT_SETTINGS)); this.app.settings.keys = { ...DEFAULT_KEYS }; this.app.settings.seenHowTo = seen; this.fillSettings(); };
   }
   openSettings() { this.before = structuredClone(this.app.settings); this.fillSettings(); show('settings'); this.app.input.exitLock(); }
-  applySettings() { const a = this.app; a.sound.setVolume(a.settings.volume); a.renderer.baseFov = a.settings.fov; drawHowTo($('howto-canvas'), a.settings.keys); }
+  applySettings() { const a = this.app; a.sound.setVolume(a.settings.volume); a.renderer.baseFov = a.settings.fov; a.applyQuality(); drawHowTo($('howto-canvas'), a.settings.keys); }
   fillSettings() {
     const s = this.app.settings;
     const kb = $('keybinds'); kb.replaceChildren();
@@ -253,7 +257,16 @@ export class Menus {
     const misc = $('set-misc'); misc.replaceChildren();
     misc.append(this.slider('Sound Effects', 0, 100, 1, () => s.volume, v => { s.volume = v; this.app.sound.setVolume(v); }));
     misc.append(this.slider('Field of View', 60, 100, 1, () => s.fov, v => { s.fov = v; }));
-    for (const [label, k] of [['Hold to Aim', 'holdToAim'], ['Enable Chat', 'chat'], ['Bot chat in games I host', 'botChat'], ['Safe Usernames', 'safeNames'], ['Auto Detail', 'autoDetail'], ['Prevent accidental game close?', 'preventClose'], ['Recoil camera shake', 'shake'], ['Show center dot', 'centerDot'], ['Show hit markers', 'hitMarkers']]) misc.append(this.check(label, () => s[k], v => { s[k] = v; }));
+    // Graphics: Auto adapts to the frame rate (the old Auto Detail switch); the others hold one level.
+    const gfx = el('div', 'opt'), chips = el('div', 'chips');
+    const pick = () => { for (const b of chips.children) b.classList.toggle('on', b.dataset.q === (s.quality || 'auto')); };
+    for (const [q, label] of [['auto', 'Auto'], ['low', 'Low'], ['medium', 'Medium'], ['high', 'High']]) {
+      const b = el('button', '', label); b.dataset.q = q;
+      b.onclick = () => { s.quality = q; s.autoDetail = q === 'auto'; pick(); };
+      chips.append(b);
+    }
+    pick(); gfx.append(el('span', '', 'Graphics'), chips); misc.append(gfx);
+    for (const [label, k] of [['Hold to Aim', 'holdToAim'], ['Enable Chat', 'chat'], ['Bot chat in games I host', 'botChat'], ['Safe Usernames', 'safeNames'], ['Prevent accidental game close?', 'preventClose'], ['Recoil camera shake', 'shake'], ['Show center dot', 'centerDot'], ['Show hit markers', 'hitMarkers']]) misc.append(this.check(label, () => s[k], v => { s[k] = v; }));
   }
   capture(action, btn) {
     btn.classList.add('wait'); btn.textContent = 'Press a key…';

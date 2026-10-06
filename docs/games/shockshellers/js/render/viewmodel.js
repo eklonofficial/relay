@@ -1,17 +1,39 @@
-// First-person hands (GDD §25): the floating mittens and the held gun, lower right. Bob scales with
-// speed (doubled jumping or climbing), shots kick it back and up (and punch the camera a little), the
-// muzzle flashes at the gun's real muzzle, aiming brings the gun's own sight onto the eye line,
-// reloads are keyframed per kind of gun (magazine swap with the left mitten, break-open shotgun,
-// bolt-action round, rocket into the tube; a reload from empty adds the charging handle or slide),
-// swaps lower it out and back, the whisk swings across, inspect turns it over.
-// Drawn in its own scene and camera after the world, over a cleared depth buffer.
-import * as THREE from '../../vendor/three/three.module.js?v=muvmvc5o';
-import { gunModel } from './guns.js?v=muvmvc5o';
-import { clone } from './models.js?v=muvmvc5o';
+// First-person hands (GDD §25): the floating mittens and the held gun, lower right. Drawn in its own
+// scene and camera after the world, over a cleared depth buffer.
+//
+// The guns are modelled at real scale (a rifle is about a metre long), with empties marking the grip,
+// the support hand, the sight line and the muzzle. Poses are computed from those anchors rather than
+// hand-placed: at the hip the grip sits low right and the bore converges on the crosshair a few
+// metres out; aiming puts the sight anchor exactly on the eye line at a short eye relief, so the
+// iron sights line up for every gun. Everything that moves the gun (sway, bob, strafe lean, jumps
+// and landings, recoil, swaps) runs through critically damped springs, so motion never snaps.
+// Reloads are keyframed per kind of gun (magazine swap with the left mitten, break-open shotgun,
+// bolt-action round, rocket into the tube; a reload from empty adds the charging handle or slide).
+// Spent brass flies out of the ejection port; the muzzle flash is a star plus two crossed flames.
+import * as THREE from '../../vendor/three/three.module.js?v=muw89qdu';
+import { gunModel } from './guns.js?v=muw89qdu';
+import { clone } from './models.js?v=muw89qdu';
 
-// Where each gun sits at the hip (metres in camera space), and how hard it kicks.
-const HIP = { yolk47: [0.16, -0.17, -0.36], doubleYolker: [0.16, -0.18, -0.35], cageFree: [0.16, -0.17, -0.38], yolkzooka: [0.2, -0.22, -0.38], beater: [0.15, -0.16, -0.32], poacher: [0.16, -0.17, -0.4], triBoil: [0.16, -0.17, -0.36], peck9mm: [0.15, -0.15, -0.3] };
-const KICK = { yolk47: 0.45, doubleYolker: 1, cageFree: 0.8, yolkzooka: 1, beater: 0.32, poacher: 1, triBoil: 0.4, peck9mm: 0.55 };
+// Hip hold per gun: where the grip anchor sits in camera space (metres). The bore is then turned to
+// meet the view axis CONVERGE metres out, so every gun points where the crosshair does.
+const HOLD = {
+  yolk47: [0.15, -0.19, -0.42], beater: [0.145, -0.185, -0.4], triBoil: [0.15, -0.19, -0.42], cageFree: [0.15, -0.19, -0.44],
+  poacher: [0.15, -0.195, -0.46], doubleYolker: [0.15, -0.19, -0.42], yolkzooka: [0.215, -0.25, -0.37], peck9mm: [0.12, -0.17, -0.38],
+};
+// Eye relief when aiming (how far in front of the eye the sight anchor sits): far enough that the
+// receiver behind the sights frames them instead of filling the screen.
+const SCALE = 0.64, CONVERGE = 7, RELIEF = { peck9mm: 0.26, doubleYolker: 0.17, yolkzooka: 0.16 }, RELIEF_DEFAULT = 0.17;
+// Recoil per shot: [kick back (m), muzzle climb (rad), side jitter (rad), roll jitter (rad), camera punch (rad)].
+const RECOIL = {
+  yolk47: [0.032, 0.06, 0.018, 0.03, 0.004], beater: [0.024, 0.045, 0.02, 0.025, 0.003], triBoil: [0.03, 0.055, 0.015, 0.02, 0.004],
+  peck9mm: [0.03, 0.13, 0.02, 0.05, 0.005], cageFree: [0.05, 0.1, 0.015, 0.03, 0.009], poacher: [0.085, 0.17, 0.02, 0.06, 0.016],
+  doubleYolker: [0.095, 0.22, 0.03, 0.07, 0.016], yolkzooka: [0.11, 0.12, 0.02, 0.04, 0.016],
+};
+// Ejection port (gun space) and what comes out of it; empty for guns that don't eject on firing.
+const EJECT = {
+  yolk47: [0.032, 0.035, -0.06], beater: [0.036, 0.04, 0.12], triBoil: [0.032, 0.04, -0.08], cageFree: [0.03, 0.035, -0.06], peck9mm: [0.018, 0.035, -0.02],
+};
+const FLASH = { doubleYolker: 1.6, yolkzooka: 1.8, poacher: 1.35, cageFree: 1.15, yolk47: 1, triBoil: 1, beater: 0.8, peck9mm: 0.75 };
 // Parts that only exist while loading (shotgun shells, the sniper round, the rocket).
 const LOADED_ONLY = new Set(['doubleYolker', 'poacher', 'yolkzooka']);
 // How each gun reloads.
@@ -23,42 +45,97 @@ const seg = (f, a, b) => ss((f - a) / (b - a));
 const bump = (f, a, b) => (f <= a || f >= b) ? 0 : Math.sin((f - a) / (b - a) * Math.PI);
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
 const lerp3 = (out, a, b, t) => out.copy(a).lerp(b, t);
+const rnd = () => Math.random() * 2 - 1;
+
+// A critically damped spring (stiffness k): x chases target, v is its velocity. Stepped in small
+// sub-steps so a long frame can't make it overshoot wildly.
+export class Spring {
+  constructor(k = 120, damping = 1) { this.k = k; this.c = 2 * Math.sqrt(k) * damping; this.x = 0; this.v = 0; }
+  step(target, dt) {
+    for (let t = dt; t > 1e-6; t -= 1 / 240) {
+      const h = Math.min(t, 1 / 240);
+      this.v += ((target - this.x) * this.k - this.v * this.c) * h; this.x += this.v * h;
+    }
+    return this.x;
+  }
+}
+// Where to put a hold group (scale k) so a gun-space point lands on the view axis `relief` metres in
+// front of the eye with the gun level: pure, so the sight alignment is testable.
+export function sightOnAxis(sight, k, relief, out = [0, 0, 0]) {
+  out[0] = -sight.x * k; out[1] = -sight.y * k; out[2] = -relief - sight.z * k; return out;
+}
+// Yaw and pitch that turn a gun's bore (-z) from point p (camera space) towards the view axis `dist` out.
+export function convergeAngles(p, dist) {
+  const dx = -p[0], dy = -p[1], dz = -dist - p[2];
+  return [Math.atan2(dy, Math.hypot(dx, dz)), Math.atan2(-dx, -dz)];
+}
 
 function starTexture() {
   const c = new OffscreenCanvas(128, 128), x = c.getContext('2d');
   const g = x.createRadialGradient(64, 64, 0, 64, 64, 64);
-  g.addColorStop(0, 'rgba(255,255,230,1)'); g.addColorStop(0.25, 'rgba(255,220,120,0.9)'); g.addColorStop(1, 'rgba(255,140,30,0)');
+  g.addColorStop(0, 'rgba(255,255,240,1)'); g.addColorStop(0.22, 'rgba(255,226,140,0.95)'); g.addColorStop(0.55, 'rgba(255,150,40,0.5)'); g.addColorStop(1, 'rgba(255,110,20,0)');
   x.fillStyle = g;
   x.beginPath();
-  for (let i = 0; i < 16; i++) { const a = i / 16 * Math.PI * 2, r = i % 2 ? 22 : 64; x.lineTo(64 + Math.cos(a) * r, 64 + Math.sin(a) * r); }
+  for (let i = 0; i < 18; i++) { const a = i / 18 * Math.PI * 2, r = i % 2 ? 18 : 64 - (i % 4) * 9; x.lineTo(64 + Math.cos(a) * r, 64 + Math.sin(a) * r); }
   x.closePath(); x.fill();
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
 }
+// A flame seen side-on: hot at the muzzle (left), ragged and tapering forward.
+function flameTexture() {
+  const c = new OffscreenCanvas(128, 64), x = c.getContext('2d');
+  let s = 7; const r = () => (s = (s * 16807) % 2147483647) / 2147483647;
+  for (let i = 0; i < 26; i++) {
+    const t = r(), cx = 6 + t * 110, cy = 32 + (r() - 0.5) * 18 * (1 - t), rad = (1 - t) * 22 + 4;
+    const g = x.createRadialGradient(cx, cy, 0, cx, cy, rad);
+    g.addColorStop(0, `rgba(255,${200 + 55 * (1 - t) | 0},${120 * (1 - t) | 0},${0.55 * (1 - t * 0.7)})`); g.addColorStop(1, 'rgba(255,120,20,0)');
+    x.fillStyle = g; x.fillRect(0, 0, 128, 64);
+  }
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+}
+
+const CASINGS = 24;
 
 export class ViewModel {
   constructor() {
     this.scene = new THREE.Scene();
-    this.camera = new THREE.PerspectiveCamera(55, 1, 0.01, 10);
-    this.scene.add(new THREE.HemisphereLight(0xffffff, 0x8a8070, 1.7));
-    this.sun = new THREE.DirectionalLight(0xffffff, 1.7); this.sun.position.set(-1, 2, 1); this.scene.add(this.sun);
+    this.camera = new THREE.PerspectiveCamera(52, 1, 0.01, 10);
+    this.hemi = new THREE.HemisphereLight(0xffffff, 0x8a8070, 1.5); this.scene.add(this.hemi);
+    this.sun = new THREE.DirectionalLight(0xffffff, 1.9); this.sun.position.set(-1, 2, 1); this.scene.add(this.sun);
     this.root = new THREE.Group(); this.scene.add(this.root);
-    this.hold = new THREE.Group(); this.hold.scale.setScalar(0.85); this.root.add(this.hold);
-    this.gloveMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.6 });
+    this.hold = new THREE.Group(); this.hold.rotation.order = 'YXZ'; this.hold.scale.setScalar(SCALE); this.root.add(this.hold);
+    this.gloveMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.62, envMapIntensity: 0.6 });
     this.shieldMat = new THREE.MeshStandardMaterial({ color: 0x9cff9c, roughness: 0.5, emissive: 0x1a6b1a });
     this.gloveR = this.mitten(); this.gloveL = this.mitten();
     this.hold.add(this.gloveR, this.gloveL);
-    this.whisk = gunModel('whisk'); this.whisk.visible = false; this.whisk.scale.setScalar(1.2); this.root.add(this.whisk);
+    this.whisk = gunModel('whisk'); this.whisk.visible = false; this.whisk.scale.setScalar(1.15); this.root.add(this.whisk);
     this.nade = gunModel('grenade'); this.nade.visible = false; this.root.add(this.nade);
-    this.flash = new THREE.Sprite(new THREE.SpriteMaterial({ map: starTexture(), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, depthTest: false }));
-    this.flash.visible = false; this.flash.renderOrder = 5; this.hold.add(this.flash);
-    this.flashLight = new THREE.PointLight(0xffc070, 0, 1.2, 2); this.hold.add(this.flashLight);
-    this.t = 0; this.kick = 0; this.swayX = 0; this.swayY = 0; this.weapon = null; this.flashT = 0; this.punch = 0; this.adsBlend = 0;
+    // Muzzle flash: a star facing the camera plus two crossed flame quads along the bore.
+    this.flash = new THREE.Group(); this.flash.visible = false; this.hold.add(this.flash);
+    const add = { transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false };
+    this.flashStar = new THREE.Sprite(new THREE.SpriteMaterial({ map: starTexture(), ...add })); this.flashStar.renderOrder = 5; this.flash.add(this.flashStar);
+    const fg = new THREE.PlaneGeometry(1, 0.5).translate(0.5, 0, 0).rotateY(Math.PI / 2), fm = new THREE.MeshBasicMaterial({ map: flameTexture(), side: THREE.DoubleSide, ...add });
+    this.flame = new THREE.Group(); this.flash.add(this.flame);
+    for (let i = 0; i < 2; i++) { const p = new THREE.Mesh(fg, fm); p.rotation.z = i * Math.PI / 2; p.renderOrder = 5; this.flame.add(p); }
+    this.flashLight = new THREE.PointLight(0xffb060, 0, 1.4, 2); this.hold.add(this.flashLight);
+    // Spent brass (and red shotgun hulls): one instanced mesh, each case flying in camera space.
+    const cg = new THREE.CylinderGeometry(0.0055, 0.0055, 0.024, 8).rotateZ(Math.PI / 2);
+    this.casings = new THREE.InstancedMesh(cg, new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.35, metalness: 0.8, envMapIntensity: 1.2 }), CASINGS);
+    this.casings.frustumCulled = false; this.casings.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    this.casingList = Array.from({ length: CASINGS }, () => ({ life: 0, p: V(0, 0, 0), v: V(0, 0, 0), r: new THREE.Euler(), w: V(0, 0, 0), s: 1 }));
+    for (let i = 0; i < CASINGS; i++) { this.casings.setColorAt(i, new THREE.Color(0xd9a441)); this.casings.setMatrixAt(i, new THREE.Matrix4().makeScale(0, 0, 0)); }
+    this.root.add(this.casings); this.ci = 0;
+    this.t = 0; this.weapon = null; this.flashT = 0; this.adsBlend = 0;
+    // Springs: position (x, y, z) and rotation (pitch, yaw, roll) offsets on the hold, plus the camera punch.
+    this.sp = { x: new Spring(160), y: new Spring(140), z: new Spring(220, 0.9), rx: new Spring(200, 0.8), ry: new Spring(160), rz: new Spring(140), swap: new Spring(90, 0.85) };
+    this.cam = { pitch: new Spring(260, 1), yaw: new Spring(260, 1), roll: new Spring(120, 1) };
+    this.bobPhase = 0; this.bobAmt = 0; this.wasAir = false; this.lastVy = 0; this.throwT = -1; this.lastCharge = null;
     // The spent magazine that falls away during a reload (a copy of the gun's own), and scratch vectors.
     this.dropMag = null; this.dropT = -1; this.tmp = V(0, 0, 0); this.tmp2 = V(0, 0, 0); this.handTarget = V(0, 0, 0); this.lastReloadF = 1;
+    this.m4 = new THREE.Matrix4(); this.q = new THREE.Quaternion(); this.one = V(1, 1, 1); this.caseColor = new THREE.Color();
   }
   mitten() {
     const m = clone('glove');
-    if (m) { m.traverse(o => { if (o.isMesh) o.material = this.gloveMat; }); return m; }
+    if (m) { m.traverse(o => { if (o.isMesh) { o.material = this.gloveMat; o.castShadow = false; } }); m.scale.setScalar(0.86); return m; }
     const g = new THREE.SphereGeometry(0.05, 18, 14); g.scale(1, 0.85, 1.25);
     return new THREE.Mesh(g, this.gloveMat);
   }
@@ -67,18 +144,21 @@ export class ViewModel {
     this.weapon = id;
     if (this.gun) this.hold.remove(this.gun);
     this.gun = gunModel(id); this.hold.add(this.gun);
-    this.gun.traverse(o => { if (o.isMesh) { o.castShadow = false; o.frustumCulled = false; } });
+    this.gun.traverse(o => { if (o.isMesh) { o.castShadow = false; o.receiveShadow = false; o.frustumCulled = false; } });
     const u = this.gun.userData;
-    const grip = u.grip || new THREE.Vector3(0, -0.07, 0), support = u.support || new THREE.Vector3(0, -0.03, -0.25);
+    const grip = u.grip || V(0, -0.07, 0), support = u.support || V(0, -0.03, -0.25);
     // Mittens: the right one wraps the grip, the left one cups the support point from below.
-    this.gloveR.position.copy(grip).add(new THREE.Vector3(0.012, 0, 0.01)); this.gloveR.rotation.set(-0.35, 0.15, -0.1);
-    this.gloveL.position.copy(support).add(new THREE.Vector3(-0.015, -0.025, 0)); this.gloveL.rotation.set(-1.2, -0.2, 0.5);
-    if (id === 'peck9mm') { this.gloveL.position.copy(grip).add(new THREE.Vector3(-0.035, -0.01, -0.01)); this.gloveL.rotation.set(-0.3, -0.5, 0.4); }
-    this.hip = new THREE.Vector3(...(HIP[id] || HIP.yolk47));
-    // Aiming: put the gun's sight point on the eye line, a little in front of the eye.
-    const sight = u.sight || new THREE.Vector3(0, 0.06, 0.05);
-    // The sight line runs just above the rear sight, which sits a hand's length in front of the eye.
-    this.adsPos = new THREE.Vector3(-sight.x, -sight.y - 0.016, -0.17 - sight.z);
+    this.gloveR.position.copy(grip).add(V(0.012, 0, 0.01)); this.gloveR.rotation.set(-0.35, 0.15, -0.1);
+    this.gloveL.position.copy(support).add(V(-0.015, -0.025, 0)); this.gloveL.rotation.set(-1.2, -0.2, 0.5);
+    if (id === 'peck9mm') { this.gloveL.position.copy(grip).add(V(-0.035, -0.01, -0.01)); this.gloveL.rotation.set(-0.3, -0.5, 0.4); }
+    // Hip: the grip at its spot, the bore turned to converge on the view axis.
+    const g = HOLD[id] || HOLD.yolk47, [pitch, yaw] = convergeAngles(g, CONVERGE);
+    this.hipRot = V(pitch, yaw, 0);
+    const e = new THREE.Euler(pitch, yaw, 0, 'YXZ');
+    this.hipPos = V(...g).sub(grip.clone().multiplyScalar(SCALE).applyEuler(e));
+    // Aiming: the sight anchor on the eye line, level, a little in front of the eye.
+    const sight = u.sight || V(0, 0.06, 0.05);
+    this.adsPos = V(...sightOnAxis(sight, SCALE, RELIEF[id] ?? RELIEF_DEFAULT));
     this.mag = u.mag; this.magHome = this.mag ? this.mag.position.clone() : null;
     this.gloveLRest = this.gloveL.position.clone(); this.gloveLRot = this.gloveL.rotation.clone();
     this.gloveRRest = this.gloveR.position.clone();
@@ -86,19 +166,43 @@ export class ViewModel {
     if (this.mag && !LOADED_ONLY.has(id)) { this.dropMag = this.mag.clone(true); this.dropMag.visible = false; this.hold.add(this.dropMag); }
     this.dropT = -1;
     if (this.mag && LOADED_ONLY.has(id)) this.mag.visible = false;
-    this.flash.position.copy(u.muzzle).add(new THREE.Vector3(0, 0, -0.04));
-    this.flashLight.position.copy(this.flash.position);
+    this.flash.position.copy(u.muzzle);
+    this.flashLight.position.copy(u.muzzle).add(V(0, 0.02, 0.05));
+    this.eject = EJECT[id] ? V(...EJECT[id]) : null;
   }
+  // A shot: recoil impulses (randomised a little per shot), the flash, a case out of the port.
   fire(id) {
-    this.kick = Math.min(1.2, this.kick + (KICK[id] ?? 0.5));
-    this.punch = Math.min(0.06, this.punch + (KICK[id] ?? 0.5) * 0.012);
-    this.flashT = id === 'yolkzooka' ? 0.08 : 0.05;
-    this.flash.material.rotation = Math.random() * Math.PI;
-    this.flash.scale.setScalar((id === 'doubleYolker' || id === 'yolkzooka' ? 0.28 : id === 'peck9mm' || id === 'beater' ? 0.14 : 0.18) * (0.85 + Math.random() * 0.3));
+    const r = RECOIL[id] || RECOIL.yolk47, ads = 1 - this.adsBlend * 0.55;
+    this.sp.z.v += r[0] * 60 * ads; this.sp.rx.v += r[1] * 55 * ads; this.sp.ry.v += rnd() * r[2] * 50; this.sp.rz.v += rnd() * r[3] * 50;
+    this.sp.y.v += r[0] * 8;
+    this.cam.pitch.v += r[4] * 60; this.cam.yaw.v += rnd() * r[4] * 18;
+    this.flashT = id === 'yolkzooka' ? 0.075 : id === 'doubleYolker' ? 0.06 : 0.045;
+    const k = (FLASH[id] || 1) * (0.85 + Math.random() * 0.3);
+    this.flashStar.scale.setScalar(0.2 * k); this.flashStar.material.rotation = Math.random() * Math.PI;
+    this.flame.scale.set(0.32 * k, 0.22 * k, 0.32 * k); this.flame.rotation.z = Math.random() * Math.PI;
+    if (this.eject) this.spawnCase(this.eject, id === 'peck9mm' ? 0.75 : 1, 0xd9a441);
+  }
+  // A case from a gun-space point, flung right, up and a little back, spinning.
+  spawnCase(at, size, color, spread = 1) {
+    if (!this.gun) return;
+    this.hold.updateMatrix();
+    const c = this.casingList[this.ci = (this.ci + 1) % CASINGS];
+    c.p.copy(at).applyMatrix4(this.hold.matrix);
+    c.v.set(1.1 + Math.random() * 0.5, 0.9 + Math.random() * 0.5, 0.25 + Math.random() * 0.2).multiplyScalar(spread);
+    c.r.set(Math.random() * 3, Math.random() * 3, Math.random() * 3); c.w.set(rnd() * 25, rnd() * 25, rnd() * 25);
+    c.life = 0.55; c.s = size;
+    this.casings.setColorAt(this.ci, this.caseColor.setHex(color)); this.casings.instanceColor.needsUpdate = true;
   }
   resize(aspect) { this.camera.aspect = aspect; this.camera.updateProjectionMatrix(); }
-  // The camera's recoil punch this frame (radians of upward kick), recovering quickly.
-  takePunch(dt) { const p = this.punch; this.punch = Math.max(0, this.punch - dt * 0.35); return p; }
+  // The camera's recoil this frame: [pitch, yaw, roll] radians, springing back to rest.
+  takePunch(dt) { return [this.cam.pitch.step(0, dt), this.cam.yaw.step(0, dt), this.cam.roll.step(0, dt)]; }
+  // A landing (fall speed in u/s): the gun dips and the camera nods.
+  land(speed) { const k = Math.min(1, speed / 9); this.sp.y.v -= 0.5 * k; this.sp.rx.v -= 1.2 * k; this.cam.pitch.v -= 0.25 * k; }
+  // Match the world's light: sun direction (camera space) and colours.
+  light(sunDir, sunColor, sunIntensity, sky, ground) {
+    this.sun.position.copy(sunDir); this.sun.color.copy(sunColor); this.sun.intensity = sunIntensity * 0.85;
+    this.hemi.color.copy(sky); this.hemi.groundColor.copy(ground);
+  }
   // Gun-space point → hold space, and back (the gun may be offset/rotated inside the hold group).
   toHold(v, out) { this.gun.updateMatrix(); return out.copy(v).applyMatrix4(this.gun.matrix); }
   toGun(v, out) { this.gun.updateMatrix(); return out.copy(v).applyMatrix4(this.tmpInv.copy(this.gun.matrix).invert()); }
@@ -109,13 +213,13 @@ export class ViewModel {
     this.tmpInv = this.tmpInv || new THREE.Matrix4();
     const rest = this.gloveLRest, magHome = this.magHome;
     const below = V(-0.06, -0.32, 0.06);                      // off the bottom of the screen (fetching)
-    if (f < this.lastReloadF - 0.5) this.dropT = -1;          // a new reload began
+    if (f < this.lastReloadF - 0.5) { this.dropT = -1; this.ejected = false; }   // a new reload began
     if (kind === 'mag' || kind === 'pistol') {
       // Tilt the gun to show the magazine well; ease back at the end.
       const tilt = seg(f, 0, 0.14) * (1 - seg(f, long ? 0.9 : 0.86, 1));
       // Bring it up and in, turned and rolled so the well (and the mitten working it) is in view.
       const P = kind === 'pistol';
-      o.rz = -tilt * (P ? 0.5 : 0.75); o.rx = tilt * (P ? 0.25 : 0.12); o.ry = tilt * 0.25; o.y = tilt * (P ? 0.09 : 0.05); o.x = -tilt * (P ? 0.08 : 0.06); o.z = tilt * 0.03;
+      o.rz = -tilt * (P ? 0.45 : 0.55); o.rx = tilt * (P ? 0.22 : 0.12); o.ry = tilt * 0.22; o.y = tilt * (P ? 0.04 : 0.02); o.x = -tilt * (P ? 0.04 : 0.03); o.z = tilt * 0.015;
       const magIn = this.mag ? this.toHold(magHome, this.tmp) : rest;
       const grab = this.handTarget.copy(magIn).add(V(-0.01, -0.035, 0));
       const end = long ? 0.86 : 0.8;
@@ -134,7 +238,7 @@ export class ViewModel {
         const t = seg(f, 0.6, 0.7);
         o.hand = grab.clone().add(V(0, -0.06 * (1 - t), 0));
         if (this.mag) { this.mag.visible = true; this.mag.position.copy(magHome).add(V(0, -0.06 * (1 - t) / (this.gun.scale.y || 1), 0)); }
-        o.rx -= bump(f, 0.68, 0.74) * 0.05; o.y += bump(f, 0.68, 0.74) * 0.012;
+        o.rx -= bump(f, 0.68, 0.74) * 0.06; o.y += bump(f, 0.68, 0.74) * 0.014;
       } else if (long && kind === 'pistol' && f < end) {        // empty pistol: rack the slide (a sharp kick back)
         if (this.mag) this.mag.position.copy(magHome);
         o.hand = grab.clone(); o.z += bump(f, 0.74, 0.82) * 0.03; o.rx += bump(f, 0.74, 0.8) * 0.15;
@@ -149,20 +253,23 @@ export class ViewModel {
         o.hand = lerp3(V(0, 0, 0), long && kind !== 'pistol' ? this.toHold(this.handlePoint(), V(0, 0, 0)) : grab, rest, seg(f, long ? end : 0.72, long ? 0.95 : 0.85));
       }
     } else if (kind === 'break') {
-      // Break it open (muzzle drops), push two shells into the breech, snap it shut with a flick.
+      // Break it open (muzzle drops), the spent hulls kick out, push two shells into the breech, snap
+      // it shut with a flick.
       const open = seg(f, 0, 0.16) * (1 - seg(f, 0.76, 0.84));
       // (raised and turned in so the open breech faces you)
-      o.rx = -open * 0.25; o.rz = -open * 0.4; o.ry = open * 0.25; o.y = open * 0.05 + bump(f, 0.8, 0.92) * 0.02; o.x = -open * 0.06; o.rx += bump(f, 0.8, 0.9) * 0.12;
+      o.rx = -open * 0.3; o.rz = -open * 0.4; o.ry = open * 0.28; o.y = open * 0.05 + bump(f, 0.8, 0.92) * 0.02; o.x = -open * 0.06; o.rx += bump(f, 0.8, 0.9) * 0.14;
+      if (f > 0.14 && !this.ejected) { this.ejected = true; const b = this.mag ? magHome : V(0, 0.03, -0.02); for (const dx of [-0.024, 0.024]) this.spawnCase(V(b.x + dx, b.y, b.z + 0.04), 2.2, 0xc8342a, 0.8); }
       const breech = this.toHold(this.mag ? magHome : V(0, 0, 0.05), V(0, 0, 0));
       if (f < 0.4) o.hand = lerp3(V(0, 0, 0), rest, breech.clone().add(below), seg(f, 0.1, 0.35));
       else if (f < 0.7) o.hand = lerp3(V(0, 0, 0), breech.clone().add(below), breech.clone().add(V(0, -0.02, 0.01)), seg(f, 0.4, 0.62));
       else o.hand = lerp3(V(0, 0, 0), breech, rest, seg(f, 0.72, 0.88));
       if (this.mag) { this.mag.visible = f > 0.4 && f < 0.7; if (this.mag.visible) { this.toGun(o.hand.clone().add(V(0.005, 0.02, -0.01)), this.tmp); this.mag.position.copy(this.tmp); } }
     } else if (kind === 'bolt') {
-      // Roll the rifle, bolt up and back, thumb a round in, bolt forward and down.
+      // Roll the rifle, bolt up and back (the spent case flies), thumb a round in, bolt forward and down.
       const roll = seg(f, 0, 0.15) * (1 - seg(f, 0.85, 1));
       o.rz = -roll * 0.55; o.rx = roll * 0.1; o.ry = roll * 0.25; o.y = roll * 0.05; o.x = -roll * 0.06;
       o.z += bump(f, 0.15, 0.3) * 0.02 - bump(f, 0.7, 0.82) * 0.02;
+      if (f > 0.24 && !this.ejected) { this.ejected = true; this.spawnCase(V(0.03, 0.05, 0.0), 1.5, 0xd9a441); }
       const port = this.toHold(this.mag ? magHome : V(0, 0.02, 0.05), V(0, 0, 0));
       if (f < 0.35) o.hand = lerp3(V(0, 0, 0), rest, port.clone().add(below), seg(f, 0.1, 0.33));
       else if (f < 0.65) o.hand = lerp3(V(0, 0, 0), port.clone().add(below), port.clone().add(V(-0.01, 0.01, 0)), seg(f, 0.35, 0.58));
@@ -187,64 +294,105 @@ export class ViewModel {
   }
   // Where the charging handle / slide is grabbed: just above and behind the grip.
   handlePoint() { const u = this.gun.userData, g = u.grip || V(0, -0.07, 0); return this.weapon === 'peck9mm' ? V(g.x - 0.01, g.y + 0.07, g.z - 0.03) : V(g.x - 0.03, g.y + 0.08, g.z - 0.1); }
-  // s: { dt, speed (u/s), air, climbing, ads, scoped, reload: {f,long}|null, swap: 0..1|0, melee: 0..1|0,
-  //      charge: 0..1|null, inspect: 0..1|0, shield, mouseDX, mouseDY, visible }
+  // s: { dt, speed (u/s), strafe (u/s, + right), vy (u/s), air, climbing, ads, scoped, reload: {f,long}|null,
+  //      swap: 0..1|0, melee: 0..1|0, charge: 0..1|null, inspect: 0..1|0, shield, mouseDX, mouseDY, visible }
   update(s) {
     this.root.visible = s.visible;
-    if (!s.visible || !this.gun) return;
-    this.t += s.dt;
-    const a = this.adsBlend = this.adsBlend + ((s.ads ? 1 : 0) - this.adsBlend) * Math.min(1, s.dt * 16);
-    const bobK = Math.min(1, s.speed / 2) * (s.air || s.climbing ? 2 : 1) * (1 - a * 0.85);
-    const ph = this.t * 9;
-    const bx = Math.sin(ph) * 0.008 * bobK, by = -Math.abs(Math.cos(ph)) * 0.008 * bobK;
-    // The gun lags the view slightly when looking around.
-    this.swayX += (-s.mouseDX * 0.00035 * (1 - a * 0.8) - this.swayX) * Math.min(1, s.dt * 12);
-    this.swayY += (s.mouseDY * 0.00035 * (1 - a * 0.8) - this.swayY) * Math.min(1, s.dt * 12);
-    this.kick = Math.max(0, this.kick - s.dt * 8);
-    const k = this.kick;
-    const p = this.hip.clone().lerp(this.adsPos, a);
-    let x = p.x + bx + this.swayX, y = p.y + by + this.swayY, z = p.z + k * 0.045 * (1 - a * 0.5);
-    let rx = k * 0.12 * (1 - a * 0.6), ry = -0.05 * (1 - a), rz = 0;
+    this.stepCasings(s.dt);
+    if (!s.visible || !this.gun) { this.wasAir = false; return; }
+    const dt = s.dt; this.t += dt;
+    // Aim blend: a quick ease, then smoothstepped so the sights settle rather than slide.
+    this.adsBlend += ((s.ads ? 1 : 0) - this.adsBlend) * Math.min(1, dt * 14);
+    const a = ss(this.adsBlend), free = 1 - a * 0.88;
+    // Walk bob: a figure of eight in step with the egg's stride, gone in the air.
+    const moving = Math.min(1, s.speed / 3.2) * (s.air ? 0.15 : 1);
+    this.bobAmt += (moving - this.bobAmt) * Math.min(1, dt * 8);
+    this.bobPhase += dt * (4 + s.speed * 1.6);
+    const bx = Math.sin(this.bobPhase) * 0.011 * this.bobAmt * free, by = -Math.abs(Math.cos(this.bobPhase)) * 0.012 * this.bobAmt * free;
+    const broll = Math.sin(this.bobPhase) * 0.02 * this.bobAmt * free;
+    // Breathing when still.
+    const br = (1 - this.bobAmt) * free, bry = Math.sin(this.t * 1.6) * 0.0025 * br, brx = Math.sin(this.t * 0.8) * 0.008 * br;
+    // Look sway: the gun lags behind the view and leans into turns; strafing leans it over.
+    const swx = Math.max(-0.05, Math.min(0.05, -s.mouseDX * 0.00028)) * free, swy = Math.max(-0.05, Math.min(0.05, s.mouseDY * 0.00028)) * free;
+    const lean = Math.max(-1, Math.min(1, (s.strafe || 0) / 3)) * free;
+    // Jumping: the gun floats down as the egg rises and up as it falls; landing kicks it (main calls land()).
+    const vyLag = s.climbing ? 0 : Math.max(-0.03, Math.min(0.03, -(s.vy || 0) * 0.004)) * free;
+    const p = this.tmp.copy(this.hipPos).lerp(this.adsPos, a);
+    const px = this.sp.x.step(swx + lean * 0.012, dt), py = this.sp.y.step(swy + vyLag, dt), pz = this.sp.z.step(0, dt);
+    const rx0 = this.sp.rx.step(-swy * 3 + brx * 0.3, dt), ry0 = this.sp.ry.step(swx * 4, dt), rz0 = this.sp.rz.step(-lean * 0.09 + swx * 3, dt);
+    let x = p.x + bx + px, y = p.y + by + py + bry, z = p.z + pz;
+    let rx = this.hipRot.x * (1 - a) + rx0, ry = this.hipRot.y * (1 - a) + ry0, rz = broll + rz0;
     let hand = null; // where the left mitten goes this frame (hold space), if it leaves its rest
     if (s.reload) {
       const R = this.reloadPose(Math.min(1, Math.max(0, s.reload.f)), s.reload.long);
       x += R.x; y += R.y; z += R.z; rx += R.rx; ry += R.ry; rz += R.rz; hand = R.hand;
     } else {
-      if (this.mag) { this.mag.position.copy(this.magHome); if (LOADED_ONLY.has(this.weapon)) this.mag.visible = false; else this.mag.visible = true; }
+      if (this.mag) { this.mag.position.copy(this.magHome); this.mag.visible = !LOADED_ONLY.has(this.weapon); }
       this.lastReloadF = 1;
     }
-    if (s.swap) { const f = s.swap, d = f < 0.5 ? f * 2 : (1 - f) * 2; y -= d * 0.25; rx -= d * 0.6; }
-    if (s.inspect) { const f = s.inspect; ry += Math.sin(f * Math.PI) * 1.2; rz += Math.sin(f * Math.PI * 2) * 0.3; }
+    // Swap: stow down and out to the right, the next gun rises with a little settle.
+    const sw = this.sp.swap.step(s.swap ? (s.swap < 0.5 ? ss(s.swap * 2) : 1 - ss((s.swap - 0.5) * 2)) : 0, dt);
+    y -= sw * 0.3; x += sw * 0.05; rx -= sw * 0.9; rz -= sw * 0.4;
+    if (s.inspect) { const f = s.inspect, e = bump(f, 0, 1); ry += e * 1.0; rz += Math.sin(f * Math.PI * 2) * 0.35 * e; x -= e * 0.05; y += e * 0.03; rx += e * 0.15; }
     this.hold.position.set(x, y, z); this.hold.rotation.set(rx, ry, rz);
     // The left mitten: at rest on the support, or following the reload's hand path.
-    if (hand) { this.gloveL.position.lerp(hand, Math.min(1, s.dt * 30)); this.gloveL.rotation.set(-0.6, -0.1, 0.9); }
-    else { this.gloveL.position.lerp(this.gloveLRest, Math.min(1, s.dt * 20)); this.gloveL.rotation.copy(this.gloveLRot); }
+    if (hand) { this.gloveL.position.lerp(hand, Math.min(1, dt * 30)); this.gloveL.rotation.set(-0.6, -0.1, 0.9); }
+    else { this.gloveL.position.lerp(this.gloveLRest, Math.min(1, dt * 20)); this.gloveL.rotation.copy(this.gloveLRot); }
     // The spent magazine falls out of view, tumbling.
     if (this.dropMag && this.dropT >= 0) {
-      this.dropT += s.dt; const t = this.dropT;
+      this.dropT += dt; const t = this.dropT;
       this.dropMag.visible = t < 0.6;
       this.dropMag.position.set(this.dropFrom.x - t * 0.05, this.dropFrom.y - 1.6 * t * t - t * 0.15, this.dropFrom.z + t * 0.04);
       this.dropMag.rotation.set(t * 3, 0, t * 1.5);
       if (t >= 0.6) this.dropT = -1;
     }
-    // Melee: the gun drops, the whisk sweeps across.
+    // Melee: the gun ducks away to the left and the whisk sweeps across from the right.
     this.whisk.visible = s.melee > 0;
     if (s.melee > 0) {
-      const f = s.melee;
-      this.hold.position.y -= Math.sin(Math.min(1, f * 1.5) * Math.PI) * 0.18;
-      this.whisk.position.set(0.22 - f * 0.4, -0.13 + Math.sin(f * Math.PI) * 0.06, -0.3);
-      this.whisk.rotation.set(-0.6, 0.5 - f * 1.4, -0.8 + f * 0.6);
+      const f = s.melee, out = Math.sin(Math.min(1, f * 1.4) * Math.PI);
+      this.hold.position.y -= out * 0.2; this.hold.position.x -= out * 0.06; this.hold.rotation.z += out * 0.5;
+      const sweep = ss(Math.min(1, f * 1.6));
+      this.whisk.position.set(0.24 - sweep * 0.46, -0.14 + Math.sin(sweep * Math.PI) * 0.08, -0.3 - Math.sin(sweep * Math.PI) * 0.05);
+      this.whisk.rotation.set(-0.5, 0.7 - sweep * 1.8, -0.9 + sweep * 0.7);
+      if (f < 0.1) this.cam.roll.v += 0.15;
     }
-    // Grenade wind-up: the left mitten draws the bomb back.
-    this.nade.visible = s.charge !== null && s.charge !== undefined;
-    if (this.nade.visible) { const c = Math.max(0, s.charge); this.nade.position.set(-0.13 + c * 0.03, -0.1 + c * 0.07, -0.24 + c * 0.08); }
+    // Grenade: the left mitten holds the bomb and draws it back with the charge; release lobs it.
+    const charging = s.charge !== null && s.charge !== undefined;
+    if (!charging && this.lastCharge !== null) this.throwT = 0;
+    this.lastCharge = charging ? s.charge : null;
+    if (this.throwT >= 0) { this.throwT += dt; if (this.throwT > 0.3) this.throwT = -1; }
+    this.nade.visible = charging || (this.throwT >= 0 && this.throwT < 0.12);
+    if (charging) {
+      const c = Math.max(0, s.charge);
+      this.nade.position.set(-0.15 + c * 0.03, -0.12 + c * 0.08, -0.28 + c * 0.1); this.nade.rotation.set(c * 0.5, 0, 0.3);
+      this.hold.position.y -= 0.05 + c * 0.03; this.hold.rotation.x -= 0.1;
+    } else if (this.throwT >= 0) {
+      const t = this.throwT / 0.3;
+      this.nade.position.set(-0.12 + t * 0.05, -0.04 + t * 0.12, -0.25 - t * 0.5);
+      this.hold.position.y -= 0.08 * (1 - t);
+    }
     const mat = s.shield ? this.shieldMat : this.gloveMat;
     for (const gl of [this.gloveR, this.gloveL]) gl.traverse(o => { if (o.isMesh && o.material !== mat) o.material = mat; });
     // Scoped guns vanish under the scope once raised.
-    const hidden = s.scoped && a > 0.85;
+    const hidden = s.scoped && this.adsBlend > 0.85;
     this.gun.visible = this.gloveR.visible = !hidden;
     this.gloveL.visible = !hidden && !this.nade.visible;
-    if (this.flashT > 0) { this.flashT -= s.dt; this.flash.visible = !hidden; this.flashLight.intensity = 4; }
+    if (this.flashT > 0) { this.flashT -= dt; this.flash.visible = !hidden; this.flashLight.intensity = 5; }
     else { this.flash.visible = false; this.flashLight.intensity = 0; }
+  }
+  stepCasings(dt) {
+    let any = false;
+    for (let i = 0; i < CASINGS; i++) {
+      const c = this.casingList[i];
+      if (c.life <= 0) continue;
+      c.life -= dt; any = true;
+      if (c.life <= 0) { this.casings.setMatrixAt(i, this.m4.makeScale(0, 0, 0)); continue; }
+      c.v.y -= 7 * dt; c.p.addScaledVector(c.v, dt);
+      c.r.x += c.w.x * dt; c.r.y += c.w.y * dt; c.r.z += c.w.z * dt;
+      this.q.setFromEuler(c.r); this.one.setScalar(c.s * SCALE);
+      this.casings.setMatrixAt(i, this.m4.compose(c.p, this.q, this.one));
+    }
+    if (any || this.casingsDirty) this.casings.instanceMatrix.needsUpdate = true;
+    this.casingsDirty = any;
   }
 }
