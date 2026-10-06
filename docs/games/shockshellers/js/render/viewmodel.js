@@ -10,9 +10,9 @@
 // Reloads are keyframed per kind of gun (magazine swap with the left mitten, break-open shotgun,
 // bolt-action round, rocket into the tube; a reload from empty adds the charging handle or slide).
 // Spent brass flies out of the ejection port; the muzzle flash is a star plus two crossed flames.
-import * as THREE from '../../vendor/three/three.module.js?v=muwxp155';
-import { gunModel, LOADED_ONLY } from './guns.js?v=muwxp155';
-import { clone } from './models.js?v=muwxp155';
+import * as THREE from '../../vendor/three/three.module.js?v=muwxqt91';
+import { gunModel, LOADED_ONLY } from './guns.js?v=muwxqt91';
+import { clone } from './models.js?v=muwxqt91';
 
 // Hip hold per gun: where the grip anchor sits in camera space (metres). The bore is then turned to
 // meet the view axis CONVERGE metres out, so every gun points where the crosshair does.
@@ -347,6 +347,10 @@ export class ViewModel {
     }
     if (this.hinge) this.hinge.rotation.x = -(R ? R.hinge : 0) * 0.55;
     if (this.bolt) { this.bolt.rotation.z = (R ? R.boltUp : 0) * 1.1; this.bolt.position.copy(this.boltHome); this.bolt.position.z += (R ? R.boltBack : 0) * 0.07; }
+    // Sprinting: the gun drops and cants across the body, and the stride swings harder.
+    this.sprintBlend = (this.sprintBlend || 0) + ((s.sprint && !s.reload ? 1 : 0) - (this.sprintBlend || 0)) * Math.min(1, dt * 9);
+    const sb = ss(this.sprintBlend) * (1 - a);
+    x += -sb * 0.035 + bx * sb * 1.2; y += -sb * 0.055 + by * sb; rx += -sb * 0.32; ry += sb * 0.55; rz += -sb * 0.28 + broll * sb * 2;
     // Swap: stow down and out to the right, the next gun rises with a little settle.
     const sw = this.sp.swap.step(s.swap ? (s.swap < 0.5 ? ss(s.swap * 2) : 1 - ss((s.swap - 0.5) * 2)) : 0, dt);
     y -= sw * 0.3; x += sw * 0.05; rx -= sw * 0.9; rz -= sw * 0.4;

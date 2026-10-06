@@ -1,31 +1,31 @@
 // Shock Shellers: boot, menus, the match flow (home → respawn screen → play → death → respawn) and
 // the frame loop. The simulation runs at a fixed 30 Hz inside the session; rendering interpolates.
-import './page.js?v=muwxp155';
-import { surfaceDocument as document } from './surface.js?v=muwxp155';
-import { registerApp } from './veil.js?v=muwxp155';
-import { tell } from './dialog.js?v=muwxp155';
-import { splash } from './splash.js?v=muwxp155';
-import * as THREE from '../vendor/three/three.module.js?v=muwxp155';
-import { Renderer } from './render/renderer.js?v=muwxp155';
-import { RELOAD_KIND } from './render/viewmodel.js?v=muwxp155';
-import { EggAvatar } from './render/egg.js?v=muwxp155';
-import { aimAssist, assistOn } from './game/aim.js?v=muwxp155';
-import { Input } from './game/input.js?v=muwxp155';
-import { SOUND_FILES } from './game/soundbank.js?v=muwxp155';
-import { Sound, registerSamples } from './game/audio.js?v=muwxp155';
-import { Hud } from './game/hud.js?v=muwxp155';
-import { loadSettings, saveSettings, loadProfile, saveProfile } from './game/store.js?v=muwxp155';
-import { ensureDaily, progress as challengeProgress, claim as claimChallenges } from './game/challenges.js?v=muwxp155';
-import { HostSession } from './game/session.js?v=muwxp155';
-import { GuestSession } from './net/guest.js?v=muwxp155';
-import { pickPublicMap, mapDef, MAPS } from './maps/index.js?v=muwxp155';
-import { WEAPONS, PRIMARIES, PLAYER, MODE_NAMES, MODE_MENU, ECONOMY, CTRL, TICK, TICK_HZ } from './sim/tuning.js?v=muwxp155';
-import { weaponOf, slotOf } from './sim/combat.js?v=muwxp155';
-import { eyePoint } from './sim/movement.js?v=muwxp155';
-import { drawLogo, drawHowTo } from './ui/art.js?v=muwxp155';
-import { loadModels } from './render/models.js?v=muwxp155';
-import { HIT } from './maps/grid.js?v=muwxp155';
-import { Menus } from './ui/menus.js?v=muwxp155';
+import './page.js?v=muwxqt91';
+import { surfaceDocument as document } from './surface.js?v=muwxqt91';
+import { registerApp } from './veil.js?v=muwxqt91';
+import { tell } from './dialog.js?v=muwxqt91';
+import { splash } from './splash.js?v=muwxqt91';
+import * as THREE from '../vendor/three/three.module.js?v=muwxqt91';
+import { Renderer } from './render/renderer.js?v=muwxqt91';
+import { RELOAD_KIND } from './render/viewmodel.js?v=muwxqt91';
+import { EggAvatar } from './render/egg.js?v=muwxqt91';
+import { aimAssist, assistOn } from './game/aim.js?v=muwxqt91';
+import { Input } from './game/input.js?v=muwxqt91';
+import { SOUND_FILES } from './game/soundbank.js?v=muwxqt91';
+import { Sound, registerSamples } from './game/audio.js?v=muwxqt91';
+import { Hud } from './game/hud.js?v=muwxqt91';
+import { loadSettings, saveSettings, loadProfile, saveProfile } from './game/store.js?v=muwxqt91';
+import { ensureDaily, progress as challengeProgress, claim as claimChallenges } from './game/challenges.js?v=muwxqt91';
+import { HostSession } from './game/session.js?v=muwxqt91';
+import { GuestSession } from './net/guest.js?v=muwxqt91';
+import { pickPublicMap, mapDef, MAPS } from './maps/index.js?v=muwxqt91';
+import { WEAPONS, PRIMARIES, PLAYER, MODE_NAMES, MODE_MENU, ECONOMY, CTRL, TICK, TICK_HZ } from './sim/tuning.js?v=muwxqt91';
+import { weaponOf, slotOf } from './sim/combat.js?v=muwxqt91';
+import { eyePoint } from './sim/movement.js?v=muwxqt91';
+import { drawLogo, drawHowTo } from './ui/art.js?v=muwxqt91';
+import { loadModels } from './render/models.js?v=muwxqt91';
+import { HIT } from './maps/grid.js?v=muwxqt91';
+import { Menus } from './ui/menus.js?v=muwxqt91';
 
 const $ = id => document.getElementById(id);
 const show = (id, on = true) => { $(id).classList.toggle('hidden', !on); if (id === 'respawn') $('hud').classList.toggle('menu', on); };
@@ -507,7 +507,7 @@ class App {
     // Zoom eases in and out rather than snapping.
     this.fovMul += (cam.fovMul - this.fovMul) * Math.min(1, dt * 14);
     this.kick = Math.max(0, (this.kick || 0) - dt * 9);
-    cam.fovMul = this.fovMul * (1 + this.kick * this.kick * 0.035);
+    cam.fovMul = this.fovMul * (1 + this.kick * this.kick * 0.035 + (R.view.sprintBlend || 0) * 0.06);
     // Recoil kicks the view up a touch and recovers (the setting turns the shake off, not the punch).
     const punch = R.view.takePunch(dt);
     cam.pitch += punch[0]; cam.yaw += punch[1];
@@ -533,6 +533,7 @@ class App {
       reload: rel,
       swap: h.swap > 0 ? 1 - h.swap / 26 : 0, melee: h.melee > 0 ? 1 - h.melee / 17 : 0, charge: h.charging ? h.power : null,
       inspect: h.inspect > 0 ? 1 - h.inspect / 45 : 0, shield: me.spawnShield > 0, empty: slotOf(h).mag === 0,
+      sprint: !!(me.body.prevCtrl & CTRL.sprint) && Math.hypot(me.body.vx, me.body.vz) * 30 > 1.45 && !h.ads,
     });
     this.fallSpeed = Math.max(0, -me.body.vy * 30);
     // Low on health: the heart pounds.

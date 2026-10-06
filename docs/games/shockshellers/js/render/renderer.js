@@ -13,16 +13,16 @@
 // map (the map never moves) instead of every frame, and eggs get a soft blob shadow instead; no
 // muzzle-flash or explosion lights and no sky reflections (each costs every pixel of every lit
 // surface); no bloom or multisampling; fewer particles.
-import * as THREE from '../../vendor/three/three.module.js?v=muwxp155';
-import { buildWorld } from './world.js?v=muwxp155';
-import { EggAvatar, TEAM_COLORS } from './egg.js?v=muwxp155';
-import { Effects } from './fx.js?v=muwxp155';
-import { ViewModel } from './viewmodel.js?v=muwxp155';
-import { gunModel } from './guns.js?v=muwxp155';
-import { Kit, kitMaterial } from './kit.js?v=muwxp155';
-import { clone, merged } from './models.js?v=muwxp155';
-import { noiseTexture, WIND } from './materials.js?v=muwxp155';
-import { Post } from './post.js?v=muwxp155';
+import * as THREE from '../../vendor/three/three.module.js?v=muwxqt91';
+import { buildWorld } from './world.js?v=muwxqt91';
+import { EggAvatar, TEAM_COLORS } from './egg.js?v=muwxqt91';
+import { Effects } from './fx.js?v=muwxqt91';
+import { ViewModel } from './viewmodel.js?v=muwxqt91';
+import { gunModel } from './guns.js?v=muwxqt91';
+import { Kit, kitMaterial } from './kit.js?v=muwxqt91';
+import { clone, merged } from './models.js?v=muwxqt91';
+import { noiseTexture, WIND } from './materials.js?v=muwxqt91';
+import { Post } from './post.js?v=muwxqt91';
 
 // Sky palettes: zenith, ground below the horizon, sun, cloud light and shade, cloud cover (0 = none).
 // The horizon colour is the map's fog colour, so distant walls melt into the sky.

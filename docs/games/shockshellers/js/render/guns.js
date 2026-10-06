@@ -7,9 +7,9 @@
 // grip, support, eject) and its moving parts as their own child groups, pivoted where they move:
 // the magazine (or the shells, the round, the rocket), the slide or charging handle that kicks
 // back with each shot, the shotgun's barrels on their hinge, the sniper's bolt.
-import * as THREE from '../../vendor/three/three.module.js?v=muwxp155';
-import { mergeGeometries } from '../../vendor/three/BufferGeometryUtils.js?v=muwxp155';
-import { Kit, BASE, kitMaterial } from './kit.js?v=muwxp155';
+import * as THREE from '../../vendor/three/three.module.js?v=muwxqt91';
+import { mergeGeometries } from '../../vendor/three/BufferGeometryUtils.js?v=muwxqt91';
+import { Kit, BASE, kitMaterial } from './kit.js?v=muwxqt91';
 
 const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
 

@@ -1,9 +1,9 @@
 // Keyboard, mouse and gamepad into the control bitmask (GDD §18). Mouse look and pointer lock are
 // Blockhaven's approach, kept as is: raw (unadjusted) movement where the browser supports it, every
 // coalesced sample summed, spikes when the lock engages filtered out.
-import { surfaceDocument as document } from '../surface.js?v=muwxp155';
-import { movementSamples } from '../util/pointer.js?v=muwxp155';
-import { CTRL } from '../sim/tuning.js?v=muwxp155';
+import { surfaceDocument as document } from '../surface.js?v=muwxqt91';
+import { movementSamples } from '../util/pointer.js?v=muwxqt91';
+import { CTRL } from '../sim/tuning.js?v=muwxqt91';
 
 // Default bindings: the live Settings defaults (Mouse 2 aims, V is melee). 'M0'/'M1'/'M2' are mouse buttons.
 export const DEFAULT_KEYS = {
@@ -69,14 +69,16 @@ export class Input {
       if (!e.repeat) this.press(e.code);
     });
     document.addEventListener('keyup', e => this.release(e.code));
-    window.addEventListener('blur', () => { this.keys.clear(); this.taps.clear(); });
+    window.addEventListener('blur', () => { this.keys.clear(); this.taps.clear(); this.sprinting = false; });
   }
   press(code) {
     this.keys.add(code); this.taps.add(code);
+    // Double-tap forward to sprint (held until forward is let go).
+    if (code === this.binding('up')) { const now = performance.now(); if (now - (this.upTapAt || -1e9) < 320) this.sprinting = true; this.upTapAt = now; }
     if (code === this.binding('scope') && !this.settings.holdToAim) this.aimToggled = !this.aimToggled;
     if (code === this.binding('inspect')) this.inspectPressed = true;
   }
-  release(code) { this.keys.delete(code); }
+  release(code) { this.keys.delete(code); if (code === this.binding('up')) this.sprinting = false; }
   binding(a) { return (this.settings.keys || {})[a] || DEFAULT_KEYS[a]; }
   held(a) { const k = this.binding(a); return this.keys.has(k) || this.taps.has(k); }
   // The control bits for this frame (a key pressed and released since the last frame counts once).
@@ -86,6 +88,8 @@ export class Input {
     this.taps.clear();
     if (this.settings.holdToAim ? this.held('scope') : this.aimToggled) c |= CTRL.scope;
     c |= this.pad();
+    if ((this.sprinting && this.held('up')) || (this.padSprint && (c & CTRL.up))) c |= CTRL.sprint;
+    if (!(c & CTRL.up)) this.padSprint = false;
     return c;
   }
   // Gamepad (GDD §18.2): standard mapping.
@@ -96,6 +100,7 @@ export class Input {
     let c = 0;
     if (b(0)) c |= CTRL.jump; if (b(7)) c |= CTRL.fire; if (b(6)) c |= CTRL.scope; if (b(2)) c |= CTRL.reload;
     if (b(3)) c |= CTRL.swap; if (b(5)) c |= CTRL.grenade; if (b(1)) c |= CTRL.melee;
+    if (b(10)) this.padSprint = true;   // left stick click: sprint until you stop pushing forward
     const [lx, ly, rx, ry] = p.axes, dz = 0.2;
     if (ly < -dz) c |= CTRL.up; if (ly > dz) c |= CTRL.down; if (lx < -dz) c |= CTRL.left; if (lx > dz) c |= CTRL.right;
     const s = (this.settings.padSpeed ?? 50) / 50 * 0.05 * (this.zoom || 1) * this.assist;

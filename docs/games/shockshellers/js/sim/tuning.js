@@ -10,7 +10,7 @@ export const SYNC_EVERY = 3;
 export const PLAYER = {
   maxHp: 100,
   regenPerTick: 0.1, regenDelayTicks: 60,
-  moveAccel: 0.025, friction: 0.64, adsMoveMult: 0.5,
+  moveAccel: 0.025, friction: 0.64, adsMoveMult: 0.5, sprintMult: 1.4,
   gravity: 0.012, terminalFall: 0.29, maxStep: 0.29,
   jumpVel: 0.13, adsJumpMult: 0.66, coyoteTicks: 4, jumpBufferTicks: 10,
   ladderAccel: 0.028, ladderJumpOff: 0.065, jumpPadVel: 0.27,
@@ -86,4 +86,4 @@ export const MODE_MENU = ['spatula', 'teams', 'ffa', 'roost'];
 export const DEFAULT_OPTIONS = { gravity: 1, damage: 1, regen: 1, disabled: [], locked: false, noTeamChange: false, noTeamShuffle: false, scoreLimit: 0, botChat: true };
 
 // Control bitmask (GDD §26).
-export const CTRL = { up: 1, down: 2, left: 4, right: 8, jump: 16, fire: 32, melee: 64, scope: 128, reload: 256, swap: 512, grenade: 1024 };
+export const CTRL = { up: 1, down: 2, left: 4, right: 8, jump: 16, fire: 32, melee: 64, scope: 128, reload: 256, swap: 512, grenade: 1024, sprint: 2048 };

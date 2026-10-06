@@ -32,6 +32,16 @@ test('top run speed: velocity 0.0444 u/tick (bloom ≈ 0.64), half that aiming, 
   assert.ok(Math.abs(Math.hypot(a.vx, a.vz) - 0.0222) < 0.002);
 });
 
+test('sprinting (double-tapped forward) runs 1.4 times as fast, only forwards and never while aiming', () => {
+  const { grid } = flat();
+  const s = makeBody(15, 1, 15); run(grid, s, CTRL.up | CTRL.sprint, 60);
+  assert.ok(Math.abs(Math.hypot(s.vx, s.vz) - 0.0444 * PLAYER.sprintMult) < 0.003, `${Math.hypot(s.vx, s.vz)}`);
+  const back = makeBody(15, 1, 15); run(grid, back, CTRL.down | CTRL.sprint, 60);
+  assert.ok(Math.abs(Math.hypot(back.vx, back.vz) - 0.0444) < 0.002, 'no sprinting backwards');
+  const a = makeBody(15, 1, 15); for (let i = 0; i < 60; i++) stepBody(grid, a, CTRL.up | CTRL.sprint, { ads: true });
+  assert.ok(Math.abs(Math.hypot(a.vx, a.vz) - 0.0222) < 0.002, 'aiming walks');
+});
+
 test('a jump rises about 0.7 units, lasts about 22 ticks, and cannot climb a full block', () => {
   const { grid } = flat(b => b.fill(15, 1, 10, 15, 1, 10, 'block'));
   const b = makeBody(5, 1, 5); run(grid, b, 0, 5);
