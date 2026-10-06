@@ -10,9 +10,9 @@
 // Reloads are keyframed per kind of gun (magazine swap with the left mitten, break-open shotgun,
 // bolt-action round, rocket into the tube; a reload from empty adds the charging handle or slide).
 // Spent brass flies out of the ejection port; the muzzle flash is a star plus two crossed flames.
-import * as THREE from '../../vendor/three/three.module.js?v=muwy3maj';
-import { gunModel, LOADED_ONLY } from './guns.js?v=muwy3maj';
-import { clone } from './models.js?v=muwy3maj';
+import * as THREE from '../../vendor/three/three.module.js?v=muwzay2r';
+import { gunModel, LOADED_ONLY } from './guns.js?v=muwzay2r';
+import { clone } from './models.js?v=muwzay2r';
 
 // Hip hold per gun: where the grip anchor sits in camera space (metres). The bore is then turned to
 // meet the view axis CONVERGE metres out, so every gun points where the crosshair does.
@@ -37,6 +37,10 @@ export const RELOAD_KIND = { yolk47: 'mag', beater: 'mag', triBoil: 'mag', cageF
 const ss = t => t <= 0 ? 0 : t >= 1 ? 1 : t * t * (3 - 2 * t);
 const seg = (f, a, b) => ss((f - a) / (b - a));
 const bump = (f, a, b) => (f <= a || f >= b) ? 0 : Math.sin((f - a) / (b - a) * Math.PI);
+// Snappy versions for reloads: fast out of the blocks and settling (snap), or overshooting a touch
+// and springing back (pop). A move that starts fast reads as deliberate; smoothstep reads as slow motion.
+const snap = (f, a, b) => { const t = Math.max(0, Math.min(1, (f - a) / (b - a))); return 1 - (1 - t) ** 3; };
+const pop = (f, a, b) => { const t = Math.max(0, Math.min(1, (f - a) / (b - a))) - 1; return 1 + 2.2 * t * t * t + 1.2 * t * t; };
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
 const lerp3 = (out, a, b, t) => out.copy(a).lerp(b, t);
 const rnd = () => Math.random() * 2 - 1;
@@ -120,7 +124,7 @@ export class ViewModel {
     this.root.add(this.casings); this.ci = 0;
     this.t = 0; this.weapon = null; this.flashT = 0; this.adsBlend = 0;
     // Springs: position (x, y, z) and rotation (pitch, yaw, roll) offsets on the hold, plus the camera punch.
-    this.sp = { x: new Spring(160), y: new Spring(140), z: new Spring(260, 0.6), rx: new Spring(230, 0.58), ry: new Spring(170, 0.75), rz: new Spring(150, 0.62), swap: new Spring(90, 0.85) };
+    this.sp = { x: new Spring(160), y: new Spring(140, 0.7), z: new Spring(260, 0.6), rx: new Spring(230, 0.58), ry: new Spring(170, 0.75), rz: new Spring(150, 0.62), swap: new Spring(90, 0.85) };
     this.cam = { pitch: new Spring(260, 1), yaw: new Spring(260, 1), roll: new Spring(120, 1) };
     this.bobPhase = 0; this.bobAmt = 0; this.wasAir = false; this.lastVy = 0; this.throwT = -1; this.lastCharge = null;
     // The spent magazine that falls away during a reload (a copy of the gun's own), and scratch vectors.
@@ -220,29 +224,29 @@ export class ViewModel {
     if (kind === 'mag' || kind === 'pistol') {
       if (kind === 'pistol' && long && f < 0.76) o.slide = 1;   // locked back until it's racked
       // Tilt the gun to show the magazine well; ease back at the end.
-      const tilt = seg(f, 0, 0.14) * (1 - seg(f, long ? 0.9 : 0.86, 1));
+      const tilt = pop(f, 0, 0.1) * (1 - snap(f, long ? 0.9 : 0.86, 0.97));
       // Bring it up and in, turned and rolled so the well (and the mitten working it) is in view.
       const P = kind === 'pistol';
       o.rz = -tilt * (P ? 0.45 : 0.55); o.rx = tilt * (P ? 0.22 : 0.12); o.ry = tilt * 0.22; o.y = tilt * (P ? 0.04 : 0.02); o.x = -tilt * (P ? 0.04 : 0.03); o.z = tilt * 0.015;
       const magIn = this.mag ? this.toHold(magHome, this.tmp) : rest;
       const grab = this.handTarget.copy(magIn).add(V(-0.01, -0.035, 0));
       const end = long ? 0.86 : 0.8;
-      if (f < 0.12) o.hand = lerp3(V(0, 0, 0), rest, grab, seg(f, 0, 0.12));
-      else if (f < 0.32) {                                      // pull the old magazine down and out
-        const t = seg(f, 0.16, 0.32);
+      if (f < 0.12) o.hand = lerp3(V(0, 0, 0), rest, grab, snap(f, 0, 0.1));
+      else if (f < 0.32) {                                      // yank the old magazine down and out
+        const t = snap(f, 0.16, 0.24);
         o.hand = grab.clone().add(V(0, -0.09 * t, 0));
         if (this.mag) this.mag.position.copy(magHome).add(V(0, -0.09 * t / (this.gun.scale.y || 1), 0));
       } else if (f < 0.6) {                                     // let it drop; fetch a fresh one
         if (this.mag && this.dropT < 0 && this.lastReloadF < 0.32) { this.toHold(this.mag.position, this.tmp2); this.dropFrom = this.tmp2.clone(); this.dropT = 0; this.dropMag.quaternion.copy(this.gun.quaternion); this.dropMag.scale.copy(this.gun.scale); }
         if (this.mag) this.mag.visible = false;
-        const t = f < 0.45 ? seg(f, 0.32, 0.45) : 1 - seg(f, 0.45, 0.6);
+        const t = f < 0.45 ? snap(f, 0.32, 0.42) : 1 - snap(f, 0.45, 0.57);
         o.hand = lerp3(V(0, 0, 0), grab.clone().add(V(0, -0.09, 0)), grab.clone().add(below), t);
         if (f >= 0.45 && this.mag) { this.mag.visible = true; this.toGun(o.hand.clone().add(V(0.01, 0.035, 0)), this.tmp); this.mag.position.copy(this.tmp); }
       } else if (f < 0.72) {                                    // line it up and seat it, with a bump
-        const t = seg(f, 0.6, 0.7);
+        const t = seg(f, 0.6, 0.68);
         o.hand = grab.clone().add(V(0, -0.06 * (1 - t), 0));
         if (this.mag) { this.mag.visible = true; this.mag.position.copy(magHome).add(V(0, -0.06 * (1 - t) / (this.gun.scale.y || 1), 0)); }
-        o.rx -= bump(f, 0.68, 0.74) * 0.06; o.y += bump(f, 0.68, 0.74) * 0.014;
+        o.rx -= bump(f, 0.66, 0.72) * 0.06; o.y += bump(f, 0.66, 0.72) * 0.014;
       } else if (long && kind === 'pistol' && f < end) {        // empty pistol: rack the slide (a sharp kick back)
         if (this.mag) this.mag.position.copy(magHome);
         o.hand = grab.clone(); o.z += bump(f, 0.74, 0.82) * 0.03; o.rx += bump(f, 0.74, 0.8) * 0.15;
@@ -255,48 +259,76 @@ export class ViewModel {
         o.z += pull * 0.012; o.rx -= bump(f, 0.82, 0.86) * 0.06; o.slide = pull;
       } else {                                                  // back to the support hand
         if (this.mag) this.mag.position.copy(magHome);
-        o.hand = lerp3(V(0, 0, 0), long && kind !== 'pistol' ? this.toHold(this.handlePoint(), V(0, 0, 0)) : grab, rest, seg(f, long ? end : 0.72, long ? 0.95 : 0.85));
+        o.hand = lerp3(V(0, 0, 0), long && kind !== 'pistol' ? this.toHold(this.handlePoint(), V(0, 0, 0)) : grab, rest, snap(f, long ? end : 0.72, long ? 0.93 : 0.82));
       }
     } else if (kind === 'break') {
       // Break it open (muzzle drops), the spent hulls kick out, push two shells into the breech, snap
       // it shut with a flick.
-      const open = seg(f, 0, 0.16) * (1 - seg(f, 0.76, 0.84)); o.hinge = open;
+      const open = pop(f, 0, 0.1) * (1 - snap(f, 0.77, 0.81)); o.hinge = open;
       // (raised and turned in so the open breech faces you)
       o.rx = -open * 0.3; o.rz = -open * 0.4; o.ry = open * 0.28; o.y = open * 0.05 + bump(f, 0.8, 0.92) * 0.02; o.x = -open * 0.06; o.rx += bump(f, 0.8, 0.9) * 0.14;
       if (f > 0.14 && !this.ejected) { this.ejected = true; const b = this.mag ? magHome : V(0, 0.03, -0.02); for (const dx of [-0.024, 0.024]) this.spawnCase(V(b.x + dx, b.y, b.z + 0.04), 2.2, 0xc8342a, 0.8); }
       const breech = this.toHold(this.mag ? magHome : V(0, 0, 0.05), V(0, 0, 0));
-      if (f < 0.4) o.hand = lerp3(V(0, 0, 0), rest, breech.clone().add(below), seg(f, 0.1, 0.35));
-      else if (f < 0.7) o.hand = lerp3(V(0, 0, 0), breech.clone().add(below), breech.clone().add(V(0, -0.02, 0.01)), seg(f, 0.4, 0.62));
-      else o.hand = lerp3(V(0, 0, 0), breech, rest, seg(f, 0.72, 0.88));
+      if (f < 0.4) o.hand = lerp3(V(0, 0, 0), rest, breech.clone().add(below), snap(f, 0.1, 0.3));
+      else if (f < 0.7) o.hand = lerp3(V(0, 0, 0), breech.clone().add(below), breech.clone().add(V(0, -0.02, 0.01)), snap(f, 0.4, 0.58));
+      else o.hand = lerp3(V(0, 0, 0), breech, rest, snap(f, 0.72, 0.86));
       if (this.mag) { this.mag.visible = f > 0.4 && f < 0.7; if (this.mag.visible) { this.toGun(o.hand.clone().add(V(0.005, 0.02, -0.01)), this.tmp); this.mag.position.copy(this.tmp); } }
     } else if (kind === 'bolt') {
       // Roll the rifle, bolt up and back (the spent case flies), thumb a round in, bolt forward and down.
-      const roll = seg(f, 0, 0.15) * (1 - seg(f, 0.85, 1));
+      const roll = pop(f, 0, 0.11) * (1 - snap(f, 0.85, 0.97));
       o.rz = -roll * 0.55; o.rx = roll * 0.1; o.ry = roll * 0.25; o.y = roll * 0.05; o.x = -roll * 0.06;
       o.z += bump(f, 0.15, 0.3) * 0.02 - bump(f, 0.7, 0.82) * 0.02;
-      o.boltUp = seg(f, 0.15, 0.2) * (1 - seg(f, 0.74, 0.8)); o.boltBack = seg(f, 0.2, 0.27) * (1 - seg(f, 0.66, 0.73));
+      o.boltUp = snap(f, 0.15, 0.18) * (1 - snap(f, 0.75, 0.78)); o.boltBack = snap(f, 0.2, 0.25) * (1 - snap(f, 0.68, 0.72));
       if (f > 0.24 && !this.ejected) { this.ejected = true; this.spawnCase(V(0.03, 0.05, 0.0), 1.5, 0xd9a441); }
       const port = this.toHold(this.mag ? magHome : V(0, 0.02, 0.05), V(0, 0, 0));
-      if (f < 0.35) o.hand = lerp3(V(0, 0, 0), rest, port.clone().add(below), seg(f, 0.1, 0.33));
-      else if (f < 0.65) o.hand = lerp3(V(0, 0, 0), port.clone().add(below), port.clone().add(V(-0.01, 0.01, 0)), seg(f, 0.35, 0.58));
-      else o.hand = lerp3(V(0, 0, 0), port, rest, seg(f, 0.66, 0.85));
+      if (f < 0.35) o.hand = lerp3(V(0, 0, 0), rest, port.clone().add(below), snap(f, 0.1, 0.3));
+      else if (f < 0.65) o.hand = lerp3(V(0, 0, 0), port.clone().add(below), port.clone().add(V(-0.01, 0.01, 0)), snap(f, 0.35, 0.55));
+      else o.hand = lerp3(V(0, 0, 0), port, rest, snap(f, 0.66, 0.82));
       if (this.mag) { this.mag.visible = f > 0.35 && f < 0.64; if (this.mag.visible) { this.toGun(o.hand.clone().add(V(0.01, 0.02, 0)), this.tmp); this.mag.position.copy(this.tmp); } }
     } else {
       // Rocket: lower the tube, bring a rocket up to the muzzle and slide it in.
-      const lower = seg(f, 0, 0.2) * (1 - seg(f, 0.82, 1));
+      const lower = pop(f, 0, 0.14) * (1 - pop(f, 0.8, 0.94));
       // (the launcher dips mostly out of view, muzzle up, and comes back up loaded)
       o.y = -lower * 0.1; o.x = -lower * 0.02; o.rx = lower * 0.35; o.rz = -lower * 0.12; o.z = lower * 0.03;
       const mouth = this.toHold(this.gun.userData.muzzle || V(0, 0, -0.4), V(0, 0, 0));
-      if (f < 0.4) o.hand = lerp3(V(0, 0, 0), rest, mouth.clone().add(below), seg(f, 0.1, 0.38));
-      else if (f < 0.72) o.hand = lerp3(V(0, 0, 0), mouth.clone().add(below), mouth.clone().add(V(0, 0, 0.12)), seg(f, 0.4, 0.7));
-      else o.hand = lerp3(V(0, 0, 0), mouth, rest, seg(f, 0.74, 0.92));
+      if (f < 0.4) o.hand = lerp3(V(0, 0, 0), rest, mouth.clone().add(below), snap(f, 0.1, 0.34));
+      else if (f < 0.72) o.hand = lerp3(V(0, 0, 0), mouth.clone().add(below), mouth.clone().add(V(0, 0, 0.12)), seg(f, 0.4, 0.66));
+      else o.hand = lerp3(V(0, 0, 0), mouth, rest, snap(f, 0.74, 0.9));
       o.rx -= bump(f, 0.66, 0.74) * 0.05;
       if (this.mag) { this.mag.visible = f > 0.4 && f < 0.7; if (this.mag.visible) { this.toGun(o.hand.clone().add(V(0, 0.02, -0.04)), this.tmp); this.mag.position.copy(this.tmp); } }
     }
     // Never let the mitten come right up to the lens.
     if (o.hand) o.hand.z = Math.min(o.hand.z, 0.04);
+    this.reloadKicks(kind, f, long);
     this.lastReloadF = f;
     return o;
+  }
+  // The hits of a reload: each mechanical moment (a magazine yanked out or slammed home, a breech
+  // snapped shut, a bolt or slide released) kicks the gun's springs and nudges the camera, so the gun
+  // jolts and springs back instead of gliding between poses.
+  reloadKicks(kind, f, long) {
+    const was = this.lastReloadF > f + 0.5 ? -1 : this.lastReloadF, at = k => was < k && f >= k;
+    const sp = this.sp, cam = this.cam, kick = (y, rx, z = 0, rz = 0, pitch = 0) => {
+      sp.y.v += y; sp.rx.v += rx; sp.z.v += z; sp.rz.v += rz + rnd() * Math.abs(rx) * 0.3; cam.pitch.v += pitch;
+    };
+    if (kind === 'mag' || kind === 'pistol') {
+      if (at(0.16)) kick(-0.25, -1.4, 0, 0.6);                     // magazine yanked out
+      if (at(0.66)) kick(0.55, 2.6, 0.12, -0.8, 0.07);             // fresh one slammed home
+      if (long && kind === 'pistol' && at(0.79)) kick(0.3, 3.2, 0.35, 0, 0.1); // slide slams forward
+      if (long && kind !== 'pistol' && at(0.84)) kick(0.25, 2, 0.3, 0.5, 0.06); // charging handle let go
+    } else if (kind === 'break') {
+      if (at(0.04)) kick(-0.3, -2.2, 0, 0.8);                      // broken open
+      if (at(0.6)) kick(0.15, 0.8);                                // shells pushed in
+      if (at(0.78)) kick(0.6, 4, 0.2, -1, 0.12);                   // snapped shut
+    } else if (kind === 'bolt') {
+      if (at(0.16)) kick(0.15, 0.8, 0, 0.6);                       // bolt up
+      if (at(0.21)) kick(0, 0.4, 0.3);                             // and back
+      if (at(0.68)) kick(0, -0.6, -0.4, 0, 0.04);                  // rammed forward
+      if (at(0.76)) kick(0.2, 1.8, 0, -0.6, 0.05);                 // and locked down
+    } else {
+      if (at(0.62)) kick(0.5, 2.4, 0.25, 0, 0.08);                 // rocket seated
+      if (at(0.82)) kick(0.4, 1.5, 0, 0.4, 0.04);                  // shouldered again
+    }
   }
   // Where the charging handle / slide is grabbed: just above and behind the grip.
   handlePoint() { const u = this.gun.userData, g = u.grip || V(0, -0.07, 0); return this.weapon === 'peck9mm' ? V(g.x - 0.01, g.y + 0.07, g.z - 0.03) : V(g.x - 0.03, g.y + 0.08, g.z - 0.1); }

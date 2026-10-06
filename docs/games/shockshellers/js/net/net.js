@@ -8,8 +8,8 @@
 //
 // Game model: the host is authoritative. Guests send their inputs; the host sends snapshots at
 // 15 Hz plus the match's events, and each guest predicts only its own egg (guest.js).
-import { hostRoom, joinRoom, diagnose } from './transport.js?v=muwy3maj';
-import { SealedChannel } from './sealed.js?v=muwy3maj';
+import { hostRoom, joinRoom, diagnose } from './transport.js?v=muwzay2r';
+import { SealedChannel } from './sealed.js?v=muwzay2r';
 
 export const MAX_HUMANS = 8;
 const PREFIX = 'shockshellers-v1-';
@@ -21,7 +21,9 @@ const PART = 12000;
 const MAX_PARTS = 512, HOST_PARTS = 8192, MAX_PENDING = 8, PART_TTL = 30000;
 const STATE_HZ = 20;
 // A link that has been silent this long is dead (keep-alives go out every 2 s, even from background tabs).
-const LINK_TIMEOUT = 20000;
+// As long as the relay channel's own limit (transport.js): a guest on a slow Chromebook can go quiet
+// for a good while building the map right after it joins.
+const LINK_TIMEOUT = 30000;
 // Guest messages the host passes on to every other guest (chat; everything else is the host's to decide).
 const RELAY = new Set(['chat']);
 // Only the host may send these; a guest's copy is dropped rather than obeyed or passed on.
@@ -41,7 +43,7 @@ function loadLib() {
   if (!libPromise) {
     libPromise = new Promise((resolve, reject) => {
       const s = document.createElement('script');
-      s.src = new URL('../../vendor/peerjs.min.js?v=muwy3maj', import.meta.url).href;
+      s.src = new URL('../../vendor/peerjs.min.js?v=muwzay2r', import.meta.url).href;
       s.onload = () => resolve();
       s.onerror = () => { libPromise = null; reject(new Error('Could not load the multiplayer library. Check your connection.')); };
       document.head.appendChild(s);
@@ -294,9 +296,13 @@ export class Net {
     g.link.send({ t: 'boot', reason });
     setTimeout(() => this.removeGuest(id, 'was booted'), 300);
   }
-  // Drop links that have silently died.
+  // Drop links that have silently died. A long gap since the last check means this page itself was
+  // frozen (a slow device building a map or compiling shaders right after joining): what arrived in
+  // the meantime hasn't been read yet, so every link gets a fresh grace period instead of the blame.
   checkLinks() {
-    const now = performance.now();
+    const now = performance.now(), frozen = this.lastCheck !== undefined && now - this.lastCheck > 5000;
+    this.lastCheck = now;
+    if (frozen) { for (const g of this.guests.values()) if (g.link) g.link.seen = Math.max(g.link.seen, now); if (this.hostLink) this.hostLink.seen = Math.max(this.hostLink.seen, now); return; }
     if (this.isHost) { for (const g of [...this.guests.values()]) if (g.link && now - g.link.seen > LINK_TIMEOUT) this.removeGuest(g.id, 'timed out'); }
     else if (this.hostLink && now - this.hostLink.seen > LINK_TIMEOUT) this.onHostLost();
   }
