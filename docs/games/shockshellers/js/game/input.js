@@ -1,9 +1,9 @@
 // Keyboard, mouse and gamepad into the control bitmask (GDD §18). Mouse look and pointer lock are
 // Blockhaven's approach, kept as is: raw (unadjusted) movement where the browser supports it, every
 // coalesced sample summed, spikes when the lock engages filtered out.
-import { surfaceDocument as document } from '../surface.js?v=muwxqt91';
-import { movementSamples } from '../util/pointer.js?v=muwxqt91';
-import { CTRL } from '../sim/tuning.js?v=muwxqt91';
+import { surfaceDocument as document } from '../surface.js?v=muwy3maj';
+import { movementSamples } from '../util/pointer.js?v=muwy3maj';
+import { CTRL } from '../sim/tuning.js?v=muwy3maj';
 
 // Default bindings: the live Settings defaults (Mouse 2 aims, V is melee). 'M0'/'M1'/'M2' are mouse buttons.
 export const DEFAULT_KEYS = {

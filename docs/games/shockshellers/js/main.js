@@ -1,31 +1,32 @@
 // Shock Shellers: boot, menus, the match flow (home → respawn screen → play → death → respawn) and
 // the frame loop. The simulation runs at a fixed 30 Hz inside the session; rendering interpolates.
-import './page.js?v=muwxqt91';
-import { surfaceDocument as document } from './surface.js?v=muwxqt91';
-import { registerApp } from './veil.js?v=muwxqt91';
-import { tell } from './dialog.js?v=muwxqt91';
-import { splash } from './splash.js?v=muwxqt91';
-import * as THREE from '../vendor/three/three.module.js?v=muwxqt91';
-import { Renderer } from './render/renderer.js?v=muwxqt91';
-import { RELOAD_KIND } from './render/viewmodel.js?v=muwxqt91';
-import { EggAvatar } from './render/egg.js?v=muwxqt91';
-import { aimAssist, assistOn } from './game/aim.js?v=muwxqt91';
-import { Input } from './game/input.js?v=muwxqt91';
-import { SOUND_FILES } from './game/soundbank.js?v=muwxqt91';
-import { Sound, registerSamples } from './game/audio.js?v=muwxqt91';
-import { Hud } from './game/hud.js?v=muwxqt91';
-import { loadSettings, saveSettings, loadProfile, saveProfile } from './game/store.js?v=muwxqt91';
-import { ensureDaily, progress as challengeProgress, claim as claimChallenges } from './game/challenges.js?v=muwxqt91';
-import { HostSession } from './game/session.js?v=muwxqt91';
-import { GuestSession } from './net/guest.js?v=muwxqt91';
-import { pickPublicMap, mapDef, MAPS } from './maps/index.js?v=muwxqt91';
-import { WEAPONS, PRIMARIES, PLAYER, MODE_NAMES, MODE_MENU, ECONOMY, CTRL, TICK, TICK_HZ } from './sim/tuning.js?v=muwxqt91';
-import { weaponOf, slotOf } from './sim/combat.js?v=muwxqt91';
-import { eyePoint } from './sim/movement.js?v=muwxqt91';
-import { drawLogo, drawHowTo } from './ui/art.js?v=muwxqt91';
-import { loadModels } from './render/models.js?v=muwxqt91';
-import { HIT } from './maps/grid.js?v=muwxqt91';
-import { Menus } from './ui/menus.js?v=muwxqt91';
+import './page.js?v=muwy3maj';
+import { surfaceDocument as document } from './surface.js?v=muwy3maj';
+import { registerApp } from './veil.js?v=muwy3maj';
+import { tell } from './dialog.js?v=muwy3maj';
+import { splash } from './splash.js?v=muwy3maj';
+import * as THREE from '../vendor/three/three.module.js?v=muwy3maj';
+import { Renderer } from './render/renderer.js?v=muwy3maj';
+import { RELOAD_KIND } from './render/viewmodel.js?v=muwy3maj';
+import { EggAvatar } from './render/egg.js?v=muwy3maj';
+import { Recorder, planReplay, replayRate, projectileAt } from './game/replay.js?v=muwy3maj';
+import { aimAssist, assistOn } from './game/aim.js?v=muwy3maj';
+import { Input } from './game/input.js?v=muwy3maj';
+import { SOUND_FILES } from './game/soundbank.js?v=muwy3maj';
+import { Sound, registerSamples } from './game/audio.js?v=muwy3maj';
+import { Hud } from './game/hud.js?v=muwy3maj';
+import { loadSettings, saveSettings, loadProfile, saveProfile } from './game/store.js?v=muwy3maj';
+import { ensureDaily, progress as challengeProgress, claim as claimChallenges } from './game/challenges.js?v=muwy3maj';
+import { HostSession } from './game/session.js?v=muwy3maj';
+import { GuestSession } from './net/guest.js?v=muwy3maj';
+import { pickPublicMap, mapDef, MAPS } from './maps/index.js?v=muwy3maj';
+import { WEAPONS, PRIMARIES, PLAYER, MODE_NAMES, MODE_MENU, ECONOMY, CTRL, TICK, TICK_HZ } from './sim/tuning.js?v=muwy3maj';
+import { weaponOf, slotOf } from './sim/combat.js?v=muwy3maj';
+import { eyePoint } from './sim/movement.js?v=muwy3maj';
+import { drawLogo, drawHowTo } from './ui/art.js?v=muwy3maj';
+import { loadModels } from './render/models.js?v=muwy3maj';
+import { HIT } from './maps/grid.js?v=muwy3maj';
+import { Menus } from './ui/menus.js?v=muwy3maj';
 
 const $ = id => document.getElementById(id);
 const show = (id, on = true) => { $(id).classList.toggle('hidden', !on); if (id === 'respawn') $('hud').classList.toggle('menu', on); };
@@ -58,8 +59,10 @@ class App {
     this.session = null; this.state = 'boot';
     this.t = 0; this.last = performance.now(); this.fps = 60; this.fpsN = 0; this.fpsT = 0; this.lowFps = 0;
     this.shake = 0; this.cam = { x: 0, y: 0, z: 0, yaw: 0, pitch: 0, roll: 0, fovMul: 1 }; this.fovMul = 1; this.lean = 0; this.fallSpeed = 0; this.hurt = 0; this.lowHp = 0; this.heat = 0; this.beatT = 0;
-    this.lifeKills = 0; this.spawnTick = 0; this.aim = {}; this.marked = new Map();
+    this.lifeKills = 0; this.spawnTick = 0; this.aim = {}; this.marked = new Map(); this.rec = new Recorder(); this.replay = null;
     this.resize(); addEventListener('resize', () => this.resize());
+    // A click or a key skips the instant replay.
+    for (const ev of ['mousedown', 'keydown']) document.addEventListener(ev, () => { if (this.replay && this.state === 'dead') this.replay.skip = true; });
     this.boot();
   }
   // Graphics quality: a fixed rung, or Auto (adapts to the frame rate unless Auto Detail is off).
@@ -172,7 +175,7 @@ class App {
   }
   // Show a session (hosted or joined): load its map and go to the respawn screen.
   enter(session) {
-    this.session = session;
+    this.session = session; this.rec.clear(); this.replay = null; this.hud.replay = null;
     session.onChat = (text, color) => this.hud.chat(text, color);
     session.onDisconnected = reason => { if (this.session === session) { this.goHome(); tell(reason); } };
     this.renderer.loadMap(session.map);
@@ -228,6 +231,7 @@ class App {
       const mine = e.id === s.myId;
       switch (e.t) {
         case 'shot': {
+          this.rec.shot(m.tick, e);
           const p = m.players.get(e.id);
           if (p) {
             const a = R.avatars.get(e.id);
@@ -291,8 +295,12 @@ class App {
         case 'kill': {
           const v = m.players.get(e.id), k = m.players.get(e.by);
           const a = R.avatars.get(e.id);
-          fx.shatter(e.x, e.y, e.z, a ? a.color : 0xfff6e5, m.grid.floorBelow(e.x, e.y + 0.3, e.z) === -Infinity ? e.y : m.grid.floorBelow(e.x, e.y + 0.3, e.z));
-          snd.play('splat', [e.x, e.y + 0.3, e.z]);
+          // (Our own burst waits for the replay, which shows it in slow motion.)
+          const replayed = e.id === s.myId && k && k.id !== s.myId;
+          if (!replayed) {
+            fx.shatter(e.x, e.y, e.z, a ? a.color : 0xfff6e5, m.grid.floorBelow(e.x, e.y + 0.3, e.z) === -Infinity ? e.y : m.grid.floorBelow(e.x, e.y + 0.3, e.z));
+            snd.play('splat', [e.x, e.y + 0.3, e.z]);
+          }
           if (v) this.hud.kill(k ? k.name : '', v.name, e.w === 'melee' ? 'whisk' : e.w, k?.team || 0, v.team, e.by === s.myId || e.id === s.myId);
           if (e.by === s.myId && e.id !== s.myId) this.onMyKill(e, v);
           if (e.id === s.myId) this.onMyDeath(e, k);
@@ -306,7 +314,7 @@ class App {
         case 'swing': snd.play('melee', mine ? null : pos(e.id)); break;
         case 'throw': snd.play('throw', mine ? null : pos(e.id)); break;
         case 'bounce': snd.play('bounce', [e.x, e.y, e.z], 0.6); break;
-        case 'rocket': snd.play('yolkzooka', mine ? null : [e.x, e.y, e.z]); break;
+        case 'rocket': this.rec.shot(m.tick, { ...e, w: 'yolkzooka', len: WEAPONS.yolkzooka.range }); snd.play('yolkzooka', mine ? null : [e.x, e.y, e.z]); break;
         case 'boom': {
           const fl = m.grid.floorBelow(e.x, e.y + 0.2, e.z);
           fx.explosion(e.x, e.y, e.z, e.r, e.w, e.team, fl === -Infinity ? null : fl); snd.play('explode', [e.x, e.y, e.z], 1.2); if (e.w === 'grenade') snd.play('squawk', [e.x, e.y + 0.3, e.z], 0.8);
@@ -361,11 +369,22 @@ class App {
     const st = this.profile.stats; st.deaths++; st.deathsByWeapon[e.w] = (st.deathsByWeapon[e.w] || 0) + 1; saveProfile(this.profile);
     this.diedAt = performance.now(); this.killer = killer?.id ?? null;
     this.input.enabled = false;
-    this.hud.died(killer && killer.id !== this.session.myId ? (this.settings.safeNames ? 'Egg' + killer.id : killer.name) : '', e.w === 'melee' ? 'whisk' : e.w, killer ? killer.hp : 0);
-    this.sound.play('death', null, 0.8);
-    // The kill-cam runs two seconds of game time (not wall time, so a hitch can't cut it short).
-    this.deadTick = this.session.match.tick;
+    const s = this.session, me = s.me, by = killer && killer.id !== s.myId;
+    const recap = [by ? (this.settings.safeNames ? 'Egg' + killer.id : killer.name) : '', e.w === 'melee' ? 'whisk' : e.w, killer ? killer.hp : 0];
+    // The kill-cam runs two seconds of game time (not wall time, so a hitch can't cut it short)...
+    this.deadTick = s.match.tick;
     this.state = 'dead';
+    // ... or, cracked by someone, the instant replay: their view, the shot in slow motion, the burst.
+    this.rec.record(s.match);
+    const at = [e.x, e.y + PLAYER.hitCenterY, e.z], w = WEAPONS[e.w];
+    const plan = by ? planReplay(this.rec, killer.id, s.match.tick, e.w, w?.vel || 1.5, at) : null;
+    if (plan) {
+      this.replay = { plan, t: plan.start, impacted: false, after: 0, recap, at: [e.x, e.y, e.z], killer: killer.id, color: this.renderer.avatars.get(s.myId)?.color ?? 0xfff6e5 };
+      this.sound.dull(1400, 4);
+      return;
+    }
+    this.hud.died(...recap);
+    this.sound.play('death', null, 0.8);
   }
   stat(kind, amount) { if (kind === 'damage') { this.profile.stats.damage += amount; this.challenge({ k: 'damage', amount }); } }
   challenge(ev) {
@@ -384,6 +403,7 @@ class App {
     if (playing && this.input.locked) this.assist(dt); else this.input.assist = 1;
     const input = playing && this.input.locked ? { ctrl: this.input.controls(), yaw: this.input.yaw, pitch: this.input.pitch } : { ctrl: 0, yaw: this.input.yaw, pitch: this.input.pitch };
     s.advance(dt, input);
+    this.rec.record(s.match);
     this.handle(s.takeEvents());
     this.drawMatch(dt);
     this.hud.tick(dt);
@@ -393,8 +413,73 @@ class App {
       const sl = slotOf(s.me.hands), R = this.renderer;
       $('debug').textContent = `XYZ: ${b.x.toFixed(2)} / ${b.y.toFixed(2)} / ${b.z.toFixed(2)}\nFacing: ${(((this.input.yaw * 180 / Math.PI) % 360 + 360) % 360).toFixed(0)}°\nTick: ${s.match.tick}  Players: ${s.match.players.size}\nFPS: ${this.fps}  Ping: ${s.ping || 0}ms\nAmmo: ${sl.mag}/${sl.store}  Assist: ${this.input.assist < 1 ? 'on target' : '-'}\nGraphics: ${R.q.name} @ ${Math.round(R.resolution * 100)}%  GPU tier ${R.tier}\nDraws: ${R.calls}  Tris: ${Math.round(R.tris / 1000)}k`;
     }
-    if (this.state === 'dead' && s.match.tick - this.deadTick >= 2 * TICK_HZ) { this.state = 'respawn'; this.input.exitLock(); show('respawn'); this.menus.refreshRespawn(); }
+    if (this.state === 'dead' && s.match.tick - this.deadTick >= 2 * TICK_HZ && !this.replay) { this.state = 'respawn'; this.input.exitLock(); show('respawn'); this.menus.refreshRespawn(); }
     if (this.state === 'respawn') this.menus.tickRespawn();
+  }
+  // One frame of the instant replay: the eggs as they were, the camera over the killer's shoulder,
+  // then riding the projectile in, then circling the burst. Click or press a key to skip it.
+  replayFrame(dt) {
+    const r = this.replay, P = r.plan, R = this.renderer, s = this.session, cam = this.cam, rec = this.rec;
+    r.t += dt * 30 * replayRate(P, r.t);
+    const t = Math.min(r.t, P.end);
+    // Eggs at their recorded poses (ours too, until it bursts).
+    for (const [id, a] of R.avatars) {
+      const q = rec.pose(id, Math.min(t, P.deathTick - 0.01));
+      const show = q && (id !== s.myId || !r.impacted);
+      a.group.visible = !!show;
+      if (show) { a.lod(Math.hypot(q[0] - cam.x, q[1] - cam.y, q[2] - cam.z)); a.pose(q[0], q[1], q[2], q[3], q[4], { scale: q[6] }); }
+    }
+    const k = rec.pose(r.killer, Math.min(t, P.shotTick ?? P.deathTick)) || r.lastKiller;
+    if (k) r.lastKiller = k;
+    const me = rec.pose(s.myId, Math.min(t, P.deathTick - 0.01)) || [r.at[0], r.at[1], r.at[2], 0, 0, 1, 1];
+    const bullet = projectileAt(P, t), b = R.replayBullet;
+    b.visible = !!bullet;
+    const lookAt = (x, y, z) => { cam.yaw = Math.atan2(-(x - cam.x), -(z - cam.z)); cam.pitch = Math.atan2(y - cam.y, Math.hypot(x - cam.x, z - cam.z)); };
+    // Put the camera at (x, y, z) as seen from anchor a, pulled in front of any wall in between.
+    const place = (a, x, y, z) => {
+      const dx = x - a[0], dy = y - a[1], dz = z - a[2], d = Math.hypot(dx, dy, dz) || 1;
+      const t = s.match.grid.raycast(a[0], a[1], a[2], dx / d, dy / d, dz / d, d, HIT) ? Math.max(0.1, HIT.t - 0.2) : d;
+      cam.x = a[0] + dx / d * t; cam.y = a[1] + dy / d * t; cam.z = a[2] + dz / d * t;
+    };
+    if (bullet) {
+      // Riding the shot: just behind and above it, looking down its path.
+      const d = P.dir, side = [-d[2], 0, d[0]];
+      place(bullet, bullet[0] - d[0] * 0.9 + side[0] * 0.15, bullet[1] - d[1] * 0.9 + 0.2, bullet[2] - d[2] * 0.9 + side[2] * 0.15);
+      lookAt(bullet[0] + d[0] * 3, bullet[1] + d[1] * 3, bullet[2] + d[2] * 3);
+      b.position.set(...bullet); b.lookAt(bullet[0] + d[0], bullet[1] + d[1], bullet[2] + d[2]);
+      if (Math.random() < 0.8) R.fx.soft.emit(bullet[0], bullet[1], bullet[2], 0, 0.05, 0, { size: 0.03, grow: 0.12, life: 0.5, color: 0xfff1c8, alpha: 0.35, drag: 2 });
+      cam.fovMul = 0.9;
+    } else if (!r.impacted && k) {
+      // Over the killer's shoulder, watching us.
+      const f = [-Math.sin(k[3]), 0, -Math.cos(k[3])], right = [-f[2], 0, f[0]];
+      place([k[0], k[1] + 0.7, k[2]], k[0] - f[0] * 1.5 + right[0] * 0.45, k[1] + 0.95, k[2] - f[2] * 1.5 + right[2] * 0.45);
+      lookAt(me[0], me[1] + 0.35, me[2]);
+      cam.fovMul = 0.85;
+    } else {
+      // The burst: circling slowly where we stood.
+      if (r.orbit === undefined) {
+        // Start the orbit from the most open side.
+        let best = -1; const g = s.match.grid;
+        for (let i = 0; i < 12; i++) { const a = i / 12 * Math.PI * 2, d = g.raycast(r.at[0], r.at[1] + 0.5, r.at[2], Math.sin(a) * 0.92, 0.23, Math.cos(a) * 0.92, 3, HIT) ? HIT.t : 3; if (d > best) { best = d; r.orbit = a; } }
+      }
+      r.orbit += dt * 0.5;
+      place([r.at[0], r.at[1] + 0.5, r.at[2]], r.at[0] + Math.sin(r.orbit) * 2.6, r.at[1] + 1.1, r.at[2] + Math.cos(r.orbit) * 2.6);
+      lookAt(r.at[0], r.at[1] + 0.3, r.at[2]);
+      cam.fovMul = 0.9;
+    }
+    // (Nothing of the killer's own egg in front of the lens while we ride their shot out.)
+    const ka = R.avatars.get(r.killer);
+    if (ka && k && Math.hypot(cam.x - k[0], cam.y - k[1] - 0.35, cam.z - k[2]) < 1.1) ka.group.visible = false;
+    if (!r.impacted && t >= P.hitTick) {
+      r.impacted = true;
+      const g = s.match.grid, fl = g.floorBelow(r.at[0], r.at[1] + 0.3, r.at[2]);
+      R.fx.shatter(r.at[0], r.at[1], r.at[2], r.color, fl === -Infinity ? r.at[1] : fl);
+      this.sound.play('crackBig', null, 1); this.sound.play('splat', null, 0.9); this.sound.play('death', null, 0.8);
+      this.hud.died(...r.recap); this.shake = Math.min(1.2, this.shake + 0.8);
+    }
+    if (r.impacted) r.after += dt;
+    if ((r.impacted && r.after > 2.2) || r.skip) { b.visible = false; this.replay = null; }
+    this.hud.replay = this.replay ? { slow: replayRate(P, t) < 1 } : null;
   }
   // Aim assist (aim.js): friction on the look speed and a little tracking, on a visible enemy near the
   // crosshair, for trackpads and gamepads.
@@ -484,8 +569,10 @@ class App {
       R.setRoostColor(st.o, st.st === 'contested', this.t);
       this.hud.capturers = 0;
     }
-    // Camera: first person while alive; an orbit over the map while dead or on the respawn screen.
-    if (me.alive && this.state === 'play') {
+    // Camera: first person while alive; the instant replay after being cracked; an orbit over the map
+    // while dead or on the respawn screen.
+    if (this.replay && this.state === 'dead') this.replayFrame(dt);
+    else if (me.alive && this.state === 'play') {
       s.lerpPos(me, P);
       // The eye pivots on the head like the reference's (it is also where shots leave from).
       cam.yaw = this.input.yaw; cam.pitch = this.input.pitch;
