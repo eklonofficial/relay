@@ -1,6 +1,6 @@
 // Saved settings and the local profile (GDD §20–22). Everything lives in this browser only, under
 // keys namespaced to the game; every access is wrapped because storage can throw or come back empty.
-import { DEFAULT_KEYS } from './input.js?v=muvmvc5o';
+import { DEFAULT_KEYS } from './input.js?v=muwqkdzr';
 
 export const SETTINGS_KEY = 'shockshellers.settings.v1';
 export const PROFILE_KEY = 'shockshellers.profile.v1';
@@ -10,6 +10,8 @@ export const DEFAULT_SETTINGS = {
   padSpeed: 50, padInvert: false,
   volume: 60, holdToAim: true, chat: true, safeNames: false, autoDetail: true, preventClose: false,
   shake: true, centerDot: true, hitMarkers: true, fov: 72, seenHowTo: false, botChat: true,
+  quality: 'auto', // 'auto' (adapts to the frame rate) | 'low' | 'medium' | 'high'
+  aimAssist: 'auto', // 'auto' (Chromebook trackpads and gamepads) | 'on' | 'off'
 };
 
 function read(key) { try { return JSON.parse(localStorage.getItem(key)); } catch { return null; } }
@@ -33,7 +35,7 @@ export function loadProfile() {
     primary: p.primary || 'yolk47', mode: p.mode || 'ffa',
     coins: Number.isFinite(p.coins) ? p.coins : 0,
     owned: Array.isArray(p.owned) ? p.owned : [],
-    equip: { color: 0, hat: 'none', stamp: 'none', ...(p.equip || {}) },
+    equip: { color: 0, hat: 'none', pattern: 'none', pcolor: 13, stamp: 'none', skin: 'factory', ...(p.equip || {}) },
     stats: { ...emptyStats(), ...(p.stats || {}) },
     challenges: p.challenges || null,
   };

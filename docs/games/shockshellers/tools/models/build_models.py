@@ -460,7 +460,8 @@ def bush():
     return r
 
 reset()
-export('guns', [yolk47(), double_yolker(), cage_free(), yolkzooka(), beater(), poacher(), tri_boil(), peck9mm(), whisk(), cluck_bomb()])
+# (The guns, whisk and Cluck Bomb are now modelled in code: js/render/guns.js. The builders above are
+# kept for reference; guns.glb is no longer exported or shipped.)
 reset(); MATS.clear()
 export('eggs', [egg(), glove('glove'), *hats()])
 reset(); MATS.clear()

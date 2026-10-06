@@ -1,13 +1,15 @@
 // A match as this browser sees it. The host's session owns the real Match (and its bots); a guest's
 // session mirrors the host's snapshots and predicts only its own egg (net/guest.js). Either way the
 // view reads players, objects and events from here.
-import { Match } from '../sim/match.js?v=muvmvc5o';
-import { NavGraph } from '../bots/nav.js?v=muvmvc5o';
-import { BotManager, BOT_NAMES } from '../bots/bot.js?v=muvmvc5o';
-import { getMap } from '../maps/index.js?v=muvmvc5o';
-import { TICK, PRIMARIES } from '../sim/tuning.js?v=muvmvc5o';
-import { Net, cleanName } from '../net/net.js?v=muvmvc5o';
-import { encodePlayer, ownState, rosterEntry, sendable, trimEvent } from '../net/protocol.js?v=muvmvc5o';
+import { Match } from '../sim/match.js?v=muwqkdzr';
+import { NavGraph } from '../bots/nav.js?v=muwqkdzr';
+import { BotManager, BOT_NAMES } from '../bots/bot.js?v=muwqkdzr';
+import { getMap } from '../maps/index.js?v=muwqkdzr';
+import { TICK, PRIMARIES } from '../sim/tuning.js?v=muwqkdzr';
+import { Net, cleanName } from '../net/net.js?v=muwqkdzr';
+import { encodePlayer, ownState, rosterEntry, sendable, trimEvent } from '../net/protocol.js?v=muwqkdzr';
+import { sanitizeCosmetics, randomCosmetics } from './cosmetics.js?v=muwqkdzr';
+export { sanitizeCosmetics };
 
 const navCache = new Map();
 export function navFor(mapId, map) { if (!navCache.has(mapId)) navCache.set(mapId, new NavGraph(map.grid, map.meta.gravity || 1)); return navCache.get(mapId); }
@@ -22,7 +24,7 @@ export class HostSession {
     this.nav = navFor(cfg.map, this.map);
     this.bots = new BotManager(this.match, this.nav, seed ^ 0x5bd1e995);
     this.myId = 1; this.nextId = 2;
-    this.me = this.match.addPlayer({ id: 1, name: cfg.name, primary: cfg.primary, cosmetics: cfg.cosmetics });
+    this.me = this.match.addPlayer({ id: 1, name: cfg.name, primary: cfg.primary, cosmetics: sanitizeCosmetics(cfg.cosmetics) });
     this.usedNames = new Set([cfg.name.toLowerCase()]);
     this.bots.onChat = (id, msg) => { const p = this.match.players.get(id); if (!p) return; this.onChat?.(`${p.name}: ${msg}`, '#fff'); this.net?.broadcast({ t: 'chat', id, msg }); };
     this.fillBots();
@@ -114,7 +116,7 @@ export class HostSession {
     const names = BOT_NAMES.filter(n => !this.usedNames.has(n.toLowerCase()));
     const name = names[Math.floor(Math.random() * names.length)] || 'Bot' + this.nextId;
     this.usedNames.add(name.toLowerCase());
-    const p = this.match.addPlayer({ id: this.nextId++, name, bot: true, team, cosmetics: { color: Math.floor(Math.random() * 7), hat: ['none', 'none', 'cap', 'beanie', 'chef', 'tophat'][Math.floor(Math.random() * 6)] } });
+    const p = this.match.addPlayer({ id: this.nextId++, name, bot: true, team, cosmetics: randomCosmetics() });
     this.bots.add(p, this.cfg.difficulty || 'normal');
     return p;
   }
@@ -167,11 +169,4 @@ export class HostSession {
     out[0] = s[0] + (p.body.x - s[0]) * a; out[1] = s[1] + (p.body.y - s[1]) * a; out[2] = s[2] + (p.body.z - s[2]) * a;
     return out;
   }
-}
-
-// Only known cosmetic values from a guest (they are drawn, never interpreted).
-export function sanitizeCosmetics(c) {
-  const color = Number.isInteger(c?.color) && c.color >= 0 && c.color < 14 ? c.color : 0;
-  const hat = ['none', 'cap', 'beanie', 'chef', 'tophat', 'crown'].includes(c?.hat) ? c.hat : 'none';
-  return { color, hat };
 }

@@ -1,7 +1,7 @@
 // Procedural textures for the map's material families (maps/dsl.js MAT). Everything is drawn at
 // start-up on canvases: low-poly, bright, with visible tile seams and triangle noise (GDD §25), and
 // no image files to fetch. Each family has a base texture; maps tint them through per-cell variants.
-import * as THREE from '../../vendor/three/three.module.js?v=muvmvc5o';
+import * as THREE from '../../vendor/three/three.module.js?v=muwqkdzr';
 
 const S = 256;
 // Deterministic noise so every player sees the same walls.
@@ -113,32 +113,86 @@ export function materialTexture(id) {
 // World units per texture repeat, per family (bricks look right at 2 cells, grass at 4).
 export const TEX_SCALE = { 1: 0.25, 4: 0.25, 6: 0.25, 10: 0.25, 14: 0.25, 16: 0.5, 17: 0.25, 7: 0.25 };
 
-// Blocky materials get soft bevelled edges per cell in the shader: a light rim along top edges, a
-// shaded lip along the bottom, and a fine seam between neighbours, so a wall reads as chunky stacked
-// blocks instead of one flat face (no extra geometry).
+// A soft, tileable fractal noise (three octaves of smoothed value noise, single channel), shared by
+// the world's large-scale colour variation and the sky's clouds.
+let noiseTex = null;
+export function noiseTexture() {
+  if (noiseTex) return noiseTex;
+  const N = 256, r = rng(4242), data = new Uint8Array(N * N * 4);
+  const octaves = [[8, 0.55], [16, 0.28], [32, 0.17]].map(([n, w]) => { const g = new Float32Array(n * n); for (let i = 0; i < g.length; i++) g[i] = r(); return { n, w, g }; });
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+    let v = 0;
+    for (const { n, w, g } of octaves) {
+      const fx = x / N * n, fy = y / N * n, ix = Math.floor(fx), iy = Math.floor(fy), tx = fx - ix, ty = fy - iy;
+      const sx = tx * tx * (3 - 2 * tx), sy = ty * ty * (3 - 2 * ty), at = (a, b) => g[(b % n) * n + (a % n)];
+      v += w * ((at(ix, iy) * (1 - sx) + at(ix + 1, iy) * sx) * (1 - sy) + (at(ix, iy + 1) * (1 - sx) + at(ix + 1, iy + 1) * sx) * sy);
+    }
+    const i = (y * N + x) * 4; data[i] = data[i + 1] = data[i + 2] = Math.round(v * 255); data[i + 3] = 255;
+  }
+  noiseTex = new THREE.DataTexture(data, N, N);
+  noiseTex.wrapS = noiseTex.wrapT = THREE.RepeatWrapping; noiseTex.magFilter = THREE.LinearFilter; noiseTex.minFilter = THREE.LinearMipmapLinearFilter;
+  noiseTex.generateMipmaps = true; noiseTex.needsUpdate = true;
+  return noiseTex;
+}
+
+// Every world material gets large-scale colour variation in the shader (two samples of the noise in
+// world space, projected along the face's axis), so a field of grass or a long wall never shows its
+// texture repeating; grass also drifts between lusher and sun-dried patches. Blocky materials also
+// get soft bevelled edges per cell: a light rim along top edges, a shaded lip along the bottom, and a
+// fine seam between neighbours, so a wall reads as chunky stacked blocks (no extra geometry).
 const BEVELLED = new Set([0, 3, 5, 7, 9, 11, 12, 14, 15, 18, 19]);
-function bevel(m) {
+const MACRO = { 1: 0.32, 4: 0.18, 6: 0.22, 10: 0.08, 14: 0.2, 16: 0.25, 0: 0.14, 9: 0.16, 7: 0.1, 2: 0.12, 3: 0.12, 8: 0.12, 13: 0.14 };
+function shade(m, id) {
+  const bevel = BEVELLED.has(id), macro = MACRO[id] ?? 0.1, grass = id === 1 || id === 16;
   m.onBeforeCompile = sh => {
-    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vWPos; varying vec3 vWNorm;')
-      .replace('#include <worldpos_vertex>', '#include <worldpos_vertex>\nvWPos = (modelMatrix * vec4(transformed, 1.0)).xyz; vWNorm = normalize(mat3(modelMatrix) * objectNormal);');
-    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec3 vWPos; varying vec3 vWNorm;')
+    sh.uniforms.macroTex = { value: noiseTexture() };
+    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nattribute float ao; varying float vAo; varying vec3 vWPos; varying vec3 vWNorm;')
+      .replace('#include <worldpos_vertex>', '#include <worldpos_vertex>\nvAo = ao; vWPos = (modelMatrix * vec4(transformed, 1.0)).xyz; vWNorm = normalize(mat3(modelMatrix) * objectNormal);');
+    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying float vAo; varying vec3 vWPos; varying vec3 vWNorm; uniform sampler2D macroTex;')
       .replace('#include <color_fragment>', `#include <color_fragment>
-        vec3 an = abs(vWNorm), cf = fract(vWPos + 0.0005);
+        diffuseColor.rgb *= vAo;
+        vec3 an = abs(vWNorm);
+        vec2 mp = an.y > 0.5 ? vWPos.xz : (an.x > 0.5 ? vWPos.zy : vWPos.xy);
+        float m1 = texture2D(macroTex, mp * 0.031).r, m2 = texture2D(macroTex, mp * 0.137 + 0.37).r;
+        float mv = m1 * 0.65 + m2 * 0.35;
+        diffuseColor.rgb *= 1.0 + (mv - 0.5) * ${(macro * 2).toFixed(3)};
+        ${grass ? 'diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * vec3(1.16, 1.06, 0.62), smoothstep(0.52, 0.78, m1) * 0.55 * an.y);' : ''}
+        ${bevel ? `vec3 cf = fract(vWPos + 0.0005);
         vec2 cuv = an.x > 0.5 ? cf.zy : (an.y > 0.5 ? cf.xz : cf.xy);
         vec2 dd = min(cuv, 1.0 - cuv); float ce = min(dd.x, dd.y);
         float rim = 1.0 - smoothstep(0.0, 0.075, ce);
         float tone = an.y > 0.5 ? 0.13 : (cf.y > 0.5 ? 0.11 : -0.16);
         diffuseColor.rgb *= 1.0 + rim * tone;
-        diffuseColor.rgb *= mix(0.72, 1.0, smoothstep(0.004, 0.016, ce));`);
+        diffuseColor.rgb *= mix(0.72, 1.0, smoothstep(0.004, 0.016, ce));` : ''}`);
   };
-  m.customProgramCacheKey = () => 'bevel';
+  m.customProgramCacheKey = () => `world${bevel ? 'b' : ''}${grass ? 'g' : ''}${macro}`;
 }
 const mats = new Map();
 export function worldMaterial(id) {
   if (mats.has(id)) return mats.get(id);
-  const m = new THREE.MeshLambertMaterial({ map: materialTexture(id), vertexColors: true });
+  // (Occlusion comes in as a one-float "ao" attribute rather than three-float vertex colours: a third
+  // of the data for the biggest meshes in the game.)
+  const m = new THREE.MeshLambertMaterial({ map: materialTexture(id) });
   if (id === 17) { m.transparent = true; m.opacity = 0.8; }
-  if (BEVELLED.has(id)) bevel(m);
+  shade(m, id);
   mats.set(id, m);
+  return m;
+}
+
+// Wind for foliage: leaves (merged into the world with a per-vertex "sway" weight, 0 at the trunk)
+// drift in a slow, travelling breeze. One uniform shared by every leaf material.
+export const WIND = { value: 0 };
+const swaying = new WeakSet();
+export function sway(m) {
+  if (swaying.has(m)) return m;
+  swaying.add(m);
+  m.onBeforeCompile = sh => {
+    sh.uniforms.uWind = WIND;
+    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nattribute float sway; uniform float uWind;')
+      .replace('#include <begin_vertex>', `#include <begin_vertex>
+        vec3 sw = (modelMatrix * vec4(transformed, 1.0)).xyz; float ph = sw.x * 0.35 + sw.z * 0.27;
+        transformed += vec3(sin(uWind * 1.7 + ph), sin(uWind * 2.3 + ph * 1.7) * 0.3, cos(uWind * 1.3 + ph * 1.3)) * 0.045 * sway;`);
+  };
+  m.customProgramCacheKey = () => 'sway';
   return m;
 }
