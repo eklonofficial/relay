@@ -2,7 +2,7 @@
 // sandy floor; stair cuts on every side link the terraces, tunnels bore through the terrace walls at
 // the diagonals for flanks, mine carts (crates), barrels and timber props give cover, and ladders
 // climb the tall faces. Long sightlines across the pit, close fights in the tunnels.
-import { Builder, MAT } from './dsl.js?v=muwzqnfo';
+import { Builder, MAT } from './dsl.js?v=muwzskxe';
 
 export default function yolkQuarry() {
   const N = 32, c = (N - 1) / 2, b = new Builder(N, 12, N);

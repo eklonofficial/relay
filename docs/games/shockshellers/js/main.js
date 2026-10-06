@@ -1,32 +1,32 @@
 // Shock Shellers: boot, menus, the match flow (home → respawn screen → play → death → respawn) and
 // the frame loop. The simulation runs at a fixed 30 Hz inside the session; rendering interpolates.
-import './page.js?v=muwzqnfo';
-import { surfaceDocument as document } from './surface.js?v=muwzqnfo';
-import { registerApp } from './veil.js?v=muwzqnfo';
-import { tell } from './dialog.js?v=muwzqnfo';
-import { splash } from './splash.js?v=muwzqnfo';
-import * as THREE from '../vendor/three/three.module.js?v=muwzqnfo';
-import { Renderer } from './render/renderer.js?v=muwzqnfo';
-import { RELOAD_KIND } from './render/viewmodel.js?v=muwzqnfo';
-import { EggAvatar } from './render/egg.js?v=muwzqnfo';
-import { Recorder, planReplay, replayRate, projectileAt } from './game/replay.js?v=muwzqnfo';
-import { aimAssist, assistOn } from './game/aim.js?v=muwzqnfo';
-import { Input } from './game/input.js?v=muwzqnfo';
-import { SOUND_FILES } from './game/soundbank.js?v=muwzqnfo';
-import { Sound, registerSamples } from './game/audio.js?v=muwzqnfo';
-import { Hud } from './game/hud.js?v=muwzqnfo';
-import { loadSettings, saveSettings, loadProfile, saveProfile } from './game/store.js?v=muwzqnfo';
-import { ensureDaily, progress as challengeProgress, claim as claimChallenges } from './game/challenges.js?v=muwzqnfo';
-import { HostSession } from './game/session.js?v=muwzqnfo';
-import { GuestSession } from './net/guest.js?v=muwzqnfo';
-import { pickPublicMap, mapDef, MAPS } from './maps/index.js?v=muwzqnfo';
-import { WEAPONS, PRIMARIES, PLAYER, MODE_NAMES, MODE_MENU, ECONOMY, CTRL, TICK, TICK_HZ } from './sim/tuning.js?v=muwzqnfo';
-import { weaponOf, slotOf } from './sim/combat.js?v=muwzqnfo';
-import { eyePoint } from './sim/movement.js?v=muwzqnfo';
-import { drawLogo, drawHowTo } from './ui/art.js?v=muwzqnfo';
-import { loadModels } from './render/models.js?v=muwzqnfo';
-import { HIT } from './maps/grid.js?v=muwzqnfo';
-import { Menus } from './ui/menus.js?v=muwzqnfo';
+import './page.js?v=muwzskxe';
+import { surfaceDocument as document } from './surface.js?v=muwzskxe';
+import { registerApp } from './veil.js?v=muwzskxe';
+import { tell } from './dialog.js?v=muwzskxe';
+import { splash } from './splash.js?v=muwzskxe';
+import * as THREE from '../vendor/three/three.module.js?v=muwzskxe';
+import { Renderer } from './render/renderer.js?v=muwzskxe';
+import { RELOAD_KIND } from './render/viewmodel.js?v=muwzskxe';
+import { EggAvatar } from './render/egg.js?v=muwzskxe';
+import { Recorder, planReplay, replayRate, projectileAt } from './game/replay.js?v=muwzskxe';
+import { aimAssist, assistOn } from './game/aim.js?v=muwzskxe';
+import { Input } from './game/input.js?v=muwzskxe';
+import { SOUND_FILES } from './game/soundbank.js?v=muwzskxe';
+import { Sound, registerSamples } from './game/audio.js?v=muwzskxe';
+import { Hud } from './game/hud.js?v=muwzskxe';
+import { loadSettings, saveSettings, loadProfile, saveProfile } from './game/store.js?v=muwzskxe';
+import { ensureDaily, progress as challengeProgress, claim as claimChallenges } from './game/challenges.js?v=muwzskxe';
+import { HostSession } from './game/session.js?v=muwzskxe';
+import { GuestSession } from './net/guest.js?v=muwzskxe';
+import { pickPublicMap, mapDef, MAPS } from './maps/index.js?v=muwzskxe';
+import { WEAPONS, PRIMARIES, PLAYER, MODE_NAMES, MODE_MENU, ECONOMY, CTRL, TICK, TICK_HZ } from './sim/tuning.js?v=muwzskxe';
+import { weaponOf, slotOf } from './sim/combat.js?v=muwzskxe';
+import { eyePoint } from './sim/movement.js?v=muwzskxe';
+import { drawLogo, drawHowTo } from './ui/art.js?v=muwzskxe';
+import { loadModels } from './render/models.js?v=muwzskxe';
+import { HIT } from './maps/grid.js?v=muwzskxe';
+import { Menus } from './ui/menus.js?v=muwzskxe';
 
 const $ = id => document.getElementById(id);
 const show = (id, on = true) => { $(id).classList.toggle('hidden', !on); if (id === 'respawn') $('hud').classList.toggle('menu', on); };
@@ -39,6 +39,8 @@ const RELOAD_STEPS = {
   mag: [[0.16, 'magOut'], [0.66, 'magIn'], [0.84, 'rack', true]], pistol: [[0.16, 'magOut'], [0.66, 'magIn'], [0.79, 'rack', true]],
   break: [[0.04, 'breakOpen'], [0.6, 'shellIn'], [0.78, 'rack']], bolt: [[0.16, 'boltUp'], [0.68, 'boltDown']], rocket: [[0.62, 'rocketIn']],
 };
+// Resolves once a couple of frames have been drawn after now (or after 3 s in a background tab).
+const settled = () => new Promise(r => { let n = 3; const f = () => (--n <= 0 ? r() : requestAnimationFrame(f)); requestAnimationFrame(f); setTimeout(r, 3000); });
 const LOAD_LINES = ['Cracking eggs…', 'Whisking servers…', 'Stacking teams…', 'Greasing the pan…', 'Counting chickens…', 'Hatching plans…'];
 
 class App {
@@ -165,12 +167,14 @@ class App {
     const session = new HostSession({ ...cfg, mode, options: { botChat: this.settings.botChat, ...cfg.options }, name: p.name, primary: p.primary, cosmetics: { ...p.equip } });
     this.enter(session);
     this.hud.chat('Opening your game to friends…', '#ffd23f');
-    // Every match is a room friends can join (they take a bot's place).
-    session.openRoom().then(code => {
+    // Every match is a room friends can join (they take a bot's place). Opened once the map is on
+    // screen: building it and compiling its shaders can freeze a Chromebook for seconds, long enough
+    // to time out the multiplayer servers' connections if they were being made at the same moment.
+    settled().then(() => this.session === session ? session.openRoom() : Promise.reject(new Error('left'))).then(code => {
       if (this.session !== session) { session.close(); return; }
       this.hud.chat(`Room code ${code}: click 👥 to copy it for friends!`, '#ffd23f');
       this.menus.refreshRespawn();
-    }, e => { if (this.session === session) this.hud.chat('Playing offline: ' + e.message, '#ff8a80'); });
+    }, e => { if (this.session === session) this.hud.chat('Playing offline: ' + e.message, '#ff8a80'); else session.close?.(); });
     this.profile.stats.games++; saveProfile(this.profile);
   }
   // Show a session (hosted or joined): load its map and go to the respawn screen.
@@ -193,6 +197,8 @@ class App {
     this.sound.unlock();
     const p = this.profile;
     const session = await GuestSession.join(code, { name: p.name, primary: p.primary, cosmetics: { ...p.equip } }, status);
+    // Let the status show and the connection catch up before the slow part (building the map).
+    status?.('Loading the map…'); await new Promise(r => setTimeout(r, 50));
     this.leaveMatch();
     this.enter(session);
     this.hud.chat(`Joined room ${code}.`, '#ffd23f');
