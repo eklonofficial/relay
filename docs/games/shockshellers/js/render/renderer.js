@@ -13,16 +13,16 @@
 // map (the map never moves) instead of every frame, and eggs get a soft blob shadow instead; no
 // muzzle-flash or explosion lights and no sky reflections (each costs every pixel of every lit
 // surface); no bloom or multisampling; fewer particles.
-import * as THREE from '../../vendor/three/three.module.js?v=muwpta38';
-import { buildWorld } from './world.js?v=muwpta38';
-import { EggAvatar, TEAM_COLORS } from './egg.js?v=muwpta38';
-import { Effects } from './fx.js?v=muwpta38';
-import { ViewModel } from './viewmodel.js?v=muwpta38';
-import { gunModel } from './guns.js?v=muwpta38';
-import { Kit, kitMaterial } from './kit.js?v=muwpta38';
-import { clone, merged } from './models.js?v=muwpta38';
-import { noiseTexture, WIND } from './materials.js?v=muwpta38';
-import { Post } from './post.js?v=muwpta38';
+import * as THREE from '../../vendor/three/three.module.js?v=muwq4fsj';
+import { buildWorld } from './world.js?v=muwq4fsj';
+import { EggAvatar, TEAM_COLORS } from './egg.js?v=muwq4fsj';
+import { Effects } from './fx.js?v=muwq4fsj';
+import { ViewModel } from './viewmodel.js?v=muwq4fsj';
+import { gunModel } from './guns.js?v=muwq4fsj';
+import { Kit, kitMaterial } from './kit.js?v=muwq4fsj';
+import { clone, merged } from './models.js?v=muwq4fsj';
+import { noiseTexture, WIND } from './materials.js?v=muwq4fsj';
+import { Post } from './post.js?v=muwq4fsj';
 
 // Sky palettes: zenith, ground below the horizon, sun, cloud light and shade, cloud cover (0 = none).
 // The horizon colour is the map's fog colour, so distant walls melt into the sky.
@@ -197,7 +197,6 @@ export class Renderer {
     });
     const tri = new THREE.BufferGeometry(); tri.setAttribute('position', new THREE.Float32BufferAttribute([-1, -1, 0, 3, -1, 0, -1, 3, 0], 3));
     this.hudQuad = new THREE.Mesh(tri, this.hudMat); this.hudQuad.frustumCulled = false; this.hudScene.add(this.hudQuad);
-    this.hudTex = null;
     this.scene = new THREE.Scene();
     this.camera = new THREE.PerspectiveCamera(72, 1, 0.05, 600);
     this.baseFov = 72;
@@ -267,7 +266,6 @@ export class Renderer {
     this.gl.setSize(w, h, false);
     this.camera.aspect = w / h; this.camera.updateProjectionMatrix(); this.view.resize(w / h);
     this.post.resize();
-    if (this.hudTex) { this.hudTex.dispose(); this.hudTex = null; }
   }
   // Blob shadows for this frame: [x, floorY, z, size, strength] per egg.
   setBlobs(list) {
@@ -413,16 +411,22 @@ export class Renderer {
     this.post.end({ ...fx, time: t });
     if (hud) this.drawHud(hud);
   }
+  // The HUD's two layers (hud.js): the panel, then the live layer; each re-uploaded only when it
+  // changed.
   drawHud(hud) {
-    const c = hud.canvas;
-    if (!this.hudTex || this.hudTex.image !== c) {
-      this.hudTex?.dispose();
-      this.hudTex = new THREE.CanvasTexture(c); this.hudTex.premultiplyAlpha = true; this.hudTex.flipY = false; this.hudTex.generateMipmaps = false;
-      this.hudTex.minFilter = THREE.LinearFilter; this.hudTex.magFilter = THREE.LinearFilter; this.hudTex.colorSpace = THREE.NoColorSpace;
-      this.hudMat.uniforms.map.value = this.hudTex; hud.dirty = true;
+    this.hudLayers ??= [{ key: 'panel', dirty: 'panelDirty' }, { key: 'canvas', dirty: 'dirty' }].map(l => { const mesh = new THREE.Mesh(this.hudQuad.geometry, this.hudMat.clone()); mesh.frustumCulled = false; return { ...l, tex: null, mesh }; });
+    this.gl.setRenderTarget(null);
+    for (const l of this.hudLayers) {
+      const c = hud[l.key];
+      if (!l.tex || l.tex.image !== c || l.tex.image.width !== l.w || l.tex.image.height !== l.h) {
+        l.tex?.dispose();
+        l.tex = new THREE.CanvasTexture(c); l.tex.premultiplyAlpha = true; l.tex.flipY = false; l.tex.generateMipmaps = false;
+        l.tex.minFilter = THREE.LinearFilter; l.tex.magFilter = THREE.LinearFilter; l.tex.colorSpace = THREE.NoColorSpace;
+        l.mesh.material.uniforms.map.value = l.tex; l.w = c.width; l.h = c.height; hud[l.dirty] = true;
+      }
+      if (hud[l.dirty]) { l.tex.needsUpdate = true; hud[l.dirty] = false; }
+      this.gl.render(l.mesh, this.hudCam);
     }
-    if (hud.dirty) { this.hudTex.needsUpdate = true; hud.dirty = false; }
-    this.gl.setRenderTarget(null); this.gl.render(this.hudScene, this.hudCam);
   }
   // A reflection environment from one of the skies (for scenes without a map: the home screen).
   skyEnvironment(kind = 'day', fog = 0xcfe6ef) {

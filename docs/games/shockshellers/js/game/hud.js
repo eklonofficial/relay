@@ -1,12 +1,16 @@
-// The in-game HUD (GDD §19.6). What changes rarely (leaderboard, kill feed, chat, banners) is page
-// text, which only repaints the compositor when it changes. Everything that moves or counts (the
-// crosshair, health ring, ammo, hit markers and damage numbers, kill banner, enemy health bars,
-// damage arcs, grenade charge, scope, markers, the death recap, frame rate and ping) is drawn into
-// an offscreen canvas that the renderer lays over the 3D frame itself, so a busy fight never makes
-// the page repaint. Frames where nothing on it changed are neither drawn nor re-uploaded.
-import { surfaceDocument as document } from '../surface.js?v=muwpta38';
-import { WEAPONS, GRENADE, ROOST, STREAKS } from '../sim/tuning.js?v=muwpta38';
-import { currentSpread, weaponOf, slotOf } from '../sim/combat.js?v=muwpta38';
+// The in-game HUD (GDD §19.6). During play almost all of it is drawn into two offscreen canvases
+// that the renderer lays over the 3D frame itself (any change to the page's text makes the
+// compositor repaint the whole page, which a Chromebook feels as a stutter):
+// - the panel: what changes now and then (leaderboard and best streak, yolks, kill feed, ammo,
+//   frame rate and ping), redrawn and re-uploaded only when one of them changes;
+// - the live layer: what moves (crosshair, health ring, hit markers and damage numbers, the kill
+//   banner, enemy health bars, damage arcs, grenade charge, scope, markers, the death recap),
+//   skipped on frames where nothing on it changed.
+// Page text is left for what is rare or needs the keyboard: chat, banners and toasts, the
+// objective bar, and the leaderboard on the respawn screen.
+import { surfaceDocument as document } from '../surface.js?v=muwq4fsj';
+import { WEAPONS, GRENADE, ROOST, STREAKS } from '../sim/tuning.js?v=muwq4fsj';
+import { currentSpread, weaponOf, slotOf } from '../sim/combat.js?v=muwq4fsj';
 
 const $ = id => document.getElementById(id);
 const POWER_NAMES = { hardBoiled: 'HARD BOILED!', shellBreaker: 'SHELL BREAKER!', restock: 'RESTOCK!', overheal: 'OVERHEAL!', doubleYolks: 'DOUBLE YOLKS!', quailEgg: 'QUAIL EGG!' };
@@ -17,6 +21,8 @@ export class Hud {
   constructor(settings) {
     this.settings = settings;
     this.canvas = new OffscreenCanvas(1, 1); this.ctx = this.canvas.getContext('2d');
+    this.panel = new OffscreenCanvas(1, 1); this.pctx = this.panel.getContext('2d'); this.panelDirty = true; this.panelSig = '';
+    this.board = null; this.coins = 0; this.best = 0;
     this.dirty = true; this.sig = ''; this.ammo = { mag: 0, store: 0, nades: 0, id: '' }; this.fps = 0; this.ping = 0;
     this.kills = []; this.nums = []; this.barShown = new Map();
     this.cache = {}; this.feed = []; this.hitT = 0; this.hitKill = false; this.dmgArcs = [];
@@ -48,12 +54,18 @@ export class Hud {
   set(id, key, value, fn) { if (this.cache[key] === value) return; this.cache[key] = value; fn($(id), value); }
   text(id, value) { this.set(id, id + ':t', value, (e, v) => { e.textContent = v; }); }
   // Drawn at up to 1.5 device pixels per CSS pixel: sharp text without uploading a 4K image a frame.
-  resize() { const d = Math.min(1.5, devicePixelRatio || 1); this.canvas.width = Math.max(1, Math.round(innerWidth * d)); this.canvas.height = Math.max(1, Math.round(innerHeight * d)); this.dpr = d; this.sig = ''; this.resized = true; }
+  resize() {
+    const d = Math.min(1.5, devicePixelRatio || 1), w = Math.max(1, Math.round(innerWidth * d)), h = Math.max(1, Math.round(innerHeight * d));
+    for (const c of [this.canvas, this.panel]) { c.width = w; c.height = h; }
+    this.dpr = d; this.sig = ''; this.panelSig = ''; this.resized = true;
+  }
 
+  // The top ten, for the panel; the page's copy is only kept up to date on the respawn screen.
   leaderboard(players, myId, teams) {
     const top = players.slice(0, 10);
-    const key = top.map(p => `${p.id}:${p.name}:${p.score}:${p.team}`).join('|') + myId;
-    if (this.cache.board === key) return;
+    const key = top.map(p => `${p.id}:${p.name}:${p.score}:${p.team}`).join('|') + myId + (teams ? 't' : '');
+    if (this.board?.key !== key) this.board = { key, myId, teams, rows: top.map(p => ({ id: p.id, name: p.name, score: p.score, team: p.team })) };
+    if (!$('hud').classList.contains('menu') || this.cache.board === key) return;
     this.cache.board = key;
     const list = $('board-list'); list.replaceChildren();
     const row = p => {
@@ -65,8 +77,8 @@ export class Hud {
     else top.forEach(row);
   }
   stats(me, coins, fps, ping) {
-    this.text('best-streak', 'x' + me.bestStreak);
-    this.text('hud-coin-n', String(coins));
+    if ($('hud').classList.contains('menu')) this.text('best-streak', 'x' + me.bestStreak);
+    this.coins = coins; this.best = me.bestStreak;
     const h = me.hands, s = slotOf(h);
     this.ammo.mag = s.mag; this.ammo.store = s.store; this.ammo.nades = h.grenades; this.ammo.id = s.id;
     this.fps = fps; this.ping = ping;
@@ -90,17 +102,10 @@ export class Hud {
     this.text('obj-text', text);
     this.set('obj-fill', 'objFill', Math.round(fill * 100) + color, e => { e.style.width = Math.round(fill * 100) + '%'; e.style.background = color; });
   }
+  // The kill feed (newest on top, five at most, each for five seconds).
   kill(killerName, victimName, weapon, killerTeam, victimTeam, mine = false) {
-    const row = document.createElement('div');
-    if (mine) row.className = 'mine';
-    const a = document.createElement('span'); a.textContent = killerName || ''; a.style.color = TEAM[killerTeam] || '#fff';
-    const w = document.createElement('img'); w.src = this.weaponIcons[weapon] || this.weaponIcons.yolk47 || '';
-    const b = document.createElement('span'); b.textContent = victimName; b.style.color = TEAM[victimTeam] || '#fff';
-    if (killerName) row.append(a, w, b); else row.append(w, b);
-    if (!this.weaponIcons[weapon]) w.remove();
-    const feed = $('feed'); feed.prepend(row);
-    this.feed.push({ row, t: 5 });
-    while (feed.children.length > 5) { feed.lastChild.remove(); this.feed.shift(); }
+    this.feed.unshift({ killer: killerName || '', victim: victimName, weapon, kTeam: killerTeam, vTeam: victimTeam, mine, t: 5, n: (this.feedN = (this.feedN || 0) + 1) });
+    if (this.feed.length > 5) this.feed.pop();
   }
   // (Hidden and shown again so its entrance animation replays even if one is already up.)
   banner(text, seconds = 2.5) { const e = $('banner'); e.classList.add('hidden'); void e.offsetWidth; e.textContent = text; e.classList.remove('hidden'); this.bannerT = seconds; }
@@ -118,7 +123,7 @@ export class Hud {
   hit(kill) { this.hitT = kill ? 0.5 : 0.28; this.hitMax = this.hitT; this.hitKill = kill; this.gapKick = Math.min(10, (this.gapKick || 0) + 4); }
   damageFrom(angle) { this.dmgArcs.push({ a: angle, t: 1 }); if (this.dmgArcs.length > 6) this.dmgArcs.shift(); this.vignette = 0.6; }
   tick(dt) {
-    for (const f of this.feed) if ((f.t -= dt) <= 0 && f.row.isConnected) f.row.remove();
+    for (const f of this.feed) f.t -= dt;
     this.feed = this.feed.filter(f => f.t > 0);
     for (const c of this.chatLines) if ((c.t -= dt) <= 0 && c.d.isConnected) c.d.remove();
     this.chatLines = this.chatLines.filter(c => c.t > 0 || this.chatOpen);
@@ -195,6 +200,74 @@ export class Hud {
     c.globalAlpha = 1;
     for (const id of this.barShown.keys()) if (!seen.has(id)) this.barShown.delete(id);
   }
+  // The panel layer (see the header): redrawn only when something on it changed.
+  drawPanel(v) {
+    const me = v.me, alive = !!me?.alive, w = innerWidth, h = innerHeight, b = this.board, u = this.u || 1;
+    const feedSig = this.feed.map(f => f.n + ':' + Math.ceil(Math.min(1, f.t / 0.4) * 8) + (this.icon(f.weapon) ? 'i' : '')).join(',');
+    const a = this.ammo, sig = `${w}x${h}|${u}|${b?.key}|${this.best}|${this.coins}|${this.fps}|${this.ping}|${feedSig}|${alive ? `${a.id}|${a.mag}|${a.store}|${a.nades}` : '-'}`;
+    if (sig === this.panelSig) return;
+    this.panelSig = sig; this.panelDirty = true;
+    const c = this.pctx, d = this.dpr || 1;
+    c.setTransform(1, 0, 0, 1, 0, 0); c.clearRect(0, 0, this.panel.width, this.panel.height);
+    c.setTransform(d * u, 0, 0, d * u, 0, 0);
+    const W = w / u;
+    if (b) this.drawBoard(c, b);
+    this.drawCoins(c, W);
+    this.drawPerf(c, W);
+    this.drawFeed(c, W);
+    if (alive) { c.setTransform(d, 0, 0, d, 0, 0); this.drawAmmo(c, w, h, weaponOf(me.hands)); }
+  }
+  // Leaderboard (top left): the top ten, our row in orange, team colours and headers; the best streak
+  // beside it. Laid out like the page's own on the respawn screen.
+  drawBoard(c, b) {
+    let y = 6;
+    c.textBaseline = 'middle'; c.font = '800 14px n, sans-serif';
+    const row = p => {
+      const me = p.id === b.myId;
+      c.fillStyle = me ? 'rgba(247,148,29,.9)' : 'rgba(40,40,40,.35)'; c.beginPath(); c.roundRect(8, y, 200, 18, 2); c.fill();
+      c.fillStyle = me ? '#fff' : b.teams ? (p.team === 1 ? '#a8d6ff' : '#ffb4ac') : 'rgba(255,255,255,.78)';
+      c.textAlign = 'left'; c.fillText(p.name, 16, y + 9.5, 150); c.textAlign = 'right'; c.fillText(String(p.score), 200, y + 9.5);
+      y += 20;
+    };
+    if (b.teams) for (const t of [1, 2]) {
+      c.font = '400 13px s, sans-serif'; c.textAlign = 'left'; c.fillStyle = TEAM[t]; c.fillText(t === 1 ? 'BLUE TEAM' : 'RED TEAM', 14, y + 8); y += 18;
+      c.font = '800 14px n, sans-serif'; b.rows.filter(p => p.team === t).forEach(row);
+    }
+    else b.rows.forEach(row);
+    // Best streak.
+    c.textAlign = 'left'; c.font = '400 34px s, sans-serif'; c.fillStyle = '#0b4560'; c.fillText('x' + this.best, 221, 30);
+    c.fillStyle = '#ffd23f'; c.fillText('x' + this.best, 220, 27);
+    const sw = c.measureText('x' + this.best).width;
+    c.font = '400 13px s, sans-serif'; c.fillStyle = '#0b4560'; c.fillText('BEST', 225 + sw, 23); c.fillText('STREAK', 225 + sw, 36);
+    c.fillStyle = '#fff'; c.fillText('BEST', 224 + sw, 21); c.fillText('STREAK', 224 + sw, 34);
+  }
+  // Golden Yolks (top right).
+  drawCoins(c, w) {
+    c.font = '900 24px n, sans-serif'; c.textAlign = 'right'; c.textBaseline = 'middle';
+    const s = String(this.coins), tw = c.measureText(s).width, x = w - 12, y = 19;
+    c.fillStyle = 'rgba(0,0,0,.35)'; c.fillText(s, x + 1, y + 2); c.fillStyle = '#fff'; c.fillText(s, x, y);
+    const cx = x - tw - 16;
+    c.fillStyle = '#f2a500'; c.beginPath(); c.ellipse(cx, y + 1, 9, 10, 0, 0, Math.PI * 2); c.fill();
+    c.fillStyle = '#ffd23f'; c.beginPath(); c.ellipse(cx, y, 8, 9, 0, 0, Math.PI * 2); c.fill();
+    c.fillStyle = '#fff6c4'; c.beginPath(); c.ellipse(cx - 3, y - 4, 2.5, 3.5, 0, 0, Math.PI * 2); c.fill();
+  }
+  // Kill feed (top right, under the frame rate): killer, the weapon's icon, victim; ours in orange.
+  drawFeed(c, w) {
+    let y = 62;
+    c.font = '800 14px n, sans-serif'; c.textBaseline = 'middle';
+    for (const f of this.feed) {
+      const img = this.icon(f.weapon === 'melee' ? 'whisk' : f.weapon) || this.icon('yolk47'), iw = img ? 30 : 0;
+      const kw = f.killer ? c.measureText(f.killer).width + 6 : 0, vw = c.measureText(f.victim).width, W = kw + iw + 6 + vw + 16, x = w - 12 - W;
+      c.globalAlpha = Math.min(1, f.t / 0.4);
+      c.fillStyle = f.mine ? 'rgba(247,148,29,.6)' : 'rgba(0,0,0,.35)'; c.beginPath(); c.roundRect(x, y, W, 21, 4); c.fill();
+      c.textAlign = 'left';
+      if (f.killer) { c.fillStyle = TEAM[f.kTeam] || '#fff'; c.fillText(f.killer, x + 8, y + 11); }
+      if (img) c.drawImage(img, x + 8 + kw, y + 3, iw, 15);
+      c.fillStyle = TEAM[f.vTeam] || '#fff'; c.fillText(f.victim, x + 8 + kw + iw + 6, y + 11);
+      y += 24;
+    }
+    c.globalAlpha = 1;
+  }
   // Ammo (bottom right): the gun's name, rounds in the magazine large over the reserve, a tick per
   // round, and the Cluck Bombs. Red when empty.
   drawAmmo(c, w, h, wpn) {
@@ -221,7 +294,7 @@ export class Hud {
   }
   // Frame rate and ping, top right under the yolks.
   drawPerf(c, w) {
-    c.save(); const u = this.u || 1; c.scale(u, u); w /= u;
+    c.save();
     c.font = '800 12px n, sans-serif'; c.textAlign = 'right'; c.textBaseline = 'top'; c.lineJoin = 'round';
     const ping = this.ping, pc = ping < 80 ? '#5cff7a' : ping < 160 ? '#ffd23f' : '#ff5545', ps = ping + ' MS', fs = this.fps + ' FPS  ';
     c.lineWidth = 3; c.strokeStyle = 'rgba(0,0,0,.55)'; c.strokeText(ps, w - 14, 40); c.fillStyle = pc; c.fillText(ps, w - 14, 40);
@@ -316,6 +389,7 @@ export class Hud {
     const w = innerWidth, h = innerHeight, cx = w / 2, cy = h / 2;
     const me = v.me, hands = me?.hands, alive = !!me?.alive;
     this.t += dt;
+    this.drawPanel(v);
     if (this.death) { this.death.t += dt; if (this.death.t > 2.1 || me?.alive) this.death = null; }
     // Skip the frame when nothing on it moves and nothing it shows has changed.
     const wpn = alive ? weaponOf(hands) : null, s = alive ? slotOf(hands) : null;
@@ -326,7 +400,7 @@ export class Hud {
     const moving = this.death || this.kills.length || this.popups.length || this.nums.length || this.dmgArcs.length || this.vignette > 0 || this.hitT > 0 ||
       (alive && (scoped || this.scopeA > 0 || (me.hp < 35 && !(me.shield > 0)) || (lowMag && !busy && !hands.charging) || hands.charging || v.reload > 0 || (v.markers && v.markers.length) || (v.bars && v.bars.length) ||
         this.gapKick > 0 || Math.abs(target - this.gap) > 0.05 || Math.abs(val - this.hpShown) > 0.05 || Math.abs(this.hpTrail - this.hpShown) > 0.05));
-    const sig = alive ? `${w}x${h}|${val}|${s.id}|${s.mag}/${s.store}|${hands.grenades}|${this.fps}|${this.ping}|${busy}|${v.enemy || 0}|${me.spawnShield > 0}|${me.power.shellBreaker > 0}|${this.settings.centerDot}` : `${w}x${h}|dead`;
+    const sig = alive ? `${w}x${h}|${val}|${s.id}|${s.mag}|${busy}|${v.enemy || 0}|${me.spawnShield > 0}|${me.power.shellBreaker > 0}|${this.settings.centerDot}` : `${w}x${h}|dead`;
     if (!moving && sig === this.sig) { this.dirty = false; return false; }
     this.sig = sig; this.dirty = true;
     c.setTransform(1, 0, 0, 1, 0, 0); c.clearRect(0, 0, W, H);
@@ -459,8 +533,6 @@ export class Hud {
       c.beginPath(); c.arc(x, y, 9, 0, Math.PI * 2); c.fill(); c.stroke();
       c.fillStyle = '#fff'; c.fillText(mk.label, x, y - 18);
     }
-    this.drawAmmo(c, w, h, wpn);
-    this.drawPerf(c, w);
     return true;
   }
 }

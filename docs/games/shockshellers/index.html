@@ -93,7 +93,7 @@
   #news { position: absolute; right: calc(var(--u)*-6); top: calc(var(--u)*82); width: calc(var(--u)*300); border-radius: calc(var(--u)*12) 0 0 calc(var(--u)*12); }
   #news .item > div:last-child { flex: 1; min-width: 0; padding-right: calc(var(--u)*12); }
   #chal-list { overflow: hidden; }
-  #hud.menu #hud-coins, #hud.menu #feed { display: none; }
+  #hud:not(.menu) #board { display: none; }
   #news .item { display: flex; gap: calc(var(--u)*10); align-items: center; background: var(--pale); border-top: calc(var(--u)*3) solid var(--blue); padding: calc(var(--u)*8) calc(var(--u)*10); font-size: calc(var(--u)*14); color: var(--ink); font-weight: 700; line-height: 1.25; }
   #news .thumb { flex: none; width: calc(var(--u)*42); height: calc(var(--u)*42); border-radius: calc(var(--u)*6); border: calc(var(--u)*2) solid var(--blue-e); display: flex; align-items: center; justify-content: center; }
   #news .thumb svg { width: calc(var(--u)*30); height: calc(var(--u)*30); }
@@ -165,13 +165,6 @@
   #streak { display: flex; align-items: center; gap: calc(var(--u)*4); }
   #streak .n { font-family: "s", sans-serif; font-weight: 400; color: var(--yellow); font-size: calc(var(--u)*34); text-shadow: 0 calc(var(--u)*3) 0 var(--ink); }
   #streak .l { font-family: "s", sans-serif; font-weight: 400; font-size: calc(var(--u)*13); line-height: 1; text-shadow: 0 calc(var(--u)*2) 0 var(--ink); }
-  #hud-coins { position: absolute; right: calc(var(--u)*12); top: calc(var(--u)*6); }
-  #hud-coins.coins { font-size: calc(var(--u)*24); }
-  #hud-coins svg { width: calc(var(--u)*24); height: calc(var(--u)*24); }
-  #feed { position: absolute; right: calc(var(--u)*12); top: calc(var(--u)*62); display: flex; flex-direction: column; align-items: flex-end; gap: calc(var(--u)*3); font-size: calc(var(--u)*14); }
-  #feed > div { background: rgba(0,0,0,.35); border-radius: calc(var(--u)*4); padding: calc(var(--u)*2) calc(var(--u)*8); display: flex; gap: calc(var(--u)*6); align-items: center; }
-  #feed img { height: calc(var(--u)*15); }
-  #feed > div.mine { background: rgba(247,148,29,.6); }
   #chat { position: absolute; left: calc(var(--u)*8); bottom: calc(var(--u)*8); width: calc(var(--u)*400); display: flex; flex-direction: column; gap: calc(var(--u)*4); padding: calc(var(--u)*8) calc(var(--u)*10); font-size: calc(var(--u)*15); font-weight: 800; border-radius: calc(var(--u)*10); background: rgba(11,69,96,.32); border: calc(var(--u)*2) solid rgba(11,91,125,.45); text-shadow: 0 calc(var(--u)*1) calc(var(--u)*2) rgba(0,0,0,.8); }
   #chat.open { background: rgba(11,69,96,.7); border-color: rgba(11,91,125,.95); }
   #chat-lines { display: flex; flex-direction: column; gap: calc(var(--u)*2); max-height: calc(var(--u)*150); overflow: hidden; justify-content: flex-end; }
@@ -238,7 +231,7 @@
 </head>
 <body>
 <div id="boot"><canvas id="boot-canvas"></canvas></div>
-<script type="module" id="boot-script" src="js/splash.js?v=muwpta38" data-modules="60"></script>
+<script type="module" id="boot-script" src="js/splash.js?v=muwq4fsj" data-modules="60"></script>
 <canvas id="game" tabindex="-1"></canvas>
 
 <div class="screen hidden" id="loading">
@@ -319,8 +312,6 @@
 
 <div class="screen hidden" id="hud">
   <div id="board"><div id="board-list"></div><div id="streak"><div class="n" id="best-streak">x0</div><div class="l">BEST<br>STREAK</div></div></div>
-  <div class="coins" id="hud-coins"><svg viewBox="0 0 24 24"><ellipse cx="12" cy="13" rx="9" ry="10" fill="#f2a500"/><ellipse cx="12" cy="12" rx="8" ry="9" fill="#ffd23f"/><ellipse cx="9" cy="8" rx="2.5" ry="3.5" fill="#fff6c4"/></svg><span id="hud-coin-n">0</span></div>
-  <div id="feed"></div>
   <div class="glass hidden" id="debug"></div>
   <div id="objective" class="hidden"><div class="scores"><span class="b" id="score-b">0</span><span id="score-sep">·</span><span class="r" id="score-r">0</span></div><div id="obj-bar"><div id="obj-fill"></div></div><div id="obj-text"></div></div>
   <div class="h hidden" id="banner"></div>
@@ -386,7 +377,7 @@
   </div>
 </div>
 
-<script defer src="net-config.js?v=muwpta38"></script>
-<script type="module" src="js/main.js?v=muwpta38"></script>
+<script defer src="net-config.js?v=muwq4fsj"></script>
+<script type="module" src="js/main.js?v=muwq4fsj"></script>
 </body>
 </html>
