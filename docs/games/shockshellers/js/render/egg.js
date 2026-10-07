@@ -5,13 +5,13 @@
 // Other eggs are drawn cheaply, since a full lobby puts eighteen of them on screen: the gun and both
 // mittens are one mesh, the hat is one mesh, and the shell has three levels of detail picked by
 // distance (lod()); far away, the gun and mittens are too small to see and aren't drawn at all.
-import * as THREE from '../../vendor/three/three.module.js?v=muymd6p3';
-import { gunModel, heldGeometry, gunAnchors } from './guns.js?v=muymd6p3';
-import { kitMaterial } from './kit.js?v=muymd6p3';
-import { hatMesh } from './hats.js?v=muymd6p3';
-import { merged } from './models.js?v=muymd6p3';
-import { paintShell, paintCracks } from './shellart.js?v=muymd6p3';
-import { COLORS, sanitizeCosmetics } from '../game/cosmetics.js?v=muymd6p3';
+import * as THREE from '../../vendor/three/three.module.js?v=muymhhti';
+import { gunModel, heldGeometry, gunAnchors } from './guns.js?v=muymhhti';
+import { kitMaterial } from './kit.js?v=muymhhti';
+import { hatMesh } from './hats.js?v=muymhhti';
+import { merged } from './models.js?v=muymhhti';
+import { paintShell, paintCracks } from './shellart.js?v=muymhhti';
+import { COLORS, sanitizeCosmetics } from '../game/cosmetics.js?v=muymhhti';
 
 export const SHELL_COLORS = COLORS;
 export const TEAM_COLORS = [0xbbbbbb, 0x2f86e8, 0xe8473c];
@@ -93,6 +93,14 @@ export class EggAvatar {
     this.stage = -1; this.level = -1;
     // A glossy shell: it catches the sky in a soft highlight like a real egg.
     this.shellMat = new THREE.MeshStandardMaterial({ roughness: 0.34, metalness: 0.0, envMapIntensity: 0.85 });
+    // A warm rim of light around the silhouette (stylised, like a back light on a character), so an
+    // egg always separates from the walls and floor behind it.
+    this.shellMat.onBeforeCompile = sh => {
+      sh.fragmentShader = sh.fragmentShader.replace('#include <opaque_fragment>', `float rimK = pow(1.0 - clamp(dot(normal, normalize(vViewPosition)), 0.0, 1.0), 3.0);
+        outgoingLight += vec3(1.0, 0.93, 0.8) * rimK * 0.32;
+        #include <opaque_fragment>`);
+    };
+    this.shellMat.customProgramCacheKey = () => 'eggRim';
     this.shell = new THREE.Mesh(shellGeometry(0), this.shellMat); this.shell.castShadow = true; this.shell.receiveShadow = true;
     this.body = new THREE.Group(); this.body.add(this.shell); this.group.add(this.body);
     this.hat = hatMesh(c.hat); if (this.hat) { this.hat.position.y = H - 0.04; this.body.add(this.hat); }

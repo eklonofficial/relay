@@ -1,6 +1,6 @@
 // Daily challenges (GDD §22): three a day from a pool, each rerollable once, replaced after 24 h.
 // Progress comes from match events; rewards are Golden Yolks. Stored in the local profile.
-import { PRIMARIES, WEAPONS } from '../sim/tuning.js?v=muymd6p3';
+import { PRIMARIES, WEAPONS } from '../sim/tuning.js?v=muymhhti';
 
 const W = id => WEAPONS[id].name;
 // type: kills | streak | quick (kills within 60 s of spawning) | weapon | damage | condition

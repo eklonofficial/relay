@@ -13,16 +13,47 @@
 // map (the map never moves) instead of every frame, and eggs get a soft blob shadow instead; no
 // muzzle-flash or explosion lights and no sky reflections (each costs every pixel of every lit
 // surface); no bloom or multisampling; fewer particles.
-import * as THREE from '../../vendor/three/three.module.js?v=muymd6p3';
-import { buildWorld } from './world.js?v=muymd6p3';
-import { EggAvatar, TEAM_COLORS } from './egg.js?v=muymd6p3';
-import { Effects } from './fx.js?v=muymd6p3';
-import { ViewModel } from './viewmodel.js?v=muymd6p3';
-import { gunModel } from './guns.js?v=muymd6p3';
-import { Kit, kitMaterial } from './kit.js?v=muymd6p3';
-import { clone, merged } from './models.js?v=muymd6p3';
-import { noiseTexture, WIND, SKY_TINT, worldRelief } from './materials.js?v=muymd6p3';
-import { Post } from './post.js?v=muymd6p3';
+import * as THREE from '../../vendor/three/three.module.js?v=muymhhti';
+import { buildWorld } from './world.js?v=muymhhti';
+import { EggAvatar, TEAM_COLORS } from './egg.js?v=muymhhti';
+import { Effects } from './fx.js?v=muymhhti';
+import { ViewModel } from './viewmodel.js?v=muymhhti';
+import { gunModel } from './guns.js?v=muymhhti';
+import { Kit, kitMaterial } from './kit.js?v=muymhhti';
+import { clone, merged } from './models.js?v=muymhhti';
+import { noiseTexture, WIND, SKY_TINT, worldRelief } from './materials.js?v=muymhhti';
+import { Post } from './post.js?v=muymhhti';
+
+// Atmosphere, for every fogged material at once (three's fog chunks, replaced before anything
+// compiles): the map's distance haze, plus a soft height fog that pools in low ground and thickens
+// with distance, and the haze glows warm towards the sun. It works out the world-space ray from the
+// view matrix (three dot products per vertex), so it costs a few instructions and no new uniforms.
+const FOG_SUN = new THREE.Vector3(-0.42, 0.55, -0.4).normalize();
+THREE.ShaderChunk.fog_pars_vertex = '#ifdef USE_FOG\n varying float vFogDepth; varying vec3 vFogRay;\n#endif';
+THREE.ShaderChunk.fog_vertex = `#ifdef USE_FOG
+  vFogDepth = - mvPosition.z;
+  vFogRay = vec3(dot(viewMatrix[0].xyz, mvPosition.xyz), dot(viewMatrix[1].xyz, mvPosition.xyz), dot(viewMatrix[2].xyz, mvPosition.xyz));
+#endif`;
+THREE.ShaderChunk.fog_pars_fragment = `#ifdef USE_FOG
+  uniform vec3 fogColor; varying float vFogDepth; varying vec3 vFogRay;
+  #ifdef FOG_EXP2
+    uniform float fogDensity;
+  #else
+    uniform float fogNear; uniform float fogFar;
+  #endif
+#endif`;
+THREE.ShaderChunk.fog_fragment = `#ifdef USE_FOG
+  #ifdef FOG_EXP2
+    float fogFactor = 1.0 - exp( - fogDensity * fogDensity * vFogDepth * vFogDepth );
+  #else
+    float fogFactor = smoothstep( fogNear, fogFar, vFogDepth );
+  #endif
+  float fogDist = length( vFogRay ); vec3 fogDir = vFogRay / max( fogDist, 1e-3 );
+  float fogLow = exp( - max( cameraPosition.y + vFogRay.y - 0.5, 0.0 ) * 0.42 );
+  fogFactor = clamp( max( fogFactor, fogLow * 0.34 * ( 1.0 - exp( - fogDist * 0.03 ) ) ), 0.0, 1.0 );
+  float fogSun = pow( max( dot( fogDir, vec3(${FOG_SUN.x.toFixed(4)}, ${FOG_SUN.y.toFixed(4)}, ${FOG_SUN.z.toFixed(4)}) ), 0.0 ), 5.0 );
+  gl_FragColor.rgb = mix( gl_FragColor.rgb, fogColor * ( 1.0 + fogSun * vec3( 0.34, 0.17, 0.0 ) ), fogFactor );
+#endif`;
 
 // Sky palettes: zenith, ground below the horizon, sun, cloud light and shade, cloud cover (0 = none).
 // The horizon colour is the map's fog colour, so distant walls melt into the sky.
