@@ -3,7 +3,7 @@
 // and inside the pyramid a ring of tunnels around a central chamber, entered from each face: the
 // covered route for shotguns and SMGs. Ruined towers with ladders in the jungle corners. Quartered,
 // so every face plays the same.
-import { Builder, MAT } from './dsl.js?v=muyll3yi';
+import { Builder, MAT } from './dsl.js?v=muylpzs7';
 
 export default function eggTemple() {
   const N = 40, b = new Builder(N, 14, N);
