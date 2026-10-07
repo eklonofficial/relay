@@ -4,14 +4,22 @@
 //
 // Players are humans or bots alike: each tick every player supplies { ctrl, yaw, pitch } (bots
 // through the same input struct, so they obey identical movement, fire-rate and spread rules).
-import { PLAYER, WEAPONS, MELEE, GRENADE, PICKUPS, STREAKS, DAMAGE, DEFAULT_OPTIONS, PRIMARIES, CTRL, TICK_HZ } from './tuning.js?v=mux1ipx3';
-import { makeBody, stepBody, movementInput, forward } from './movement.js?v=mux1ipx3';
-import { makeHands, stepHands, readyHands, refill, HandEvents, weaponOf, slotOf, grenadeLaunch, lcg } from './combat.js?v=mux1ipx3';
-import { makeMode } from './modes.js?v=mux1ipx3';
-import { HIT } from '../maps/grid.js?v=mux1ipx3';
+import { PLAYER, WEAPONS, MELEE, GRENADE, PICKUPS, STREAKS, DAMAGE, DEFAULT_OPTIONS, PRIMARIES, CTRL, TICK_HZ } from './tuning.js?v=muyhausx';
+import { makeBody, stepBody, movementInput, forward } from './movement.js?v=muyhausx';
+import { makeHands, stepHands, readyHands, refill, HandEvents, weaponOf, slotOf, grenadeLaunch, lcg } from './combat.js?v=muyhausx';
+import { makeMode } from './modes.js?v=muyhausx';
+import { HIT } from '../maps/grid.js?v=muyhausx';
 
 const HISTORY = 256;
 // Hit-angle damage (GDD §8.2): s = 0.2 + 0.8·dot(−d, n); mult = s^(4 + s^4).
+// Bullet damage multiplier after flying `d` units (weapons with a dropoff; others 1).
+export function dropoff(w, d) {
+  if (!w.dropoff) return 1;
+  const [a, b, m] = w.dropoff;
+  return d <= a ? 1 : d >= b ? m : 1 - (1 - m) * (d - a) / (b - a);
+}
+// A Yolkzooka rocket's direct-hit damage after flying `d` units: weaker point blank, full far out.
+export function rocketDamage(w, d) { const k = Math.max(0, Math.min(1, d / w.rampDist)); return w.direct[0] + (w.direct[1] - w.direct[0]) * k; }
 export function angleMultiplier(dot) {
   const s = DAMAGE.angleBase + (1 - DAMAGE.angleBase) * Math.max(0, Math.min(1, dot));
   return Math.pow(s, DAMAGE.angleExp + Math.pow(s, 4));
@@ -205,6 +213,10 @@ export class Match {
     const w = WEAPONS[s.weapon];
     if (w.rocket) {
       this.rockets.push({ id: this.nextObj++, owner: p.id, team: p.team, x: s.x, y: s.y, z: s.z, dx: s.dx, dy: s.dy, dz: s.dz, travelled: 0, lag: p.lag });
+      // The launch shoves the shooter back a little (their aim stays put).
+      const b = p.body, l = Math.hypot(s.dx, s.dz) || 1;
+      b.kx = (b.kx || 0) - s.dx / l * w.recoilPush * Math.hypot(s.dx, s.dz); b.kz = (b.kz || 0) - s.dz / l * w.recoilPush * Math.hypot(s.dx, s.dz);
+      if (s.dy < -0.3 && b.onGround === 0) b.vy = Math.max(b.vy, -s.dy * w.recoilPush * 0.4);
       this.emit({ t: 'rocket', id: p.id, x: s.x, y: s.y, z: s.z, dx: s.dx, dy: s.dy, dz: s.dz });
       return;
     }
@@ -212,7 +224,7 @@ export class Match {
     let range = w.range, wall = null;
     if (this.grid.raycast(s.x, s.y, s.z, s.dx, s.dy, s.dz, w.range, HIT)) { range = HIT.t; wall = { x: HIT.x, y: HIT.y, z: HIT.z, nx: HIT.nx, ny: HIT.ny, nz: HIT.nz }; }
     const mult = p.power.shellBreaker > 0 ? STREAKS.shellBreaker.bulletMult : 1;
-    const bullet = { owner: p.id, team: p.team, x: s.x, y: s.y, z: s.z, dx: s.dx, dy: s.dy, dz: s.dz, left: range, w: s.weapon, mult, wall, lag: p.lag, tracer: s.tracer };
+    const bullet = { owner: p.id, team: p.team, x: s.x, y: s.y, z: s.z, dx: s.dx, dy: s.dy, dz: s.dz, left: range, flown: 0, w: s.weapon, mult, wall, lag: p.lag, tracer: s.tracer };
     this.emit({ t: 'shot', id: p.id, w: s.weapon, x: s.x, y: s.y, z: s.z, dx: s.dx, dy: s.dy, dz: s.dz, len: range, tracer: s.tracer, wall });
     this.bullets.push(bullet);
     this.moveBullet(bullet); // it flies on its first tick
@@ -237,13 +249,13 @@ export class Match {
       const hx = bl.x + bl.dx * bestT, hy = bl.y + bl.dy * bestT, hz = bl.z + bl.dz * bestT;
       const nx = (hx - best.cx) / best.r, ny = (hy - best.cy) / best.r, nz = (hz - best.cz) / best.r;
       const dot = -(bl.dx * nx + bl.dy * ny + bl.dz * nz);
-      const dmg = w.dmg * angleMultiplier(dot) * bl.mult * this.options.damage;
+      const dmg = w.dmg * Math.max(w.angleMin || 0, angleMultiplier(dot)) * bl.mult * dropoff(w, bl.flown + bestT) * this.options.damage;
       const shooter = this.players.get(bl.owner);
       this.damage(best.q, dmg, shooter, bl.w, { x: hx, y: hy, z: hz, dx: bl.dx, dy: bl.dy, dz: bl.dz });
       bl.dead = true;
       return true;
     }
-    bl.x += bl.dx * seg; bl.y += bl.dy * seg; bl.z += bl.dz * seg; bl.left -= seg;
+    bl.x += bl.dx * seg; bl.y += bl.dy * seg; bl.z += bl.dz * seg; bl.left -= seg; bl.flown += seg;
     if (bl.left <= 1e-6) { if (bl.wall) this.emit({ t: 'impact', ...bl.wall, w: bl.w, by: bl.owner }); return true; }
     return false;
   }
@@ -266,25 +278,24 @@ export class Match {
       const t = Math.min(hitT, wallT);
       if (t <= seg) {
         const x = r.x + r.dx * t, y = r.y + r.dy * t, z = r.z + r.dz * t;
-        const armed = r.travelled + t >= w.minRange;
-        const owner = this.players.get(r.owner);
-        if (!armed) {
-          if (hitT <= wallT && victim) this.damage(victim, w.dudDmg * this.options.damage, owner, 'yolkzooka', { x, y, z, dx: r.dx, dy: r.dy, dz: r.dz });
-          this.emit({ t: 'dud', x, y, z });
-        } else {
-          if (hitT <= wallT && victim) this.damage(victim, w.directDmg * this.options.damage, owner, 'yolkzooka', { x, y, z, dx: r.dx, dy: r.dy, dz: r.dz });
-          const off = wallT < hitT ? 0.05 : 0;
-          this.explode(x + HIT.nx * off, y + HIT.ny * off, z + HIT.nz * off, w.dmg, w.radius, owner, 'yolkzooka', victim, w.falloff);
+        const owner = this.players.get(r.owner), direct = rocketDamage(w, r.travelled + t);
+        const direct_ = hitT <= wallT && victim;
+        if (direct_) {
+          this.damage(victim, direct * this.options.damage, owner, 'yolkzooka', { x, y, z, dx: r.dx, dy: r.dy, dz: r.dz });
+          if (victim.alive) this.knock(victim, r.dx, r.dz, w.knock, w.lift);
         }
+        const off = wallT < hitT ? 0.05 : 0;
+        this.explode(x + HIT.nx * off, y + HIT.ny * off, z + HIT.nz * off, direct * w.splash, w.radius, owner, 'yolkzooka', direct_ ? victim : null, w.falloff, w);
         this.rockets.splice(i, 1); continue;
       }
       r.x += r.dx * seg; r.y += r.dy * seg; r.z += r.dz * seg; r.travelled += seg;
-      if (r.travelled >= w.range - 1e-6) { this.explode(r.x, r.y, r.z, w.dmg, w.radius, this.players.get(r.owner), 'yolkzooka', null, w.falloff); this.rockets.splice(i, 1); }
+      if (r.travelled >= w.range - 1e-6) { this.explode(r.x, r.y, r.z, rocketDamage(w, r.travelled) * w.splash, w.radius, this.players.get(r.owner), 'yolkzooka', null, w.falloff, w); this.rockets.splice(i, 1); }
     }
   }
-  // Falloff to 0 at the edge (linear, or gentler with falloff > 1: the Yolkzooka's blast stays strong
-  // further out); walls shield; self-damage yes, teammates no.
-  explode(x, y, z, dmg, radius, owner, weapon, skip, falloff = 1) {
+  // Falloff to 0 at the edge (linear, or gentler with falloff > 1); walls shield; teammates are spared.
+  // Self-damage yes, unless the blast has a push (`push`: the Yolkzooka): then the shooter is launched
+  // instead of hurt (a rocket jump), and eggs it doesn't crack are thrown away from it.
+  explode(x, y, z, dmg, radius, owner, weapon, skip, falloff = 1, push = null) {
     this.emit({ t: 'boom', x, y, z, r: radius, w: weapon, team: owner ? owner.team : 0 });
     const victims = [];
     for (const q of this.players.values()) {
@@ -294,11 +305,29 @@ export class Match {
       const d = Math.hypot(cx - x, cy - y, cz - z);
       if (d >= radius) continue;
       if (!this.grid.visible(x, y, z, cx, cy, cz)) continue;
-      const amount = dmg * (1 - Math.pow(d / radius, falloff)) * this.options.damage;
+      const k = 1 - Math.pow(d / radius, falloff), l = d || 1;
+      if (push && q === owner) { this.launch(q, (cx - x) / l, (cy - y) / l, (cz - z) / l, push.selfKnock * (1 - d / radius) + 0.05, push.selfLift); continue; }
       victims.push(q);
-      this.damage(q, amount, owner, weapon, { x, y, z, dx: cx - x, dy: cy - y, dz: cz - z, splash: true });
+      this.damage(q, dmg * k * this.options.damage, owner, weapon, { x, y, z, dx: cx - x, dy: cy - y, dz: cz - z, splash: true });
+      if (push && q.alive) this.knock(q, cx - x, cz - z, push.knock * (1 - d / radius) + 0.06, push.lift * (1 - d / radius * 0.5));
     }
     return victims;
+  }
+  // Throw an egg hit by a blast: sideways along (dx, dz) (knockback that carries through the air) and
+  // `lift` up: a moderate pop into the air and a shove to the side.
+  knock(q, dx, dz, strength, lift) {
+    const b = q.body, l = Math.hypot(dx, dz);
+    if (l > 1e-3) { b.kx = (b.kx || 0) + dx / l * strength; b.kz = (b.kz || 0) + dz / l * strength; }
+    if (lift > 0) { b.vy = Math.min(PLAYER.maxStep, Math.max(b.vy, 0) + lift); b.onGround = 0; b.climbing = null; }
+    this.emit({ t: 'knock', id: q.id });
+  }
+  // Launch the shooter off their own blast (a rocket jump): along (nx, ny, nz), mostly upward when it
+  // went off underfoot, never hurting them.
+  launch(q, nx, ny, nz, strength, lift) {
+    const b = q.body;
+    b.kx = (b.kx || 0) + nx * strength; b.kz = (b.kz || 0) + nz * strength;
+    b.vy = Math.min(PLAYER.maxStep, Math.max(b.vy, 0) + Math.max(0, ny) * strength + lift); b.onGround = 0; b.climbing = null;
+    this.emit({ t: 'knock', id: q.id });
   }
 
   // ---------------- melee & grenades ----------------

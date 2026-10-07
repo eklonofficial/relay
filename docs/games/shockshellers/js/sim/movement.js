@@ -3,12 +3,12 @@
 //
 // Conventions: position is the egg's feet origin; its collision sphere (r 0.31) is centred 0.31 above.
 // Yaw 0 looks towards -z, positive yaw turns left (three.js camera convention); pitch > 0 looks up.
-import { PLAYER, CTRL } from './tuning.js?v=mux1ipx3';
+import { PLAYER, CTRL } from './tuning.js?v=muyhausx';
 
 const R = PLAYER.collideRadius;
 
 export function makeBody(x = 0, y = 0, z = 0) {
-  return { x, y, z, vx: 0, vy: 0, vz: 0, yaw: 0, pitch: 0, onGround: 0, jumpBuf: 0, climbing: null, prevCtrl: 0, padCooldown: 0 };
+  return { x, y, z, vx: 0, vy: 0, vz: 0, kx: 0, kz: 0, yaw: 0, pitch: 0, onGround: 0, jumpBuf: 0, climbing: null, prevCtrl: 0, padCooldown: 0 };
 }
 
 export const forward = (yaw, pitch = 0, out = [0, 0, 0]) => {
@@ -111,6 +111,13 @@ export function stepBody(grid, b, ctrl, opts = {}) {
   }
   if (!b.climbing) {
     b.vx += wx * accel; b.vz += wz * accel;
+    // Knockback (a blast): its own velocity that outlasts ground friction in the air, so the egg is
+    // thrown a few units, then dies off quickly once it lands.
+    if (b.kx || b.kz) {
+      b.vx += b.kx * 0.36; b.vz += b.kz * 0.36;
+      const keep = b.onGround > 0 ? 0.7 : 0.93; b.kx *= keep; b.kz *= keep;
+      if (Math.abs(b.kx) + Math.abs(b.kz) < 1e-3) b.kx = b.kz = 0;
+    }
     b.vy -= gravity;
     if (b.vy < -PLAYER.terminalFall) b.vy = -PLAYER.terminalFall;
     // Jump (with coyote time and the jump buffer).

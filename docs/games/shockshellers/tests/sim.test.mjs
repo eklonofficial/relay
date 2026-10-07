@@ -193,9 +193,8 @@ test('bullets are projectiles: they take time to arrive and vanish at max range'
   Object.assign(q.b.body, { x: 15, y: 1, z: 20 - 9 });
   q.m.setInput(1, CTRL.fire, 0, 0); q.m.step();
   assert.equal(q.b.alive, false);
-  const p = duel('peck9mm');
-  Object.assign(p.b.body, { x: 15, y: 1, z: 2 }); // 18 units > Peck range 15
-  p.a.hands.cur = 0;
+  const p = duel('yolk47');
+  Object.assign(p.a.body, { z: 28 }); Object.assign(p.b.body, { x: 15, y: 1, z: 2 }); // 26 units > Yolk-47 range 20
   p.m.setInput(1, CTRL.fire, 0, 0); for (let i = 0; i < 30; i++) p.m.step();
   assert.equal(p.b.hp, 100);
 });
@@ -253,4 +252,51 @@ test('Hen House: an egg walks up the stairwell to the gallery (headroom through 
   Object.assign(p.body, { x: 19.9, y: 1, z: 11.5, vx: 0, vy: 0, vz: 0 }); p.alive = true; p.spawnShield = 1e9;
   for (let t = 0; t < 120; t++) { m.setInput(1, CTRL.up, 0, 0); m.step(); }
   assert.ok(p.body.y >= 3.9 && p.body.z < 7, `stuck at ${p.body.x.toFixed(2)},${p.body.y.toFixed(2)},${p.body.z.toFixed(2)}`);
+});
+
+// A long flat floor for range checks: shooter at z 66 looking down -z, target `dist` in front.
+function range(primary, dist, seed = 7) {
+  const b = new Builder(70, 12, 70); b.fill(0, 0, 0, 69, 0, 69, 'block', MAT.stone); b.spawn(3, 1, 3);
+  const m = new Match(b.finish({ id: 'r', name: 'R', maxPlayers: 8, modes: { ffa: true } }), { seed });
+  const a = m.addPlayer({ id: 1, name: 'A', primary }), t = m.addPlayer({ id: 2, name: 'B' });
+  m.spawn(a); m.spawn(t); Object.assign(a.body, { x: 35, y: 1, z: 66 }); Object.assign(t.body, { x: 35, y: 1, z: 66 - dist }); a.spawnShield = t.spawnShield = 0;
+  return { m, a, t };
+}
+const fireOnce = (m, ticks = 40, pitch = 0) => { m.setInput(1, CTRL.fire, 0, pitch); m.step(); for (let i = 0; i < ticks; i++) { m.setInput(1, 0, 0, pitch); m.step(); } };
+const avgDamage = (primary, dist, n = 12) => { let s = 0; for (let k = 1; k <= n; k++) { const { m, t } = range(primary, dist, k); t.hp = 1e4; fireOnce(m); s += 1e4 - t.hp; } return s / n; };
+
+test('Double Yolker: cracks an egg point blank, but fades fast with distance (no two-shots at range)', () => {
+  assert.ok(avgDamage('doubleYolker', 1.5) >= 100, 'one shot point blank');
+  assert.ok(avgDamage('doubleYolker', 3) >= 100, 'one shot at 3 units');
+  assert.ok(avgDamage('doubleYolker', 6) < 34, 'three or more shots at 6 units');
+  assert.ok(avgDamage('doubleYolker', 8) < 12, 'useless at 8 units');
+});
+
+test('Yolkzooka: hits harder the further it flies; blasts throw eggs; rocket jumps never hurt the shooter', () => {
+  const near = avgDamage('yolkzooka', 3, 1), far = avgDamage('yolkzooka', 25, 1);
+  assert.ok(near < 70 && far > 100, `direct hit ${near} close, ${far} far`);
+  // A rocket into the floor in front of an egg: splash (less than a direct hit) and a moderate throw.
+  const k = range('yolkzooka', 4); const x0 = k.t.body.x, z0 = k.t.body.z; let up = 0;
+  const pitch = -Math.atan2(0.4, 3);
+  k.m.setInput(1, CTRL.fire, 0, pitch); k.m.step(); for (let i = 0; i < 80; i++) { k.m.setInput(1, 0, 0, pitch); k.m.step(); up = Math.max(up, k.t.body.y - 1); }
+  const thrown = Math.hypot(k.t.body.x - x0, k.t.body.z - z0);
+  assert.ok(k.t.alive && k.t.hp < 100 && k.t.hp > 50, `splash leaves ${k.t.hp}`);
+  assert.ok(thrown > 1.5 && thrown < 6 && up > 0.2 && up < 1.5, `thrown ${thrown} sideways, ${up} up`);
+  // Rocket jump: jump, fire at your feet: launched well above a jump, unhurt.
+  const j = range('yolkzooka', 30); let peak = 0;
+  j.m.setInput(1, CTRL.jump, 0, 0); j.m.step(); for (let i = 0; i < 3; i++) { j.m.setInput(1, 0, 0, 0); j.m.step(); }
+  j.m.setInput(1, CTRL.fire, 0, -1.5); j.m.step(); for (let i = 0; i < 60; i++) { j.m.setInput(1, 0, 0, -1.5); j.m.step(); peak = Math.max(peak, j.a.body.y - 1); }
+  assert.equal(j.a.hp, 100); assert.ok(peak > 2.5, `rocket jump peak ${peak}`);
+  // Firing shoves the shooter back a little; their aim doesn't move.
+  const r = range('yolkzooka', 30), z0r = r.a.body.z; fireOnce(r.m, 30);
+  assert.ok(r.a.body.z - z0r > 0.2 && r.a.body.z - z0r < 1); assert.equal(r.a.body.yaw, 0); assert.equal(r.a.body.pitch, 0);
+});
+
+test('Peck 9mm: four or five hits crack an egg at any range', () => {
+  for (const d of [3, 30, 50]) {
+    const { m, a, t } = range('peck9mm', d); a.hands.cur = 1;
+    let hits = 0, hp = t.hp;
+    for (let n = 0; n < 40 && t.alive; n++) { fireOnce(m, 12); if (t.hp < hp || !t.alive) hits++; hp = t.hp; a.hands.slots[1].mag = 15; }
+    assert.ok(!t.alive && hits >= 4 && hits <= 5, `${d} units: ${hits} hits, alive ${t.alive}`);
+  }
 });
