@@ -4,11 +4,11 @@
 //
 // Players are humans or bots alike: each tick every player supplies { ctrl, yaw, pitch } (bots
 // through the same input struct, so they obey identical movement, fire-rate and spread rules).
-import { PLAYER, WEAPONS, MELEE, GRENADE, PICKUPS, STREAKS, DAMAGE, DEFAULT_OPTIONS, PRIMARIES, CTRL, TICK_HZ } from './tuning.js?v=muyhausx';
-import { makeBody, stepBody, movementInput, forward } from './movement.js?v=muyhausx';
-import { makeHands, stepHands, readyHands, refill, HandEvents, weaponOf, slotOf, grenadeLaunch, lcg } from './combat.js?v=muyhausx';
-import { makeMode } from './modes.js?v=muyhausx';
-import { HIT } from '../maps/grid.js?v=muyhausx';
+import { PLAYER, WEAPONS, MELEE, GRENADE, PICKUPS, STREAKS, DAMAGE, DEFAULT_OPTIONS, PRIMARIES, CTRL, TICK_HZ, ROUND } from './tuning.js?v=muyhx1yl';
+import { makeBody, stepBody, movementInput, forward } from './movement.js?v=muyhx1yl';
+import { makeHands, stepHands, readyHands, refill, HandEvents, weaponOf, slotOf, grenadeLaunch, lcg } from './combat.js?v=muyhx1yl';
+import { makeMode } from './modes.js?v=muyhx1yl';
+import { HIT } from '../maps/grid.js?v=muyhx1yl';
 
 const HISTORY = 256;
 // Hit-angle damage (GDD §8.2): s = 0.2 + 0.8·dot(−d, n); mult = s^(4 + s^4).
@@ -48,6 +48,9 @@ export class Match {
     this.modeId = mode;
     this.mode = makeMode(mode, this);
     this.paused = false;
+    // The round clock (no rounds without a time limit) and, once it's over, the results on the podium.
+    this.roundEnds = this.options.timeLimit > 0 ? Math.round(this.options.timeLimit * TICK_HZ) : 0;
+    this.over = null;
   }
   rnd() { this.seed = lcg(this.seed); return this.seed / 233280; }
   emit(e) { e.tick = this.tick; this.events.push(e); return e; }
@@ -63,7 +66,7 @@ export class Match {
       power: { shellBreaker: 0, doubleYolks: 0, quailEgg: 0 },
       input: { ctrl: 0, yaw: 0, pitch: 0 }, prevCtrl: 0, lag: 0,
       hist: new Float32Array(HISTORY * 4), // x, y, z, alive per tick
-      killedBy: null, deadAt: -1,
+      killedBy: null, deadAt: -1, obj: 0,
     };
     p.hands = makeHands(primary, (this.seed + id * 7919) % 233280, this.options.disabled);
     if (!team) p.team = this.mode.assignTeam(p);
@@ -139,6 +142,7 @@ export class Match {
   // ---------------- the tick ----------------
   step() {
     if (this.paused) { this.tick++; return; }
+    if (this.over) { this.tick++; return; }   // the podium: everything holds still
     for (const p of this.players.values()) {
       if (p.pausedAt >= 0 && p.alive && this.tick - p.pausedAt >= PLAYER.pauseGraceTicks) { p.alive = false; this.emit({ t: 'despawn', id: p.id }); }
       if (p.alive) this.stepPlayer(p, false);
@@ -150,6 +154,37 @@ export class Match {
     this.stepItems();
     this.mode.step();
     this.tick++;
+    if (this.roundEnds && this.tick >= this.roundEnds) this.endRound();
+  }
+  // Seconds left in the round (null without rounds).
+  timeLeft() { return this.roundEnds ? Math.max(0, (this.roundEnds - this.tick) / TICK_HZ) : null; }
+
+  // ---------------- rounds ----------------
+  // Who won and how everyone did. Free for all: the top three players. Teams: the winning team (the
+  // mode's score, then the players' total score on a tie) and its top three. obj: seconds spent on the
+  // objective (carrying the spatula, standing in the roost).
+  roundResults(team = 0) {
+    const mode = this.mode;
+    const rows = [...this.players.values()].map(p => ({ id: p.id, name: p.name, team: p.team, bot: !!p.bot, score: p.score, kills: p.kills, deaths: p.deaths, best: p.bestStreak, obj: Math.round((p.obj || 0) / TICK_HZ), look: p.cosmetics || null, primary: p.primary }));
+    rows.sort((a, b) => b.score - a.score || b.kills - a.kills || a.deaths - b.deaths || a.id - b.id);
+    let scores = null;
+    if (mode.teams) {
+      scores = mode.score.slice(1, 3);
+      if (!team) {
+        if (scores[0] !== scores[1]) team = scores[0] > scores[1] ? 1 : 2;
+        else { const tot = [0, 0, 0]; for (const r of rows) tot[r.team] += r.score; team = tot[1] >= tot[2] ? 1 : 2; }
+      }
+    }
+    const podium = (team ? rows.filter(r => r.team === team) : rows).slice(0, 3).map(r => r.id);
+    return { mode: this.modeId, team, scores, podium, rows, obj: mode.objLabel || null };
+  }
+  endRound(team = 0) {
+    if (this.over) return;
+    const r = this.roundResults(team);
+    this.over = { until: this.tick + Math.round(ROUND.podiumSeconds * TICK_HZ), results: r };
+    this.bullets.length = 0; this.rockets.length = 0; this.grenades.length = 0;
+    for (const p of this.players.values()) p.input.ctrl = 0;
+    this.emit({ t: 'roundEnd', ...r, until: this.over.until });
   }
   // One player's tick: movement, hands and what they cause. A guest's prediction runs this for its own
   // egg with predict = true: everything it sees immediately (its movement, its shots leaving the gun)
@@ -334,13 +369,15 @@ export class Match {
   melee(p) {
     const b = p.body, f = forward(b.yaw, b.pitch);
     const ox = b.x - f[0] * MELEE.back, oy = b.y + PLAYER.eyeY - f[1] * MELEE.back, oz = b.z - f[2] * MELEE.back;
-    const dmg = (p.power.shellBreaker > 0 ? MELEE.shellBreakerDmg : MELEE.dmg) * this.options.damage;
     let any = false;
     for (const q of this.players.values()) {
       if (q === p || !q.alive || !this.enemies(p, q)) continue;
       const pos = this.past(q, p.lag, POS); if (!pos[3]) continue;
       // The ray starting inside the target misses (keep the quirk, GDD §10).
       const t = raySphere(ox, oy, oz, f[0], f[1], f[2], pos[0], pos[1] + this.hitY(q), pos[2], MELEE.radius);
+      // Hardest point blank, weaker at the end of the reach.
+      const k = Math.max(0, Math.min(1, (t - MELEE.close) / (MELEE.reach - MELEE.close)));
+      const dmg = (p.power.shellBreaker > 0 ? MELEE.shellBreakerDmg : MELEE.dmg + (MELEE.farDmg - MELEE.dmg) * k) * this.options.damage;
       if (t > 0 && t <= MELEE.reach) { any = true; this.damage(q, dmg, p, 'melee', { x: ox + f[0] * t, y: oy + f[1] * t, z: oz + f[2] * t, dx: f[0], dy: f[1], dz: f[2] }); }
     }
     this.emit({ t: 'meleeHit', id: p.id, hit: any });

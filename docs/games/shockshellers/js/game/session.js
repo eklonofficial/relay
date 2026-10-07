@@ -1,14 +1,14 @@
 // A match as this browser sees it. The host's session owns the real Match (and its bots); a guest's
 // session mirrors the host's snapshots and predicts only its own egg (net/guest.js). Either way the
 // view reads players, objects and events from here.
-import { Match } from '../sim/match.js?v=muyhausx';
-import { NavGraph } from '../bots/nav.js?v=muyhausx';
-import { BotManager, BOT_NAMES } from '../bots/bot.js?v=muyhausx';
-import { getMap } from '../maps/index.js?v=muyhausx';
-import { TICK, PRIMARIES } from '../sim/tuning.js?v=muyhausx';
-import { Net, cleanName } from '../net/net.js?v=muyhausx';
-import { encodePlayer, ownState, rosterEntry, sendable, trimEvent } from '../net/protocol.js?v=muyhausx';
-import { sanitizeCosmetics, botCosmetics } from './cosmetics.js?v=muyhausx';
+import { Match } from '../sim/match.js?v=muyhx1yl';
+import { NavGraph } from '../bots/nav.js?v=muyhx1yl';
+import { BotManager, BOT_NAMES } from '../bots/bot.js?v=muyhx1yl';
+import { getMap, mapDef, pickPublicMap } from '../maps/index.js?v=muyhx1yl';
+import { TICK, PRIMARIES, ROUND } from '../sim/tuning.js?v=muyhx1yl';
+import { Net, cleanName } from '../net/net.js?v=muyhx1yl';
+import { encodePlayer, ownState, rosterEntry, sendable, trimEvent } from '../net/protocol.js?v=muyhx1yl';
+import { sanitizeCosmetics, botCosmetics } from './cosmetics.js?v=muyhx1yl';
 export { sanitizeCosmetics };
 
 const navCache = new Map();
@@ -18,19 +18,43 @@ export class HostSession {
   // cfg: { map, mode, options, bots (target total players), difficulty, name, primary, cosmetics, private }
   constructor(cfg) {
     this.cfg = cfg; this.host = true;
-    this.mapId = cfg.map; this.map = getMap(cfg.map);
-    const seed = (Math.random() * 1e9) | 0;
-    this.match = new Match(this.map, { mode: cfg.mode, options: { ...cfg.options, private: !!cfg.private }, seed });
-    this.nav = navFor(cfg.map, this.map);
-    this.bots = new BotManager(this.match, this.nav, seed ^ 0x5bd1e995);
+    this.mapId = cfg.map; this.map = getMap(cfg.map); this.recent = [cfg.map]; this.round = 1;
+    // Every game here plays in rounds (a time limit, the podium, then the next map).
+    this.newMatch({ timeLimit: ROUND.seconds, ...cfg.options, private: !!cfg.private });
     this.myId = 1; this.nextId = 2;
     this.me = this.match.addPlayer({ id: 1, name: cfg.name, primary: cfg.primary, cosmetics: sanitizeCosmetics(cfg.cosmetics) });
     this.usedNames = new Set([cfg.name.toLowerCase()]);
-    this.bots.onChat = (id, msg) => { const p = this.match.players.get(id); if (!p) return; this.onChat?.(`${p.name}: ${msg}`, '#fff'); this.net?.broadcast({ t: 'chat', id, msg }); };
     this.fillBots();
     this.acc = 0; this.prev = new Map();
     this.guests = new Map(); // player id → { queue: [[frame, ctrl, yaw, pitch]], frame, rtt }
     this.outbox = []; this.snapT = 0;
+  }
+  // A fresh Match (and its bots' brain) on this.map.
+  newMatch(options) {
+    const seed = (Math.random() * 1e9) | 0;
+    this.match = new Match(this.map, { mode: this.cfg.mode, options, seed });
+    this.nav = navFor(this.mapId, this.map);
+    this.bots = new BotManager(this.match, this.nav, seed ^ 0x5bd1e995);
+    this.bots.onChat = (id, msg) => { const p = this.match.players.get(id); if (!p) return; this.onChat?.(`${p.name}: ${msg}`, '#fff'); this.net?.broadcast({ t: 'chat', id, msg }); };
+  }
+  // The podium is over: the next round on the map picked when the last one ended. Everyone carries
+  // over (scores reset; teams kept, bots keep their names and skill); guests are told to load it.
+  nextRound() {
+    const old = this.match, oldBots = this.bots;
+    this.mapId = this.nextMap || pickPublicMap(old.modeId, Math.random, this.recent.slice(-4));
+    this.recent = [...this.recent.filter(id => id !== this.mapId), this.mapId].slice(-6);
+    this.map = getMap(this.mapId); this.nextMap = null; this.round++;
+    const { ...options } = old.options;
+    this.newMatch(options);
+    for (const p of old.players.values()) {
+      const q = this.match.addPlayer({ id: p.id, name: p.name, bot: p.bot, primary: p.nextPrimary || p.primary, cosmetics: p.cosmetics, team: p.team });
+      if (p.bot) this.bots.add(q, oldBots.bots.get(p.id)?.skill ?? (this.cfg.difficulty || 'normal'));
+    }
+    this.me = this.match.players.get(this.myId);
+    this.prev.clear(); this.acc = 0; this.evSeen = 0; this.outbox.length = 0;
+    for (const g of this.guests.values()) g.queue.length = 0;
+    this.net?.broadcast({ t: 'round', map: this.mapId, mode: this.match.modeId, options: this.match.options, code: this.code, tick: this.match.tick, roster: [...this.match.players.values()].map(rosterEntry), host: this.myId, round: this.round });
+    this.onNewRound?.();
   }
   // ---- actions (the same API a guest session offers) ----
   respawn() { return this.match.requestRespawn(this.myId); }
@@ -56,7 +80,7 @@ export class HostSession {
     if (!p) return { reason: 'This game is full.' };
     this.guests.set(p.id, { queue: [], frame: -1, rtt: 100 });
     this.onChat?.(`${p.name} joined the game`, '#ffd23f');
-    return { id: p.id, name: n, welcome: { map: this.mapId, mode: this.match.modeId, options: this.match.options, code: this.code, tick: this.match.tick, roster: [...this.match.players.values()].map(rosterEntry), host: this.myId } };
+    return { id: p.id, name: n, welcome: { map: this.mapId, mode: this.match.modeId, options: this.match.options, code: this.code, tick: this.match.tick, roster: [...this.match.players.values()].map(rosterEntry), host: this.myId, over: this.match.over } };
   }
   onGuestMessage(m, id) {
     const g = this.guests.get(id), p = this.match.players.get(id); if (!g || !p) return;
@@ -153,10 +177,13 @@ export class HostSession {
       this.match.step();
       // Everything since the last tick, including joins/leaves that happened between ticks.
       const fresh = this.match.events.slice(this.evSeen || 0); this.evSeen = this.match.events.length;
+      // A round just ended: pick the next map now, so the podium can say where we're going.
+      for (const e of fresh) if (e.t === 'roundEnd') { this.nextMap = pickPublicMap(this.match.modeId, Math.random, this.recent.slice(-4)); e.next = this.nextMap; e.nextName = mapDef(this.nextMap).name; }
       this.bots.events(fresh);
       if (this.net) this.outbox.push(...fresh);
       if (++this.snapT >= 2) { this.snapT = 0; this.snapshot(); }
       n++;
+      if (this.match.over && this.match.tick >= this.match.over.until) { this.snapshot(); this.nextRound(); break; }
     }
     return n;
   }

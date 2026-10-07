@@ -10,9 +10,9 @@
 // Reloads are keyframed per kind of gun (magazine swap with the left mitten, break-open shotgun,
 // bolt-action round, rocket into the tube; a reload from empty adds the charging handle or slide).
 // Spent brass flies out of the ejection port; the muzzle flash is a star plus two crossed flames.
-import * as THREE from '../../vendor/three/three.module.js?v=muyhausx';
-import { gunModel, LOADED_ONLY } from './guns.js?v=muyhausx';
-import { clone } from './models.js?v=muyhausx';
+import * as THREE from '../../vendor/three/three.module.js?v=muyhx1yl';
+import { gunModel, LOADED_ONLY } from './guns.js?v=muyhx1yl';
+import { clone } from './models.js?v=muyhx1yl';
 
 // Hip hold per gun: where the grip anchor sits in camera space (metres). The bore is then turned to
 // meet the view axis CONVERGE metres out, so every gun points where the crosshair does.
@@ -103,6 +103,23 @@ function smokeTexture() {
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
 }
 
+// The melee swoosh: a flat arc ribbon in front of the camera, fading from its tail to its head.
+function swooshMesh() {
+  const c = new OffscreenCanvas(128, 16), x = c.getContext('2d');
+  const g = x.createLinearGradient(0, 0, 128, 0); g.addColorStop(0, 'rgba(255,255,255,0)'); g.addColorStop(0.8, 'rgba(255,250,235,0.7)'); g.addColorStop(1, 'rgba(255,255,255,0.95)');
+  x.fillStyle = g; x.fillRect(0, 0, 128, 16);
+  const v = x.createLinearGradient(0, 0, 0, 16); v.addColorStop(0, 'rgba(0,0,0,1)'); v.addColorStop(0.5, 'rgba(0,0,0,0)'); v.addColorStop(1, 'rgba(0,0,0,1)');
+  x.globalCompositeOperation = 'destination-out'; x.fillStyle = v; x.fillRect(0, 0, 128, 16);
+  const N = 22, pos = [], uv = [], idx = [];
+  for (let i = 0; i <= N; i++) { const u = i / N, a = -0.25 + (1 - u) * 2.7; for (const r of [0.2, 0.3]) { pos.push(Math.cos(a) * r, Math.sin(a) * r * 0.5, 0); uv.push(u, r > 0.25 ? 1 : 0); } }
+  for (let i = 0; i < N; i++) { const k = i * 2; idx.push(k, k + 1, k + 2, k + 1, k + 3, k + 2); }
+  const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); geo.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); geo.setIndex(idx);
+  const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
+  const m = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ map: tex, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, depthTest: false, side: THREE.DoubleSide, toneMapped: false, opacity: 0 }));
+  m.renderOrder = 6; m.visible = false; m.frustumCulled = false; return m;
+}
+const lerpA = (a, b, t) => a.map((v, i) => v + (b[i] - v) * t);
+
 const CASINGS = 24, PUFFS = 12;
 // How much barrel smoke each gun leaves (a wisp per shot; sustained fire builds a haze).
 const SMOKE = { doubleYolker: 2, yolkzooka: 2.6, poacher: 1.4, cageFree: 1.1, yolk47: 0.75, triBoil: 0.75, beater: 0.6, peck9mm: 0.55 };
@@ -119,7 +136,8 @@ export class ViewModel {
     this.shieldMat = new THREE.MeshStandardMaterial({ color: 0x9cff9c, roughness: 0.5, emissive: 0x1a6b1a });
     this.gloveR = this.mitten(); this.gloveL = this.mitten();
     this.hold.add(this.gloveR, this.gloveL);
-    this.whisk = gunModel('whisk'); this.whisk.visible = false; this.whisk.scale.setScalar(1.15); this.root.add(this.whisk);
+    this.whisk = gunModel('whisk'); this.whisk.visible = false; this.whisk.scale.setScalar(0.95); this.root.add(this.whisk);
+    this.swoosh = swooshMesh(); this.swoosh.position.set(0.02, -0.17, -0.42); this.root.add(this.swoosh); this.lastMelee = 0;
     this.nade = gunModel('grenade'); this.nade.visible = false; this.root.add(this.nade);
     // Muzzle flash: a star facing the camera plus two crossed flame quads along the bore.
     this.flash = new THREE.Group(); this.flash.visible = false; this.hold.add(this.flash);
@@ -253,6 +271,8 @@ export class ViewModel {
   resize(aspect) { this.camera.aspect = aspect; this.camera.updateProjectionMatrix(); }
   // The camera's recoil this frame: [pitch, yaw, roll] radians, springing back to rest.
   takePunch(dt) { return [this.cam.pitch.step(0, dt), this.cam.yaw.step(0, dt), this.cam.roll.step(0, dt)]; }
+  // A melee swing that connected: the view jolts with the impact.
+  meleeConnect() { this.cam.pitch.v -= 0.35; this.cam.yaw.v += 0.4; this.cam.roll.v -= 0.3; this.sp.x.v -= 0.4; }
   // A landing (fall speed in u/s): the gun dips and the camera nods.
   land(speed) { const k = Math.min(1, speed / 9); this.sp.y.v -= 0.5 * k; this.sp.rx.v -= 1.2 * k; this.cam.pitch.v -= 0.25 * k; }
   // Match the world's light: sun direction (camera space) and colours.
@@ -466,16 +486,25 @@ export class ViewModel {
       this.dropMag.rotation.set(t * 3, 0, t * 1.5);
       if (t >= 0.6) this.dropT = -1;
     }
-    // Melee: the gun ducks away to the left and the whisk sweeps across from the right.
-    this.whisk.visible = s.melee > 0;
+    // Melee: a quick backhand with the whisk. The gun drops away down-left; the whisk cocks back over
+    // the right shoulder, whips across the middle of the view in a blur (the swoosh) as the view twists
+    // with it, then snaps back down out of sight.
+    this.whisk.visible = s.melee > 0; this.swoosh.visible = false;
     if (s.melee > 0) {
-      const f = s.melee, out = Math.sin(Math.min(1, f * 1.4) * Math.PI);
-      this.hold.position.y -= out * 0.2; this.hold.position.x -= out * 0.06; this.hold.rotation.z += out * 0.5;
-      const sweep = ss(Math.min(1, f * 1.6));
-      this.whisk.position.set(0.24 - sweep * 0.46, -0.14 + Math.sin(sweep * Math.PI) * 0.08, -0.3 - Math.sin(sweep * Math.PI) * 0.05);
-      this.whisk.rotation.set(-0.5, 0.7 - sweep * 1.8, -0.9 + sweep * 0.7);
-      if (f < 0.1) this.cam.roll.v += 0.15;
-    }
+      const f = s.melee, out = Math.sin(Math.min(1, f * 1.2) * Math.PI);
+      this.hold.position.y -= out * 0.24; this.hold.position.x -= out * 0.09; this.hold.rotation.z += out * 0.65; this.hold.rotation.x -= out * 0.3;
+      const cock = snap(f, 0, 0.16), strike = snap(f, 0.16, 0.4), back = snap(f, 0.5, 0.85);
+      // Keyframes [x, y, z, rx, ry, rz]: entering, cocked over the right shoulder, struck across to the
+      // left (head first, the handle never points at the lens), dropped away out of sight.
+      const P = [[0.32, -0.34, -0.34, -0.5, -1.0, -2.4], [0.26, -0.07, -0.36, -0.5, -1.0, -2.1], [-0.24, -0.16, -0.38, -0.5, -1.0, 0.15], [-0.18, -0.5, -0.3, -0.6, -1.0, 0.5]];
+      const w = lerpA(lerpA(lerpA(P[0], P[1], cock), P[2], strike), P[3], back);
+      this.whisk.position.set(w[0], w[1], w[2]); this.whisk.rotation.set(w[3], w[4], w[5]);
+      // The swoosh trails the strike: it sweeps round with the whisk and fades as the swing finishes.
+      const blur = bump(f, 0.14, 0.62);
+      if (blur > 0) { this.swoosh.visible = true; this.swoosh.material.opacity = blur * 0.6; this.swoosh.rotation.z = (1 - strike) * 1.4 - 0.15; this.swoosh.scale.set(0.5 + strike * 0.12, 0.42 + strike * 0.1, 1); }
+      if (this.lastMelee < 0.16 && f >= 0.16) { this.cam.roll.v -= 0.5; this.cam.yaw.v += 0.35; this.sp.rz.v += 1.5; }
+      this.lastMelee = f;
+    } else this.lastMelee = 0;
     // Grenade: the left mitten holds the bomb and draws it back with the charge; release lobs it.
     const charging = s.charge !== null && s.charge !== undefined;
     if (!charging && this.lastCharge !== null) this.throwT = 0;

@@ -8,9 +8,9 @@
 //   skipped on frames where nothing on it changed.
 // Page text is left for what is rare or needs the keyboard: chat, banners and toasts, the
 // objective bar, and the leaderboard on the respawn screen.
-import { surfaceDocument as document } from '../surface.js?v=muyhausx';
-import { WEAPONS, GRENADE, ROOST, STREAKS } from '../sim/tuning.js?v=muyhausx';
-import { currentSpread, weaponOf, slotOf } from '../sim/combat.js?v=muyhausx';
+import { surfaceDocument as document } from '../surface.js?v=muyhx1yl';
+import { WEAPONS, GRENADE, ROOST, STREAKS } from '../sim/tuning.js?v=muyhx1yl';
+import { currentSpread, weaponOf, slotOf } from '../sim/combat.js?v=muyhx1yl';
 
 const $ = id => document.getElementById(id);
 const POWER_NAMES = { hardBoiled: 'HARD BOILED!', shellBreaker: 'SHELL BREAKER!', restock: 'RESTOCK!', overheal: 'OVERHEAL!', doubleYolks: 'DOUBLE YOLKS!', quailEgg: 'QUAIL EGG!' };
@@ -204,15 +204,16 @@ export class Hud {
   drawPanel(v) {
     const me = v.me, alive = !!me?.alive, w = innerWidth, h = innerHeight, b = this.board, u = this.u || 1;
     const feedSig = this.feed.map(f => f.n + ':' + Math.ceil(Math.min(1, f.t / 0.4) * 8) + (this.icon(f.weapon) ? 'i' : '')).join(',');
-    const a = this.ammo, sig = `${!!this.replay}|${w}x${h}|${u}|${b?.key}|${this.best}|${this.coins}|${this.fps}|${this.ping}|${feedSig}|${alive ? `${a.id}|${a.mag}|${a.store}|${a.nades}` : '-'}`;
+    const a = this.ammo, sig = `${!!this.replay}|${!!this.podium}|${this.clock}|${w}x${h}|${u}|${b?.key}|${this.best}|${this.coins}|${this.fps}|${this.ping}|${feedSig}|${alive ? `${a.id}|${a.mag}|${a.store}|${a.nades}` : '-'}`;
     if (sig === this.panelSig) return;
     this.panelSig = sig; this.panelDirty = true;
     const c = this.pctx, d = this.dpr || 1;
     c.setTransform(1, 0, 0, 1, 0, 0); c.clearRect(0, 0, this.panel.width, this.panel.height);
     c.setTransform(d * u, 0, 0, d * u, 0, 0);
     const W = w / u;
-    if (this.replay) return;   // (the instant replay has the screen to itself)
+    if (this.replay || this.podium) return;   // (the instant replay and the podium have the screen to themselves)
     if (b) this.drawBoard(c, b);
+    if (this.clock) this.drawClock(c, W);
     this.drawCoins(c, W);
     this.drawPerf(c, W);
     this.drawFeed(c, W);
@@ -301,6 +302,57 @@ export class Hud {
     c.lineWidth = 3; c.strokeStyle = 'rgba(0,0,0,.55)'; c.strokeText(ps, w - 14, 40); c.fillStyle = pc; c.fillText(ps, w - 14, 40);
     const pw = c.measureText(ps).width; c.strokeText(fs, w - 14 - pw, 40); c.fillStyle = '#fff'; c.fillText(fs, w - 14 - pw, 40);
     c.restore();
+  }
+  // The round clock, top centre: red in the last half minute.
+  drawClock(c, W) {
+    const t = this.clock, low = this.clockLow;
+    c.save(); c.font = '400 26px s, sans-serif'; c.textAlign = 'center'; c.textBaseline = 'top';
+    c.lineWidth = 5; c.strokeStyle = 'rgba(0,0,0,.55)'; c.strokeText(t, W / 2, 8);
+    c.fillStyle = low ? '#ff5545' : '#fff'; c.fillText(t, W / 2, 8);
+    c.restore();
+  }
+  // The end-of-round podium over its 3D scene: who won, each place's name over their egg, everyone's
+  // results (objective time in objective modes), and where the next round is going.
+  drawPodium(dt, v) {
+    this.t += dt; this.drawPanel({ me: null });
+    const c = this.ctx, d = this.dpr || 1, w = innerWidth, h = innerHeight, r = v.r, u = Math.max(0.6, Math.min(1, w / 1100, h / 700));
+    c.setTransform(1, 0, 0, 1, 0, 0); c.clearRect(0, 0, this.canvas.width, this.canvas.height); c.setTransform(d, 0, 0, d, 0, 0);
+    this.dirty = true;
+    const byId = new Map(r.rows.map(x => [x.id, x])), first = byId.get(r.podium[0]);
+    const text = (s, x, y, size, fill, align = 'center', font = 's') => {
+      c.font = `${font === 's' ? 400 : 800} ${Math.round(size * u)}px ${font}, sans-serif`; c.textAlign = align; c.textBaseline = 'middle';
+      c.lineWidth = Math.max(3, size * u * 0.16); c.strokeStyle = 'rgba(0,0,0,.6)'; c.strokeText(s, x, y); c.fillStyle = fill; c.fillText(s, x, y);
+    };
+    const pop = Math.min(1, this.t / 0.35), title = r.team ? `${r.team === 1 ? 'BLUE' : 'RED'} TEAM WINS!` : first ? `${first.name.toUpperCase()} WINS!` : 'ROUND OVER';
+    c.save(); c.translate(w / 2, 52 * u); c.scale(0.6 + pop * 0.4, 0.6 + pop * 0.4);
+    text(title, 0, 0, 48, r.team ? TEAM[r.team] : '#ffd23f'); c.restore();
+    if (r.scores) text(`BLUE ${r.scores[0]}  —  ${r.scores[1]} RED`, w / 2, 98 * u, 22, '#fff');
+    const medal = ['#ffd23f', '#e3e8ee', '#e6a26a'];
+    for (const l of v.labels) {
+      const row = byId.get(r.podium[l.place]); if (!row) continue;
+      const ly = Math.max(l.y, (r.scores ? 150 : 124) * u);   // (never up into the title)
+      text(`${l.place + 1}. ${row.name}`, l.x, ly - 26 * u, 22, row.id === v.myId ? '#ff9a3c' : medal[l.place], 'center', 'n');
+      text(`${row.score} pts · ${row.kills} cracks`, l.x, ly - 4 * u, 15, '#fff', 'center', 'n');
+    }
+    // The table: the top seven, plus our own row if we're further down.
+    let rows = r.rows.slice(0, 7); const mine = r.rows.findIndex(x => x.id === v.myId);
+    if (mine >= 7) rows = [...rows.slice(0, 6), r.rows[mine]];
+    const cols = [['#', 26], ['NAME', 170], ['SCORE', 70], ['CRACKS', 70], ['CRACKED', 76], ['STREAK', 70], ...(r.obj ? [[r.obj.toUpperCase(), 120]] : [])];
+    const tw = cols.reduce((s, x) => s + x[1], 0) * u, rh = 21 * u, th = (rows.length + 1) * rh + 12 * u;
+    const x0 = (w - tw) / 2, y0 = h - th - 44 * u;
+    c.fillStyle = 'rgba(8,20,40,.72)'; c.beginPath(); c.roundRect(x0 - 12 * u, y0 - 6 * u, tw + 24 * u, th, 10 * u); c.fill();
+    c.font = `800 ${Math.round(12 * u)}px n, sans-serif`; c.textBaseline = 'middle'; c.textAlign = 'left';
+    let x = x0; for (const [name, cw] of cols) { c.fillStyle = 'rgba(255,255,255,.55)'; c.fillText(name, x, y0 + rh / 2); x += cw * u; }
+    c.font = `800 ${Math.round(14 * u)}px n, sans-serif`;
+    rows.forEach((row, i) => {
+      const y = y0 + rh * (i + 1.5), rank = r.rows.indexOf(row) + 1;
+      if (row.id === v.myId) { c.fillStyle = 'rgba(255,154,60,.22)'; c.fillRect(x0 - 8 * u, y - rh / 2, tw + 16 * u, rh); }
+      const vals = [String(rank), row.name, String(row.score), String(row.kills), String(row.deaths), String(row.best), ...(r.obj ? [`${row.obj}s`] : [])];
+      let xx = x0; vals.forEach((val, k) => { c.fillStyle = k === 1 ? (row.team ? TEAM[row.team] : '#fff') : '#fff'; c.fillText(val, xx, y); xx += cols[k][1] * u; });
+    });
+    const left = Math.max(0, Math.ceil(v.left));
+    text(v.nextName ? `Next round: ${v.nextName} in ${left}` : `Next round in ${left}`, w / 2, h - 20 * u, 18, '#ffd23f', 'center', 'n');
+    return true;
   }
   // The instant replay: cinema bars, a REPLAY tag, and SLOW-MO while the shot is in the air.
   drawReplay(c, w, h) {

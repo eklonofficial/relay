@@ -1,21 +1,21 @@
 // Menus and modals (GDD §16–21): home, respawn/pause screen, settings (3 tabs), play with friends,
 // custom matches, profile, shop/inventory, how to play, chat. All markup lives in index.html inside
 // the compositor; this module wires it up and keeps it current.
-import { surfaceDocument as document } from '../surface.js?v=muyhausx';
-import * as THREE from '../../vendor/three/three.module.js?v=muyhausx';
-import { ask, tell } from '../dialog.js?v=muyhausx';
-import { gunModel } from '../render/guns.js?v=muyhausx';
-import { EggAvatar } from '../render/egg.js?v=muyhausx';
-import { hatMesh } from '../render/hats.js?v=muyhausx';
-import { previewShell } from '../render/shellart.js?v=muyhausx';
-import { COLORS, PATTERNS, STAMPS, HATS, SKINS, sanitizeCosmetics } from '../game/cosmetics.js?v=muyhausx';
-import { WEAPONS, PRIMARIES, MODE_NAMES, MODE_MENU, TICK } from '../sim/tuning.js?v=muyhausx';
-import { ACTIONS, ACTION_NAMES, keyLabel, DEFAULT_KEYS } from '../game/input.js?v=muyhausx';
-import { DEFAULT_SETTINGS, saveSettings, saveProfile } from '../game/store.js?v=muyhausx';
-import { ensureDaily, def as challengeDef, reroll, timeLeft } from '../game/challenges.js?v=muyhausx';
-import { MAPS, mapDef } from '../maps/index.js?v=muyhausx';
-import { drawHowTo } from './art.js?v=muyhausx';
-import { wakeRelays, diagnoseNetwork } from '../net/net.js?v=muyhausx';
+import { surfaceDocument as document } from '../surface.js?v=muyhx1yl';
+import * as THREE from '../../vendor/three/three.module.js?v=muyhx1yl';
+import { ask, tell } from '../dialog.js?v=muyhx1yl';
+import { gunModel } from '../render/guns.js?v=muyhx1yl';
+import { EggAvatar } from '../render/egg.js?v=muyhx1yl';
+import { hatMesh } from '../render/hats.js?v=muyhx1yl';
+import { previewShell } from '../render/shellart.js?v=muyhx1yl';
+import { COLORS, PATTERNS, STAMPS, HATS, SKINS, sanitizeCosmetics } from '../game/cosmetics.js?v=muyhx1yl';
+import { WEAPONS, PRIMARIES, MODE_NAMES, MODE_MENU, TICK } from '../sim/tuning.js?v=muyhx1yl';
+import { ACTIONS, ACTION_NAMES, keyLabel, DEFAULT_KEYS } from '../game/input.js?v=muyhx1yl';
+import { DEFAULT_SETTINGS, saveSettings, saveProfile } from '../game/store.js?v=muyhx1yl';
+import { ensureDaily, def as challengeDef, reroll, timeLeft } from '../game/challenges.js?v=muyhx1yl';
+import { MAPS, mapDef } from '../maps/index.js?v=muyhx1yl';
+import { drawHowTo } from './art.js?v=muyhx1yl';
+import { wakeRelays, diagnoseNetwork } from '../net/net.js?v=muyhx1yl';
 
 const $ = id => document.getElementById(id);
 const show = (id, on = true) => $(id).classList.toggle('hidden', !on);

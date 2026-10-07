@@ -13,16 +13,16 @@
 // map (the map never moves) instead of every frame, and eggs get a soft blob shadow instead; no
 // muzzle-flash or explosion lights and no sky reflections (each costs every pixel of every lit
 // surface); no bloom or multisampling; fewer particles.
-import * as THREE from '../../vendor/three/three.module.js?v=muyhausx';
-import { buildWorld } from './world.js?v=muyhausx';
-import { EggAvatar, TEAM_COLORS } from './egg.js?v=muyhausx';
-import { Effects } from './fx.js?v=muyhausx';
-import { ViewModel } from './viewmodel.js?v=muyhausx';
-import { gunModel } from './guns.js?v=muyhausx';
-import { Kit, kitMaterial } from './kit.js?v=muyhausx';
-import { clone, merged } from './models.js?v=muyhausx';
-import { noiseTexture, WIND } from './materials.js?v=muyhausx';
-import { Post } from './post.js?v=muyhausx';
+import * as THREE from '../../vendor/three/three.module.js?v=muyhx1yl';
+import { buildWorld } from './world.js?v=muyhx1yl';
+import { EggAvatar, TEAM_COLORS } from './egg.js?v=muyhx1yl';
+import { Effects } from './fx.js?v=muyhx1yl';
+import { ViewModel } from './viewmodel.js?v=muyhx1yl';
+import { gunModel } from './guns.js?v=muyhx1yl';
+import { Kit, kitMaterial } from './kit.js?v=muyhx1yl';
+import { clone, merged } from './models.js?v=muyhx1yl';
+import { noiseTexture, WIND } from './materials.js?v=muyhx1yl';
+import { Post } from './post.js?v=muyhx1yl';
 
 // Sky palettes: zenith, ground below the horizon, sun, cloud light and shade, cloud cover (0 = none).
 // The horizon colour is the map's fog colour, so distant walls melt into the sky.
@@ -449,11 +449,12 @@ export class Renderer {
   }
   // Any other scene (the home screen) through the same pipeline.
   // (The home screen is one egg on a turntable: it always gets full resolution.)
-  renderScene(scene, camera, t, clear = 0x000000) {
+  renderScene(scene, camera, t, clear = 0x000000, hud = null) {
     if (!this.home) { this.home = true; this.post.setScale(1); }
     this.gl.shadowMap.needsUpdate = true;
     this.post.begin();
     this.gl.setClearColor(clear, 1); this.gl.clear(); this.gl.render(scene, camera);
     this.post.end({ time: t });
+    if (hud) this.drawHud(hud);
   }
 }

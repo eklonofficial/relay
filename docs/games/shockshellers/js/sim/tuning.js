@@ -57,7 +57,9 @@ export const PRIMARIES = ['yolk47', 'doubleYolker', 'cageFree', 'yolkzooka', 'be
 export const SECONDARY = 'peck9mm';
 export const WEAPON_IDS = [...PRIMARIES, SECONDARY];
 
-export const MELEE = { dmg: 40, shellBreakerDmg: 255, windup: 5, reach: 0.8, back: 0.25, radius: 0.475, lock: 17, recoil: 40 };
+// Melee (the whisk): `dmg` point blank (up to `close` along the swing: two eggs touching), down to `farDmg` at full reach; quick enough to spam (a swing
+// every `lock` ticks, landing `windup` ticks in, and `recoil` blocks firing only briefly after).
+export const MELEE = { dmg: 75, farDmg: 30, shellBreakerDmg: 255, windup: 2, reach: 0.8, close: 0.42, back: 0.25, radius: 0.475, lock: 10, recoil: 16 };
 
 export const GRENADE = {
   startCount: 1, max: 3, dmg: 150, radius: 3, fuse: 75,
@@ -89,7 +91,10 @@ export const MODE_NAMES = { ffa: 'Free For All', teams: 'Teams', spatula: 'Spatu
 export const MODE_MENU = ['spatula', 'teams', 'ffa', 'roost'];
 
 // Host options (GDD §17), defaults.
-export const DEFAULT_OPTIONS = { gravity: 1, damage: 1, regen: 1, disabled: [], locked: false, noTeamChange: false, noTeamShuffle: false, scoreLimit: 0, botChat: true };
+export const DEFAULT_OPTIONS = { gravity: 1, damage: 1, regen: 1, disabled: [], locked: false, noTeamChange: false, noTeamShuffle: false, scoreLimit: 0, botChat: true, timeLimit: 0 };
+// Rounds: a game in a room runs `seconds` (the timeLimit option; 0 = no rounds, as in tests), then
+// everyone sees the podium for `podiumSeconds` and the next round starts on another map.
+export const ROUND = { seconds: 300, podiumSeconds: 15 };
 
 // Control bitmask (GDD §26).
 export const CTRL = { up: 1, down: 2, left: 4, right: 8, jump: 16, fire: 32, melee: 64, scope: 128, reload: 256, swap: 512, grenade: 1024, sprint: 2048 };

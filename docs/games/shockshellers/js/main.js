@@ -1,32 +1,33 @@
 // Shock Shellers: boot, menus, the match flow (home → respawn screen → play → death → respawn) and
 // the frame loop. The simulation runs at a fixed 30 Hz inside the session; rendering interpolates.
-import './page.js?v=muyhausx';
-import { surfaceDocument as document } from './surface.js?v=muyhausx';
-import { registerApp } from './veil.js?v=muyhausx';
-import { tell } from './dialog.js?v=muyhausx';
-import { splash } from './splash.js?v=muyhausx';
-import * as THREE from '../vendor/three/three.module.js?v=muyhausx';
-import { Renderer } from './render/renderer.js?v=muyhausx';
-import { RELOAD_KIND } from './render/viewmodel.js?v=muyhausx';
-import { EggAvatar } from './render/egg.js?v=muyhausx';
-import { Recorder, planReplay, replayRate, projectileAt } from './game/replay.js?v=muyhausx';
-import { aimAssist, assistOn } from './game/aim.js?v=muyhausx';
-import { Input } from './game/input.js?v=muyhausx';
-import { SOUND_FILES } from './game/soundbank.js?v=muyhausx';
-import { Sound, registerSamples } from './game/audio.js?v=muyhausx';
-import { Hud } from './game/hud.js?v=muyhausx';
-import { loadSettings, saveSettings, loadProfile, saveProfile } from './game/store.js?v=muyhausx';
-import { ensureDaily, progress as challengeProgress, claim as claimChallenges } from './game/challenges.js?v=muyhausx';
-import { HostSession } from './game/session.js?v=muyhausx';
-import { GuestSession } from './net/guest.js?v=muyhausx';
-import { pickPublicMap, mapDef, MAPS } from './maps/index.js?v=muyhausx';
-import { WEAPONS, PRIMARIES, PLAYER, MODE_NAMES, MODE_MENU, ECONOMY, CTRL, TICK, TICK_HZ } from './sim/tuning.js?v=muyhausx';
-import { weaponOf, slotOf } from './sim/combat.js?v=muyhausx';
-import { eyePoint } from './sim/movement.js?v=muyhausx';
-import { drawLogo, drawHowTo } from './ui/art.js?v=muyhausx';
-import { loadModels } from './render/models.js?v=muyhausx';
-import { HIT } from './maps/grid.js?v=muyhausx';
-import { Menus } from './ui/menus.js?v=muyhausx';
+import './page.js?v=muyhx1yl';
+import { surfaceDocument as document } from './surface.js?v=muyhx1yl';
+import { registerApp } from './veil.js?v=muyhx1yl';
+import { tell } from './dialog.js?v=muyhx1yl';
+import { splash } from './splash.js?v=muyhx1yl';
+import * as THREE from '../vendor/three/three.module.js?v=muyhx1yl';
+import { Renderer } from './render/renderer.js?v=muyhx1yl';
+import { RELOAD_KIND } from './render/viewmodel.js?v=muyhx1yl';
+import { EggAvatar } from './render/egg.js?v=muyhx1yl';
+import { Podium } from './render/podium.js?v=muyhx1yl';
+import { Recorder, planReplay, replayRate, projectileAt } from './game/replay.js?v=muyhx1yl';
+import { aimAssist, assistOn } from './game/aim.js?v=muyhx1yl';
+import { Input } from './game/input.js?v=muyhx1yl';
+import { SOUND_FILES } from './game/soundbank.js?v=muyhx1yl';
+import { Sound, registerSamples } from './game/audio.js?v=muyhx1yl';
+import { Hud } from './game/hud.js?v=muyhx1yl';
+import { loadSettings, saveSettings, loadProfile, saveProfile } from './game/store.js?v=muyhx1yl';
+import { ensureDaily, progress as challengeProgress, claim as claimChallenges } from './game/challenges.js?v=muyhx1yl';
+import { HostSession } from './game/session.js?v=muyhx1yl';
+import { GuestSession } from './net/guest.js?v=muyhx1yl';
+import { pickPublicMap, mapDef, MAPS } from './maps/index.js?v=muyhx1yl';
+import { WEAPONS, PRIMARIES, PLAYER, MELEE, MODE_NAMES, MODE_MENU, ECONOMY, CTRL, TICK, TICK_HZ } from './sim/tuning.js?v=muyhx1yl';
+import { weaponOf, slotOf } from './sim/combat.js?v=muyhx1yl';
+import { eyePoint } from './sim/movement.js?v=muyhx1yl';
+import { drawLogo, drawHowTo } from './ui/art.js?v=muyhx1yl';
+import { loadModels } from './render/models.js?v=muyhx1yl';
+import { HIT } from './maps/grid.js?v=muyhx1yl';
+import { Menus } from './ui/menus.js?v=muyhx1yl';
 
 const $ = id => document.getElementById(id);
 const show = (id, on = true) => { $(id).classList.toggle('hidden', !on); if (id === 'respawn') $('hud').classList.toggle('menu', on); };
@@ -182,6 +183,7 @@ class App {
     this.session = session; this.rec.clear(); this.replay = null; this.hud.replay = null;
     session.onChat = (text, color) => this.hud.chat(text, color);
     session.onDisconnected = reason => { if (this.session === session) { this.goHome(); tell(reason); } };
+    session.onNewRound = () => { if (this.session === session) this.newRound(session); };
     this.renderer.loadMap(session.map);
     // The map's acoustics and background bed; world sounds behind walls come through muffled.
     const meta = session.map.meta, room = ROOMS[meta.theme] || ROOMS.farm;
@@ -281,6 +283,7 @@ class App {
           snd.play(e.hp <= 0 ? 'crackBig' : 'crack', [e.x, e.y, e.z], 0.9);
           if (e.by === s.myId && e.id !== s.myId) {
             this.hud.hit(e.hp <= 0); this.stat('damage', e.dmg);
+            if (e.w === 'melee') R.view.meleeConnect();
             // How much it did, where it landed; and their health shows over them for a while.
             this.hud.damageNumber(e.id, e.x, e.y, e.z, e.dmg, e.hp <= 0);
             if (e.hp > 0) this.marked.set(e.id, this.t); else this.marked.delete(e.id);
@@ -350,8 +353,45 @@ class App {
           break;
         }
         case 'team': if (mine) this.hud.toast(`You joined the ${e.team === 1 ? 'Blue' : 'Red'} team`); break;
+        case 'roundEnd': this.startPodium(e); break;
       }
     }
+  }
+  // ---------------- rounds ----------------
+  // The round is over: the podium takes the screen until the host starts the next round. Placing
+  // earns Golden Yolks (150 / 100 / 60), and so does being on the winning team (100).
+  startPodium(e) {
+    const s = this.session; if (!s) return;
+    this.replay = null; this.hud.replay = null; this.hud.death = null;
+    this.state = 'podium'; this.input.enabled = false; this.input.exitLock();
+    show('respawn', false);
+    const pod = this.podiumScene || (this.podiumScene = new Podium(this.renderer));
+    const byId = new Map(e.rows.map(r => [r.id, r]));
+    pod.set(e.podium.map(id => byId.get(id)).filter(Boolean).map(r => ({ look: r.look, primary: r.primary, team: r.team })));
+    this.podium = { r: e, until: e.until };
+    this.hud.podium = e;
+    this.hud.set('objective', 'objOn', false, (el, v) => el.classList.toggle('hidden', !v));   // (the podium says who won)
+    this.sound.play('win');
+    const place = e.podium.indexOf(s.myId), me = byId.get(s.myId);
+    let yolks = place >= 0 ? [150, 100, 60][place] : 0;
+    if (e.team && me && me.team === e.team) { yolks += 100; if (e.mode === 'roost') this.profile.stats.roostWins++; }
+    if (yolks) { this.profile.coins += yolks; saveProfile(this.profile); this.hud.toast(`+${yolks} Golden Yolks${place >= 0 ? ` for ${['1st', '2nd', '3rd'][place]} place` : ' for the win'}!`, 5); }
+  }
+  drawPodium(dt) {
+    const s = this.session, pod = this.podiumScene, w = innerWidth, h = innerHeight;
+    pod.update(dt, w / h);
+    const left = (this.podium.until - s.match.tick) / TICK_HZ;
+    this.hud.drawPodium(dt, { r: this.podium.r, labels: pod.labels(w, h), myId: s.myId, left, nextName: this.podium.r.nextName });
+    this.renderer.renderScene(pod.scene, pod.camera, this.t, 0x000000, this.hud);
+  }
+  // The host started the next round on a new map (this session already holds it): load it and go to
+  // the respawn screen.
+  newRound(session) {
+    this.podium = null; this.hud.podium = null;
+    for (const id of [...this.renderer.avatars.keys()]) this.renderer.dropAvatar(id);
+    this.sound.stopAll();
+    this.enter(session);
+    this.hud.chat(`Round ${session.round || ''}: ${session.map.meta.name}`.replace('Round : ', ''), '#ffd23f');
   }
   onMyKill(e, victim) {
     const me = this.session.me;
@@ -411,6 +451,7 @@ class App {
     s.advance(dt, input);
     this.rec.record(s.match);
     this.handle(s.takeEvents());
+    if (this.state === 'podium') { this.drawPodium(dt); this.hud.tick(dt); return; }
     this.drawMatch(dt);
     this.hud.tick(dt);
     if (this.debug && (this.debugT = (this.debugT || 0) - dt) <= 0) {
@@ -624,7 +665,7 @@ class App {
       dt, visible: me.alive && this.state === 'play', speed: Math.hypot(me.body.vx, me.body.vz) * 30, strafe, vy: me.body.vy * 30, air: me.body.onGround === 0, climbing: !!me.body.climbing,
       ads: h.ads, scoped: w.scoped, mouseDX: mdx, mouseDY: mdy,
       reload: rel,
-      swap: h.swap > 0 ? 1 - h.swap / 26 : 0, melee: h.melee > 0 ? 1 - h.melee / 17 : 0, charge: h.charging ? h.power : null,
+      swap: h.swap > 0 ? 1 - h.swap / 26 : 0, melee: h.melee > 0 ? 1 - h.melee / MELEE.lock : 0, charge: h.charging ? h.power : null,
       inspect: h.inspect > 0 ? 1 - h.inspect / 45 : 0, shield: me.spawnShield > 0, empty: slotOf(h).mag === 0,
       sprint: !!(me.body.prevCtrl & CTRL.sprint) && Math.hypot(me.body.vx, me.body.vz) * 30 > 1.45 && !h.ads,
     });
@@ -649,6 +690,7 @@ class App {
     R.place(cam);
     const ranked = m.standings();
     this.hud.leaderboard(ranked, s.myId, m.mode.teams);
+    const tl = m.timeLeft(); this.hud.clock = tl === null ? '' : `${Math.floor(tl / 60)}:${String(Math.floor(tl % 60)).padStart(2, '0')}`; this.hud.clockLow = tl !== null && tl < 30;
     this.hud.stats(me, this.profile.coins, this.fps, s.ping || 0);
     this.hud.objective(st, m.mode.teams);
     const markers = [], V3 = this.v3 || (this.v3 = new THREE.Vector3());
