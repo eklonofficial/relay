@@ -120,10 +120,14 @@ try {
   await page.waitForFunction(() => /XYZ/.test(window.testRoot.getElementById('debug').textContent), null, { polling: 100 });
   const position = async () => (await text('debug')).match(/XYZ: ([\d.-]+) \/ ([\d.-]+) \/ ([\d.-]+)/).slice(1).map(Number);
   const before = await position();
-  await page.keyboard.down('KeyW'); await page.waitForTimeout(1200); await page.keyboard.up('KeyW');
+  // Hold W until the egg has moved (a slow runner may still be compiling shaders on the first frames,
+  // so a fixed-length press can fall between two frames).
+  await page.keyboard.down('KeyW'); await page.waitForTimeout(1200);
   await page.waitForFunction(b => { const m = window.testRoot.getElementById('debug').textContent.match(/XYZ: ([\d.-]+) \/ [\d.-]+ \/ ([\d.-]+)/); return m && Math.hypot(m[1] - b[0], m[2] - b[2]) > 0.1; }, before, { timeout: 15000, polling: 100 }).catch(() => {});
+  await page.keyboard.up('KeyW');
   const after = await position();
-  assert.ok(Math.hypot(after[0] - before[0], after[2] - before[2]) > 0.1, 'W must move the egg, not merely deliver a key event');
+  const state = await page.evaluate(() => ({ lock: document.pointerLockElement?.tagName || null, paused: !window.testRoot.getElementById('respawn').classList.contains('hidden'), focus: document.hasFocus() }));
+  assert.ok(Math.hypot(after[0] - before[0], after[2] - before[2]) > 0.1, `W must move the egg, not merely deliver a key event (${JSON.stringify({ before, after, ...state })})`);
   const facing = async () => (await text('debug')).match(/Facing: (\d+)/)[1];
   const beforeLook = await facing();
   await page.evaluate(() => { for (let i = 0; i < 6; i++) {

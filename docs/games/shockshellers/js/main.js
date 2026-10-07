@@ -1,33 +1,33 @@
 // Shock Shellers: boot, menus, the match flow (home → respawn screen → play → death → respawn) and
 // the frame loop. The simulation runs at a fixed 30 Hz inside the session; rendering interpolates.
-import './page.js?v=muyj9kc9';
-import { surfaceDocument as document } from './surface.js?v=muyj9kc9';
-import { registerApp } from './veil.js?v=muyj9kc9';
-import { tell } from './dialog.js?v=muyj9kc9';
-import { splash } from './splash.js?v=muyj9kc9';
-import * as THREE from '../vendor/three/three.module.js?v=muyj9kc9';
-import { Renderer } from './render/renderer.js?v=muyj9kc9';
-import { RELOAD_KIND } from './render/viewmodel.js?v=muyj9kc9';
-import { EggAvatar } from './render/egg.js?v=muyj9kc9';
-import { Podium } from './render/podium.js?v=muyj9kc9';
-import { Recorder, planReplay, replayRate, projectileAt } from './game/replay.js?v=muyj9kc9';
-import { aimAssist, assistOn } from './game/aim.js?v=muyj9kc9';
-import { Input } from './game/input.js?v=muyj9kc9';
-import { SOUND_FILES } from './game/soundbank.js?v=muyj9kc9';
-import { Sound, registerSamples } from './game/audio.js?v=muyj9kc9';
-import { Hud } from './game/hud.js?v=muyj9kc9';
-import { loadSettings, saveSettings, loadProfile, saveProfile } from './game/store.js?v=muyj9kc9';
-import { ensureDaily, progress as challengeProgress, claim as claimChallenges } from './game/challenges.js?v=muyj9kc9';
-import { HostSession } from './game/session.js?v=muyj9kc9';
-import { GuestSession } from './net/guest.js?v=muyj9kc9';
-import { pickPublicMap, mapDef, MAPS } from './maps/index.js?v=muyj9kc9';
-import { WEAPONS, PRIMARIES, PLAYER, MELEE, MODE_NAMES, MODE_MENU, ECONOMY, CTRL, TICK, TICK_HZ } from './sim/tuning.js?v=muyj9kc9';
-import { weaponOf, slotOf } from './sim/combat.js?v=muyj9kc9';
-import { eyePoint } from './sim/movement.js?v=muyj9kc9';
-import { drawLogo, drawHowTo } from './ui/art.js?v=muyj9kc9';
-import { loadModels } from './render/models.js?v=muyj9kc9';
-import { HIT } from './maps/grid.js?v=muyj9kc9';
-import { Menus } from './ui/menus.js?v=muyj9kc9';
+import './page.js?v=muyk0718';
+import { surfaceDocument as document } from './surface.js?v=muyk0718';
+import { registerApp } from './veil.js?v=muyk0718';
+import { tell } from './dialog.js?v=muyk0718';
+import { splash } from './splash.js?v=muyk0718';
+import * as THREE from '../vendor/three/three.module.js?v=muyk0718';
+import { Renderer } from './render/renderer.js?v=muyk0718';
+import { RELOAD_KIND } from './render/viewmodel.js?v=muyk0718';
+import { EggAvatar } from './render/egg.js?v=muyk0718';
+import { Podium } from './render/podium.js?v=muyk0718';
+import { Recorder, planReplay, replayRate, projectileAt } from './game/replay.js?v=muyk0718';
+import { aimAssist, assistOn } from './game/aim.js?v=muyk0718';
+import { Input } from './game/input.js?v=muyk0718';
+import { SOUND_FILES } from './game/soundbank.js?v=muyk0718';
+import { Sound, registerSamples } from './game/audio.js?v=muyk0718';
+import { Hud } from './game/hud.js?v=muyk0718';
+import { loadSettings, saveSettings, loadProfile, saveProfile } from './game/store.js?v=muyk0718';
+import { ensureDaily, progress as challengeProgress, claim as claimChallenges } from './game/challenges.js?v=muyk0718';
+import { HostSession } from './game/session.js?v=muyk0718';
+import { GuestSession } from './net/guest.js?v=muyk0718';
+import { pickPublicMap, mapDef, MAPS } from './maps/index.js?v=muyk0718';
+import { WEAPONS, PRIMARIES, PLAYER, MELEE, MODE_NAMES, MODE_MENU, ECONOMY, CTRL, TICK, TICK_HZ } from './sim/tuning.js?v=muyk0718';
+import { weaponOf, slotOf } from './sim/combat.js?v=muyk0718';
+import { eyePoint } from './sim/movement.js?v=muyk0718';
+import { drawLogo, drawHowTo } from './ui/art.js?v=muyk0718';
+import { loadModels } from './render/models.js?v=muyk0718';
+import { HIT } from './maps/grid.js?v=muyk0718';
+import { Menus } from './ui/menus.js?v=muyk0718';
 
 const $ = id => document.getElementById(id);
 const show = (id, on = true) => { $(id).classList.toggle('hidden', !on); if (id === 'respawn') $('hud').classList.toggle('menu', on); };
@@ -594,7 +594,9 @@ class App {
   // crosshair, for trackpads and gamepads.
   assist(dt) {
     const s = this.session, m = s.match, me = s.me, inp = this.input;
-    if (!me.alive || !assistOn(this.settings.aimAssist || 'auto', navigator.userAgent, performance.now() - inp.padAt < 5000)) { inp.assist = 1; return; }
+    // (A controller counts as in use only while the mouse isn't.)
+    const now = performance.now(), pad = now - inp.padAt < 5000 && now - (inp.mouseAt ?? -1e9) > 2000;
+    if (!me.alive || !assistOn(this.settings.aimAssist || 'auto', navigator.userAgent, pad)) { inp.assist = 1; return; }
     const P = [0, 0, 0]; s.lerpPos(me, P);
     const E = eyePoint({ x: P[0], y: P[1], z: P[2], yaw: inp.yaw, pitch: inp.pitch }), cam = { x: E[0], y: E[1], z: E[2], yaw: inp.yaw, pitch: inp.pitch };
     const targets = [];
@@ -716,7 +718,13 @@ class App {
     cam.shakeX = (Math.random() - 0.5) * sk * 0.03; cam.shakeY = (Math.random() - 0.5) * sk * 0.03;
     this.sound.listener(cam.x, cam.y, cam.z, cam.yaw);
     // Hands.
-    const h = me.hands, w = weaponOf(h), [mdx, mdy] = this.input.takeMouse();
+    const h = me.hands, w = weaponOf(h), [rdx, rdy] = this.input.takeMouse();
+    // The gun's look sway follows the turn rate, smoothed over a few frames (raw counts per frame
+    // jump about with the mouse's polling against the frame rate, which made the gun jitter), scaled
+    // to the per-frame size the viewmodel expects at 60 fps.
+    const ks = Math.min(1, dt * 22), idt = dt > 0 ? 1 / dt : 0;
+    this.swayX = (this.swayX || 0) + (rdx * idt - (this.swayX || 0)) * ks; this.swayY = (this.swayY || 0) + (rdy * idt - (this.swayY || 0)) * ks;
+    const mdx = this.swayX / 60, mdy = this.swayY / 60;
     R.view.setWeapon(slotOf(h).id, this.profile.equip.skin);
     if (this.input.inspectPressed) { this.input.inspectPressed = false; if (h.reload === 0 && h.swap === 0) h.inspect = 45; }
     const rel = h.reload > 0 ? { f: 1 - h.reload / (h.reloadRounds && slotOf(h).mag === 0 ? w.reload[1] : w.reload[0]), long: w.reload[1] !== w.reload[0] && slotOf(h).mag === 0 } : null;
