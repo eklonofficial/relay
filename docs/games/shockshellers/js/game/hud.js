@@ -8,9 +8,9 @@
 //   skipped on frames where nothing on it changed.
 // Page text is left for what is rare or needs the keyboard: chat, banners and toasts, the
 // objective bar, and the leaderboard on the respawn screen.
-import { surfaceDocument as document } from '../surface.js?v=muyhx1yl';
-import { WEAPONS, GRENADE, ROOST, STREAKS } from '../sim/tuning.js?v=muyhx1yl';
-import { currentSpread, weaponOf, slotOf } from '../sim/combat.js?v=muyhx1yl';
+import { surfaceDocument as document } from '../surface.js?v=muyi3h1t';
+import { WEAPONS, GRENADE, ROOST, STREAKS } from '../sim/tuning.js?v=muyi3h1t';
+import { currentSpread, weaponOf, slotOf } from '../sim/combat.js?v=muyi3h1t';
 
 const $ = id => document.getElementById(id);
 const POWER_NAMES = { hardBoiled: 'HARD BOILED!', shellBreaker: 'SHELL BREAKER!', restock: 'RESTOCK!', overheal: 'OVERHEAL!', doubleYolks: 'DOUBLE YOLKS!', quailEgg: 'QUAIL EGG!' };
@@ -363,7 +363,21 @@ export class Hud {
     c.fillStyle = `rgba(255,59,42,${blink})`; c.beginPath(); c.arc(28, bar / 2, 7, 0, Math.PI * 2); c.fill();
     c.fillStyle = '#fff'; c.fillText('REPLAY', 44, bar / 2 + 1);
     if (this.replay.slow) { c.textAlign = 'right'; c.fillStyle = '#ffd23f'; c.fillText('SLOW-MO', w - 24, bar / 2 + 1); }
-    c.font = '800 13px n, sans-serif'; c.textAlign = 'center'; c.fillStyle = 'rgba(255,255,255,.6)'; c.fillText('Click to skip', w / 2, h - bar / 2);
+    c.font = '800 13px n, sans-serif'; c.textAlign = 'center'; c.fillStyle = 'rgba(255,255,255,.6)'; c.fillText('Click or Space to skip', w / 2, h - bar / 2);
+    // The killcam card: who did it, with what, from how far (until the shot lands).
+    const card = this.replay.card;
+    if (card && card.name) {
+      const a = Math.min(1, (this.replay.age || 0) / 0.3), x = 24 - (1 - a) * 40, y = bar + 22;
+      c.globalAlpha = a; c.textAlign = 'left';
+      c.font = '800 12px n, sans-serif'; c.fillStyle = 'rgba(255,255,255,.75)'; c.fillText('KILLCAM', x, y);
+      c.font = '400 30px s, sans-serif'; c.lineWidth = 5; c.strokeStyle = 'rgba(0,0,0,.6)';
+      c.strokeText(card.name, x, y + 28); c.fillStyle = TEAM[card.team] || '#ffd23f'; c.fillText(card.name, x, y + 28);
+      c.font = '800 15px n, sans-serif'; c.lineWidth = 3; const sub = `${card.weapon}${card.dist > 1 ? ` · ${card.dist} m` : ''}`;
+      c.strokeText(sub, x, y + 56); c.fillStyle = '#fff'; c.fillText(sub, x, y + 56);
+      c.globalAlpha = 1;
+    }
+    // The hit-stop flash.
+    if (this.replay.flash > 0) { c.fillStyle = `rgba(255,250,235,${this.replay.flash * 0.55})`; c.fillRect(0, bar, w, h - bar * 2); }
     c.restore();
   }
   drawDeath(c, w, h) {

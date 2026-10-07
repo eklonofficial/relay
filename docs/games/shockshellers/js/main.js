@@ -1,33 +1,33 @@
 // Shock Shellers: boot, menus, the match flow (home → respawn screen → play → death → respawn) and
 // the frame loop. The simulation runs at a fixed 30 Hz inside the session; rendering interpolates.
-import './page.js?v=muyhx1yl';
-import { surfaceDocument as document } from './surface.js?v=muyhx1yl';
-import { registerApp } from './veil.js?v=muyhx1yl';
-import { tell } from './dialog.js?v=muyhx1yl';
-import { splash } from './splash.js?v=muyhx1yl';
-import * as THREE from '../vendor/three/three.module.js?v=muyhx1yl';
-import { Renderer } from './render/renderer.js?v=muyhx1yl';
-import { RELOAD_KIND } from './render/viewmodel.js?v=muyhx1yl';
-import { EggAvatar } from './render/egg.js?v=muyhx1yl';
-import { Podium } from './render/podium.js?v=muyhx1yl';
-import { Recorder, planReplay, replayRate, projectileAt } from './game/replay.js?v=muyhx1yl';
-import { aimAssist, assistOn } from './game/aim.js?v=muyhx1yl';
-import { Input } from './game/input.js?v=muyhx1yl';
-import { SOUND_FILES } from './game/soundbank.js?v=muyhx1yl';
-import { Sound, registerSamples } from './game/audio.js?v=muyhx1yl';
-import { Hud } from './game/hud.js?v=muyhx1yl';
-import { loadSettings, saveSettings, loadProfile, saveProfile } from './game/store.js?v=muyhx1yl';
-import { ensureDaily, progress as challengeProgress, claim as claimChallenges } from './game/challenges.js?v=muyhx1yl';
-import { HostSession } from './game/session.js?v=muyhx1yl';
-import { GuestSession } from './net/guest.js?v=muyhx1yl';
-import { pickPublicMap, mapDef, MAPS } from './maps/index.js?v=muyhx1yl';
-import { WEAPONS, PRIMARIES, PLAYER, MELEE, MODE_NAMES, MODE_MENU, ECONOMY, CTRL, TICK, TICK_HZ } from './sim/tuning.js?v=muyhx1yl';
-import { weaponOf, slotOf } from './sim/combat.js?v=muyhx1yl';
-import { eyePoint } from './sim/movement.js?v=muyhx1yl';
-import { drawLogo, drawHowTo } from './ui/art.js?v=muyhx1yl';
-import { loadModels } from './render/models.js?v=muyhx1yl';
-import { HIT } from './maps/grid.js?v=muyhx1yl';
-import { Menus } from './ui/menus.js?v=muyhx1yl';
+import './page.js?v=muyi3h1t';
+import { surfaceDocument as document } from './surface.js?v=muyi3h1t';
+import { registerApp } from './veil.js?v=muyi3h1t';
+import { tell } from './dialog.js?v=muyi3h1t';
+import { splash } from './splash.js?v=muyi3h1t';
+import * as THREE from '../vendor/three/three.module.js?v=muyi3h1t';
+import { Renderer } from './render/renderer.js?v=muyi3h1t';
+import { RELOAD_KIND } from './render/viewmodel.js?v=muyi3h1t';
+import { EggAvatar } from './render/egg.js?v=muyi3h1t';
+import { Podium } from './render/podium.js?v=muyi3h1t';
+import { Recorder, planReplay, replayRate, projectileAt } from './game/replay.js?v=muyi3h1t';
+import { aimAssist, assistOn } from './game/aim.js?v=muyi3h1t';
+import { Input } from './game/input.js?v=muyi3h1t';
+import { SOUND_FILES } from './game/soundbank.js?v=muyi3h1t';
+import { Sound, registerSamples } from './game/audio.js?v=muyi3h1t';
+import { Hud } from './game/hud.js?v=muyi3h1t';
+import { loadSettings, saveSettings, loadProfile, saveProfile } from './game/store.js?v=muyi3h1t';
+import { ensureDaily, progress as challengeProgress, claim as claimChallenges } from './game/challenges.js?v=muyi3h1t';
+import { HostSession } from './game/session.js?v=muyi3h1t';
+import { GuestSession } from './net/guest.js?v=muyi3h1t';
+import { pickPublicMap, mapDef, MAPS } from './maps/index.js?v=muyi3h1t';
+import { WEAPONS, PRIMARIES, PLAYER, MELEE, MODE_NAMES, MODE_MENU, ECONOMY, CTRL, TICK, TICK_HZ } from './sim/tuning.js?v=muyi3h1t';
+import { weaponOf, slotOf } from './sim/combat.js?v=muyi3h1t';
+import { eyePoint } from './sim/movement.js?v=muyi3h1t';
+import { drawLogo, drawHowTo } from './ui/art.js?v=muyi3h1t';
+import { loadModels } from './render/models.js?v=muyi3h1t';
+import { HIT } from './maps/grid.js?v=muyi3h1t';
+import { Menus } from './ui/menus.js?v=muyi3h1t';
 
 const $ = id => document.getElementById(id);
 const show = (id, on = true) => { $(id).classList.toggle('hidden', !on); if (id === 'respawn') $('hud').classList.toggle('menu', on); };
@@ -65,7 +65,14 @@ class App {
     this.lifeKills = 0; this.spawnTick = 0; this.aim = {}; this.marked = new Map(); this.rec = new Recorder(); this.replay = null;
     this.resize(); addEventListener('resize', () => this.resize());
     // A click or a key skips the instant replay.
-    for (const ev of ['mousedown', 'keydown']) document.addEventListener(ev, () => { if (this.replay && this.state === 'dead') this.replay.skip = true; });
+    // Skipping the replay takes a deliberate click, Space or Esc, once it has run a moment: a key
+    // still held from the fight (its auto-repeat) or the next click of a spammed trigger used to skip
+    // it the instant it began, so it often seemed not to play at all.
+    for (const ev of ['mousedown', 'keydown']) document.addEventListener(ev, e => {
+      const r = this.replay; if (!r || this.state !== 'dead' || e.repeat || performance.now() - r.began < 700) return;
+      if (ev === 'keydown' && !['Space', 'Escape', 'Enter'].includes(e.code)) return;
+      r.skip = true;
+    });
     this.boot();
   }
   // Graphics quality: a fixed rung, or Auto (adapts to the frame rate unless Auto Detail is off).
@@ -239,7 +246,7 @@ class App {
       const mine = e.id === s.myId;
       switch (e.t) {
         case 'shot': {
-          this.rec.shot(m.tick, e);
+          this.rec.shot(e.tick ?? m.tick, e);
           const p = m.players.get(e.id);
           if (p) {
             const a = R.avatars.get(e.id);
@@ -323,7 +330,7 @@ class App {
         case 'swing': snd.play('melee', mine ? null : pos(e.id)); break;
         case 'throw': snd.play('throw', mine ? null : pos(e.id)); break;
         case 'bounce': snd.play('bounce', [e.x, e.y, e.z], 0.6); break;
-        case 'rocket': this.rec.shot(m.tick, { ...e, w: 'yolkzooka', len: WEAPONS.yolkzooka.range }); snd.play('yolkzooka', mine ? null : [e.x, e.y, e.z]); break;
+        case 'rocket': this.rec.shot(e.tick ?? m.tick, { ...e, w: 'yolkzooka', len: WEAPONS.yolkzooka.range }); snd.play('yolkzooka', mine ? null : [e.x, e.y, e.z]); break;
         case 'boom': {
           const fl = m.grid.floorBelow(e.x, e.y + 0.2, e.z);
           fx.explosion(e.x, e.y, e.z, e.r, e.w, e.team, fl === -Infinity ? null : fl); snd.play('explode', [e.x, e.y, e.z], 1.2); if (e.w === 'grenade') snd.play('squawk', [e.x, e.y + 0.3, e.z], 0.8);
@@ -423,9 +430,11 @@ class App {
     // ... or, cracked by someone, the instant replay: their view, the shot in slow motion, the burst.
     this.rec.record(s.match);
     const at = [e.x, e.y + PLAYER.hitCenterY, e.z], w = WEAPONS[e.w];
-    const plan = by ? planReplay(this.rec, killer.id, s.match.tick, e.w, w?.vel || 1.5, at) : null;
+    const plan = by ? planReplay(this.rec, killer.id, e.tick ?? s.match.tick, e.w, w?.vel || 1.5, at) : null;
     if (plan) {
-      this.replay = { plan, t: plan.start, impacted: false, after: 0, recap, at: [e.x, e.y, e.z], killer: killer.id, color: this.renderer.avatars.get(s.myId)?.color ?? 0xfff6e5 };
+      const kp = this.rec.pose(killer.id, plan.shotTick ?? plan.deathTick), dist = plan.shotTick !== null ? plan.dist : kp ? Math.hypot(kp[0] - e.x, kp[2] - e.z) : 0;
+      this.replay = { plan, t: plan.start, impacted: false, after: 0, hold: 0, flash: 0, began: performance.now(), recap, at: [e.x, e.y, e.z], killer: killer.id, color: this.renderer.avatars.get(s.myId)?.color ?? 0xfff6e5,
+        card: { name: recap[0], weapon: e.w === 'melee' ? 'Whisk' : e.w === 'grenade' ? 'Cluck Bomb' : WEAPONS[e.w]?.name || '', dist: Math.round(dist), team: killer.team } };
       this.sound.dull(1400, 4);
       return;
     }
@@ -467,7 +476,9 @@ class App {
   // then riding the projectile in, then circling the burst. Click or press a key to skip it.
   replayFrame(dt) {
     const r = this.replay, P = r.plan, R = this.renderer, s = this.session, cam = this.cam, rec = this.rec;
-    r.t += dt * 30 * replayRate(P, r.t);
+    // Time runs at the replay's own speed, except for a short hit-stop the moment the shot lands.
+    if (r.hold > 0) r.hold -= dt; else r.t += dt * 30 * replayRate(P, r.t);
+    r.flash = Math.max(0, r.flash - dt * 3.5);
     const t = Math.min(r.t, P.end);
     // Eggs at their recorded poses (ours too, until it bursts).
     for (const [id, a] of R.avatars) {
@@ -481,6 +492,9 @@ class App {
     const me = rec.pose(s.myId, Math.min(t, P.deathTick - 0.01)) || [r.at[0], r.at[1], r.at[2], 0, 0, 1, 1];
     const bullet = projectileAt(P, t), b = R.replayBullet;
     b.visible = !!bullet;
+    // Each phase sets where the camera wants to be; it then glides there (no hard cuts between the
+    // killer's shoulder, the shot and the burst), tightly while riding the shot.
+    const prev = r.started ? { x: cam.x, y: cam.y, z: cam.z, yaw: cam.yaw, pitch: cam.pitch } : null;
     const lookAt = (x, y, z) => { cam.yaw = Math.atan2(-(x - cam.x), -(z - cam.z)); cam.pitch = Math.atan2(y - cam.y, Math.hypot(x - cam.x, z - cam.z)); };
     // Put the camera at (x, y, z) as seen from anchor a, pulled in front of any wall in between.
     const place = (a, x, y, z) => {
@@ -488,6 +502,7 @@ class App {
       const t = s.match.grid.raycast(a[0], a[1], a[2], dx / d, dy / d, dz / d, d, HIT) ? Math.max(0.1, HIT.t - 0.2) : d;
       cam.x = a[0] + dx / d * t; cam.y = a[1] + dy / d * t; cam.z = a[2] + dz / d * t;
     };
+    let follow = 9, fov = 0.9;
     if (bullet) {
       // Riding the shot: just behind and above it, looking down its path.
       const d = P.dir, side = [-d[2], 0, d[0]];
@@ -495,13 +510,16 @@ class App {
       lookAt(bullet[0] + d[0] * 3, bullet[1] + d[1] * 3, bullet[2] + d[2] * 3);
       b.position.set(...bullet); b.lookAt(bullet[0] + d[0], bullet[1] + d[1], bullet[2] + d[2]);
       if (Math.random() < 0.8) R.fx.soft.emit(bullet[0], bullet[1], bullet[2], 0, 0.05, 0, { size: 0.03, grow: 0.12, life: 0.5, color: 0xfff1c8, alpha: 0.35, drag: 2 });
-      cam.fovMul = 0.9;
+      follow = 30; fov = 0.9;
     } else if (!r.impacted && k) {
-      // Over the killer's shoulder, watching us.
+      // Over the killer's shoulder, watching us; with no shot to ride (a whisk, a bomb) the camera
+      // creeps in towards us as the moment comes.
       const f = [-Math.sin(k[3]), 0, -Math.cos(k[3])], right = [-f[2], 0, f[0]];
-      place([k[0], k[1] + 0.7, k[2]], k[0] - f[0] * 1.5 + right[0] * 0.45, k[1] + 0.95, k[2] - f[2] * 1.5 + right[2] * 0.45);
+      const creep = P.shotTick === null ? Math.max(0, Math.min(1, (t - P.start) / Math.max(1, P.deathTick - P.start))) : 0;
+      const bx = k[0] - f[0] * 1.5 + right[0] * 0.45, bz = k[2] - f[2] * 1.5 + right[2] * 0.45;
+      place([k[0], k[1] + 0.7, k[2]], bx + (me[0] - bx) * creep * 0.45, k[1] + 0.95, bz + (me[2] - bz) * creep * 0.45);
       lookAt(me[0], me[1] + 0.35, me[2]);
-      cam.fovMul = 0.85;
+      fov = 0.85 - creep * 0.1;
     } else {
       // The burst: circling slowly where we stood.
       if (r.orbit === undefined) {
@@ -510,23 +528,32 @@ class App {
         for (let i = 0; i < 12; i++) { const a = i / 12 * Math.PI * 2, d = g.raycast(r.at[0], r.at[1] + 0.5, r.at[2], Math.sin(a) * 0.92, 0.23, Math.cos(a) * 0.92, 3, HIT) ? HIT.t : 3; if (d > best) { best = d; r.orbit = a; } }
       }
       r.orbit += dt * 0.5;
-      place([r.at[0], r.at[1] + 0.5, r.at[2]], r.at[0] + Math.sin(r.orbit) * 2.6, r.at[1] + 1.1, r.at[2] + Math.cos(r.orbit) * 2.6);
+      // (pushed in close for the hit-stop, then easing back out as it orbits)
+      const near = r.after < 0.6 ? 1.7 + r.after * 1.5 : 2.6;
+      place([r.at[0], r.at[1] + 0.5, r.at[2]], r.at[0] + Math.sin(r.orbit) * near, r.at[1] + 1.1, r.at[2] + Math.cos(r.orbit) * near);
       lookAt(r.at[0], r.at[1] + 0.3, r.at[2]);
-      cam.fovMul = 0.9;
+      follow = r.after < 0.05 ? 40 : 7; fov = r.hold > 0 ? 0.72 : 0.9;
     }
+    if (prev) {
+      const a = 1 - Math.exp(-dt * follow), wrap = v => Math.atan2(Math.sin(v), Math.cos(v));
+      cam.x = prev.x + (cam.x - prev.x) * a; cam.y = prev.y + (cam.y - prev.y) * a; cam.z = prev.z + (cam.z - prev.z) * a;
+      cam.yaw = prev.yaw + wrap(cam.yaw - prev.yaw) * a; cam.pitch = prev.pitch + (cam.pitch - prev.pitch) * a;
+    }
+    r.started = true;
+    cam.fovMul = (cam.fovMul || fov) + (fov - (cam.fovMul || fov)) * Math.min(1, dt * 8);
     // (Nothing of the killer's own egg in front of the lens while we ride their shot out.)
     const ka = R.avatars.get(r.killer);
     if (ka && k && Math.hypot(cam.x - k[0], cam.y - k[1] - 0.35, cam.z - k[2]) < 1.1) ka.group.visible = false;
     if (!r.impacted && t >= P.hitTick) {
-      r.impacted = true;
+      r.impacted = true; r.hold = 0.22; r.flash = 1;
       const g = s.match.grid, fl = g.floorBelow(r.at[0], r.at[1] + 0.3, r.at[2]);
       R.fx.shatter(r.at[0], r.at[1], r.at[2], r.color, fl === -Infinity ? r.at[1] : fl);
       this.sound.play('crackBig', null, 1); this.sound.play('splat', null, 0.9); this.sound.play('death', null, 0.8);
       this.hud.died(...r.recap); this.shake = Math.min(1.2, this.shake + 0.8);
     }
     if (r.impacted) r.after += dt;
-    if ((r.impacted && r.after > 2.2) || r.skip) { b.visible = false; this.replay = null; }
-    this.hud.replay = this.replay ? { slow: replayRate(P, t) < 1 } : null;
+    if ((r.impacted && r.after > 2.4) || r.skip) { b.visible = false; this.replay = null; }
+    this.hud.replay = this.replay ? { slow: replayRate(P, t) < 1 && r.hold <= 0, card: r.impacted ? null : r.card, flash: r.flash, age: (performance.now() - r.began) / 1000 } : null;
   }
   // Aim assist (aim.js): friction on the look speed and a little tracking, on a visible enemy near the
   // crosshair, for trackpads and gamepads.

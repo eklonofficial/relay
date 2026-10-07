@@ -59,8 +59,16 @@ jobs:
       # Every calculator game plus the shared calculator, into build/games/.
       - name: Packed build
         run: npm run build:site
+      # The browser download has been known to hang on GitHub's runners; give it six minutes, and if
+      # it doesn't finish, run the browser checks on the runner's own preinstalled Chrome instead.
       - name: Browser tooling
+        id: browsers
+        timeout-minutes: 6
+        continue-on-error: true
         run: npx playwright install --with-deps chromium
+      - name: Fall back to the runner's Chrome
+        if: steps.browsers.outcome != 'success'
+        run: echo "BROWSER_EXECUTABLE=$(command -v google-chrome || command -v google-chrome-stable || command -v chromium-browser)" >> "$GITHUB_ENV"
       - name: Canvas browser regression checks
         run: npm run test:browser
       - name: Shock Shellers browser regression checks
