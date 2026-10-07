@@ -1,8 +1,8 @@
 // Hats, modelled in code with the kit: each is one mesh (one draw call) in the shared kit material.
 // The origin is where a hat sits on the egg: 0.04 below its tip, where the shell is about 0.13
 // across; anything with a brim or band sits a little lower and wider so the shell never pokes out.
-import * as THREE from '../../vendor/three/three.module.js?v=muyhausx';
-import { Kit, kitMaterial } from './kit.js?v=muyhausx';
+import * as THREE from '../../vendor/three/three.module.js?v=muyhj86r';
+import { Kit, kitMaterial } from './kit.js?v=muyhj86r';
 
 const PAL = {
   red: [0xd8452f, 0.6, 0, 0], white: [0xf6f4ee, 0.85, 0, 0], cream: [0xf3e6c8, 0.6, 0, 0], blue: [0x2f6fd6, 0.9, 0, 0], navy: [0x1f3f8a, 0.9, 0, 0],

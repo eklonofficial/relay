@@ -4,11 +4,11 @@
 //
 // Players are humans or bots alike: each tick every player supplies { ctrl, yaw, pitch } (bots
 // through the same input struct, so they obey identical movement, fire-rate and spread rules).
-import { PLAYER, WEAPONS, MELEE, GRENADE, PICKUPS, STREAKS, DAMAGE, DEFAULT_OPTIONS, PRIMARIES, CTRL, TICK_HZ } from './tuning.js?v=muyhausx';
-import { makeBody, stepBody, movementInput, forward } from './movement.js?v=muyhausx';
-import { makeHands, stepHands, readyHands, refill, HandEvents, weaponOf, slotOf, grenadeLaunch, lcg } from './combat.js?v=muyhausx';
-import { makeMode } from './modes.js?v=muyhausx';
-import { HIT } from '../maps/grid.js?v=muyhausx';
+import { PLAYER, WEAPONS, MELEE, GRENADE, PICKUPS, STREAKS, DAMAGE, DEFAULT_OPTIONS, PRIMARIES, CTRL, TICK_HZ } from './tuning.js?v=muyhj86r';
+import { makeBody, stepBody, movementInput, forward } from './movement.js?v=muyhj86r';
+import { makeHands, stepHands, readyHands, refill, HandEvents, weaponOf, slotOf, grenadeLaunch, lcg } from './combat.js?v=muyhj86r';
+import { makeMode } from './modes.js?v=muyhj86r';
+import { HIT } from '../maps/grid.js?v=muyhj86r';
 
 const HISTORY = 256;
 // Hit-angle damage (GDD §8.2): s = 0.2 + 0.8·dot(−d, n); mult = s^(4 + s^4).
@@ -334,13 +334,15 @@ export class Match {
   melee(p) {
     const b = p.body, f = forward(b.yaw, b.pitch);
     const ox = b.x - f[0] * MELEE.back, oy = b.y + PLAYER.eyeY - f[1] * MELEE.back, oz = b.z - f[2] * MELEE.back;
-    const dmg = (p.power.shellBreaker > 0 ? MELEE.shellBreakerDmg : MELEE.dmg) * this.options.damage;
     let any = false;
     for (const q of this.players.values()) {
       if (q === p || !q.alive || !this.enemies(p, q)) continue;
       const pos = this.past(q, p.lag, POS); if (!pos[3]) continue;
       // The ray starting inside the target misses (keep the quirk, GDD §10).
       const t = raySphere(ox, oy, oz, f[0], f[1], f[2], pos[0], pos[1] + this.hitY(q), pos[2], MELEE.radius);
+      // Hardest point blank, weaker at the end of the reach.
+      const k = Math.max(0, Math.min(1, (t - MELEE.close) / (MELEE.reach - MELEE.close)));
+      const dmg = (p.power.shellBreaker > 0 ? MELEE.shellBreakerDmg : MELEE.dmg + (MELEE.farDmg - MELEE.dmg) * k) * this.options.damage;
       if (t > 0 && t <= MELEE.reach) { any = true; this.damage(q, dmg, p, 'melee', { x: ox + f[0] * t, y: oy + f[1] * t, z: oz + f[2] * t, dx: f[0], dy: f[1], dz: f[2] }); }
     }
     this.emit({ t: 'meleeHit', id: p.id, hit: any });

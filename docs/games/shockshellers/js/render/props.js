@@ -3,8 +3,8 @@
 // keeps its colours) but with a fraction of the triangles. Maps carry dozens of these, and a weak
 // GPU pays for every triangle every frame: a modelled tree's leaves were 2,400 triangles, a crate
 // with its bevelled boards 1,836. Same layout and size as the modelled ones (props.glb).
-import * as THREE from '../../vendor/three/three.module.js?v=muyhausx';
-import { materials } from './models.js?v=muyhausx';
+import * as THREE from '../../vendor/three/three.module.js?v=muyhj86r';
+import { materials } from './models.js?v=muyhj86r';
 
 // A lumpy ball: a once-subdivided icosahedron pushed in and out a little (seeded, so every copy of
 // the prop is the same), smooth-shaded.

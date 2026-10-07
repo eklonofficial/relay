@@ -300,3 +300,19 @@ test('Peck 9mm: four or five hits crack an egg at any range', () => {
     assert.ok(!t.alive && hits >= 4 && hits <= 5, `${d} units: ${hits} hits, alive ${t.alive}`);
   }
 });
+
+test('melee: quick enough to spam, crushing point blank, weaker at full reach', () => {
+  const swing = (dist, n, every) => {
+    const { m, a, t } = range('yolk47', dist); t.hp = 1e4; let swings = 0;
+    for (let i = 0; i < n; i++) { const press = i % every === 0; m.setInput(1, press ? CTRL.melee : 0, 0, 0); m.step(); if (press && a.hands.melee > 0 && a.hands.melee === 10) swings++; }
+    return { dmg: 1e4 - t.hp, swings };
+  };
+  const one = swing(0.75, 12, 99), far = swing(1.0, 12, 99);
+  assert.ok(one.dmg >= 60, `point blank ${one.dmg}`);
+  assert.ok(far.dmg > 0 && far.dmg < one.dmg * 0.75, `full reach ${far.dmg} vs ${one.dmg}`);
+  const spam = swing(0.75, 30, 10);            // a press every third of a second for one second
+  assert.ok(spam.swings >= 3, `${spam.swings} swings in a second`);
+  const { m, t } = range('yolk47', 0.75);
+  for (let i = 0; i < 16; i++) { m.setInput(1, i % 10 === 0 ? CTRL.melee : 0, 0, 0); m.step(); }
+  assert.equal(t.alive, false, 'two point-blank whacks crack an egg');
+});

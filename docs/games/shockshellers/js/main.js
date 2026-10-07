@@ -1,32 +1,32 @@
 // Shock Shellers: boot, menus, the match flow (home → respawn screen → play → death → respawn) and
 // the frame loop. The simulation runs at a fixed 30 Hz inside the session; rendering interpolates.
-import './page.js?v=muyhausx';
-import { surfaceDocument as document } from './surface.js?v=muyhausx';
-import { registerApp } from './veil.js?v=muyhausx';
-import { tell } from './dialog.js?v=muyhausx';
-import { splash } from './splash.js?v=muyhausx';
-import * as THREE from '../vendor/three/three.module.js?v=muyhausx';
-import { Renderer } from './render/renderer.js?v=muyhausx';
-import { RELOAD_KIND } from './render/viewmodel.js?v=muyhausx';
-import { EggAvatar } from './render/egg.js?v=muyhausx';
-import { Recorder, planReplay, replayRate, projectileAt } from './game/replay.js?v=muyhausx';
-import { aimAssist, assistOn } from './game/aim.js?v=muyhausx';
-import { Input } from './game/input.js?v=muyhausx';
-import { SOUND_FILES } from './game/soundbank.js?v=muyhausx';
-import { Sound, registerSamples } from './game/audio.js?v=muyhausx';
-import { Hud } from './game/hud.js?v=muyhausx';
-import { loadSettings, saveSettings, loadProfile, saveProfile } from './game/store.js?v=muyhausx';
-import { ensureDaily, progress as challengeProgress, claim as claimChallenges } from './game/challenges.js?v=muyhausx';
-import { HostSession } from './game/session.js?v=muyhausx';
-import { GuestSession } from './net/guest.js?v=muyhausx';
-import { pickPublicMap, mapDef, MAPS } from './maps/index.js?v=muyhausx';
-import { WEAPONS, PRIMARIES, PLAYER, MODE_NAMES, MODE_MENU, ECONOMY, CTRL, TICK, TICK_HZ } from './sim/tuning.js?v=muyhausx';
-import { weaponOf, slotOf } from './sim/combat.js?v=muyhausx';
-import { eyePoint } from './sim/movement.js?v=muyhausx';
-import { drawLogo, drawHowTo } from './ui/art.js?v=muyhausx';
-import { loadModels } from './render/models.js?v=muyhausx';
-import { HIT } from './maps/grid.js?v=muyhausx';
-import { Menus } from './ui/menus.js?v=muyhausx';
+import './page.js?v=muyhj86r';
+import { surfaceDocument as document } from './surface.js?v=muyhj86r';
+import { registerApp } from './veil.js?v=muyhj86r';
+import { tell } from './dialog.js?v=muyhj86r';
+import { splash } from './splash.js?v=muyhj86r';
+import * as THREE from '../vendor/three/three.module.js?v=muyhj86r';
+import { Renderer } from './render/renderer.js?v=muyhj86r';
+import { RELOAD_KIND } from './render/viewmodel.js?v=muyhj86r';
+import { EggAvatar } from './render/egg.js?v=muyhj86r';
+import { Recorder, planReplay, replayRate, projectileAt } from './game/replay.js?v=muyhj86r';
+import { aimAssist, assistOn } from './game/aim.js?v=muyhj86r';
+import { Input } from './game/input.js?v=muyhj86r';
+import { SOUND_FILES } from './game/soundbank.js?v=muyhj86r';
+import { Sound, registerSamples } from './game/audio.js?v=muyhj86r';
+import { Hud } from './game/hud.js?v=muyhj86r';
+import { loadSettings, saveSettings, loadProfile, saveProfile } from './game/store.js?v=muyhj86r';
+import { ensureDaily, progress as challengeProgress, claim as claimChallenges } from './game/challenges.js?v=muyhj86r';
+import { HostSession } from './game/session.js?v=muyhj86r';
+import { GuestSession } from './net/guest.js?v=muyhj86r';
+import { pickPublicMap, mapDef, MAPS } from './maps/index.js?v=muyhj86r';
+import { WEAPONS, PRIMARIES, PLAYER, MELEE, MODE_NAMES, MODE_MENU, ECONOMY, CTRL, TICK, TICK_HZ } from './sim/tuning.js?v=muyhj86r';
+import { weaponOf, slotOf } from './sim/combat.js?v=muyhj86r';
+import { eyePoint } from './sim/movement.js?v=muyhj86r';
+import { drawLogo, drawHowTo } from './ui/art.js?v=muyhj86r';
+import { loadModels } from './render/models.js?v=muyhj86r';
+import { HIT } from './maps/grid.js?v=muyhj86r';
+import { Menus } from './ui/menus.js?v=muyhj86r';
 
 const $ = id => document.getElementById(id);
 const show = (id, on = true) => { $(id).classList.toggle('hidden', !on); if (id === 'respawn') $('hud').classList.toggle('menu', on); };
@@ -281,6 +281,7 @@ class App {
           snd.play(e.hp <= 0 ? 'crackBig' : 'crack', [e.x, e.y, e.z], 0.9);
           if (e.by === s.myId && e.id !== s.myId) {
             this.hud.hit(e.hp <= 0); this.stat('damage', e.dmg);
+            if (e.w === 'melee') R.view.meleeConnect();
             // How much it did, where it landed; and their health shows over them for a while.
             this.hud.damageNumber(e.id, e.x, e.y, e.z, e.dmg, e.hp <= 0);
             if (e.hp > 0) this.marked.set(e.id, this.t); else this.marked.delete(e.id);
@@ -624,7 +625,7 @@ class App {
       dt, visible: me.alive && this.state === 'play', speed: Math.hypot(me.body.vx, me.body.vz) * 30, strafe, vy: me.body.vy * 30, air: me.body.onGround === 0, climbing: !!me.body.climbing,
       ads: h.ads, scoped: w.scoped, mouseDX: mdx, mouseDY: mdy,
       reload: rel,
-      swap: h.swap > 0 ? 1 - h.swap / 26 : 0, melee: h.melee > 0 ? 1 - h.melee / 17 : 0, charge: h.charging ? h.power : null,
+      swap: h.swap > 0 ? 1 - h.swap / 26 : 0, melee: h.melee > 0 ? 1 - h.melee / MELEE.lock : 0, charge: h.charging ? h.power : null,
       inspect: h.inspect > 0 ? 1 - h.inspect / 45 : 0, shield: me.spawnShield > 0, empty: slotOf(h).mag === 0,
       sprint: !!(me.body.prevCtrl & CTRL.sprint) && Math.hypot(me.body.vx, me.body.vz) * 30 > 1.45 && !h.ads,
     });

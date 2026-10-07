@@ -57,7 +57,9 @@ export const PRIMARIES = ['yolk47', 'doubleYolker', 'cageFree', 'yolkzooka', 'be
 export const SECONDARY = 'peck9mm';
 export const WEAPON_IDS = [...PRIMARIES, SECONDARY];
 
-export const MELEE = { dmg: 40, shellBreakerDmg: 255, windup: 5, reach: 0.8, back: 0.25, radius: 0.475, lock: 17, recoil: 40 };
+// Melee (the whisk): `dmg` point blank (up to `close` along the swing: two eggs touching), down to `farDmg` at full reach; quick enough to spam (a swing
+// every `lock` ticks, landing `windup` ticks in, and `recoil` blocks firing only briefly after).
+export const MELEE = { dmg: 75, farDmg: 30, shellBreakerDmg: 255, windup: 2, reach: 0.8, close: 0.42, back: 0.25, radius: 0.475, lock: 10, recoil: 16 };
 
 export const GRENADE = {
   startCount: 1, max: 3, dmg: 150, radius: 3, fuse: 75,

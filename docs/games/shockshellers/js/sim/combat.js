@@ -5,8 +5,8 @@
 // Countdown units, exactly as the GDD lists them:
 //   rof, burst gaps, scope delay, swap, melee           ticks       (−1 per tick)
 //   recoil, reload, grenade throw/cancel lock, shield   1/60 s      (−2 per tick)
-import { WEAPONS, PRIMARIES, SECONDARY, MELEE, GRENADE, PLAYER, CTRL } from './tuning.js?v=muyhausx';
-import { forward, eyePoint } from './movement.js?v=muyhausx';
+import { WEAPONS, PRIMARIES, SECONDARY, MELEE, GRENADE, PLAYER, CTRL } from './tuning.js?v=muyhj86r';
+import { forward, eyePoint } from './movement.js?v=muyhj86r';
 
 // Per-player LCG (GDD §8.3): seed = (seed·9301 + 49297) mod 233280.
 export const lcg = s => (s * 9301 + 49297) % 233280;
@@ -79,8 +79,6 @@ export function stepHands(h, body, ctrl, prevCtrl, shielded, ev = new HandEvents
   if (h.melee > 0) {
     h.melee--;
     if (h.meleeWindup > 0 && --h.meleeWindup === 0) ev.meleeHit = true;
-    // Re-equip after the swing takes half an equip time (counted in the swap timer).
-    if (h.melee === 0) h.swap = Math.max(h.swap, Math.ceil(PLAYER.swapEquipTicks / 2));
   }
 
   // Aim (ADS) engages after the scope delay; reloading cancels it until the reload ends.
