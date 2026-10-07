@@ -123,6 +123,8 @@
 
   /* Respawn / pause */
   #rs-left { position: absolute; left: 0; top: calc(var(--u)*150); width: calc(var(--u)*210); }
+  #rs-left.tight { gap: calc(var(--u)*6); }
+  #rs-left.tight button { font-size: calc(var(--u)*16); padding-top: calc(var(--u)*4); padding-bottom: calc(var(--u)*4); }
   #rs-center { position: absolute; left: 50%; top: calc(50% - var(--u)*30); transform: translate(-50%, -50%); display: flex; gap: calc(var(--u)*12); align-items: flex-start; }
   #challenges { width: calc(var(--u)*340); }
   #chal-timer { display: flex; align-items: center; gap: calc(var(--u)*4); color: var(--yellow); font-size: calc(var(--u)*17); }
@@ -228,14 +230,15 @@
   .item-card .st { font-size: calc(var(--u)*9); opacity: .85; }
   .item-card .sw { width: calc(var(--u)*34); height: calc(var(--u)*42); border-radius: 50% 50% 46% 46% / 58% 58% 42% 42%; border: calc(var(--u)*3) solid var(--blue-e); }
   .item-card.on { --c: var(--orange); --e: var(--orange-e); }
-  #stats { font-size: calc(var(--u)*15); color: var(--ink); border-collapse: collapse; }
+  #stats { font-size: calc(var(--u)*15); color: var(--ink); border-collapse: collapse; width: 100%; }
+  #stats td.v { padding-right: calc(var(--u)*28); text-align: right; }
   #stats td { padding: calc(var(--u)*3) calc(var(--u)*12); border-bottom: calc(var(--u)*2) solid rgba(11,91,125,.2); }
   #stats td.k { font-family: "s", sans-serif; font-weight: 400; color: var(--blue-e); }
 </style>
 </head>
 <body>
 <div id="boot"><canvas id="boot-canvas"></canvas></div>
-<script type="module" id="boot-script" src="js/splash.js?v=muyj9kc9" data-modules="65"></script>
+<script type="module" id="boot-script" src="js/splash.js?v=muyjiq9z" data-modules="65"></script>
 <canvas id="game" tabindex="-1"></canvas>
 
 <div class="screen hidden" id="loading">
@@ -383,7 +386,7 @@
   </div>
 </div>
 
-<script defer src="net-config.js?v=muyj9kc9"></script>
-<script type="module" src="js/main.js?v=muyj9kc9"></script>
+<script defer src="net-config.js?v=muyjiq9z"></script>
+<script type="module" src="js/main.js?v=muyjiq9z"></script>
 </body>
 </html>

@@ -7,7 +7,7 @@
 //                 opts {options} | boot {reason} | join | leave | bye | chat
 //                 round {map, mode, options, tick, roster, round}   the next round, on a new map
 // Numbers are rounded to 1/256 (positions) and 1/1000 (angles) to keep messages small.
-import { PRIMARIES, SECONDARY } from '../sim/tuning.js?v=muyj9kc9';
+import { PRIMARIES, SECONDARY } from '../sim/tuning.js?v=muyjiq9z';
 
 const q = v => Math.round(v * 256) / 256;
 const a = v => Math.round(v * 1000) / 1000;

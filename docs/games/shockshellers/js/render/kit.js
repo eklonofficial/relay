@@ -2,8 +2,8 @@
 // silhouettes, soft edges that catch the light), turned parts, rings and balls. Every part carries
 // its colour, roughness, metalness and glow in its vertices, so a whole model is one mesh and one
 // draw call with one shared material, and a repaint (a gun skin, a hat's colour) is just a palette.
-import * as THREE from '../../vendor/three/three.module.js?v=muyj9kc9';
-import { mergeGeometries } from '../../vendor/three/BufferGeometryUtils.js?v=muyj9kc9';
+import * as THREE from '../../vendor/three/three.module.js?v=muyjiq9z';
+import { mergeGeometries } from '../../vendor/three/BufferGeometryUtils.js?v=muyjiq9z';
 
 // Slot → [colour, roughness, metalness, glow]. body/accent/wood are what skins repaint.
 export const BASE = {

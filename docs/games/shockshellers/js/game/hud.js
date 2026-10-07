@@ -8,9 +8,9 @@
 //   skipped on frames where nothing on it changed.
 // Page text is left for what is rare or needs the keyboard: chat, banners and toasts, the
 // objective bar, and the leaderboard on the respawn screen.
-import { surfaceDocument as document } from '../surface.js?v=muyj9kc9';
-import { WEAPONS, GRENADE, ROOST, STREAKS } from '../sim/tuning.js?v=muyj9kc9';
-import { currentSpread, weaponOf, slotOf } from '../sim/combat.js?v=muyj9kc9';
+import { surfaceDocument as document } from '../surface.js?v=muyjiq9z';
+import { WEAPONS, GRENADE, ROOST, STREAKS } from '../sim/tuning.js?v=muyjiq9z';
+import { currentSpread, weaponOf, slotOf } from '../sim/combat.js?v=muyjiq9z';
 
 const $ = id => document.getElementById(id);
 const POWER_NAMES = { hardBoiled: 'HARD BOILED!', shellBreaker: 'SHELL BREAKER!', restock: 'RESTOCK!', overheal: 'OVERHEAL!', doubleYolks: 'DOUBLE YOLKS!', quailEgg: 'QUAIL EGG!' };
@@ -58,13 +58,14 @@ export class Hud {
     const d = Math.min(this.maxDpr || 1.5, devicePixelRatio || 1), w = Math.max(1, Math.round(innerWidth * d)), h = Math.max(1, Math.round(innerHeight * d));
     for (const c of [this.canvas, this.panel]) { c.width = w; c.height = h; }
     this.dpr = d; this.sig = ''; this.panelSig = ''; this.resized = true;
+    this.placeNav();
   }
 
   // The top ten, for the panel; the page's copy is only kept up to date on the respawn screen.
   leaderboard(players, myId, teams) {
     const top = players.slice(0, 10);
     const key = top.map(p => `${p.id}:${p.name}:${p.score}:${p.team}`).join('|') + myId + (teams ? 't' : '');
-    if (this.board?.key !== key) this.board = { key, myId, teams, rows: top.map(p => ({ id: p.id, name: p.name, score: p.score, team: p.team })) };
+    if (this.board?.key !== key) { this.board = { key, myId, teams, rows: top.map(p => ({ id: p.id, name: p.name, score: p.score, team: p.team })) }; }
     if (!$('hud').classList.contains('menu') || this.cache.board === key) return;
     this.cache.board = key;
     const list = $('board-list'); list.replaceChildren();
@@ -75,6 +76,20 @@ export class Hud {
     };
     if (teams) for (const t of [1, 2]) { const h = document.createElement('div'); h.className = 'lb-head'; h.style.color = TEAM[t]; h.textContent = t === 1 ? 'BLUE TEAM' : 'RED TEAM'; list.append(h); top.filter(p => p.team === t).forEach(row); }
     else top.forEach(row);
+    this.placeNav();
+  }
+  // The respawn screen's buttons (top left) go below the leaderboard, however long it is, and get
+  // more compact when the screen is short.
+  placeNav() {
+    if (!$('hud').classList.contains('menu')) return;
+    const u = this.u || 1, r = $('board-list').getBoundingClientRect();
+    if (!r.height) return;
+    const top = Math.max(150, Math.ceil(r.bottom / u) + 14);
+    const sig = top + ':' + Math.round(innerHeight / u);
+    if (this.navSig === sig) return; this.navSig = sig;
+    const nav = $('rs-left');
+    nav.style.top = `calc(var(--u)*${top})`;
+    nav.classList.toggle('tight', innerHeight / u - top < 330);
   }
   stats(me, coins, fps, ping) {
     if ($('hud').classList.contains('menu')) this.text('best-streak', 'x' + me.bestStreak);
