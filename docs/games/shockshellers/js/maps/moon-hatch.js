@@ -1,7 +1,7 @@
 // Moon Hatch (GDD §15.4): a low-gravity moon base for 18 (gravity 0.5×, jumps carry far). A cratered
 // moon-rock plain, a raised central hub of metal panels, habitat pods with doorways, landing pads on
 // stilts reached by jump pads, and a starry space sky. Point-symmetric for team modes.
-import { Builder, MAT } from './dsl.js?v=muyk0718';
+import { Builder, MAT } from './dsl.js?v=muylpzs7';
 
 export default function moonHatch() {
   const N = 40, c = (N - 1) / 2, b = new Builder(N, 14, N);

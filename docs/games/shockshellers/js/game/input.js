@@ -1,9 +1,8 @@
-// Keyboard, mouse and gamepad into the control bitmask (GDD §18). Mouse look and pointer lock are
-// Blockhaven's approach, kept as is: raw (unadjusted) movement where the browser supports it, every
+// Keyboard, mouse and gamepad into the control bitmask (GDD §18). Mouse look: raw (unadjusted)
+// movement where the browser supports it, the event stream that loses the least movement, every
 // coalesced sample summed, spikes when the lock engages filtered out.
-import { surfaceDocument as document } from '../surface.js?v=muyk0718';
-import { movementSamples } from '../util/pointer.js?v=muyk0718';
-import { CTRL } from '../sim/tuning.js?v=muyk0718';
+import { surfaceDocument as document } from '../surface.js?v=muylpzs7';
+import { CTRL } from '../sim/tuning.js?v=muylpzs7';
 
 // Default bindings: left Shift aims, F is melee. 'M0'/'M1'/'M2' are mouse buttons.
 export const DEFAULT_KEYS = {
@@ -34,9 +33,13 @@ export class Input {
     this.assist = 1; this.lookAt = -1e9; this.padAt = -1e9;
     const take = (dx, dy) => {
       if (!dx && !dy) return;
+      // Drop the bogus jump some browsers report as pointer lock starts, and (without raw input, where
+      // Chrome on Windows can report a cursor warp as one huge delta) a lone spike from a near-still
+      // mouse. Raw input has no such glitch, and a real fast flick is sustained: every sample, kept
+      // or not, raises the running average, so a flick is never eaten.
       const mag = Math.abs(dx) + Math.abs(dy), avg = this.mouseAvg;
-      if (performance.now() - this.lockedAt < 60 || (mag > 1200 && mag > avg * 12 + 400)) { this.mouseAvg = avg * 0.9; return; }
-      this.mouseAvg = avg * 0.8 + mag * 0.2;
+      this.mouseAvg = avg * 0.8 + Math.min(mag, 2500) * 0.2;
+      if (performance.now() - this.lockedAt < 60 || (this.rawInput !== true && mag > 2500 && mag > avg * 8 + 800)) return;
       // Mouse speed 1–100 (default 100) → radians per count; aiming scales by the zoom.
       const sens = (this.settings.mouseSpeed / 100) * 0.0028 * (this.zoom || 1) * this.assist;
       this.lookAt = this.mouseAt = performance.now();
@@ -44,15 +47,35 @@ export class Input {
       this.yaw -= dx * sens; this.pitch = Math.max(-1.5, Math.min(1.5, this.pitch - dy * sens * inv));
       this.dx += dx; this.dy += dy;
     };
-    const samples = e => {
-      if (!this.locked || !this.enabled) return false;
-      const list = movementSamples(e);
-      for (const c of list) take(c.movementX, c.movementY);
-      return list.length > 0;
+    // The same motion arrives three ways (raw pointer updates, pointer moves, mouse moves), and a
+    // browser can round each event's movement to whole pixels after display scaling: at 125% a slow
+    // 1-count step becomes 0.8 px and may become 0, so a stream of small events loses slow movement
+    // (the view "sticks" until the hand moves faster). So every stream is measured, and only the one
+    // reporting the most movement lately (a fraction of a second) turns the view; the others are the same
+    // motion, minus whatever they dropped. Within an event, the finer coalesced samples are used unless
+    // they add up to less than the event's own total.
+    const stream = { raw: 0, move: 0, mouse: 0 };
+    this.src = 'onpointerrawupdate' in window ? 'raw' : 'onpointermove' in window ? 'move' : 'mouse';
+    const finite = e => Number.isFinite(e.movementX) && Number.isFinite(e.movementY);
+    const samplesOf = e => {
+      const whole = finite(e) ? [[e.movementX, e.movementY]] : [];
+      const parts = (e.getCoalescedEvents?.() || []).filter(finite).map(c => [c.movementX, c.movementY]);
+      const size = l => l.reduce((n, [x, y]) => n + Math.abs(x) + Math.abs(y), 0);
+      return parts.length && size(parts) >= size(whole) * 0.95 ? parts : whole;
     };
-    if ('onpointerrawupdate' in window) document.addEventListener('pointerrawupdate', e => { if (samples(e)) this.lastRaw = performance.now(); });
-    if ('onpointermove' in window) document.addEventListener('pointermove', e => { if (performance.now() - (this.lastRaw ?? -Infinity) < 250) return; if (samples(e)) this.lastPointer = performance.now(); });
-    document.addEventListener('mousemove', e => { if (performance.now() - Math.max(this.lastRaw ?? -Infinity, this.lastPointer ?? -Infinity) < 250) return; samples(e); });
+    let streamAt = performance.now();
+    const feed = (kind, e) => {
+      if (!this.locked || !this.enabled) return;
+      const list = samplesOf(e), now = performance.now(), k = Math.exp(-(now - streamAt) / 400);
+      streamAt = now;
+      for (const n in stream) stream[n] *= k;
+      for (const [x, y] of list) stream[kind] += Math.abs(x) + Math.abs(y);
+      if (kind !== this.src && stream[kind] > stream[this.src] * 1.2 + 20) this.src = kind;
+      if (kind === this.src) for (const [x, y] of list) take(x, y);
+    };
+    if ('onpointerrawupdate' in window) document.addEventListener('pointerrawupdate', e => feed('raw', e));
+    if ('onpointermove' in window) document.addEventListener('pointermove', e => feed('move', e));
+    document.addEventListener('mousemove', e => feed('mouse', e));
     document.addEventListener('pointerlockchange', () => {
       this.locked = globalThis.document.pointerLockElement === canvas;
       if (this.locked) { this.lockedAt = performance.now(); this.mouseAvg = 0; }
