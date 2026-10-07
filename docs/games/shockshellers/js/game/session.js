@@ -1,14 +1,14 @@
 // A match as this browser sees it. The host's session owns the real Match (and its bots); a guest's
 // session mirrors the host's snapshots and predicts only its own egg (net/guest.js). Either way the
 // view reads players, objects and events from here.
-import { Match } from '../sim/match.js?v=muyivii8';
-import { NavGraph } from '../bots/nav.js?v=muyivii8';
-import { BotManager, BOT_NAMES } from '../bots/bot.js?v=muyivii8';
-import { getMap, mapDef, pickPublicMap } from '../maps/index.js?v=muyivii8';
-import { TICK, TICK_HZ, PRIMARIES, ROUND } from '../sim/tuning.js?v=muyivii8';
-import { Net, cleanName } from '../net/net.js?v=muyivii8';
-import { encodePlayer, ownState, rosterEntry, sendable, trimEvent } from '../net/protocol.js?v=muyivii8';
-import { sanitizeCosmetics, botCosmetics } from './cosmetics.js?v=muyivii8';
+import { Match } from '../sim/match.js?v=muyj9kc9';
+import { NavGraph } from '../bots/nav.js?v=muyj9kc9';
+import { BotManager, BOT_NAMES } from '../bots/bot.js?v=muyj9kc9';
+import { getMap, mapDef, pickPublicMap } from '../maps/index.js?v=muyj9kc9';
+import { TICK, TICK_HZ, PRIMARIES, ROUND } from '../sim/tuning.js?v=muyj9kc9';
+import { Net, cleanName } from '../net/net.js?v=muyj9kc9';
+import { encodePlayer, ownState, rosterEntry, sendable, trimEvent } from '../net/protocol.js?v=muyj9kc9';
+import { sanitizeCosmetics, botCosmetics } from './cosmetics.js?v=muyj9kc9';
 export { sanitizeCosmetics };
 
 const navCache = new Map();
@@ -48,7 +48,11 @@ export class HostSession {
     this.newMatch(options);
     for (const p of old.players.values()) {
       const q = this.match.addPlayer({ id: p.id, name: p.name, bot: p.bot, primary: p.nextPrimary || p.primary, cosmetics: p.cosmetics, team: p.team });
-      if (p.bot) this.bots.add(q, oldBots.bots.get(p.id)?.skill ?? (this.cfg.difficulty || 'normal'));
+      if (!p.bot) continue;
+      // The same people into the next round: skill, personality, the way they type, and who they
+      // hold a grudge against (the map-specific memories stay behind).
+      const ob = oldBots.bots.get(p.id), nb = this.bots.add(q, ob?.skill ?? (this.cfg.difficulty || 'normal'), ob ? { ...ob.per, free: true } : {});
+      if (ob) { nb.mind = ob.mind.carry(); nb.voice = ob.voice; }
     }
     this.me = this.match.players.get(this.myId);
     this.prev.clear(); this.acc = 0; this.evSeen = 0; this.outbox.length = 0;
@@ -108,7 +112,7 @@ export class HostSession {
   setPrimary(w) { this.match.setPrimary(this.myId, w); }
   switchTeam() { return this.match.mode.switchTeam(this.me); }
   canRespawn() { return this.match.canRespawn(this.me); }
-  sendChat(msg, team) { this.net?.broadcast({ t: 'chat', id: this.myId, msg, team }); }
+  sendChat(msg, team) { this.net?.broadcast({ t: 'chat', id: this.myId, msg, team }); this.bots.heard(this.myId, msg); }
   kick(id) { if (this.guests.has(id)) this.net.kick(id); else if (this.match.players.get(id)?.bot) { this.removeBot(id); this.fillBots(); } }
 
   // ---- hosting ----
@@ -149,7 +153,7 @@ export class HostSession {
       case 'skip': this.requestSkip(id); break;
       case 'vote': this.castVote(id, !!m.yes); break;
       case 'team': { const err = this.match.mode.switchTeam(p); if (err) this.net.sendTo(id, { t: 'note', msg: err }); break; }
-      case 'chat': this.onChat?.(`${p.name}: ${m.msg}`, m.team ? '#7fd3ff' : '#fff', p.team, m.team); break;
+      case 'chat': this.onChat?.(`${p.name}: ${m.msg}`, m.team ? '#7fd3ff' : '#fff', p.team, m.team); if (typeof m.msg === 'string') this.bots.heard(id, m.msg); break;
     }
   }
   onGuestLeft(id, why) {
