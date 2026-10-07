@@ -11,7 +11,7 @@
 // Where half-float targets can't be rendered (WebGL 1, very old GPUs) the renderer skips all of
 // this and draws straight to the canvas with three's own tone mapping, which looks nearly the same.
 // scale: the 3D view's resolution as a fraction of the canvas's.
-import * as THREE from '../../vendor/three/three.module.js?v=muyipxxo';
+import * as THREE from '../../vendor/three/three.module.js?v=muyivii8';
 
 const VERT = 'varying vec2 vUv; void main(){ vUv = position.xy * 0.5 + 0.5; gl_Position = vec4(position.xy, 0.0, 1.0); }';
 

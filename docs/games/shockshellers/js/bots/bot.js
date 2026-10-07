@@ -7,11 +7,11 @@
 // Bots drive the match through the same input struct as humans (control bits + yaw/pitch), so the
 // simulation holds them to identical movement, fire-rate, spread and damage rules. Difficulty only
 // changes human limits (reaction, aim error, turn speed, leading, decision noise), never knowledge.
-import { CTRL, WEAPONS, PLAYER, GRENADE, PRIMARIES, TICK } from '../sim/tuning.js?v=muyipxxo';
-import { currentSpread, weaponOf, slotOf } from '../sim/combat.js?v=muyipxxo';
-import { forward } from '../sim/movement.js?v=muyipxxo';
-import { STRATEGIES, strategyProfile, choose } from './strategies.js?v=muyipxxo';
-import { EDGE } from './nav.js?v=muyipxxo';
+import { CTRL, WEAPONS, PLAYER, GRENADE, PRIMARIES, TICK } from '../sim/tuning.js?v=muyivii8';
+import { currentSpread, weaponOf, slotOf } from '../sim/combat.js?v=muyivii8';
+import { forward } from '../sim/movement.js?v=muyivii8';
+import { STRATEGIES, strategyProfile, choose } from './strategies.js?v=muyivii8';
+import { EDGE } from './nav.js?v=muyivii8';
 
 // Skill is a number from 0 (a first-time player) to 1 (a top player). Every trait is interpolated
 // between those two anchors; reaction time and aim error interpolate geometrically, since people are
@@ -758,13 +758,14 @@ export class BotManager {
   }
   // Bots talk now and then, like people: a greeting for newcomers, a groan after dying, a "nice shot"
   // for a good kill. Rare, varied, never spammy (per-bot and lobby-wide cooldowns), and polite.
-  say(id, kind) {
+  say(id, kind, force = false) {
     if (this.match.options.botChat === false) return; // the host turned bot chat off
     const t = this.match.tick, b = this.bots.get(id);
-    if (!b || t - (b.lastChat ?? -1e9) < 30 * 45 || t - (this.lastChat ?? -1e9) < 30 * 6) return;
+    if (!b) return;
+    if (!force && (t - (b.lastChat ?? -1e9) < 30 * 45 || t - (this.lastChat ?? -1e9) < 30 * 6)) return;
     const lines = BOT_LINES[kind]; if (!lines) return;
     // Chattiness is personal: some bots never talk.
-    if (this.rng() > (b.per.chatty ?? 0) * (BOT_CHANCE[kind] || 0.1)) return;
+    if (!force && this.rng() > (b.per.chatty ?? 0) * (BOT_CHANCE[kind] || 0.1)) return;
     b.lastChat = t; this.lastChat = t;
     let msg = lines[Math.floor(this.rng() * lines.length)];
     if (this.rng() < 0.4) msg = msg.toLowerCase();
@@ -778,6 +779,8 @@ const BOT_LINES = {
   kill: ['gg', 'got em', 'lol', 'sorry!', 'oops'],
   streak: ['im on fire', 'lets goo', 'cant stop me', 'egg-cellent'],
   bye: ['gg all', 'gtg', 'bye'],
+  voteYes: ['yeah skip it', 'skip', 'gg next map', 'sure', 'yes pls', 'this map is mid', 'ok next'],
+  voteNo: ['nah i like this map', 'noo im on a streak', 'one more min', 'no way', 'nope', 'cmon i was winning'],
 };
 const BOT_CHANCE = { hello: 0.35, died: 0.12, niceShot: 0.15, kill: 0.06, streak: 0.4, bye: 0.5 };
 
