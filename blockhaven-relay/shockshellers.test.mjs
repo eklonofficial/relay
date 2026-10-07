@@ -63,3 +63,30 @@ test('a friend joins a bot match by code, replaces a bot and plays', async t => 
   assert.ok(err < 1, `prediction close to the host (${err.toFixed(3)})`);
   running = false; await hostLoop;
 });
+
+test('rounds over the relay: the guest sees the podium and follows the host to the next map', async t => {
+  const url = await relay(t);
+  globalThis.SHOCKSHELLERS_NET = { brokers: [url], iceServers: [], forceRelay: true, wake: [] };
+  const host = new HostSession({ map: 'omelet', mode: 'ffa', options: { timeLimit: 3 }, difficulty: 'normal', name: 'Hosty', primary: 'yolk47', cosmetics: { color: 0, hat: 'none' } });
+  t.after(() => host.close());
+  const code = await deadline(host.openRoom());
+  let running = true;
+  // The host runs several ticks per step (advance catches up a quarter second at a time): the round
+  // and its 15 s podium pass in a few seconds of real time.
+  const hostLoop = (async () => { while (running) { host.advance(0.25, { ctrl: 0, yaw: 0, pitch: 0 }); host.takeEvents(); await sleep(25); } })();
+  const guest = await deadline(GuestSession.join(code, { name: 'Friend', primary: 'beater', cosmetics: { color: 3, hat: 'cap' } }, () => {}), 30000);
+  t.after(() => { running = false; guest.close(); });
+  let ended = null, rounds = 0;
+  guest.onNewRound = () => rounds++;
+  for (let i = 0; i < 1200 && !rounds; i++) {
+    guest.advance(1 / 30, { ctrl: 0, yaw: 0, pitch: 0 });
+    for (const e of guest.takeEvents()) if (e.t === 'roundEnd') ended = e;
+    await sleep(10);
+  }
+  assert.ok(ended && ended.podium.length === 3 && ended.nextName, 'the guest saw the podium and the next map');
+  assert.equal(rounds, 1, 'the guest moved to the next round');
+  assert.equal(guest.mapId, host.mapId); assert.equal(guest.mapId, ended.next);
+  assert.ok(guest.me && guest.match.players.has(guest.myId) && !guest.match.over);
+  assert.equal(guest.match.players.size, host.match.players.size);
+  running = false; await hostLoop;
+});

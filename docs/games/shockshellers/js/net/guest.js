@@ -4,11 +4,11 @@
 // snapshot says which input the host last used, we rewind to the host's state and replay the newer
 // inputs (reconciliation), easing any correction over a couple of ticks. Everyone else is drawn
 // 100 ms in the past, interpolated between snapshots (Blockhaven's remote players do the same).
-import { Match } from '../sim/match.js?v=muyhj86r';
-import { getMap } from '../maps/index.js?v=muyhj86r';
-import { TICK, SYNC_EVERY } from '../sim/tuning.js?v=muyhj86r';
-import { Net } from './net.js?v=muyhj86r';
-import { applyPlayer, applyOwn } from './protocol.js?v=muyhj86r';
+import { Match } from '../sim/match.js?v=muyhx1yl';
+import { getMap } from '../maps/index.js?v=muyhx1yl';
+import { TICK, SYNC_EVERY } from '../sim/tuning.js?v=muyhx1yl';
+import { Net } from './net.js?v=muyhx1yl';
+import { applyPlayer, applyOwn } from './protocol.js?v=muyhx1yl';
 
 const DELAY = 100; // ms behind the newest snapshot for other players
 const OWN = new Set(['shot', 'fire', 'reload', 'reloaded', 'dry', 'swap', 'swing', 'charge', 'jump', 'land']);
@@ -22,7 +22,7 @@ export class GuestSession {
   }
   constructor() { this.host = false; this.events = []; this.ping = 0; this.snaps = []; this.inputs = new Map(); this.frame = 0; this.acc = 0; this.offset = [0, 0, 0]; this.prevMe = [0, 0, 0]; }
   start(net, w) {
-    this.net = net; this.code = w.code || net.code; this.myId = w.id;
+    this.net = net; this.code = w.code || net.code; this.myId = w.id; this.round = w.round || 1;
     this.mapId = w.map; this.map = getMap(w.map);
     this.cfg = { private: true, mode: w.mode, map: w.map };
     this.match = new Match(this.map, { mode: w.mode, options: w.options });
@@ -31,6 +31,13 @@ export class GuestSession {
     for (const r of w.roster) this.addRoster(r);
     this.me = this.match.players.get(this.myId);
     this.match.tick = w.tick;
+    if (w.over) this.match.over = w.over;   // (joined during the podium)
+  }
+  // The host started the next round on a new map: rebuild everything from its roster.
+  restart(w) {
+    this.start(this.net, { ...w, id: this.myId, code: this.code });
+    this.snaps.length = 0; this.inputs.clear(); this.offset.fill(0); this.events.length = 0;
+    this.onNewRound?.();
   }
   addRoster(r) {
     if (this.match.players.has(r.id)) return this.match.players.get(r.id);
@@ -63,7 +70,7 @@ export class GuestSession {
       this.inputs.set(this.frame, inp);
       this.inputs.delete(this.frame - 120);
       me.input.ctrl = inp[0]; me.input.yaw = inp[1]; me.input.pitch = inp[2];
-      if (me.alive) this.match.stepPlayer(me, true);
+      if (me.alive && !this.match.over) this.match.stepPlayer(me, true);
       this.match.tick++;
       if (this.frame % SYNC_EVERY === 0) {
         const c = []; for (let f = this.frame - SYNC_EVERY + 1; f <= this.frame; f++) c.push(this.inputs.get(f) || inp);
@@ -79,6 +86,7 @@ export class GuestSession {
   onHostMessage(m) {
     switch (m.t) {
       case 'st': this.snapshot(m); break;
+      case 'round': if (typeof m.map === 'string' && Array.isArray(m.roster)) this.restart(m); break;
       case 'chat': { const p = this.match.players.get(m.id); if (p && m.msg) this.onChat?.(`${p.name}: ${String(m.msg).slice(0, 200)}`, m.team ? '#7fd3ff' : '#fff'); break; }
       case 'leave': break; // the roster change arrives as an event in the next snapshot
       case 'note': this.onChat?.(String(m.msg || '').slice(0, 200), '#ffd23f'); break;
@@ -128,6 +136,7 @@ export class GuestSession {
       else this.offset.fill(0);
     }
     for (const e of s.e || []) {
+      if (e.t === 'roundEnd') m.over = { until: e.until, results: e };
       if (e.id === this.myId && OWN.has(e.t)) continue; // already shown by our prediction
       this.events.push(e);
     }

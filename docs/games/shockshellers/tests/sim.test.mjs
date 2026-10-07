@@ -316,3 +316,54 @@ test('melee: quick enough to spam, crushing point blank, weaker at full reach', 
   for (let i = 0; i < 16; i++) { m.setInput(1, i % 10 === 0 ? CTRL.melee : 0, 0, 0); m.step(); }
   assert.equal(t.alive, false, 'two point-blank whacks crack an egg');
 });
+
+test('rounds: the clock runs out, the podium names the top three, everything freezes for 15 s', () => {
+  const b = new Builder(30, 8, 30); b.fill(0, 0, 0, 29, 0, 29, 'block', MAT.stone); for (let i = 0; i < 4; i++) b.spawn(3 + i * 6, 1, 3);
+  const map = b.finish({ id: 't', name: 'T', maxPlayers: 8, modes: { ffa: true, teams: true } });
+  const m = new Match(map, { seed: 3, options: { timeLimit: 2 } });
+  const ps = [1, 2, 3, 4].map(id => m.addPlayer({ id, name: 'P' + id }));
+  ps.forEach((p, i) => { m.spawn(p); p.score = [5, 9, 1, 7][i]; p.kills = p.score; });
+  assert.ok(Math.abs(m.timeLeft() - 2) < 1e-9);
+  let end = null;
+  for (let i = 0; i < 70 && !end; i++) { m.step(); end = m.events.find(e => e.t === 'roundEnd'); }
+  assert.ok(end, 'the round ended');
+  assert.deepEqual(end.podium, [2, 4, 1]);
+  assert.equal(end.rows.length, 4); assert.equal(end.team, 0);
+  assert.equal(end.until - m.tick, 15 * 30);
+  // Frozen: nobody moves while the podium is up.
+  const x = ps[0].body.x; m.setInput(1, CTRL.up, 0, 0); for (let i = 0; i < 30; i++) m.step();
+  assert.equal(ps[0].body.x, x);
+  // Teams: the winning team's top three, and the scores.
+  const t = new Match(map, { mode: 'teams', seed: 3, options: { timeLimit: 1 } });
+  const q = [1, 2, 3, 4, 5, 6].map(id => t.addPlayer({ id, name: 'Q' + id }));
+  q.forEach(p => { p.score = p.id; });
+  t.mode.score = [0, 3, 8];
+  for (let i = 0; i < 40; i++) t.step();
+  const te = t.events.find(e => e.t === 'roundEnd');
+  assert.equal(te.team, 2); assert.deepEqual(te.scores, [3, 8]);
+  assert.ok(te.podium.every(id => t.players.get(id).team === 2));
+  // No time limit, no rounds (as the sims and tests run).
+  assert.equal(new Match(map, { seed: 1 }).timeLeft(), null);
+});
+
+test('Roost with rounds: the fifth capture wins the round outright', async () => {
+  const { getMap } = await load('maps/index.js');
+  const m = new Match(getMap('barnyard'), { mode: 'roost', seed: 2, options: { timeLimit: 300 } });
+  m.addPlayer({ id: 1, name: 'A' }); m.addPlayer({ id: 2, name: 'B' });
+  m.mode.score = [0, 4, 0]; m.mode.capture(1);
+  const e = m.events.find(x => x.t === 'roundEnd');
+  assert.ok(e && e.team === 1 && e.obj === 'Roost time');
+});
+
+test('the host moves everyone to a new map after the podium', async () => {
+  const { HostSession } = await load('game/session.js');
+  const s = new HostSession({ map: 'omelet', mode: 'ffa', options: { timeLimit: 1, botChat: false }, bots: 4, difficulty: 'normal', name: 'Me', primary: 'yolk47', cosmetics: {} });
+  let fired = 0; s.onNewRound = () => fired++;
+  const before = [...s.match.players.values()].map(p => p.name).sort();
+  let next = null;
+  for (let i = 0; i < 30 * 20 && !fired; i++) { s.advance(1 / 30, null); for (const e of s.takeEvents()) if (e.t === 'roundEnd') next = e.next; }
+  assert.equal(fired, 1);
+  assert.ok(next && next !== 'omelet' && s.mapId === next, `next map ${next}, now ${s.mapId}`);
+  assert.deepEqual([...s.match.players.values()].map(p => p.name).sort(), before);
+  assert.ok(s.me && s.me.id === 1 && s.round === 2 && !s.match.over);
+});

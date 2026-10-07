@@ -5,8 +5,9 @@
 //                 st {k: tick, a: last input frame used, me: own state, p: players, i: items, m: mode,
 //                     r: rockets, g: grenades, e: events}   15 Hz
 //                 opts {options} | boot {reason} | join | leave | bye | chat
+//                 round {map, mode, options, tick, roster, round}   the next round, on a new map
 // Numbers are rounded to 1/256 (positions) and 1/1000 (angles) to keep messages small.
-import { PRIMARIES, SECONDARY } from '../sim/tuning.js?v=muyhj86r';
+import { PRIMARIES, SECONDARY } from '../sim/tuning.js?v=muyhx1yl';
 
 const q = v => Math.round(v * 256) / 256;
 const a = v => Math.round(v * 1000) / 1000;
@@ -42,7 +43,7 @@ export function applyOwn(p, s) {
 }
 export const rosterEntry = p => ({ id: p.id, name: p.name, bot: !!p.bot, team: p.team, cosmetics: p.cosmetics || null, primary: p.primary });
 // Events guests need (everything visual/audible plus kills and pickups); bulky or private ones are trimmed.
-const SEND = new Set(['shot', 'fire', 'impact', 'hit', 'kill', 'spawn', 'reload', 'reloaded', 'dry', 'swap', 'swing', 'throw', 'bounce', 'rocket', 'boom', 'dud', 'collect', 'land', 'jump', 'power', 'powerEnd', 'shieldBreak', 'spatula', 'score', 'roost', 'win', 'team', 'join', 'leave', 'despawn', 'item']);
+const SEND = new Set(['shot', 'fire', 'impact', 'hit', 'kill', 'spawn', 'reload', 'reloaded', 'dry', 'swap', 'swing', 'throw', 'bounce', 'rocket', 'boom', 'dud', 'collect', 'land', 'jump', 'power', 'powerEnd', 'shieldBreak', 'spatula', 'score', 'roost', 'win', 'team', 'join', 'leave', 'despawn', 'item', 'roundEnd']);
 export const sendable = e => SEND.has(e.t);
 export function trimEvent(e) {
   const o = { ...e };

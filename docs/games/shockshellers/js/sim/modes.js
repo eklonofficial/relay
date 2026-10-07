@@ -1,7 +1,7 @@
 // Game modes (GDD §14): Free For All, Teams, Spatula Snatch, Rule the Roost. Each mode answers the
 // match's questions (teams, spawns, scoring) and keeps its own objective state, which the HUD and the
 // network read through state().
-import { ROOST, SPATULA, PLAYER } from './tuning.js?v=muyhj86r';
+import { ROOST, SPATULA, PLAYER } from './tuning.js?v=muyhx1yl';
 
 export const TEAM_NAMES = ['', 'Blue', 'Red'];
 
@@ -43,7 +43,7 @@ class Teams extends FFA {
 
 class Spatula extends Teams {
   constructor(m) {
-    super(m);
+    super(m); this.objLabel = 'Spatula time';
     this.score = [0, 0, 0];
     this.spat = { x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, carrier: -1, held: 0, last: 0, rest: false };
     this.respawn();
@@ -74,6 +74,7 @@ class Spatula extends Teams {
     if (s.carrier >= 0) {
       const p = m.players.get(s.carrier);
       if (!p || !p.alive) { if (p) this.drop(p); else { s.carrier = -1; s.held = 0; } return; }
+      p.obj = (p.obj || 0) + 1;
       // Rides 0.3 behind the carrier, following their yaw.
       s.x = p.body.x + Math.sin(p.body.yaw) * SPATULA.carryBack; s.y = p.body.y + 0.45; s.z = p.body.z + Math.cos(p.body.yaw) * SPATULA.carryBack;
       return;
@@ -106,7 +107,7 @@ class Spatula extends Teams {
 
 class Roost extends Teams {
   constructor(m) {
-    super(m);
+    super(m); this.objLabel = 'Roost time';
     this.zones = m.map.roostZones;
     this.zone = this.zones.length ? Math.floor(m.rnd() * this.zones.length) : -1;
     this.progress = 0; this.owner = 0; this.takeover = 0; this.taker = 0; this.st = 'start';
@@ -127,7 +128,7 @@ class Roost extends Teams {
     const c = this.counts();
     if (!c[1] || !c[2]) { this.st = 'waiting'; return; }
     const inside = [0, 0, 0];
-    for (const p of m.players.values()) if (p.alive && p.pausedAt < 0 && this.inZone(p)) inside[p.team]++;
+    for (const p of m.players.values()) if (p.alive && p.pausedAt < 0 && this.inZone(p)) { inside[p.team]++; p.obj = (p.obj || 0) + 1; }
     if (inside[1] && inside[2]) { this.st = 'contested'; return; }
     const t = inside[1] ? 1 : inside[2] ? 2 : 0;
     if (!t) {
@@ -147,6 +148,8 @@ class Roost extends Teams {
   capture(t) {
     const m = this.m;
     this.score[t]++; m.emit({ t: 'roost', k: 'score', team: t, s: this.score[t] });
+    // In a game with rounds, the fifth capture wins the round outright (the podium follows).
+    if (this.score[t] >= ROOST.goal && m.roundEnds) { m.endRound(t); return; }
     if (this.score[t] >= ROOST.goal) {
       // Round win: clear the air, hand out the bonus, then a short intermission (GDD §14.4).
       m.bullets.length = 0; m.rockets.length = 0; m.grenades.length = 0;
