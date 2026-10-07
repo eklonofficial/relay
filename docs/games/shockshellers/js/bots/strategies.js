@@ -6,8 +6,8 @@
 //             shooting windows, 'always', 'never'), hop ('duel' | 'escape' | 'none'), scope
 // A bot weighs them with its own taste for each (a per-bot profile) and its skill: good players pick
 // what the situation calls for and switch at the right time; weaker ones lean on habits and misjudge.
-import { PLAYER, TICK } from '../sim/tuning.js?v=muyipxxo';
-import { EDGE } from './nav.js?v=muyipxxo';
+import { PLAYER, TICK } from '../sim/tuning.js?v=muyj9kc9';
+import { EDGE } from './nav.js?v=muyj9kc9';
 
 const T = (strafe, stand, hop, ads = false) => ({ strafe, stand, hop, ads });
 const FIGHT = T(true, 'counter', 'duel');
@@ -173,6 +173,13 @@ export function choose(bot, c) {
     // Most real players are casual: they push, chase and roam; holding angles, flanking, ambushes and
     // perches are what the better ones do. So the tactical plays fade in with skill.
     u *= CASUAL.has(s.id) ? 1 + 0.8 * (1 - sk) : TACTICAL.has(s.id) ? 0.3 + 0.7 * sk : 1;
+    // Memory and mood: a bad run makes people slow down and play safer, a good one makes them push;
+    // a sniper that keeps getting them gets flanked rather than walked into; their nemesis gets
+    // fought carefully (or chased down, when they're feeling it).
+    if (c.tilted) u *= TACTICAL.has(s.id) ? 1.3 : s.id === 'push' || s.id === 'roam' ? 0.7 : 1;
+    if (c.confident) u *= s.id === 'push' || s.id === 'hunt' ? 1.35 : 1;
+    if (c.sniperThreat) u *= s.id === 'flank' || s.id === 'coverFight' ? 1.35 : s.id === 'roam' ? 0.8 : 1;
+    if (c.nemesis) u *= s.id === 'hunt' || s.id === 'flank' ? 1.3 : s.id === 'push' ? (c.confident ? 1.3 : 0.85) : s.id === 'coverFight' ? 1.2 : 1;
     if (s === bot.strategy) u *= c.tick - bot.stratSince < Math.round(1.2 / TICK) ? 1.6 : 1.2;
     if (u > bu) { bu = u; best = s; }
   }

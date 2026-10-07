@@ -1,14 +1,14 @@
 // A match as this browser sees it. The host's session owns the real Match (and its bots); a guest's
 // session mirrors the host's snapshots and predicts only its own egg (net/guest.js). Either way the
 // view reads players, objects and events from here.
-import { Match } from '../sim/match.js?v=muyipxxo';
-import { NavGraph } from '../bots/nav.js?v=muyipxxo';
-import { BotManager, BOT_NAMES } from '../bots/bot.js?v=muyipxxo';
-import { getMap, mapDef, pickPublicMap } from '../maps/index.js?v=muyipxxo';
-import { TICK, PRIMARIES, ROUND } from '../sim/tuning.js?v=muyipxxo';
-import { Net, cleanName } from '../net/net.js?v=muyipxxo';
-import { encodePlayer, ownState, rosterEntry, sendable, trimEvent } from '../net/protocol.js?v=muyipxxo';
-import { sanitizeCosmetics, botCosmetics } from './cosmetics.js?v=muyipxxo';
+import { Match } from '../sim/match.js?v=muyj9kc9';
+import { NavGraph } from '../bots/nav.js?v=muyj9kc9';
+import { BotManager, BOT_NAMES } from '../bots/bot.js?v=muyj9kc9';
+import { getMap, mapDef, pickPublicMap } from '../maps/index.js?v=muyj9kc9';
+import { TICK, TICK_HZ, PRIMARIES, ROUND } from '../sim/tuning.js?v=muyj9kc9';
+import { Net, cleanName } from '../net/net.js?v=muyj9kc9';
+import { encodePlayer, ownState, rosterEntry, sendable, trimEvent } from '../net/protocol.js?v=muyj9kc9';
+import { sanitizeCosmetics, botCosmetics } from './cosmetics.js?v=muyj9kc9';
 export { sanitizeCosmetics };
 
 const navCache = new Map();
@@ -43,12 +43,16 @@ export class HostSession {
     const old = this.match, oldBots = this.bots;
     this.mapId = this.nextMap || pickPublicMap(old.modeId, Math.random, this.recent.slice(-4));
     this.recent = [...this.recent.filter(id => id !== this.mapId), this.mapId].slice(-6);
-    this.map = getMap(this.mapId); this.nextMap = null; this.round++;
+    this.map = getMap(this.mapId); this.nextMap = null; this.round++; this.vote = null;
     const { ...options } = old.options;
     this.newMatch(options);
     for (const p of old.players.values()) {
       const q = this.match.addPlayer({ id: p.id, name: p.name, bot: p.bot, primary: p.nextPrimary || p.primary, cosmetics: p.cosmetics, team: p.team });
-      if (p.bot) this.bots.add(q, oldBots.bots.get(p.id)?.skill ?? (this.cfg.difficulty || 'normal'));
+      if (!p.bot) continue;
+      // The same people into the next round: skill, personality, the way they type, and who they
+      // hold a grudge against (the map-specific memories stay behind).
+      const ob = oldBots.bots.get(p.id), nb = this.bots.add(q, ob?.skill ?? (this.cfg.difficulty || 'normal'), ob ? { ...ob.per, free: true } : {});
+      if (ob) { nb.mind = ob.mind.carry(); nb.voice = ob.voice; }
     }
     this.me = this.match.players.get(this.myId);
     this.prev.clear(); this.acc = 0; this.evSeen = 0; this.outbox.length = 0;
@@ -56,13 +60,59 @@ export class HostSession {
     this.net?.broadcast({ t: 'round', map: this.mapId, mode: this.match.modeId, options: this.match.options, code: this.code, tick: this.match.tick, roster: [...this.match.players.values()].map(rosterEntry), host: this.myId, round: this.round });
     this.onNewRound?.();
   }
+  // ---- skip-round votes ----
+  // Anyone can ask to end the round early (to the podium, then the next map). With friends in the
+  // room only people vote, and it needs a majority of them; alone with bots, the bots vote too: a few
+  // against (they have opinions), but always enough for it to pass.
+  requestSkip(id) {
+    const m = this.match;
+    if (m.over || this.vote || m.tick < (this.voteCooldown || 0)) return false;
+    const humans = [...m.players.values()].filter(p => !p.bot), solo = humans.length <= 1;
+    const v = this.vote = { by: id, yes: new Set([id]), no: new Set(), until: m.tick + 20 * TICK_HZ, solo, bots: [] };
+    if (solo) {
+      const bots = [...m.players.values()].filter(p => p.bot).sort(() => Math.random() - 0.5);
+      const against = Math.floor(Math.random() * (Math.floor((bots.length - 1) / 2) + 1));
+      bots.forEach((b, i) => v.bots.push({ id: b.id, yes: i >= against, at: m.tick + Math.round((1 + Math.random() * 6) * TICK_HZ) }));
+    }
+    m.emit({ t: 'vote', k: 'start', id, until: v.until, solo });
+    this.checkVote();
+    return true;
+  }
+  castVote(id, yes) {
+    const v = this.vote, m = this.match; if (!v || !m.players.has(id)) return;
+    if (!v.solo && m.players.get(id).bot) return;
+    v.yes.delete(id); v.no.delete(id); (yes ? v.yes : v.no).add(id);
+    m.emit({ t: 'vote', k: 'cast', id, yes: !!yes, y: v.yes.size, n: v.no.size });
+    this.checkVote();
+  }
+  tickVote() {
+    const v = this.vote, m = this.match; if (!v) return;
+    for (const b of v.bots) if (!b.done && m.tick >= b.at) {
+      b.done = true; this.castVote(b.id, b.yes); if (!this.vote) return;
+      if (Math.random() < 0.6) this.bots.say?.(b.id, b.yes ? 'voteYes' : 'voteNo', true);
+    }
+    if (m.tick >= v.until) this.endVote(v.yes.size > v.no.size);
+  }
+  checkVote() {
+    const v = this.vote, m = this.match; if (!v) return;
+    const voters = v.solo ? m.players.size : [...m.players.values()].filter(p => !p.bot).length, need = Math.floor(voters / 2) + 1;
+    if (v.yes.size >= need) this.endVote(true);
+    else if (voters - v.no.size < need) this.endVote(false);
+  }
+  endVote(pass) {
+    const m = this.match; this.vote = null;
+    m.emit({ t: 'vote', k: 'end', pass });
+    if (pass) m.endRound(); else this.voteCooldown = m.tick + 30 * TICK_HZ;
+  }
+  skip() { return this.requestSkip(this.myId); }
+  voteSkip(yes) { this.castVote(this.myId, yes); }
   // ---- actions (the same API a guest session offers) ----
   respawn() { return this.match.requestRespawn(this.myId); }
   pauseMe() { this.match.pause(this.myId); }
   setPrimary(w) { this.match.setPrimary(this.myId, w); }
   switchTeam() { return this.match.mode.switchTeam(this.me); }
   canRespawn() { return this.match.canRespawn(this.me); }
-  sendChat(msg, team) { this.net?.broadcast({ t: 'chat', id: this.myId, msg, team }); }
+  sendChat(msg, team) { this.net?.broadcast({ t: 'chat', id: this.myId, msg, team }); this.bots.heard(this.myId, msg); }
   kick(id) { if (this.guests.has(id)) this.net.kick(id); else if (this.match.players.get(id)?.bot) { this.removeBot(id); this.fillBots(); } }
 
   // ---- hosting ----
@@ -100,8 +150,10 @@ export class HostSession {
       case 'resp': this.match.requestRespawn(id); break;
       case 'prim': if (PRIMARIES.includes(m.w)) this.match.setPrimary(id, m.w); break;
       case 'pause': this.match.pause(id); break;
+      case 'skip': this.requestSkip(id); break;
+      case 'vote': this.castVote(id, !!m.yes); break;
       case 'team': { const err = this.match.mode.switchTeam(p); if (err) this.net.sendTo(id, { t: 'note', msg: err }); break; }
-      case 'chat': this.onChat?.(`${p.name}: ${m.msg}`, m.team ? '#7fd3ff' : '#fff', p.team, m.team); break;
+      case 'chat': this.onChat?.(`${p.name}: ${m.msg}`, m.team ? '#7fd3ff' : '#fff', p.team, m.team); if (typeof m.msg === 'string') this.bots.heard(id, m.msg); break;
     }
   }
   onGuestLeft(id, why) {
@@ -175,6 +227,7 @@ export class HostSession {
       this.feedGuests();
       this.bots.tick();
       this.match.step();
+      this.tickVote();
       // Everything since the last tick, including joins/leaves that happened between ticks.
       const fresh = this.match.events.slice(this.evSeen || 0); this.evSeen = this.match.events.length;
       // A round just ended: pick the next map now, so the podium can say where we're going.

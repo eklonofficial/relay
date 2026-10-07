@@ -7,11 +7,13 @@
 // Bots drive the match through the same input struct as humans (control bits + yaw/pitch), so the
 // simulation holds them to identical movement, fire-rate, spread and damage rules. Difficulty only
 // changes human limits (reaction, aim error, turn speed, leading, decision noise), never knowledge.
-import { CTRL, WEAPONS, PLAYER, GRENADE, PRIMARIES, TICK } from '../sim/tuning.js?v=muyipxxo';
-import { currentSpread, weaponOf, slotOf } from '../sim/combat.js?v=muyipxxo';
-import { forward } from '../sim/movement.js?v=muyipxxo';
-import { STRATEGIES, strategyProfile, choose } from './strategies.js?v=muyipxxo';
-import { EDGE } from './nav.js?v=muyipxxo';
+import { CTRL, WEAPONS, PLAYER, GRENADE, PRIMARIES, TICK } from '../sim/tuning.js?v=muyj9kc9';
+import { currentSpread, weaponOf, slotOf } from '../sim/combat.js?v=muyj9kc9';
+import { forward } from '../sim/movement.js?v=muyj9kc9';
+import { STRATEGIES, strategyProfile, choose } from './strategies.js?v=muyj9kc9';
+import { EDGE } from './nav.js?v=muyj9kc9';
+import { Mind, KIND, counterPick } from './mind.js?v=muyj9kc9';
+import { Social, where } from './chat.js?v=muyj9kc9';
 
 // Skill is a number from 0 (a first-time player) to 1 (a top player). Every trait is interpolated
 // between those two anchors; reaction time and aim error interpolate geometrically, since people are
@@ -83,6 +85,9 @@ export class Bot {
     this.stuckT = 0; this.lastPos = { x: 0, z: 0 }; this.progressT = 0;
     this.nadeCooldown = 0; this.nadePlan = null; this.burst = 0; this.burstRest = 0; this.phase = 'move'; this.phaseT = 0; this.hopT = 0; this.hopCool = 0; this.orbit = 1;
     this.spawnDelay = 0; this.lookAround = 0; this.glance = null;
+    this.mind = new Mind(); // what this match has taught it (kept through deaths)
+    this.lockPrimary = !!personality.primary && !personality.free; // a loadout someone chose for it stays
+    this.lastCallout = -1e9;
   }
   get body() { return this.p.body; }
 
@@ -120,12 +125,30 @@ export class Bot {
       mem.react = t + Math.round(r / TICK); mem.firstSeen = t;
       // Fresh aim error each time the target appears.
       this.newError(dist, 1.6);
+      this.callout(q, dist);
     } else if (t > mem.tick) {
       // Velocity estimate from what was seen, smoothed (no reading the true velocity).
       const k = 1 / Math.max(1, t - mem.tick), a = 0.5;
       mem.vx = mem.vx * (1 - a) + (qb.x - mem.x) * k * a; mem.vy = mem.vy * (1 - a) + (qb.y - mem.y) * k * a; mem.vz = mem.vz * (1 - a) + (qb.z - mem.z) * k * a;
     }
     mem.x = qb.x; mem.y = qb.y; mem.z = qb.z; mem.tick = t; mem.seen = clear; mem.dead = false; mem.hp = q.hp; mem.heard = false;
+  }
+  // In a team game, a fresh sighting gets passed on, like a person calling it out: teammates who are
+  // bots now know roughly where that enemy is, and the lobby may hear "{name} up high west side".
+  callout(q, dist) {
+    const m = this.m, t = m.tick;
+    if (!m.mode.teams || t - this.lastCallout < 30 * 6) return;
+    this.lastCallout = t;
+    const qb = q.body;
+    for (const b of this.mgr.bots.values()) if (b !== this && b.p.alive && b.p.team === this.p.team) b.heardCallout(q.id, qb.x, qb.y, qb.z, t);
+    const sniper = KIND[q.hands.slots[q.hands.cur].id] === 'sniper' && dist > 12;
+    this.mgr.social.say(this.p.id, sniper ? 'calloutSniper' : 'callout', q.id, { vars: { where: where(m, qb.x, qb.y, qb.z, this.mgr.ground) } });
+  }
+  heardCallout(id, x, y, z, t) {
+    let mem = this.mem.get(id);
+    if (mem && t - mem.tick < 30) return; // we already know
+    if (!mem) { mem = { x, y, z, vx: 0, vy: 0, vz: 0, tick: -999, seen: false, react: 0, firstSeen: t }; this.mem.set(id, mem); }
+    mem.x = x + (this.rnd() - 0.5) * 2; mem.y = y; mem.z = z + (this.rnd() - 0.5) * 2; mem.tick = t; mem.seen = false; mem.heard = true; mem.dead = false;
   }
   // Sounds: gunfire and explosions carry far, footsteps and reloads only close (GDD §24: cracks on
   // hit are audible and give fights away).
@@ -168,6 +191,8 @@ export class Bot {
       if (id === this.target) s += 3;
       if (this.underFire && t - this.underFire < 30 && id === this.lastAttacker) s += 4;
       s += (100 - (mem.hp ?? 100)) * 0.03;
+      // People hold grudges: the one who keeps cracking us gets picked over an equal target.
+      s += this.mind.grudge(id, t) * 1.5;
       if (s > bs) { bs = s; best = id; }
     }
     if (best !== this.target) this.newError(30, 1);
@@ -193,6 +218,10 @@ export class Bot {
       underFire: !!this.underFire && m.tick - this.underFire < 30, closeFoes,
       recent: !!tmem && !tmem.dead && m.tick - tmem.tick < 150,
       item: this.wantItem(), objective: this.objective(),
+      // From memory: a sniper keeps getting us (stay off open ground, or go and dig them out), the
+      // target is our nemesis, and how the match is going for us (tilted: careful; on a run: bold).
+      sniperThreat: this.mind.threat() === 'sniper', nemesis: this.target !== null && this.target === this.mind.nemesis(),
+      tilted: this.mind.tilted, confident: this.mind.confident,
     };
   }
   // Every ~0.3 s: pick (or keep) a strategy and let it steer.
@@ -364,19 +393,24 @@ export class Bot {
     if (same) return;
     const start = this.nav.nearest(this.body.x, this.body.y, this.body.z);
     // Paths avoid known enemy sightlines a little when not looking for a fight.
-    const open = g.avoidOpen ?? (STYLE[slotOf(this.p.hands).id] || STYLE.yolk47).avoidOpen;
-    const avoid = n => (g.k === 'hunt' || g.k === 'close' ? 0 : this.danger(n)) + n.exposure * open;
+    // A sniper we know about (it got us from a perch) makes open ground worth avoiding for everyone.
+    const t = this.m.tick, wary = this.mind.perches(t).length ? 1.5 : 0;
+    const open = (g.avoidOpen ?? (STYLE[slotOf(this.p.hands).id] || STYLE.yolk47).avoidOpen) + (g.k === 'perch' ? 0 : wary);
+    // (Not on the way to the objective: that is where everyone dies, and where the game is won.)
+    const obj = OBJECTIVE_GOALS.has(g.k);
+    const avoid = n => (g.k === 'hunt' || g.k === 'close' ? 0 : this.danger(n, obj)) + n.exposure * open;
     this.path = this.nav.path(start, g.node, avoid);
     this.pi = 0; this.progressT = 0;
   }
-  danger(n) {
+  danger(n, objective = false) {
     let c = 0;
     for (const [id, mem] of this.mem) {
       if (this.m.tick - mem.tick > 200 || mem.dead) continue;
       const d = Math.hypot(mem.x - n.x, mem.z - n.z);
       if (d < 18) c += (18 - d) * 0.08;
     }
-    return c;
+    // And where we keep getting cracked: people stop taking the route that got them killed twice.
+    return objective ? c : c + this.mind.heatAt(n.x, n.z, this.m.tick) * 2.5;
   }
   arrived() { return !this.path || this.pi >= this.path.length; }
 
@@ -699,6 +733,16 @@ export class Bot {
   // Loadout: personality and map size decide (snipers on big open maps, shotguns in close quarters).
   choosePrimary() {
     const disabled = this.m.options.disabled, size = Math.max(this.m.grid.w, this.m.grid.d);
+    // Losing over and over to the same kind of gun: rethink the loadout (better players do sooner).
+    const md = this.mind;
+    if (this.per.primary && !this.lockPrimary && md.deathRun >= 2 && md.deathRun !== this.rethought && this.rnd() < 0.3 + this.skill * 0.4) {
+      this.rethought = md.deathRun;
+      const pick = counterPick(md.threat(), this.per.aggression > 0.6, size > 28, this.rnd);
+      if (pick && pick !== this.per.primary && !disabled.includes(pick)) {
+        this.per.primary = pick;
+        this.mgr.social.say(this.p.id, 'switching', null, { vars: { w: WEAPONS[pick].name } });
+      }
+    }
     if (!this.per.primary) {
       const w = { yolk47: 3, doubleYolker: size < 30 ? 3 : 1.5, cageFree: size > 28 ? 2.5 : 1, yolkzooka: 1, beater: size < 30 ? 2.5 : 1.5, poacher: size > 28 ? 3 : 1.5, triBoil: 2 };
       let total = 0; for (const k of PRIMARIES) if (!disabled.includes(k)) total += w[k];
@@ -709,19 +753,23 @@ export class Bot {
   }
 }
 
-// Every bot in a match: builds nothing itself (the nav graph is shared), relays heard events.
+// Every bot in a match: builds nothing itself (the nav graph is shared), relays heard events, and
+// runs the lobby's chatter (bots/chat.js) off what actually happens.
 export class BotManager {
   constructor(match, nav, seed = 1) {
-    this.match = match; this.nav = nav; this.bots = new Map(); this.chatQueue = [];
+    this.match = match; this.nav = nav; this.bots = new Map();
     let s = seed >>> 0 || 1;
     this.rng = () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; };
+    this.social = new Social(this);
+    // The map's usual floor height (the median walkable height), for "up high" in callouts.
+    const ys = nav.nodes.map(n => n.y).sort((a, b) => a - b); this.ground = ys.length ? ys[ys.length >> 1] : 0;
   }
   add(player, difficulty, personality) { const b = new Bot(this, player, difficulty, personality); this.bots.set(player.id, b); b.choosePrimary(); return b; }
   remove(id) { this.bots.delete(id); }
-  // Feed this tick's sim events to the bots' senses.
+  // Feed this tick's sim events to the bots' senses, memories and mouths.
   events(list) {
     if (!this.bots.size) return;
-    const m = this.match;
+    const m = this.match, social = this.social;
     for (const e of list) {
       switch (e.t) {
         case 'fire': { const p = m.players.get(e.id); if (p) for (const b of this.bots.values()) b.hear(e.id, p.body.x, p.body.y, p.body.z, 40); break; }
@@ -734,51 +782,66 @@ export class BotManager {
         case 'boom': for (const b of this.bots.values()) b.hear(-1, e.x, e.y, e.z, 30); break;
         case 'jump': case 'land': { const p = m.players.get(e.id); if (p) for (const b of this.bots.values()) b.hear(e.id, p.body.x, p.body.y, p.body.z, 7); break; }
         case 'reload': { const p = m.players.get(e.id); if (p) for (const b of this.bots.values()) b.hear(e.id, p.body.x, p.body.y, p.body.z, 6); break; }
-        case 'join': { const p = m.players.get(e.id); if (p && !p.bot) for (const id of this.bots.keys()) this.say(id, 'hello'); break; }
-        case 'kill': {
-          const bot = this.bots.get(e.id); if (bot) bot.mem.clear();
-          if (bot && e.by >= 0) this.say(e.id, e.w === 'poacher' || e.w === 'cageFree' ? 'niceShot' : 'died');
-          const killer = this.bots.get(e.by);
-          if (killer) { killer.lastKill = m.tick; const k = m.players.get(e.by); if (k && k.streak >= 5 && k.streak % 5 === 0) this.say(e.by, 'streak'); else if (!m.players.get(e.id)?.bot) this.say(e.by, 'kill'); }
-          for (const b of this.bots.values()) { const mem = b.mem.get(e.id); if (mem) mem.dead = true; if (b.target === e.id) b.target = null; }
+        case 'join': { const p = m.players.get(e.id); if (p && !p.bot && m.tick > 30) social.anyone('hello', e.id); break; }
+        case 'kill': this.killed(e); break;
+        case 'spatula': if (e.k === 'take') {
+          if (this.bots.has(e.id)) social.say(e.id, 'carrying');
+          else { const foe = [...this.bots.values()].find(b => b.p.team !== e.team); if (foe) social.say(foe.p.id, 'theyCarry', e.id); }
+        } break;
+        case 'roost': if (e.k === 'flip') { const mate = [...this.bots.values()].find(b => b.p.team === e.team && b.p.alive); if (mate) social.say(mate.p.id, 'roost'); } break;
+        case 'roundEnd': {
+          // Everyone says gg at the end, a few at a time.
+          const ids = [...this.bots.keys()].filter(id => this.bots.get(id).per.chatty > 0.2).sort(() => this.rng() - 0.5).slice(0, 3);
+          ids.forEach((id, i) => { if (social.say(id, 'gg', null, { force: true })) social.queue[social.queue.length - 1].wait += i * 40; });
           break;
         }
       }
     }
   }
+  // Someone was cracked: the victim remembers who and how, the killer counts it, and either may say so.
+  killed(e) {
+    const m = this.match, social = this.social, t = m.tick;
+    const victim = this.bots.get(e.id), killer = e.by >= 0 && e.by !== e.id ? this.bots.get(e.by) : null;
+    const kp = e.by >= 0 ? m.players.get(e.by) : null, kind = KIND[e.w];
+    const from = kp ? { x: kp.body.x, y: kp.body.y, z: kp.body.z } : null;
+    const far = from ? Math.hypot(from.x - e.x, from.z - e.z) : 0;
+    // What each of them would say, decided before the memories change (a revenge kill is one that
+    // settles a score).
+    const lines = [];
+    if (victim) {
+      victim.mem.clear();
+      if (kp && e.by !== e.id) {
+        const f = victim.mind.foes.get(e.by), again = f && f.killedMe >= 1 && f.killedMe + 1 - f.iKilled >= 2;
+        const k = again ? 'diedAgain' : kind === 'sniper' && far > 12 ? 'diedSniper' : kind === 'rocket' ? 'diedRocket' : kind === 'close' ? 'diedClose' : victim.mind.deathRun >= 2 && this.rng() < 0.5 ? 'tilted' : 'diedTo';
+        lines.push([e.id, k, k === 'tilted' ? null : e.by]);
+      }
+      victim.mind.died(t, e.by, e.w, { x: e.x, y: e.y, z: e.z }, from);
+    }
+    if (killer) {
+      killer.lastKill = t;
+      const f = killer.mind.foes.get(e.id), revenge = f && f.killedMe > f.iKilled && t - f.lastKilledMe < 30 * 120;
+      const k = (e.streak || 0) >= 3 ? 'shutdown' : revenge ? 'revenge' : kp.streak >= 3 && kp.streak % 2 === 1 ? 'streak' : 'killed';
+      lines.push([e.by, k, k === 'streak' ? null : e.id, { n: kp.streak }]);
+      killer.mind.cracked(t, e.id);
+    } else if (kp && !kp.bot && (far > 25 || kp.streak === 5)) {
+      // A person made a great shot or is on a run: someone notices.
+      lines.push([null, kp.streak === 5 ? 'leader' : 'niceKill', e.by]);
+    }
+    // Whoever's line it is, in a random order (the lobby pacing lets one through, sometimes both).
+    if (this.rng() < 0.5) lines.reverse();
+    for (const [id, k, about, vars] of lines) { if (id === null) social.anyone(k, about); else social.say(id, k, about, { vars }); }
+    for (const b of this.bots.values()) { const mem = b.mem.get(e.id); if (mem) mem.dead = true; if (b.target === e.id) b.target = null; }
+  }
+  // A chat message from a person (bots' own lines come back through social.tick).
+  heard(from, msg) { this.social.heard(from, String(msg || '').slice(0, 200)); }
   tick() {
     for (const b of this.bots.values()) b.tick();
-    // Queued chat lines go out after a human typing delay.
-    for (let i = this.chatQueue.length - 1; i >= 0; i--) {
-      const q = this.chatQueue[i];
-      if (--q.wait > 0) continue;
-      this.chatQueue.splice(i, 1);
-      if (this.bots.has(q.id)) this.onChat?.(q.id, q.msg);
-    }
+    const m = this.match;
+    if (!this.greeted && m.tick > 30 * 4) { this.greeted = true; this.social.anyone('glhf'); }
+    this.social.tick();
   }
-  // Bots talk now and then, like people: a greeting for newcomers, a groan after dying, a "nice shot"
-  // for a good kill. Rare, varied, never spammy (per-bot and lobby-wide cooldowns), and polite.
-  say(id, kind) {
-    if (this.match.options.botChat === false) return; // the host turned bot chat off
-    const t = this.match.tick, b = this.bots.get(id);
-    if (!b || t - (b.lastChat ?? -1e9) < 30 * 45 || t - (this.lastChat ?? -1e9) < 30 * 6) return;
-    const lines = BOT_LINES[kind]; if (!lines) return;
-    // Chattiness is personal: some bots never talk.
-    if (this.rng() > (b.per.chatty ?? 0) * (BOT_CHANCE[kind] || 0.1)) return;
-    b.lastChat = t; this.lastChat = t;
-    let msg = lines[Math.floor(this.rng() * lines.length)];
-    if (this.rng() < 0.4) msg = msg.toLowerCase();
-    this.chatQueue.push({ id, msg, wait: Math.round(30 * (0.8 + msg.length * 0.08 + this.rng() * 1.5)) });
-  }
+  // Kept for the vote: a bot saying a line of a kind now (force skips the pacing).
+  say(id, kind, force = false) { return this.social.say(id, kind, null, { force }); }
 }
-const BOT_LINES = {
-  hello: ['hi', 'hey', 'yo', 'hello!', 'hi all', 'sup'],
-  died: ['ugh', 'how', 'so close', 'lag', 'nooo', 'whatt', 'that hurt', 'my yolk'],
-  niceShot: ['nice shot', 'ns', 'good shot', 'wow', 'clean'],
-  kill: ['gg', 'got em', 'lol', 'sorry!', 'oops'],
-  streak: ['im on fire', 'lets goo', 'cant stop me', 'egg-cellent'],
-  bye: ['gg all', 'gtg', 'bye'],
-};
-const BOT_CHANCE = { hello: 0.35, died: 0.12, niceShot: 0.15, kill: 0.06, streak: 0.4, bye: 0.5 };
 
 export const BOT_NAMES = ['NoobBird34', 'Yolkster', 'SirCrackalot', 'EggsterBunny', 'ShellShock99', 'HardBoiledHal', 'Scrambles', 'OmeletteYou', 'SunnySide', 'PoachedPete', 'BenedictArnold', 'CluckNorris', 'EggcellentAim', 'YolkOnYou', 'ShellRaiser', 'Eggward', 'FryDay', 'QuicheMe', 'BeatIt', 'Eggzecutioner', 'TheYolkFather', 'Crackers', 'Deviled', 'Huevos', 'Shelldon', 'Albumen', 'Nesty', 'Frittata', 'Brunch', 'EggSalad'];

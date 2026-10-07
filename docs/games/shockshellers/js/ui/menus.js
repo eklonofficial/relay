@@ -1,21 +1,21 @@
 // Menus and modals (GDD §16–21): home, respawn/pause screen, settings (3 tabs), play with friends,
 // custom matches, profile, shop/inventory, how to play, chat. All markup lives in index.html inside
 // the compositor; this module wires it up and keeps it current.
-import { surfaceDocument as document } from '../surface.js?v=muyipxxo';
-import * as THREE from '../../vendor/three/three.module.js?v=muyipxxo';
-import { ask, tell } from '../dialog.js?v=muyipxxo';
-import { gunModel } from '../render/guns.js?v=muyipxxo';
-import { EggAvatar } from '../render/egg.js?v=muyipxxo';
-import { hatMesh } from '../render/hats.js?v=muyipxxo';
-import { previewShell } from '../render/shellart.js?v=muyipxxo';
-import { COLORS, PATTERNS, STAMPS, HATS, SKINS, sanitizeCosmetics } from '../game/cosmetics.js?v=muyipxxo';
-import { WEAPONS, PRIMARIES, MODE_NAMES, MODE_MENU, TICK } from '../sim/tuning.js?v=muyipxxo';
-import { ACTIONS, ACTION_NAMES, keyLabel, DEFAULT_KEYS } from '../game/input.js?v=muyipxxo';
-import { DEFAULT_SETTINGS, saveSettings, saveProfile } from '../game/store.js?v=muyipxxo';
-import { ensureDaily, def as challengeDef, reroll, timeLeft } from '../game/challenges.js?v=muyipxxo';
-import { MAPS, mapDef } from '../maps/index.js?v=muyipxxo';
-import { drawHowTo } from './art.js?v=muyipxxo';
-import { wakeRelays, diagnoseNetwork } from '../net/net.js?v=muyipxxo';
+import { surfaceDocument as document } from '../surface.js?v=muyj9kc9';
+import * as THREE from '../../vendor/three/three.module.js?v=muyj9kc9';
+import { ask, tell } from '../dialog.js?v=muyj9kc9';
+import { gunModel } from '../render/guns.js?v=muyj9kc9';
+import { EggAvatar } from '../render/egg.js?v=muyj9kc9';
+import { hatMesh } from '../render/hats.js?v=muyj9kc9';
+import { previewShell } from '../render/shellart.js?v=muyj9kc9';
+import { COLORS, PATTERNS, STAMPS, HATS, SKINS, sanitizeCosmetics } from '../game/cosmetics.js?v=muyj9kc9';
+import { WEAPONS, PRIMARIES, MODE_NAMES, MODE_MENU, TICK } from '../sim/tuning.js?v=muyj9kc9';
+import { ACTIONS, ACTION_NAMES, keyLabel, DEFAULT_KEYS } from '../game/input.js?v=muyj9kc9';
+import { DEFAULT_SETTINGS, saveSettings, saveProfile } from '../game/store.js?v=muyj9kc9';
+import { ensureDaily, def as challengeDef, reroll, timeLeft } from '../game/challenges.js?v=muyj9kc9';
+import { MAPS, mapDef } from '../maps/index.js?v=muyj9kc9';
+import { drawHowTo } from './art.js?v=muyj9kc9';
+import { wakeRelays, diagnoseNetwork } from '../net/net.js?v=muyj9kc9';
 
 const $ = id => document.getElementById(id);
 const show = (id, on = true) => $(id).classList.toggle('hidden', !on);
@@ -144,6 +144,8 @@ export class Menus {
     $('btn-quit').onclick = async () => { if (await ask('Leave this match?')) app.goHome(); };
     $('btn-invite').onclick = () => this.invite();
     $('btn-team').onclick = () => this.switchTeam();
+    $('btn-skip').onclick = () => app.requestSkip();
+    $('vote-yes').onclick = () => app.castVote(true); $('vote-no').onclick = () => app.castVote(false);
     $('rs-play').onclick = () => { if (!$('rs-play').disabled) app.spawnMe(); };
     // Pointer lock lost while playing = pause (Esc).
     app.input.onLockChange = locked => { if (!locked && app.state === 'play' && !this.chatOpen) app.pause(); };
@@ -245,6 +247,8 @@ export class Menus {
     if (!['play', 'respawn', 'dead'].includes(app.state) || this.modalOpen()) return true;
     if (e.key === 'Enter' && !this.chatOpen && app.settings.chat && document.activeElement?.tagName !== 'INPUT') { e.preventDefault(); this.openChat(); return false; }
     if (e.code === 'F3') { e.preventDefault(); app.debug = !app.debug; show('debug', app.debug); return false; }
+    // A skip-round vote is up: Y / N.
+    if (app.vote && !app.vote.voted && !this.chatOpen && (e.code === 'KeyY' || e.code === 'KeyN')) { app.castVote(e.code === 'KeyY'); return false; }
     return true;
   }
   modalOpen() { return [...document.querySelectorAll('.modal')].some(m => !m.classList.contains('hidden')); }

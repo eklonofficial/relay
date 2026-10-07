@@ -186,6 +186,10 @@
 
   /* Modals */
   .modal { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(5,30,45,.5); z-index: 30; }
+  #vote { position: absolute; top: calc(var(--u)*52); left: 50%; transform: translateX(-50%); padding: calc(var(--u)*10) calc(var(--u)*16); text-align: center; z-index: 25; pointer-events: auto; }
+  #vote-text { font-weight: 800; margin-bottom: calc(var(--u)*8); }
+  .vote-row { display: flex; gap: calc(var(--u)*10); justify-content: center; }
+  .vote-row button { padding: calc(var(--u)*6) calc(var(--u)*16); }
   .modal > .panel { position: relative; min-width: calc(var(--u)*560); max-width: 92vw; max-height: 90vh; display: flex; flex-direction: column; }
   .modal > .panel > .head { justify-content: center; font-size: calc(var(--u)*26); padding: calc(var(--u)*12); }
   .modal > .panel > .body { background: var(--pale2); overflow: auto; color: var(--ink); }
@@ -231,7 +235,7 @@
 </head>
 <body>
 <div id="boot"><canvas id="boot-canvas"></canvas></div>
-<script type="module" id="boot-script" src="js/splash.js?v=muyipxxo" data-modules="63"></script>
+<script type="module" id="boot-script" src="js/splash.js?v=muyj9kc9" data-modules="65"></script>
 <canvas id="game" tabindex="-1"></canvas>
 
 <div class="screen hidden" id="loading">
@@ -284,6 +288,7 @@
     <button id="btn-quit"><svg viewBox="0 0 24 24"><path d="M14 3H5v18h9M10 12h11M17 8l4 4-4 4" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg><span>QUIT</span></button>
     <button id="btn-rs-profile"><svg viewBox="0 0 24 24"><circle cx="12" cy="7" r="5" fill="currentColor"/><path d="M2 23c0-6 4.5-9 10-9s10 3 10 9z" fill="currentColor"/></svg><span>PROFILE</span></button>
     <button id="btn-rs-shop"><svg viewBox="0 0 24 24"><path d="M8 3 3 6l2 5 2-1v11h10V10l2 1 2-5-5-3a3 3 0 0 1-8 0z" fill="currentColor"/></svg><span>INVENTORY</span></button>
+    <button id="btn-skip" title="Vote to skip to the next map"><svg viewBox="0 0 24 24"><path d="M3 5l9 7-9 7zM12 5l9 7-9 7z" fill="currentColor"/></svg><span>SKIP</span></button>
     <button id="btn-team" class="hidden"><svg viewBox="0 0 24 24"><path d="M4 8h13l-4-4M20 16H7l4 4" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/></svg><span>SWITCH TEAM</span></button>
   </div>
   <div id="rs-center">
@@ -316,6 +321,7 @@
   <div id="objective" class="hidden"><div class="scores"><span class="b" id="score-b">0</span><span id="score-sep">·</span><span class="r" id="score-r">0</span></div><div id="obj-bar"><div id="obj-fill"></div></div><div id="obj-text"></div></div>
   <div class="h hidden" id="banner"></div>
   <div class="glass hidden" id="toast"></div>
+  <div class="glass hidden" id="vote"><div id="vote-text"></div><div class="vote-row"><button class="green" id="vote-yes">YES (Y)</button><button class="red" id="vote-no">NO (N)</button></div></div>
   <div id="chat"><div id="chat-lines"></div><input type="text" id="chat-input" class="hidden" maxlength="200" spellcheck="false" autocomplete="off" placeholder="Say something… (/t for team)"><div id="chat-hint">Press Enter to chat</div></div>
 </div>
 
@@ -377,7 +383,7 @@
   </div>
 </div>
 
-<script defer src="net-config.js?v=muyipxxo"></script>
-<script type="module" src="js/main.js?v=muyipxxo"></script>
+<script defer src="net-config.js?v=muyj9kc9"></script>
+<script type="module" src="js/main.js?v=muyj9kc9"></script>
 </body>
 </html>

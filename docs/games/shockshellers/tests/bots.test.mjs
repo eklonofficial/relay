@@ -134,3 +134,39 @@ test('hopping is situational: close fights only, never with a sniper, and not al
   assert.ok(hopInClose > 0, 'bots do hop in close fights');
   assert.ok(hops / alive < 0.3, `hopping ${Math.round(hops / alive * 100)}% of the time`);
 });
+
+const { Mind, counterPick } = await load('bots/mind.js');
+test('bots remember: grudges, a nemesis, where they keep dying, and what keeps killing them', () => {
+  const md = new Mind();
+  md.died(100, 7, 'poacher', { x: 10, y: 1, z: 10 }, { x: 40, y: 6, z: 10 });
+  md.died(400, 7, 'poacher', { x: 11, y: 1, z: 10 }, { x: 40, y: 6, z: 12 });
+  md.died(700, 3, 'yolk47', { x: 30, y: 1, z: 30 }, { x: 31, y: 1, z: 30 });
+  assert.equal(md.nemesis(), 7);
+  assert.ok(md.grudge(7, 800) > md.grudge(3, 800) && md.grudge(5, 800) === 0);
+  assert.ok(md.heatAt(10, 10, 800) > md.heatAt(60, 60, 800));
+  assert.ok(md.heatAt(10, 10, 800) > md.heatAt(10, 10, 800 + 30 * 300), 'the heat fades');
+  assert.equal(md.threat(), 'sniper');
+  assert.equal(md.perches(800).length, 1);
+  assert.ok(md.tilted);
+  md.cracked(900, 7); assert.ok(!md.tilted && md.deathRun === 0);
+  assert.ok(['doubleYolker', 'beater'].includes(counterPick('sniper', true, true, () => 0.3)));
+  const next = md.carry();
+  assert.equal(next.nemesis(), md.nemesis()); assert.equal(next.perches(0).length, 0);
+});
+test('bots talk about what happens, by name, and answer people', () => {
+  const qmap = getMap('quarry'), qnav = new NavGraph(qmap.grid), m = new Match(qmap, { mode: 'teams', seed: 5, options: { timeLimit: 150 } }), mgr = new BotManager(m, qnav, 35);
+  const human = m.addPlayer({ id: 9, name: 'Andrew', team: 1 });
+  for (let i = 0; i < 7; i++) mgr.add(m.addPlayer({ id: i + 1, name: BOT_NAMES[i], bot: true, team: 1 + (i % 2) }), 0.4);
+  const said = [];
+  mgr.onChat = (id, msg) => said.push({ t: m.tick, id, msg });
+  let greeted = null;
+  for (let t = 0; t < 30 * 160; t++) {
+    if (t === 30 * 20) { mgr.heard(human.id, 'hey everyone'); greeted = said.length; }
+    mgr.tick(); m.step(); mgr.events(m.events); m.events.length = 0;
+  }
+  assert.ok(said.length >= 15, `only ${said.length} lines`);
+  const names = [...m.players.values()].map(p => p.name.toLowerCase());
+  assert.ok(said.filter(s => names.some(n => s.msg.toLowerCase().includes(n))).length >= 3, 'lines use names');
+  assert.ok(said.slice(greeted).some(s => s.t < 30 * 30 && s.msg.toLowerCase().includes('andrew')), 'someone greets the person back by name');
+  assert.ok(said.some(s => m.over && s.t >= m.over.until - 30 * 15 && /gg|good game/i.test(s.msg)), 'gg at the end');
+});

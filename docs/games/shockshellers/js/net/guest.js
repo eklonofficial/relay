@@ -4,11 +4,11 @@
 // snapshot says which input the host last used, we rewind to the host's state and replay the newer
 // inputs (reconciliation), easing any correction over a couple of ticks. Everyone else is drawn
 // 100 ms in the past, interpolated between snapshots (Blockhaven's remote players do the same).
-import { Match } from '../sim/match.js?v=muyipxxo';
-import { getMap } from '../maps/index.js?v=muyipxxo';
-import { TICK, SYNC_EVERY } from '../sim/tuning.js?v=muyipxxo';
-import { Net } from './net.js?v=muyipxxo';
-import { applyPlayer, applyOwn } from './protocol.js?v=muyipxxo';
+import { Match } from '../sim/match.js?v=muyj9kc9';
+import { getMap } from '../maps/index.js?v=muyj9kc9';
+import { TICK, SYNC_EVERY } from '../sim/tuning.js?v=muyj9kc9';
+import { Net } from './net.js?v=muyj9kc9';
+import { applyPlayer, applyOwn } from './protocol.js?v=muyj9kc9';
 
 const DELAY = 100; // ms behind the newest snapshot for other players
 const OWN = new Set(['shot', 'fire', 'reload', 'reloaded', 'dry', 'swap', 'swing', 'charge', 'jump', 'land']);
@@ -49,6 +49,8 @@ export class GuestSession {
   // ---- actions ----
   respawn() { this.net.send({ t: 'resp' }); return true; }
   pauseMe() { this.net.send({ t: 'pause' }); }
+  skip() { this.net.send({ t: 'skip' }); return true; }
+  voteSkip(yes) { this.net.send({ t: 'vote', yes: !!yes }); }
   setPrimary(w) { this.me.nextPrimary = w; this.net.send({ t: 'prim', w }); }
   switchTeam() { this.net.send({ t: 'team' }); return null; }
   canRespawn() { const m = this.match, p = this.me; return !p.alive && m.tick >= p.respawnAt && m.tick >= p.pauseCooldownUntil; }

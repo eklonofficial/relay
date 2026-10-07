@@ -375,3 +375,22 @@ test('swapping between the primary and the pistol is quick (under a third of a s
   assert.equal(h.slots[h.cur].id, 'peck9mm');
   assert.ok(n <= 10, `${n} ticks`);
 });
+
+test('skip-round votes: alone with bots it always passes (some bots vote no); with friends it takes a majority of people', async () => {
+  const { HostSession } = await load('game/session.js');
+  for (let k = 0; k < 6; k++) {
+    const s = new HostSession({ map: 'omelet', mode: 'ffa', options: { botChat: false }, bots: 6, difficulty: 'normal', name: 'Me', primary: 'yolk47', cosmetics: {} });
+    assert.equal(s.skip(), true);
+    let end = null, casts = [];
+    for (let i = 0; i < 30 * 25 && !end; i++) { s.advance(1 / 30, null); for (const e of s.takeEvents()) { if (e.t === 'vote' && e.k === 'cast') casts.push(e); if (e.t === 'vote' && e.k === 'end') end = e; } }
+    assert.ok(end && end.pass, 'passes'); assert.ok(s.match.over, 'the round ended');
+  }
+  // With another person in the room the bots don't vote: it needs the people.
+  const s = new HostSession({ map: 'omelet', mode: 'ffa', options: { botChat: false }, bots: 6, difficulty: 'normal', name: 'Me', primary: 'yolk47', cosmetics: {} });
+  const friend = s.admitHuman({ name: 'Pal', primary: 'yolk47', cosmetics: {} });
+  s.skip();
+  for (let i = 0; i < 30 * 8; i++) s.advance(1 / 30, null);
+  assert.ok(s.vote && !s.match.over, 'waits for the friend');
+  s.castVote(friend.id, false);
+  assert.equal(s.vote, null); assert.ok(!s.match.over, 'one yes, one no: it fails');
+});

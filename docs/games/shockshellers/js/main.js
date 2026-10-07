@@ -1,33 +1,33 @@
 // Shock Shellers: boot, menus, the match flow (home → respawn screen → play → death → respawn) and
 // the frame loop. The simulation runs at a fixed 30 Hz inside the session; rendering interpolates.
-import './page.js?v=muyipxxo';
-import { surfaceDocument as document } from './surface.js?v=muyipxxo';
-import { registerApp } from './veil.js?v=muyipxxo';
-import { tell } from './dialog.js?v=muyipxxo';
-import { splash } from './splash.js?v=muyipxxo';
-import * as THREE from '../vendor/three/three.module.js?v=muyipxxo';
-import { Renderer } from './render/renderer.js?v=muyipxxo';
-import { RELOAD_KIND } from './render/viewmodel.js?v=muyipxxo';
-import { EggAvatar } from './render/egg.js?v=muyipxxo';
-import { Podium } from './render/podium.js?v=muyipxxo';
-import { Recorder, planReplay, replayRate, projectileAt } from './game/replay.js?v=muyipxxo';
-import { aimAssist, assistOn } from './game/aim.js?v=muyipxxo';
-import { Input } from './game/input.js?v=muyipxxo';
-import { SOUND_FILES } from './game/soundbank.js?v=muyipxxo';
-import { Sound, registerSamples } from './game/audio.js?v=muyipxxo';
-import { Hud } from './game/hud.js?v=muyipxxo';
-import { loadSettings, saveSettings, loadProfile, saveProfile } from './game/store.js?v=muyipxxo';
-import { ensureDaily, progress as challengeProgress, claim as claimChallenges } from './game/challenges.js?v=muyipxxo';
-import { HostSession } from './game/session.js?v=muyipxxo';
-import { GuestSession } from './net/guest.js?v=muyipxxo';
-import { pickPublicMap, mapDef, MAPS } from './maps/index.js?v=muyipxxo';
-import { WEAPONS, PRIMARIES, PLAYER, MELEE, MODE_NAMES, MODE_MENU, ECONOMY, CTRL, TICK, TICK_HZ } from './sim/tuning.js?v=muyipxxo';
-import { weaponOf, slotOf } from './sim/combat.js?v=muyipxxo';
-import { eyePoint } from './sim/movement.js?v=muyipxxo';
-import { drawLogo, drawHowTo } from './ui/art.js?v=muyipxxo';
-import { loadModels } from './render/models.js?v=muyipxxo';
-import { HIT } from './maps/grid.js?v=muyipxxo';
-import { Menus } from './ui/menus.js?v=muyipxxo';
+import './page.js?v=muyj9kc9';
+import { surfaceDocument as document } from './surface.js?v=muyj9kc9';
+import { registerApp } from './veil.js?v=muyj9kc9';
+import { tell } from './dialog.js?v=muyj9kc9';
+import { splash } from './splash.js?v=muyj9kc9';
+import * as THREE from '../vendor/three/three.module.js?v=muyj9kc9';
+import { Renderer } from './render/renderer.js?v=muyj9kc9';
+import { RELOAD_KIND } from './render/viewmodel.js?v=muyj9kc9';
+import { EggAvatar } from './render/egg.js?v=muyj9kc9';
+import { Podium } from './render/podium.js?v=muyj9kc9';
+import { Recorder, planReplay, replayRate, projectileAt } from './game/replay.js?v=muyj9kc9';
+import { aimAssist, assistOn } from './game/aim.js?v=muyj9kc9';
+import { Input } from './game/input.js?v=muyj9kc9';
+import { SOUND_FILES } from './game/soundbank.js?v=muyj9kc9';
+import { Sound, registerSamples } from './game/audio.js?v=muyj9kc9';
+import { Hud } from './game/hud.js?v=muyj9kc9';
+import { loadSettings, saveSettings, loadProfile, saveProfile } from './game/store.js?v=muyj9kc9';
+import { ensureDaily, progress as challengeProgress, claim as claimChallenges } from './game/challenges.js?v=muyj9kc9';
+import { HostSession } from './game/session.js?v=muyj9kc9';
+import { GuestSession } from './net/guest.js?v=muyj9kc9';
+import { pickPublicMap, mapDef, MAPS } from './maps/index.js?v=muyj9kc9';
+import { WEAPONS, PRIMARIES, PLAYER, MELEE, MODE_NAMES, MODE_MENU, ECONOMY, CTRL, TICK, TICK_HZ } from './sim/tuning.js?v=muyj9kc9';
+import { weaponOf, slotOf } from './sim/combat.js?v=muyj9kc9';
+import { eyePoint } from './sim/movement.js?v=muyj9kc9';
+import { drawLogo, drawHowTo } from './ui/art.js?v=muyj9kc9';
+import { loadModels } from './render/models.js?v=muyj9kc9';
+import { HIT } from './maps/grid.js?v=muyj9kc9';
+import { Menus } from './ui/menus.js?v=muyj9kc9';
 
 const $ = id => document.getElementById(id);
 const show = (id, on = true) => { $(id).classList.toggle('hidden', !on); if (id === 'respawn') $('hud').classList.toggle('menu', on); };
@@ -214,6 +214,7 @@ class App {
   }
   leaveMatch() {
     if (!this.session) return;
+    this.vote = null; show('vote', false);
     this.session.close?.();
     for (const id of [...this.renderer.avatars.keys()]) this.renderer.dropAvatar(id);
     this.sound.stopAll();
@@ -361,8 +362,41 @@ class App {
         }
         case 'team': if (mine) this.hud.toast(`You joined the ${e.team === 1 ? 'Blue' : 'Red'} team`); break;
         case 'roundEnd': this.startPodium(e); break;
+        case 'vote': this.onVote(e); break;
       }
     }
+  }
+  // ---------------- skip-round votes ----------------
+  requestSkip() {
+    const s = this.session; if (!s || this.state === 'podium') return;
+    if (this.vote) { this.hud.toast('A vote is already running.'); return; }
+    if (!s.skip?.()) this.hud.toast('You can ask again in a little while.');
+  }
+  castVote(yes) {
+    const v = this.vote, s = this.session; if (!v || v.voted || !s) return;
+    v.voted = true; s.voteSkip(yes); this.showVote();
+  }
+  onVote(e) {
+    const s = this.session, m = s.match;
+    if (e.k === 'start') {
+      const who = m.players.get(e.id);
+      this.vote = { by: e.id, name: e.id === s.myId ? 'You' : who?.name || 'Someone', until: e.until, y: 1, n: 0, voted: e.id === s.myId };
+      this.hud.chat(`${this.vote.name === 'You' ? 'You' : this.vote.name} asked to skip to the next map.`, '#ffd23f');
+      this.sound.play('zone');
+    } else if (e.k === 'cast' && this.vote) {
+      this.vote.y = e.y; this.vote.n = e.n;
+      if (e.id === s.myId) this.vote.voted = true;
+    } else if (e.k === 'end') {
+      this.hud.chat(e.pass ? 'Vote passed: on to the next map!' : 'Vote failed: the round goes on.', e.pass ? '#5cff7a' : '#ff8a80');
+      this.vote = null;
+    }
+    this.showVote();
+  }
+  showVote() {
+    const v = this.vote; show('vote', !!v && this.state !== 'podium'); if (!v) return;
+    const left = Math.max(0, Math.ceil((v.until - this.session.match.tick) / TICK_HZ));
+    $('vote-text').textContent = `${v.name === 'You' ? 'You want' : v.name + ' wants'} to skip to the next map · YES ${v.y} · NO ${v.n} · ${left}s`;
+    show('vote-yes', !v.voted); show('vote-no', !v.voted);
   }
   // ---------------- rounds ----------------
   // The round is over: the podium takes the screen until the host starts the next round. Placing
@@ -371,7 +405,7 @@ class App {
     const s = this.session; if (!s) return;
     this.replay = null; this.hud.replay = null; this.hud.death = null;
     this.state = 'podium'; this.input.enabled = false; this.input.exitLock();
-    show('respawn', false);
+    show('respawn', false); show('vote', false);
     const pod = this.podiumScene || (this.podiumScene = new Podium(this.renderer));
     const byId = new Map(e.rows.map(r => [r.id, r]));
     pod.set(e.podium.map(id => byId.get(id)).filter(Boolean).map(r => ({ look: r.look, primary: r.primary, team: r.team })));
@@ -394,7 +428,7 @@ class App {
   // The host started the next round on a new map (this session already holds it): load it and go to
   // the respawn screen.
   newRound(session) {
-    this.podium = null; this.hud.podium = null;
+    this.podium = null; this.hud.podium = null; this.vote = null; show('vote', false);
     for (const id of [...this.renderer.avatars.keys()]) this.renderer.dropAvatar(id);
     this.sound.stopAll();
     this.enter(session);
@@ -460,6 +494,7 @@ class App {
     s.advance(dt, input);
     this.rec.record(s.match);
     this.handle(s.takeEvents());
+    if (this.vote && (this.voteT = (this.voteT || 0) - dt) <= 0) { this.voteT = 0.25; this.showVote(); }
     if (this.state === 'podium') { this.drawPodium(dt); this.hud.tick(dt); return; }
     this.drawMatch(dt);
     this.hud.tick(dt);
