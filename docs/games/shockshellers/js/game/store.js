@@ -1,6 +1,6 @@
 // Saved settings and the local profile (GDD §20–22). Everything lives in this browser only, under
 // keys namespaced to the game; every access is wrapped because storage can throw or come back empty.
-import { DEFAULT_KEYS } from './input.js?v=muyi3h1t';
+import { DEFAULT_KEYS } from './input.js?v=muyipxxo';
 
 export const SETTINGS_KEY = 'shockshellers.settings.v1';
 export const PROFILE_KEY = 'shockshellers.profile.v1';
@@ -19,7 +19,10 @@ function write(key, v) { try { localStorage.setItem(key, JSON.stringify(v)); ret
 
 export function loadSettings() {
   const s = read(SETTINGS_KEY) || {};
-  return { ...DEFAULT_SETTINGS, ...s, keys: { ...DEFAULT_KEYS, ...(s.keys || {}) } };
+  // The defaults moved (melee V → F, aim right mouse → left Shift): players still on the old defaults
+  // get the new ones; anything they chose themselves stays.
+  if (s.keys && !s.keysRev) { if (s.keys.melee === 'KeyV') s.keys.melee = 'KeyF'; if (s.keys.scope === 'M2') s.keys.scope = 'ShiftLeft'; }
+  return { ...DEFAULT_SETTINGS, ...s, keysRev: 2, keys: { ...DEFAULT_KEYS, ...(s.keys || {}) } };
 }
 export const saveSettings = s => write(SETTINGS_KEY, s);
 

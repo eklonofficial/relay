@@ -4,11 +4,11 @@
 //
 // Players are humans or bots alike: each tick every player supplies { ctrl, yaw, pitch } (bots
 // through the same input struct, so they obey identical movement, fire-rate and spread rules).
-import { PLAYER, WEAPONS, MELEE, GRENADE, PICKUPS, STREAKS, DAMAGE, DEFAULT_OPTIONS, PRIMARIES, CTRL, TICK_HZ, ROUND } from './tuning.js?v=muyi3h1t';
-import { makeBody, stepBody, movementInput, forward } from './movement.js?v=muyi3h1t';
-import { makeHands, stepHands, readyHands, refill, HandEvents, weaponOf, slotOf, grenadeLaunch, lcg } from './combat.js?v=muyi3h1t';
-import { makeMode } from './modes.js?v=muyi3h1t';
-import { HIT } from '../maps/grid.js?v=muyi3h1t';
+import { PLAYER, WEAPONS, MELEE, GRENADE, PICKUPS, STREAKS, DAMAGE, DEFAULT_OPTIONS, PRIMARIES, CTRL, TICK_HZ, ROUND } from './tuning.js?v=muyipxxo';
+import { makeBody, stepBody, movementInput, forward } from './movement.js?v=muyipxxo';
+import { makeHands, stepHands, readyHands, refill, HandEvents, weaponOf, slotOf, grenadeLaunch, lcg } from './combat.js?v=muyipxxo';
+import { makeMode } from './modes.js?v=muyipxxo';
+import { HIT } from '../maps/grid.js?v=muyipxxo';
 
 const HISTORY = 256;
 // Hit-angle damage (GDD §8.2): s = 0.2 + 0.8·dot(−d, n); mult = s^(4 + s^4).
@@ -314,6 +314,8 @@ export class Match {
       if (t <= seg) {
         const x = r.x + r.dx * t, y = r.y + r.dy * t, z = r.z + r.dz * t;
         const owner = this.players.get(r.owner), direct = rocketDamage(w, r.travelled + t);
+        // A direct hit is the centre of the blast for the egg it struck (full damage); everyone else
+        // takes the blast by their distance from it.
         const direct_ = hitT <= wallT && victim;
         if (direct_) {
           this.damage(victim, direct * this.options.damage, owner, 'yolkzooka', { x, y, z, dx: r.dx, dy: r.dy, dz: r.dz });

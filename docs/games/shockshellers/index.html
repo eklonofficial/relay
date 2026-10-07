@@ -186,7 +186,7 @@
 
   /* Modals */
   .modal { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(5,30,45,.5); z-index: 30; }
-  .modal > .panel { min-width: calc(var(--u)*560); max-width: 92vw; max-height: 90vh; display: flex; flex-direction: column; }
+  .modal > .panel { position: relative; min-width: calc(var(--u)*560); max-width: 92vw; max-height: 90vh; display: flex; flex-direction: column; }
   .modal > .panel > .head { justify-content: center; font-size: calc(var(--u)*26); padding: calc(var(--u)*12); }
   .modal > .panel > .body { background: var(--pale2); overflow: auto; color: var(--ink); }
   .modal .close { position: absolute; right: calc(var(--u)*10); top: calc(var(--u)*8); width: calc(var(--u)*40); height: calc(var(--u)*40); }
@@ -231,7 +231,7 @@
 </head>
 <body>
 <div id="boot"><canvas id="boot-canvas"></canvas></div>
-<script type="module" id="boot-script" src="js/splash.js?v=muyi3h1t" data-modules="63"></script>
+<script type="module" id="boot-script" src="js/splash.js?v=muyipxxo" data-modules="63"></script>
 <canvas id="game" tabindex="-1"></canvas>
 
 <div class="screen hidden" id="loading">
@@ -377,7 +377,7 @@
   </div>
 </div>
 
-<script defer src="net-config.js?v=muyi3h1t"></script>
-<script type="module" src="js/main.js?v=muyi3h1t"></script>
+<script defer src="net-config.js?v=muyipxxo"></script>
+<script type="module" src="js/main.js?v=muyipxxo"></script>
 </body>
 </html>

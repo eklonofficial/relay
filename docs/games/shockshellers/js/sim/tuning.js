@@ -20,7 +20,7 @@ export const PLAYER = {
   headY: 0.30, eyeUp: 0.10, eyeY: 0.40,
   stepUp: 0.26, killPlaneY: -10,
   spawnShield: 120, respawnTicks: 150, pauseGraceTicks: 90, pauseCooldownTicks: 150,
-  swapStowTicks: 13, swapEquipTicks: 13, scopeDelayTicks: 7,
+  swapStowTicks: 4, swapEquipTicks: 5, scopeDelayTicks: 7,
 };
 
 export const DAMAGE = { angleBase: 0.2, angleExp: 4 };
@@ -36,11 +36,12 @@ export const WEAPONS = {
     desc: 'Two barrels. Point blank, nothing hits harder; it fades fast with distance.' },
   cageFree: { name: 'Cage Free', dmg: 101, rof: 13, recoil: 13, auto: false, mag: 15, store: 60, pickup: 15, range: 50, vel: 1.75, reload: [165, 225], acc: [0.004, 0.3, 0.3, 0.025], ads: 0.5, moveMod: 1.0, scope: 0.7, scoped: true,
     desc: 'Fifteen-round marksman rifle that forgives a miss.' },
-  // Yolkzooka: a direct hit does `direct` (from [close, far], ramping up over the rocket's first rampDist
-  // units of flight); the blast does `splash` of that at its centre, falling off linearly to its edge,
-  // and throws eggs it doesn't crack (knock sideways, lift up). The shooter's own blast never hurts
-  // them, it launches them (a rocket jump), and firing shoves them back a little (recoilPush).
-  yolkzooka: { name: 'Yolkzooka', dmg: 110, direct: [50, 110], rampDist: 18, splash: 0.7, radius: 3.25, falloff: 1, minRange: 0,
+  // Yolkzooka: the blast does `direct` at its centre (from [close, far], growing over the rocket's first
+  // rampDist units of flight), falling off with distance (falloff > 1 keeps more of it further out): a
+  // hit on an egg or right beside one cracks it; a little further out it takes a big chunk, enough to
+  // finish with the pistol. It throws eggs it doesn't crack (knock sideways, lift up). The shooter's own
+  // blast never hurts them, it launches them (a rocket jump), and firing shoves them back (recoilPush).
+  yolkzooka: { name: 'Yolkzooka', dmg: 125, direct: [110, 125], rampDist: 18, splash: 1, radius: 3.25, falloff: 1.3, minRange: 0,
     knock: 0.38, lift: 0.15, selfKnock: 0.3, selfLift: 0.06, recoilPush: 0.12, rof: 40, recoil: 60, auto: false, mag: 1, store: 4, pickup: 1, range: 45, vel: 0.8, reload: [140, 140], acc: [0.015, 0.3, 0.3, 0.02], ads: 0.5, moveMod: 1.0, absMinAcc: 0.3, scope: 0.9, scoped: true, rocket: true,
     desc: 'Rocket that hits harder the further it flies. Blast eggs aside, or rocket-jump off your own.' },
   beater: { name: 'Beater', dmg: 23, rof: 2, recoil: 7, auto: true, mag: 40, store: 200, pickup: 40, range: 20, vel: 1.25, reload: [190, 225], acc: [0.06, 0.19, 0.045, 0.05], ads: 0.6, moveMod: 0.7, tracer: 3, scope: 1.0, scoped: false,
