@@ -1,14 +1,14 @@
 // Keyboard, mouse and gamepad into the control bitmask (GDD §18). Mouse look and pointer lock are
 // Blockhaven's approach, kept as is: raw (unadjusted) movement where the browser supports it, every
 // coalesced sample summed, spikes when the lock engages filtered out.
-import { surfaceDocument as document } from '../surface.js?v=muyi3h1t';
-import { movementSamples } from '../util/pointer.js?v=muyi3h1t';
-import { CTRL } from '../sim/tuning.js?v=muyi3h1t';
+import { surfaceDocument as document } from '../surface.js?v=muyipxxo';
+import { movementSamples } from '../util/pointer.js?v=muyipxxo';
+import { CTRL } from '../sim/tuning.js?v=muyipxxo';
 
-// Default bindings: the live Settings defaults (Mouse 2 aims, V is melee). 'M0'/'M1'/'M2' are mouse buttons.
+// Default bindings: left Shift aims, F is melee. 'M0'/'M1'/'M2' are mouse buttons.
 export const DEFAULT_KEYS = {
   up: 'KeyW', down: 'KeyS', left: 'KeyA', right: 'KeyD', jump: 'Space',
-  fire: 'M0', scope: 'M2', reload: 'KeyR', swap: 'KeyE', grenade: 'KeyQ', melee: 'KeyV', inspect: 'KeyG',
+  fire: 'M0', scope: 'ShiftLeft', reload: 'KeyR', swap: 'KeyE', grenade: 'KeyQ', melee: 'KeyF', inspect: 'KeyG',
 };
 export const ACTIONS = ['up', 'down', 'left', 'right', 'jump', 'fire', 'scope', 'reload', 'swap', 'grenade', 'melee', 'inspect'];
 export const ACTION_NAMES = { up: 'Forward', down: 'Backward', left: 'Left', right: 'Right', jump: 'Jump', fire: 'Fire', scope: 'Aim', reload: 'Reload', swap: 'Swap Weapon', grenade: 'Grenade', melee: 'Melee', inspect: 'Inspect' };

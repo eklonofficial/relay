@@ -5,8 +5,8 @@
 // Countdown units, exactly as the GDD lists them:
 //   rof, burst gaps, scope delay, swap, melee           ticks       (−1 per tick)
 //   recoil, reload, grenade throw/cancel lock, shield   1/60 s      (−2 per tick)
-import { WEAPONS, PRIMARIES, SECONDARY, MELEE, GRENADE, PLAYER, CTRL } from './tuning.js?v=muyi3h1t';
-import { forward, eyePoint } from './movement.js?v=muyi3h1t';
+import { WEAPONS, PRIMARIES, SECONDARY, MELEE, GRENADE, PLAYER, CTRL } from './tuning.js?v=muyipxxo';
+import { forward, eyePoint } from './movement.js?v=muyipxxo';
 
 // Per-player LCG (GDD §8.3): seed = (seed·9301 + 49297) mod 233280.
 export const lcg = s => (s * 9301 + 49297) % 233280;

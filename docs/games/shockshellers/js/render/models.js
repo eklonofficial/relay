@@ -5,9 +5,9 @@
 // per material, for things whose parts never move on their own: a crate is 18 parts, and each part
 // would otherwise be its own draw call. Development loads the files; the production build inlines
 // them as data: URLs.
-import * as THREE from '../../vendor/three/three.module.js?v=muyi3h1t';
-import { GLTFLoader } from '../../vendor/three/GLTFLoader.js?v=muyi3h1t';
-import { mergeGeometries } from '../../vendor/three/BufferGeometryUtils.js?v=muyi3h1t';
+import * as THREE from '../../vendor/three/three.module.js?v=muyipxxo';
+import { GLTFLoader } from '../../vendor/three/GLTFLoader.js?v=muyipxxo';
+import { mergeGeometries } from '../../vendor/three/BufferGeometryUtils.js?v=muyipxxo';
 
 const FILES = {
   eggs: new URL('../../assets/models/eggs.glb', import.meta.url).href,

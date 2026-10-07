@@ -272,15 +272,15 @@ test('Double Yolker: cracks an egg point blank, but fades fast with distance (no
   assert.ok(avgDamage('doubleYolker', 8) < 12, 'useless at 8 units');
 });
 
-test('Yolkzooka: hits harder the further it flies; blasts throw eggs; rocket jumps never hurt the shooter', () => {
+test('Yolkzooka: a hit on or beside an egg cracks it, a near miss takes a big chunk; blasts throw eggs; rocket jumps never hurt the shooter', () => {
   const near = avgDamage('yolkzooka', 3, 1), far = avgDamage('yolkzooka', 25, 1);
-  assert.ok(near < 70 && far > 100, `direct hit ${near} close, ${far} far`);
-  // A rocket into the floor in front of an egg: splash (less than a direct hit) and a moderate throw.
+  assert.ok(near >= 100 && far >= near, `direct hit ${near} close, ${far} far`);
+  // A rocket into the floor in front of an egg: most of its health (finish it with the pistol), and a moderate throw.
   const k = range('yolkzooka', 4); const x0 = k.t.body.x, z0 = k.t.body.z; let up = 0;
   const pitch = -Math.atan2(0.4, 3);
   k.m.setInput(1, CTRL.fire, 0, pitch); k.m.step(); for (let i = 0; i < 80; i++) { k.m.setInput(1, 0, 0, pitch); k.m.step(); up = Math.max(up, k.t.body.y - 1); }
   const thrown = Math.hypot(k.t.body.x - x0, k.t.body.z - z0);
-  assert.ok(k.t.alive && k.t.hp < 100 && k.t.hp > 50, `splash leaves ${k.t.hp}`);
+  assert.ok(k.t.alive && k.t.hp < 50, `splash leaves ${k.t.hp}`);
   assert.ok(thrown > 1.5 && thrown < 6 && up > 0.2 && up < 1.5, `thrown ${thrown} sideways, ${up} up`);
   // Rocket jump: jump, fire at your feet: launched well above a jump, unhurt.
   const j = range('yolkzooka', 30); let peak = 0;
@@ -366,4 +366,12 @@ test('the host moves everyone to a new map after the podium', async () => {
   assert.ok(next && next !== 'omelet' && s.mapId === next, `next map ${next}, now ${s.mapId}`);
   assert.deepEqual([...s.match.players.values()].map(p => p.name).sort(), before);
   assert.ok(s.me && s.me.id === 1 && s.round === 2 && !s.match.over);
+});
+
+test('swapping between the primary and the pistol is quick (under a third of a second)', () => {
+  const body = makeBody(0, 0, 0), h = makeHands('yolk47', 3);
+  stepHands(h, body, CTRL.swap, 0, false);
+  let n = 1; while (h.swap > 0 && n < 60) { stepHands(h, body, 0, CTRL.swap, false); n++; }
+  assert.equal(h.slots[h.cur].id, 'peck9mm');
+  assert.ok(n <= 10, `${n} ticks`);
 });

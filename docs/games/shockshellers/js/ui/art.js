@@ -1,7 +1,7 @@
 // Drawn artwork for the interface: the logo (bubbly cream letters, dark-brown outline, the O in
 // SHOCK is a fried egg; GDD §25) and the How to Play card (keyboard and mouse from the live
 // bindings, an egg with a target; GDD §19.2). Drawn on canvases so nothing is fetched.
-import { keyLabel, ACTION_NAMES } from '../game/input.js?v=muyi3h1t';
+import { keyLabel, ACTION_NAMES } from '../game/input.js?v=muyipxxo';
 
 function word(x, text, cx, y, size, align) {
   x.font = `${size}px s, sans-serif`; x.textAlign = align; x.textBaseline = 'alphabetic'; x.lineJoin = 'round';
@@ -55,12 +55,13 @@ export function drawHowTo(canvas, keys) {
   KEY(x, 300, 240, 174, 56, 'Enter'); cap('Chat', 387, 314);
   KEY(x, 40, 340, 140, 56, 'Esc'); cap('Pause', 110, 414);
   KEY(x, 200, 340, 140, 56, 'J'); cap('Calculator', 270, 414);
+  if (!/^M\d$/.test(keys.scope)) { KEY(x, 360, 340, 140, 56, k('scope')); cap(ACTION_NAMES.scope, 430, 414); }
   // Mouse.
   x.fillStyle = '#fff'; x.strokeStyle = '#0e3440'; x.lineWidth = 5;
   x.beginPath(); x.roundRect(540, 40, 150, 230, 75); x.fill(); x.stroke();
   x.beginPath(); x.moveTo(615, 40); x.lineTo(615, 130); x.moveTo(540, 130); x.lineTo(690, 130); x.stroke();
   x.fillStyle = '#f39a25'; x.beginPath(); x.roundRect(545, 45, 66, 82, [70, 0, 0, 0]); x.fill();
-  cap(keys.fire === 'M0' ? 'Fire' : 'Left', 500, 90); cap(keys.scope === 'M2' ? 'Aim' : 'Right', 735, 90);
+  cap(keys.fire === 'M0' ? 'Fire' : 'Left', 500, 90); if (keys.scope === 'M2') cap('Aim', 735, 90);
   cap('Look', 615, 300);
   // Egg with a target over its centre.
   const ex = 900, ey = 230;

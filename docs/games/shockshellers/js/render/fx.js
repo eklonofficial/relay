@@ -8,9 +8,10 @@
 // is flying: one per particle blend mode, one per shard shape, one each for streaks, chips and the
 // three kinds of decal. Lights never come and go during play (that would recompile every material);
 // two point lights stay in the scene and are just turned up and down. Nothing allocates per frame.
-import * as THREE from '../../vendor/three/three.module.js?v=muyi3h1t';
-import { gunModel } from './guns.js?v=muyi3h1t';
-import { TEAM_COLORS } from './egg.js?v=muyi3h1t';
+import * as THREE from '../../vendor/three/three.module.js?v=muyipxxo';
+import { gunModel } from './guns.js?v=muyipxxo';
+import { TEAM_COLORS } from './egg.js?v=muyipxxo';
+const _axis = new THREE.Vector3(), _quat = new THREE.Quaternion();
 
 const rnd = () => Math.random() * 2 - 1;
 // Approximate colours of each map material family (maps/dsl.js MAT), for dust and chips.
@@ -419,8 +420,17 @@ export class Effects {
   }
   grenade(id, x, y, z, fuse, team) {
     let m = this.objects.get('g' + id);
-    if (!m) { m = gunModel('grenade'); m.scale.setScalar(1.4); this.scene.add(m); this.objects.set('g' + id, m); }
-    m.position.set(x, y, z); m.rotation.y += 0.15;
+    if (!m) { m = gunModel('grenade'); m.scale.setScalar(1.4); this.scene.add(m); this.objects.set('g' + id, m); m.userData.last = [x, y, z]; m.userData.wob = Math.random() - 0.5; }
+    // Tumble with the motion: it rolls over by however far it moved (about the axis across its path),
+    // end over end through the air with a little wobble, and lies still once it stops.
+    const l = m.userData.last, dx = x - l[0], dy = y - l[1], dz = z - l[2], d = Math.hypot(dx, dz);
+    if (d > 1e-4) {
+      const air = Math.abs(dy) > 0.004 ? 1.6 : 1;
+      _axis.set(dz / d, m.userData.wob * 0.4 * air, -dx / d).normalize();
+      _quat.setFromAxisAngle(_axis, (d / 0.09) * air); m.quaternion.premultiply(_quat);
+    }
+    l[0] = x; l[1] = y; l[2] = z;
+    m.position.set(x, y, z);
     // A team-tinted blink right before detonation (a glow, not a light: lights coming and going would
     // recompile every material).
     if (fuse < 15 && Math.floor(fuse / 2) % 2 === 0) this.glow.emit(x, y + 0.05, z, 0, 0, 0, { size: 0.5, life: 0.04, color: team ? TEAM_COLORS[team] : 0xffff60, bright: 3, tile: 1, drag: 0 });

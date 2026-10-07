@@ -1,21 +1,21 @@
 // Menus and modals (GDD §16–21): home, respawn/pause screen, settings (3 tabs), play with friends,
 // custom matches, profile, shop/inventory, how to play, chat. All markup lives in index.html inside
 // the compositor; this module wires it up and keeps it current.
-import { surfaceDocument as document } from '../surface.js?v=muyi3h1t';
-import * as THREE from '../../vendor/three/three.module.js?v=muyi3h1t';
-import { ask, tell } from '../dialog.js?v=muyi3h1t';
-import { gunModel } from '../render/guns.js?v=muyi3h1t';
-import { EggAvatar } from '../render/egg.js?v=muyi3h1t';
-import { hatMesh } from '../render/hats.js?v=muyi3h1t';
-import { previewShell } from '../render/shellart.js?v=muyi3h1t';
-import { COLORS, PATTERNS, STAMPS, HATS, SKINS, sanitizeCosmetics } from '../game/cosmetics.js?v=muyi3h1t';
-import { WEAPONS, PRIMARIES, MODE_NAMES, MODE_MENU, TICK } from '../sim/tuning.js?v=muyi3h1t';
-import { ACTIONS, ACTION_NAMES, keyLabel, DEFAULT_KEYS } from '../game/input.js?v=muyi3h1t';
-import { DEFAULT_SETTINGS, saveSettings, saveProfile } from '../game/store.js?v=muyi3h1t';
-import { ensureDaily, def as challengeDef, reroll, timeLeft } from '../game/challenges.js?v=muyi3h1t';
-import { MAPS, mapDef } from '../maps/index.js?v=muyi3h1t';
-import { drawHowTo } from './art.js?v=muyi3h1t';
-import { wakeRelays, diagnoseNetwork } from '../net/net.js?v=muyi3h1t';
+import { surfaceDocument as document } from '../surface.js?v=muyipxxo';
+import * as THREE from '../../vendor/three/three.module.js?v=muyipxxo';
+import { ask, tell } from '../dialog.js?v=muyipxxo';
+import { gunModel } from '../render/guns.js?v=muyipxxo';
+import { EggAvatar } from '../render/egg.js?v=muyipxxo';
+import { hatMesh } from '../render/hats.js?v=muyipxxo';
+import { previewShell } from '../render/shellart.js?v=muyipxxo';
+import { COLORS, PATTERNS, STAMPS, HATS, SKINS, sanitizeCosmetics } from '../game/cosmetics.js?v=muyipxxo';
+import { WEAPONS, PRIMARIES, MODE_NAMES, MODE_MENU, TICK } from '../sim/tuning.js?v=muyipxxo';
+import { ACTIONS, ACTION_NAMES, keyLabel, DEFAULT_KEYS } from '../game/input.js?v=muyipxxo';
+import { DEFAULT_SETTINGS, saveSettings, saveProfile } from '../game/store.js?v=muyipxxo';
+import { ensureDaily, def as challengeDef, reroll, timeLeft } from '../game/challenges.js?v=muyipxxo';
+import { MAPS, mapDef } from '../maps/index.js?v=muyipxxo';
+import { drawHowTo } from './art.js?v=muyipxxo';
+import { wakeRelays, diagnoseNetwork } from '../net/net.js?v=muyipxxo';
 
 const $ = id => document.getElementById(id);
 const show = (id, on = true) => $(id).classList.toggle('hidden', !on);
@@ -148,6 +148,13 @@ export class Menus {
     // Pointer lock lost while playing = pause (Esc).
     app.input.onLockChange = locked => { if (!locked && app.state === 'play' && !this.chatOpen) app.pause(); };
     app.input.onKey = e => this.key(e);
+    // Esc closes whichever menu screen is open (each also has its X).
+    const closers = { help: 'help-close', shop: 'sh-close', profile: 'pr-close', custom: 'cu-close', friends: 'fr-close', settings: 'set-close' };
+    document.addEventListener('keydown', e => {
+      if (e.key !== 'Escape') return;
+      const open = Object.keys(closers).find(id => !$(id).classList.contains('hidden'));
+      if (open) { e.preventDefault(); $(closers[open]).click(); }
+    });
     this.chatBind();
     this.settingsBind();
     this.customBind();
