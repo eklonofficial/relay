@@ -1,9 +1,9 @@
 // Keyboard, mouse and gamepad into the control bitmask (GDD §18). Mouse look and pointer lock are
 // Blockhaven's approach, kept as is: raw (unadjusted) movement where the browser supports it, every
 // coalesced sample summed, spikes when the lock engages filtered out.
-import { surfaceDocument as document } from '../surface.js?v=muyjsnue';
-import { movementSamples } from '../util/pointer.js?v=muyjsnue';
-import { CTRL } from '../sim/tuning.js?v=muyjsnue';
+import { surfaceDocument as document } from '../surface.js?v=muyk0718';
+import { movementSamples } from '../util/pointer.js?v=muyk0718';
+import { CTRL } from '../sim/tuning.js?v=muyk0718';
 
 // Default bindings: left Shift aims, F is melee. 'M0'/'M1'/'M2' are mouse buttons.
 export const DEFAULT_KEYS = {
@@ -39,7 +39,7 @@ export class Input {
       this.mouseAvg = avg * 0.8 + mag * 0.2;
       // Mouse speed 1–100 (default 100) → radians per count; aiming scales by the zoom.
       const sens = (this.settings.mouseSpeed / 100) * 0.0028 * (this.zoom || 1) * this.assist;
-      this.lookAt = performance.now();
+      this.lookAt = this.mouseAt = performance.now();
       const inv = this.settings.invertMouse ? -1 : 1;
       this.yaw -= dx * sens; this.pitch = Math.max(-1.5, Math.min(1.5, this.pitch - dy * sens * inv));
       this.dx += dx; this.dy += dy;
@@ -93,15 +93,23 @@ export class Input {
     return c;
   }
   // Gamepad (GDD §18.2): standard mapping.
+  // Only a real controller counts: a standard-mapped pad, and only axes that have actually moved off
+  // where they sat when first seen (some mice, RGB tools and virtual-controller drivers show up as a
+  // "gamepad" with an axis parked away from zero, which would otherwise drift the view and switch on
+  // the aim assist meant for controllers). While the mouse is in use, the pad doesn't steer the view.
   pad() {
-    const p = navigator.getGamepads?.()[0];
+    const p = [...(navigator.getGamepads?.() || [])].find(g => g && g.connected !== false && g.mapping === 'standard');
     if (!p || !this.enabled || !this.locked) return 0;
-    const b = i => p.buttons[i]?.pressed;
+    const rest = this.padRest?.id === p.id ? this.padRest : (this.padRest = { id: p.id, base: [...p.axes], live: p.axes.map(() => false), stuck: p.buttons.map(x => !!x?.pressed) });
+    const axis = i => { const v = p.axes[i] ?? 0; if (!rest.live[i] && Math.abs(v - (rest.base[i] ?? 0)) > 0.3) rest.live[i] = true; return rest.live[i] ? v : 0; };
+    const mouse = performance.now() - (this.mouseAt ?? -1e9) < 500;
+    // (A button already down when the pad was first seen counts once it has been let go.)
+    const b = i => { const on = !!p.buttons[i]?.pressed; if (!on) rest.stuck[i] = false; return on && !rest.stuck[i]; };
     let c = 0;
     if (b(0)) c |= CTRL.jump; if (b(7)) c |= CTRL.fire; if (b(6)) c |= CTRL.scope; if (b(2)) c |= CTRL.reload;
     if (b(3)) c |= CTRL.swap; if (b(5)) c |= CTRL.grenade; if (b(1)) c |= CTRL.melee;
     if (b(10)) this.padSprint = true;   // left stick click: sprint until you stop pushing forward
-    const [lx, ly, rx, ry] = p.axes, dz = 0.2;
+    const lx = axis(0), ly = axis(1), rx = mouse ? 0 : axis(2), ry = mouse ? 0 : axis(3), dz = 0.2;
     if (ly < -dz) c |= CTRL.up; if (ly > dz) c |= CTRL.down; if (lx < -dz) c |= CTRL.left; if (lx > dz) c |= CTRL.right;
     const s = (this.settings.padSpeed ?? 50) / 50 * 0.05 * (this.zoom || 1) * this.assist;
     if (Math.abs(rx) > 0.15) this.yaw -= rx * s;
