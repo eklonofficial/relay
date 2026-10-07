@@ -1,8 +1,8 @@
 // The end-of-round podium: the top three eggs (as they dress, holding their guns) on gold, silver and
 // bronze blocks under a spotlight, confetti falling, the winner hopping. Its own little scene, drawn
 // through the same pipeline as the home screen; the names and the results table are the HUD's.
-import * as THREE from '../../vendor/three/three.module.js?v=muymhhti';
-import { EggAvatar } from './egg.js?v=muymhhti';
+import * as THREE from '../../vendor/three/three.module.js?v=muymyesq';
+import { EggAvatar } from './egg.js?v=muymyesq';
 
 // Places, left to right on screen: second, first, third. [x, block height, colour]
 const SPOTS = [[-1.05, 0.42, 0xc9d1d9], [0, 0.66, 0xffc83a], [1.05, 0.28, 0xd08a4e]];
