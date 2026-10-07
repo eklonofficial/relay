@@ -1,6 +1,6 @@
 // Saved settings and the local profile (GDD §20–22). Everything lives in this browser only, under
 // keys namespaced to the game; every access is wrapped because storage can throw or come back empty.
-import { DEFAULT_KEYS } from './input.js?v=muyk0718';
+import { DEFAULT_KEYS } from './input.js?v=muyll3yi';
 
 export const SETTINGS_KEY = 'shockshellers.settings.v1';
 export const PROFILE_KEY = 'shockshellers.profile.v1';
@@ -8,7 +8,7 @@ export const PROFILE_KEY = 'shockshellers.profile.v1';
 // Mouse speed: Chromebook trackpads want it fast; a PC mouse with raw input (no OS scaling) at full
 // speed turns ~0.16° a count, a 360 in a few centimetres, too twitchy for small corrections.
 const CROS = /\bCrOS\b/.test(globalThis.navigator?.userAgent || '');
-export const MOUSE_DEFAULT = CROS ? 100 : 40;
+export const MOUSE_DEFAULT = CROS ? 100 : 60;
 
 export const DEFAULT_SETTINGS = {
   keys: { ...DEFAULT_KEYS }, mouseSpeed: MOUSE_DEFAULT, invertMouse: false, rawInput: true,
@@ -27,9 +27,9 @@ export function loadSettings() {
   // The defaults moved (melee V → F, aim right mouse → left Shift): players still on the old defaults
   // get the new ones; anything they chose themselves stays.
   if (s.keys && !s.keysRev) { if (s.keys.melee === 'KeyV') s.keys.melee = 'KeyF'; if (s.keys.scope === 'M2') s.keys.scope = 'ShiftLeft'; }
-  // Players on a PC still at the old default (the maximum) get the new one.
-  if (!s.mouseRev && s.mouseSpeed === 100 && !CROS) s.mouseSpeed = MOUSE_DEFAULT;
-  return { ...DEFAULT_SETTINGS, ...s, keysRev: 2, mouseRev: 1, keys: { ...DEFAULT_KEYS, ...(s.keys || {}) } };
+  // Players on a PC still at an old default (the maximum, then 40) get the current one.
+  if (!CROS && ((!s.mouseRev && s.mouseSpeed === 100) || (s.mouseRev === 1 && s.mouseSpeed === 40))) s.mouseSpeed = MOUSE_DEFAULT;
+  return { ...DEFAULT_SETTINGS, ...s, keysRev: 2, mouseRev: 2, keys: { ...DEFAULT_KEYS, ...(s.keys || {}) } };
 }
 export const saveSettings = s => write(SETTINGS_KEY, s);
 

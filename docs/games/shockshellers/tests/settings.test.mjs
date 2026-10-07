@@ -10,14 +10,16 @@ const save = s => stored.set(SETTINGS_KEY, JSON.stringify(s));
 
 test('a PC mouse defaults to a speed small corrections can work with', () => {
   stored.clear();
-  assert.ok(MOUSE_DEFAULT < 60, 'not the old maximum');
+  assert.ok(MOUSE_DEFAULT < 100, 'not the old maximum');
   assert.equal(loadSettings().mouseSpeed, MOUSE_DEFAULT);
 });
 test('players on the old default mouse speed move to the new one; a chosen speed stays', () => {
   save({ mouseSpeed: 100 }); assert.equal(loadSettings().mouseSpeed, MOUSE_DEFAULT);
   save({ mouseSpeed: 63 }); assert.equal(loadSettings().mouseSpeed, 63);
-  // After the move, choosing the maximum again sticks.
-  save({ mouseSpeed: 100, mouseRev: 1 }); assert.equal(loadSettings().mouseSpeed, 100);
+  // The interim default (40) moves too; after a move, choosing any speed sticks.
+  save({ mouseSpeed: 40, mouseRev: 1 }); assert.equal(loadSettings().mouseSpeed, MOUSE_DEFAULT);
+  save({ mouseSpeed: 100, mouseRev: 2 }); assert.equal(loadSettings().mouseSpeed, 100);
+  save({ mouseSpeed: 40, mouseRev: 2 }); assert.equal(loadSettings().mouseSpeed, 40);
 });
 test('old default keys move (melee to F, aim to left Shift); chosen keys stay', () => {
   save({ keys: { melee: 'KeyV', scope: 'M2' } }); let s = loadSettings();
