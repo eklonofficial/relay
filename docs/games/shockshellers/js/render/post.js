@@ -11,7 +11,7 @@
 // Where half-float targets can't be rendered (WebGL 1, very old GPUs) the renderer skips all of
 // this and draws straight to the canvas with three's own tone mapping, which looks nearly the same.
 // scale: the 3D view's resolution as a fraction of the canvas's.
-import * as THREE from '../../vendor/three/three.module.js?v=muylpzs7';
+import * as THREE from '../../vendor/three/three.module.js?v=muymd6p3';
 
 const VERT = 'varying vec2 vUv; void main(){ vUv = position.xy * 0.5 + 0.5; gl_Position = vec4(position.xy, 0.0, 1.0); }';
 
@@ -41,6 +41,13 @@ const COMPOSITE = `uniform sampler2D scene; uniform sampler2D bloom; uniform boo
   uniform float exposure; uniform float saturation; uniform float contrast; uniform vec3 lift; uniform vec3 gain;
   uniform float vignette; uniform vec3 hurtColor; uniform float hurt; uniform float lowHp; uniform float aberration;
   uniform float time; uniform vec2 res; varying vec2 vUv;
+  // A filmic curve (the ACES fit's shape: a real toe, so shade goes properly dark, and a soft
+  // shoulder), applied to brightness so hues stay true (per channel it turns blue skies purple), with
+  // the brightest highlights easing towards white the way film does.
+  float curve(float x){ return clamp((x * (2.51 * x + 0.03)) / (x * (2.43 * x + 0.59) + 0.14), 0.0, 1.0); }
+  vec3 filmic(vec3 c){ float m = max(c.r, max(c.g, c.b)); if (m <= 1e-5) return vec3(0.0);
+    float t = curve(m); vec3 o = c * (t / m);
+    return mix(o, vec3(t), smoothstep(0.75, 1.0, t) * 0.5); }
   vec3 neutral(vec3 c){ const float start = 0.8 - 0.04, desat = 0.15;
     float x = min(c.r, min(c.g, c.b)); float off = x < 0.08 ? x - 6.25 * x * x : 0.04; c -= off;
     float peak = max(c.r, max(c.g, c.b)); if (peak < start) return c;
@@ -56,7 +63,7 @@ const COMPOSITE = `uniform sampler2D scene; uniform sampler2D bloom; uniform boo
     if (any(isnan(c)) || any(isinf(c))) c = vec3(0.0);
     if (hasBloom) c += texture2D(bloom, vUv).rgb * bloomStrength;
     c *= exposure;
-    c = neutral(c);
+    c = filmic(c);
     // Grade (in display-ish space so the controls behave like an editor's).
     c = pow(max(c, 0.0), vec3(1.0 / 2.2));
     float l = dot(c, vec3(0.2126, 0.7152, 0.0722));
@@ -92,7 +99,7 @@ export class Post {
     this.up = pass(UP, { src: { value: null }, texel: { value: new THREE.Vector2() }, weight: { value: 1 } }, THREE.AdditiveBlending);
     this.composite = pass(COMPOSITE, {
       scene: { value: null }, bloom: { value: null }, hasBloom: { value: false }, bloomStrength: { value: 0.5 },
-      exposure: { value: 1.0 }, saturation: { value: 0.97 }, contrast: { value: 1.08 }, lift: { value: new THREE.Vector3(0.012, 0.01, 0.022) }, gain: { value: new THREE.Vector3(1.02, 1.0, 0.97) },
+      exposure: { value: 0.92 }, saturation: { value: 1.14 }, contrast: { value: 1.05 }, lift: { value: new THREE.Vector3(0.0, 0.012, 0.028) }, gain: { value: new THREE.Vector3(1.025, 1.0, 0.955) },
       vignette: { value: 0.32 }, hurtColor: { value: new THREE.Vector3(0.55, 0.02, 0.0) }, hurt: { value: 0 }, lowHp: { value: 0 }, aberration: { value: 0 },
       time: { value: 0 }, res: { value: new THREE.Vector2(1, 1) },
     });

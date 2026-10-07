@@ -1,12 +1,12 @@
 // Turns a map grid into a few merged meshes (one per material family). Faces hidden against full
 // blocks are dropped, and every vertex gets baked ambient occlusion from the cells around it, which
 // gives the soft, lightmapped look of the reference maps without shipping any lightmap.
-import * as THREE from '../../vendor/three/three.module.js?v=muylpzs7';
-import { PIECES, BOXES, facing } from '../maps/pieces.js?v=muylpzs7';
-import { worldMaterial, TEX_SCALE, sway } from './materials.js?v=muylpzs7';
-import { clone, modelParts } from './models.js?v=muylpzs7';
-import { propParts } from './props.js?v=muylpzs7';
-import { mergeGeometries } from '../../vendor/three/BufferGeometryUtils.js?v=muylpzs7';
+import * as THREE from '../../vendor/three/three.module.js?v=muymd6p3';
+import { PIECES, BOXES, facing } from '../maps/pieces.js?v=muymd6p3';
+import { worldMaterial, TEX_SCALE, sway } from './materials.js?v=muymd6p3';
+import { clone, modelParts } from './models.js?v=muymd6p3';
+import { propParts } from './props.js?v=muymd6p3';
+import { mergeGeometries } from '../../vendor/three/BufferGeometryUtils.js?v=muymd6p3';
 
 class Bucket {
   constructor(mat) { this.mat = mat; this.p = []; this.n = []; this.u = []; this.c = []; this.i = []; this.v = 0; this.s = TEX_SCALE[mat] ?? 0.5; }
@@ -34,17 +34,28 @@ export function buildWorld(map) {
     return false;
   };
   const ao = (vx, vy, vz, nx, ny, nz) => {
-    // Four samples a quarter cell out from the face, around the vertex.
+    // Contact occlusion: four samples a quarter cell out from the face around the vertex (crisp
+    // darkening in corners), and a wider ring at three-quarters of a cell (the soft falloff where a
+    // wall meets the floor or a block sits against another), like screen-space AO but baked.
     const t1 = nx ? [0, 1, 0] : [1, 0, 0], t2 = nz ? [0, 1, 0] : [0, 0, 1];
-    const e = 0.22;
-    let occ = 0;
-    for (const a of [-1, 1]) for (const c of [-1, 1]) {
-      if (solidAt(vx + nx * e + (t1[0] * a + t2[0] * c) * e, vy + ny * e + (t1[1] * a + t2[1] * c) * e, vz + nz * e + (t1[2] * a + t2[2] * c) * e)) occ++;
+    let near = 0, wide = 0;
+    for (const [e, out] of [[0.22, 0.22], [0.7, 0.45]]) for (const a of [-1, 1]) for (const c of [-1, 1]) {
+      if (solidAt(vx + nx * out + (t1[0] * a + t2[0] * c) * e, vy + ny * out + (t1[1] * a + t2[1] * c) * e, vz + nz * out + (t1[2] * a + t2[2] * c) * e)) { if (e < 0.5) near++; else wide++; }
     }
-    // Skylight: faces under a roof get a little darker overall.
+    // Sky visibility: faces under a roof or overhang get darker (more the closer the roof).
     let roof = 0;
-    for (let k = 1; k <= 4; k++) if (full(Math.floor(vx + nx * 0.3), Math.floor(vy + ny * 0.3) + k, Math.floor(vz + nz * 0.3))) { roof = 1; break; }
-    return Math.max(0.35, 1 - occ * 0.14 - roof * 0.12 + (ny > 0 ? 0.04 : 0));
+    for (let k = 1; k <= 5; k++) if (full(Math.floor(vx + nx * 0.3), Math.floor(vy + ny * 0.3) + k, Math.floor(vz + nz * 0.3))) { roof = 1 - (k - 1) * 0.14; break; }
+    // Walls darken softly towards the floor in front of them (less sky reaches the bottom of a wall
+    // than its top), fading out over a couple of cells: big walls get a gradient instead of one flat
+    // tone.
+    let base = 1;
+    if (!ny) {
+      const fx = Math.floor(vx + nx * 0.5), fz = Math.floor(vz + nz * 0.5);
+      let drop = 0; while (drop < 3 && !full(fx, Math.floor(vy - drop - 0.01), fz) && vy - drop > 0) drop++;
+      const h = Math.min(drop + (vy - Math.floor(vy)), 3);
+      base = 1 - 0.24 * (1 - Math.min(1, h / 2.5));
+    }
+    return Math.max(0.26, (1 - near * 0.15 - wide * 0.07 - roof * 0.2 + (ny > 0 ? 0.04 : 0)) * base);
   };
   // One quad, corners counter-clockwise seen from outside.
   const quad = (B, verts, nx, ny, nz) => {

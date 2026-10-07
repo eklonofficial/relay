@@ -13,22 +13,22 @@
 // map (the map never moves) instead of every frame, and eggs get a soft blob shadow instead; no
 // muzzle-flash or explosion lights and no sky reflections (each costs every pixel of every lit
 // surface); no bloom or multisampling; fewer particles.
-import * as THREE from '../../vendor/three/three.module.js?v=muylpzs7';
-import { buildWorld } from './world.js?v=muylpzs7';
-import { EggAvatar, TEAM_COLORS } from './egg.js?v=muylpzs7';
-import { Effects } from './fx.js?v=muylpzs7';
-import { ViewModel } from './viewmodel.js?v=muylpzs7';
-import { gunModel } from './guns.js?v=muylpzs7';
-import { Kit, kitMaterial } from './kit.js?v=muylpzs7';
-import { clone, merged } from './models.js?v=muylpzs7';
-import { noiseTexture, WIND } from './materials.js?v=muylpzs7';
-import { Post } from './post.js?v=muylpzs7';
+import * as THREE from '../../vendor/three/three.module.js?v=muymd6p3';
+import { buildWorld } from './world.js?v=muymd6p3';
+import { EggAvatar, TEAM_COLORS } from './egg.js?v=muymd6p3';
+import { Effects } from './fx.js?v=muymd6p3';
+import { ViewModel } from './viewmodel.js?v=muymd6p3';
+import { gunModel } from './guns.js?v=muymd6p3';
+import { Kit, kitMaterial } from './kit.js?v=muymd6p3';
+import { clone, merged } from './models.js?v=muymd6p3';
+import { noiseTexture, WIND, SKY_TINT, worldRelief } from './materials.js?v=muymd6p3';
+import { Post } from './post.js?v=muymd6p3';
 
 // Sky palettes: zenith, ground below the horizon, sun, cloud light and shade, cloud cover (0 = none).
 // The horizon colour is the map's fog colour, so distant walls melt into the sky.
 export const SKIES = {
-  day: { top: 0x2a78d0, bottom: 0xbfe3f2, ground: 0x93aab4, sun: 0xfff2d8, cloud: 0xffffff, shade: 0x9fb4c9, cover: 0.5, hemi: [0xdfefff, 0x9c8e74] },
-  dusk: { top: 0x2e3d7a, bottom: 0xf3b37c, ground: 0x5a4a5a, sun: 0xffb070, cloud: 0xffd1a8, shade: 0x6b5a7a, cover: 0.55, hemi: [0xffd9b8, 0x6a5a6a] },
+  day: { top: 0x165ec8, bottom: 0xbfe3f2, ground: 0x93aab4, sun: 0xfff2d8, cloud: 0xffffff, shade: 0x9fb4c9, cover: 0.5, hemi: [0xa8ccf2, 0x8c7656] },
+  dusk: { top: 0x2e3d7a, bottom: 0xf3b37c, ground: 0x5a4a5a, sun: 0xffb070, cloud: 0xffd1a8, shade: 0x6b5a7a, cover: 0.55, hemi: [0xb8a8d8, 0x6a5048] },
   night: { top: 0x050916, bottom: 0x24304f, ground: 0x0b1020, sun: 0xb8c8ff, cloud: 0x3a4766, shade: 0x101626, cover: 0.62, hemi: [0x8090c0, 0x302830] },
   space: { top: 0x000006, bottom: 0x0c0c22, ground: 0x050510, sun: 0xffffff, cloud: 0, shade: 0, cover: 0, hemi: [0xc8d0ff, 0x403a50] },
 };
@@ -43,7 +43,7 @@ const SKY_FRAG = `uniform vec3 top; uniform vec3 horizon; uniform vec3 ground; u
   float h3(vec3 p){ return fract(sin(dot(p, vec3(12.9898, 78.233, 37.719))) * 43758.5453); }
   void main(){
     vec3 d = normalize(vDir); float y = d.y;
-    float t = pow(clamp(y, 0.0, 1.0), 0.42);
+    float t = pow(clamp(y, 0.0, 1.0), 0.36);
     vec3 c = mix(horizon, top, t);
     c = mix(c, ground, 1.0 - smoothstep(-0.18, 0.0, y));
     float sd = max(dot(d, sunDir), 0.0);
@@ -60,7 +60,9 @@ const SKY_FRAG = `uniform vec3 top; uniform vec3 horizon; uniform vec3 ground; u
       cc = mix(cc, horizon, (1.0 - smoothstep(0.0, 0.35, y)) * 0.55);
       c = mix(c, cc, a * 0.96);
     }
-    gl_FragColor = vec4(c, 1.0);
+    // (A touch darker than the scene's whites, so the filmic curve keeps the sky's blue.)
+    c = mix(vec3(dot(c, vec3(0.2126, 0.7152, 0.0722))), c, 1.25);
+    gl_FragColor = vec4(max(c, 0.0) * 0.86, 1.0);
     #include <tonemapping_fragment>
     #include <colorspace_fragment>
   }`;
@@ -69,7 +71,7 @@ function skyMaterial(kind, fogColor, sunDir, sunColor) {
   return new THREE.ShaderMaterial({
     side: THREE.BackSide, depthWrite: false, fog: false,
     uniforms: {
-      top: { value: new THREE.Color(s.top) }, horizon: { value: new THREE.Color(fogColor ?? s.bottom) }, ground: { value: new THREE.Color(s.ground) },
+      top: { value: new THREE.Color(s.top) }, horizon: { value: new THREE.Color(fogColor ?? s.bottom) }, ground: { value: new THREE.Color(s.ground).lerp(new THREE.Color(fogColor ?? s.bottom), 0.65) },
       sunDir: { value: sunDir.clone() }, sunColor: { value: new THREE.Color(sunColor) }, stars: { value: kind === 'night' || kind === 'space' ? 1 : 0 },
       noise: { value: noiseTexture() }, cover: { value: s.cover }, cloudLight: { value: new THREE.Color(s.cloud) }, cloudShade: { value: new THREE.Color(s.shade) },
       time: { value: 0 }, clouds: { value: 1 },
@@ -125,10 +127,10 @@ function beamMaterial(color) {
 // bloom steps; samples: MSAA on the HDR target; lights: the flash and explosion lights; env: sky
 // reflections; live: egg shadows in the shadow map, redrawn every frame (otherwise blob shadows).
 export const RUNGS = [
-  { name: 'low', levels: 0, samples: 0, dpr: 1, scale: 0.8, minScale: 0.5, shadow: 1024, clouds: false, particles: 0.5, lights: false, env: false, live: false },
-  { name: 'medium-low', levels: 3, samples: 0, dpr: 1, scale: 0.9, minScale: 0.6, shadow: 1024, clouds: true, particles: 0.75, lights: true, env: true, live: false },
-  { name: 'medium', levels: 4, samples: 4, dpr: 1, scale: 1, minScale: 0.7, shadow: 2048, clouds: true, particles: 1, lights: true, env: true, live: false },
-  { name: 'high', levels: 5, samples: 4, dpr: 1.5, scale: 1, minScale: 0.8, shadow: 2048, clouds: true, particles: 1, lights: true, env: true, live: true },
+  { name: 'low', bump: false, levels: 0, samples: 0, dpr: 1, scale: 0.8, minScale: 0.5, shadow: 1024, clouds: false, particles: 0.5, lights: false, env: false, live: false },
+  { name: 'medium-low', bump: false, levels: 3, samples: 0, dpr: 1, scale: 0.9, minScale: 0.6, shadow: 1024, clouds: true, particles: 0.75, lights: true, env: true, live: false },
+  { name: 'medium', bump: true, levels: 4, samples: 4, dpr: 1, scale: 1, minScale: 0.7, shadow: 2048, clouds: true, particles: 1, lights: true, env: true, live: false },
+  { name: 'high', bump: true, levels: 5, samples: 4, dpr: 1.5, scale: 1, minScale: 0.8, shadow: 2048, clouds: true, particles: 1, lights: true, env: true, live: true },
 ];
 // The HUD and the final image are drawn at up to this many device pixels per CSS pixel.
 export const UI_DPR = 1.5;
@@ -169,6 +171,7 @@ function blobTexture() {
 }
 
 const _m = new THREE.Matrix4(), _e = new THREE.Euler(), _v = new THREE.Vector3(), _c = new THREE.Color(), _q = new THREE.Quaternion(), _s = new THREE.Vector3();
+const _warm = new THREE.Color();
 export class Renderer {
   constructor(canvas) {
     this.canvas = canvas;
@@ -178,7 +181,7 @@ export class Renderer {
     this.gl = new THREE.WebGLRenderer({ canvas, antialias: false, alpha: false, powerPreference: 'high-performance', preserveDrawingBuffer: false, stencil: false });
     this.gl.debug.checkShaderErrors = false;
     this.gl.outputColorSpace = THREE.SRGBColorSpace;
-    this.gl.toneMapping = THREE.NeutralToneMapping; this.gl.toneMappingExposure = 1.05;
+    this.gl.toneMapping = THREE.ACESFilmicToneMapping; this.gl.toneMappingExposure = 0.92;
     this.gl.shadowMap.enabled = true; this.gl.shadowMap.type = THREE.PCFShadowMap;
     this.gl.shadowMap.autoUpdate = false; this.gl.shadowMap.needsUpdate = true;
     this.gl.autoClear = false;
@@ -258,8 +261,9 @@ export class Renderer {
     // they have to (the next frame compiles the new versions).
     if (!was || was.lights !== q.lights) this.fx.lights(q.lights);
     if (!was || was.env !== q.env) this.applyEnv();
+    if (!was || was.bump !== q.bump) worldRelief(q.bump);
     this.resize();
-    if (was && this.map && (was.lights !== q.lights || was.env !== q.env || was.levels !== q.levels)) this.prewarm();
+    if (was && this.map && (was.lights !== q.lights || was.env !== q.env || was.levels !== q.levels || was.bump !== q.bump)) this.prewarm();
   }
   // (The hands always keep their reflections: guns are metal, and without the sky to reflect metal
   // turns black. They are a small, cheap scene.)
@@ -300,18 +304,23 @@ export class Renderer {
     this.gl.shadowMap.needsUpdate = true;
     const fog = meta.fog || { color: s.bottom, near: 40, far: 120 };
     const sun = meta.sun || { dir: [-0.4, 0.8, -0.3], color: s.sun, intensity: 2.2 };
-    const d = new THREE.Vector3(...sun.dir).normalize();
+    // Light like a late-morning sun: lower in the sky than straight overhead (walls catch light on
+    // one side and fall into shade on the other, and shadows stretch out), warm, and much stronger
+    // than the sky's cool fill, so the shapes read and shade takes on the sky's blue.
+    const d = new THREE.Vector3(...sun.dir); d.y *= 0.62; d.normalize();
     this.sky = new THREE.Mesh(new THREE.SphereGeometry(400, 32, 16), skyMaterial(kind, fog.color, d, sun.color));
     this.sky.renderOrder = -1; this.sky.frustumCulled = false; this.sky.material.uniforms.clouds.value = this.q.clouds ? 1 : 0;
     this.scene.add(this.sky);
-    this.scene.fog = new THREE.Fog(fog.color, fog.near, fog.far);
+    // Haze starts a little nearer than the map asks, so depth reads (aerial perspective).
+    this.scene.fog = new THREE.Fog(fog.color, fog.near * 0.85, fog.far);
     const c = new THREE.Vector3(g.w / 2, 0, g.d / 2), R = Math.hypot(g.w, g.d, g.h) / 2 + 2;
     this.sunDir = d;
     this.sun.position.copy(c).addScaledVector(d, R * 2); this.sun.target.position.copy(c);
-    this.sun.color.setHex(sun.color); this.sun.intensity = sun.intensity * 1.05;
+    this.sun.color.setHex(sun.color).lerp(_warm.setHex(kind === 'day' ? 0xffd6a0 : sun.color), 0.3); this.sun.intensity = sun.intensity * 1.6;
     const sc = this.sun.shadow.camera; sc.left = -R; sc.right = R; sc.top = R; sc.bottom = -R; sc.near = 0.5; sc.far = R * 4; sc.updateProjectionMatrix();
     this.hemi.color.setHex(s.hemi[0]); this.hemi.groundColor.setHex(s.hemi[1]);
-    this.hemi.intensity = (meta.ambient ?? 1.1) * 1.35;
+    SKY_TINT.value.setHex(fog.color).lerp(_warm.setHex(s.top), 0.35);
+    this.hemi.intensity = (meta.ambient ?? 1.1) * 1.05;
     // Reflections: the sky (sun and clouds included) baked once into a prefiltered environment, which
     // the eggs' shells, the guns' metal and the props pick up.
     this.env?.dispose();
