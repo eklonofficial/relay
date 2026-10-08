@@ -12,7 +12,7 @@
 //
 // After the hand-made pieces come the imported map pieces (blocks.js: shape 'imported', drawn from
 // their own meshes by render/blocks.js, colliding as their own boxes).
-import { BLOCKS } from './blocks.js?v=muzsh3eg';
+import { BLOCKS } from './blocks.js?v=muzsrlxh';
 const step4 = [[0, 0, 0, 1, 0.25, 1], [0, 0.25, 0.25, 1, 0.5, 1], [0, 0.5, 0.5, 1, 0.75, 1], [0, 0.75, 0.75, 1, 1, 1]];
 const ramp8 = Array.from({ length: 8 }, (_, i) => [0, i / 8, i / 8, 1, (i + 1) / 8, 1]);
 const halfRamp4 = Array.from({ length: 4 }, (_, i) => [0, i / 8, i / 4, 1, (i + 1) / 8, 1]);

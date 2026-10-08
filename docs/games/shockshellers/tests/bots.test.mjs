@@ -114,14 +114,16 @@ test('hopping is situational: close fights only, never with a sniper, and not al
   kit.forEach((w, i) => mgr.add(m.addPlayer({ id: i + 1, name: BOT_NAMES[i], bot: true }), 0.7, { primary: w, hopper: 0.8 }));
   let hops = 0, alive = 0, closeFights = 0, hopInClose = 0;
   for (let t = 0; t < 30 * 60 * 3; t++) {
-    mgr.tick(); m.step(); mgr.events(m.events); m.events.length = 0;
+    mgr.tick(); const decided = new Map([...mgr.bots.values()].map(b => [b, b.target]));
+    m.step(); mgr.events(m.events); m.events.length = 0;
     for (const b of mgr.bots.values()) {
       if (!b.p.alive) continue;
       alive++;
       const w = b.p.hands.slots[b.p.hands.cur].id;
       const q = b.target !== null ? m.players.get(b.target) : null;
       const dist = q ? Math.hypot(q.body.x - b.p.body.x, q.body.z - b.p.body.z) : Infinity;
-      if (b.hopping && q) {
+      // (Only against the egg the hop was decided on: a shot from someone else can switch targets after it.)
+      if (b.hopping && q && decided.get(b) === b.target) {
         hops++;
         // Snipers hop only when pushed: escaping someone close, unscoped. (Bots decide on the tick before
         // this one moves everyone, hence the half unit beyond the 8 they use.)

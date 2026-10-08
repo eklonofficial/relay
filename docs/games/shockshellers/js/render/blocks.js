@@ -3,12 +3,12 @@
 // leaving out every face pressed flat against a neighbour that covers it (the insides of walls and
 // floors, most of a map's triangles). (Each piece's child meshes in the library are its collision
 // shapes, which maps/blocks.js already holds; only the piece's own mesh is drawn.)
-import * as THREE from '../../vendor/three/three.module.js?v=muzsh3eg';
-import { GLTFLoader } from '../../vendor/three/GLTFLoader.js?v=muzsh3eg';
-import { orient, turn } from '../maps/pieces.js?v=muzsh3eg';
-import { BLOCKS } from '../maps/blocks.js?v=muzsh3eg';
-import { MAP_ASSETS } from '../maps/map-assets.js?v=muzsh3eg';
-import { fetchAsset } from '../util/asset.js?v=muzsh3eg';
+import * as THREE from '../../vendor/three/three.module.js?v=muzsrlxh';
+import { GLTFLoader } from '../../vendor/three/GLTFLoader.js?v=muzsrlxh';
+import { orient, turn } from '../maps/pieces.js?v=muzsrlxh';
+import { BLOCKS } from '../maps/blocks.js?v=muzsrlxh';
+import { MAP_ASSETS } from '../maps/map-assets.js?v=muzsrlxh';
+import { fetchAsset } from '../util/asset.js?v=muzsrlxh';
 
 const CHUNK = 8;
 // Cell sides, in a piece's own frame: +x, -x, +y, -y, +z, -z.

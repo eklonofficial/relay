@@ -270,18 +270,17 @@ function range(primary, dist, seed = 7) {
   return { m, a, t };
 }
 const fireOnce = (m, ticks = 40, pitch = 0) => { m.setInput(1, CTRL.fire, 0, pitch); m.step(); for (let i = 0; i < ticks; i++) { m.setInput(1, 0, 0, pitch); m.step(); } };
-const avgDamage = (primary, dist, n = 12) => { let s = 0; for (let k = 1; k <= n; k++) { const { m, t } = range(primary, dist, k); t.hp = 1e4; fireOnce(m); s += 1e4 - t.hp; } return s / n; };
+const avgDamage = (primary, dist, n = 12, ticks = 40) => { let s = 0; for (let k = 1; k <= n; k++) { const { m, t } = range(primary, dist, k); t.hp = 1e4; fireOnce(m, ticks); s += 1e4 - t.hp; } return s / n; };
 
-test('Double Yolker: cracks an egg point blank, but fades fast with distance (no two-shots at range)', () => {
-  assert.ok(avgDamage('doubleYolker', 1.5) >= 100, 'one shot point blank');
-  assert.ok(avgDamage('doubleYolker', 3) >= 100, 'one shot at 3 units');
-  assert.ok(avgDamage('doubleYolker', 6) < 34, 'three or more shots at 6 units');
-  assert.ok(avgDamage('doubleYolker', 8) < 12, 'useless at 8 units');
+test('Double Yolker: as in Shell Shockers, cracks an egg point blank and is little use past a few units', () => {
+  assert.ok(avgDamage('doubleYolker', 1.5) >= 75, 'most of an egg point blank');
+  assert.ok(avgDamage('doubleYolker', 4) < 30, 'a few shots at 4 units');
+  assert.ok(avgDamage('doubleYolker', 9) === 0, 'nothing past its 8-unit range');
 });
 
-test('Yolkzooka: a hit on or beside an egg cracks it, a near miss takes a big chunk; blasts throw eggs; rocket jumps never hurt the shooter', () => {
-  const near = avgDamage('yolkzooka', 3, 1), far = avgDamage('yolkzooka', 25, 1);
-  assert.ok(near >= 100 && far >= near, `direct hit ${near} close, ${far} far`);
+test('Yolkzooka: a direct hit cracks an egg at any range, a near miss takes a big chunk; blasts throw eggs; rocket jumps never hurt the shooter', () => {
+  const near = avgDamage('yolkzooka', 3, 1), far = avgDamage('yolkzooka', 25, 1, 80); // (a slow rocket)
+  assert.ok(near >= 100 && far >= 100, `direct hit ${near} close, ${far} far`);
   // A rocket into the floor in front of an egg: most of its health (finish it with the pistol), and a moderate throw.
   const k = range('yolkzooka', 4); const x0 = k.t.body.x, z0 = k.t.body.z; let up = 0;
   const pitch = -Math.atan2(0.4, 3);
@@ -299,12 +298,13 @@ test('Yolkzooka: a hit on or beside an egg cracks it, a near miss takes a big ch
   assert.ok(r.a.body.z - z0r > 0.2 && r.a.body.z - z0r < 1); assert.equal(r.a.body.yaw, 0); assert.equal(r.a.body.pitch, 0);
 });
 
-test('Peck 9mm: four or five hits crack an egg at any range', () => {
-  for (const d of [3, 30, 50]) {
+test('Peck 9mm: as in Shell Shockers, a handful of hits within its 15-unit range, nothing past it', () => {
+  for (const d of [3, 12, 20]) {
     const { m, a, t } = range('peck9mm', d); a.hands.cur = 1;
     let hits = 0, hp = t.hp;
-    for (let n = 0; n < 40 && t.alive; n++) { fireOnce(m, 12); if (t.hp < hp || !t.alive) hits++; hp = t.hp; a.hands.slots[1].mag = 15; }
-    assert.ok(!t.alive && hits >= 4 && hits <= 5, `${d} units: ${hits} hits, alive ${t.alive}`);
+    for (let n = 0; n < 30 && t.alive; n++) { fireOnce(m, 12); if (t.hp < hp || !t.alive) hits++; hp = t.hp; a.hands.slots[1].mag = 15; }
+    if (d > 15) assert.ok(t.alive && t.hp === 100, `${d} units: out of range, hp ${t.hp}`);
+    else assert.ok(!t.alive && hits >= 4 && hits <= 10, `${d} units: ${hits} hits, alive ${t.alive}`);
   }
 });
 
