@@ -3,7 +3,7 @@
 <style>html,body{margin:0;height:100%;overflow:hidden;background:#5d8fb0}canvas{display:block}</style></head>
 <body><script type="module">
 // Development review page: renders one deterministic viewmodel or avatar frame from URL parameters.
-// ?weapon=yolk47&f=0.5&long=1&aim=1&skin=3&view=eggs. Sets document.title to "ready" once drawn.
+// ?weapon=yolk47&f=0.5&long=1&aim=1&skin=3&shot=0.05&view=eggs. Sets document.title to "ready" once drawn.
 // Import under the game's current cache stamp so this page shares module instances with the game code.
 const stamp = (await (await fetch('../index.html')).text()).match(/js\/main\.js\?v=(\w+)/)[1];
 const load = path => import(`../${path}?v=${stamp}`);
@@ -34,6 +34,8 @@ if (q.get('view') === 'eggs') {
   };
   // Settle the aim blend, then sample the requested frame.
   for (let i = 0; i < 90; i++) view.update({ ...state, dt: 1 / 60 });
+  // ?shot=<seconds>: fire, then show the gun that long after the shot.
+  if (q.has('shot')) { view.fire(weapon); for (let t = 0; t < Number(q.get('shot')); t += 1 / 60) view.update({ ...state, dt: 1 / 60 }); }
   gl.clear(); gl.render(view.scene, view.camera);
 }
 document.title = 'ready';

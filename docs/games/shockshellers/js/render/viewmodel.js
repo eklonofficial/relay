@@ -188,7 +188,8 @@ export class ViewModel {
   fire(id) {
     this.rig?.fire();
     const r = RECOIL[id] || RECOIL.yolk47, a = this.adsBlend, twist = (Math.random() < 0.5 ? -1 : 1) * (0.5 + Math.random() * 0.5);
-    this.sp.z.v += r[0] * 62 * (1 - a * 0.35); this.sp.rx.v += r[1] * 58 * (1 - a * 0.8);
+    // (Aimed, the zoom magnifies every movement, so the kick is a small shove straight back.)
+    this.sp.z.v += r[0] * 62 * (1 - a * 0.88); this.sp.rx.v += r[1] * 58 * (1 - a * 0.95);
     this.sp.ry.v += rnd() * r[2] * 50 * (1 - a * 0.7); this.sp.rz.v += twist * r[3] * 60 * (1 - a * 0.65);
     this.sp.y.v += r[0] * 8 * (1 - a);
     this.cam.pitch.v += r[4] * 60 * (1 - a * 0.5); this.cam.yaw.v += rnd() * r[4] * 18 * (1 - a * 0.6);
@@ -266,7 +267,7 @@ export class ViewModel {
     if (!s.visible || !this.rig) return;
     const dt = s.dt; this.t += dt;
     // The clip: reload, inspect, a shot working the action, or rest.
-    this.rig.update(s, (sample, what) => this.cue(sample, what));
+    this.rig.update({ ...s, aim: this.adsBlend }, (sample, what) => this.cue(sample, what));
     // Aim blend: a quick ease, then smoothstepped so the sights settle rather than slide; the view
     // narrows to the gun's zoom with it.
     this.adsBlend += ((s.ads ? 1 : 0) - this.adsBlend) * Math.min(1, dt * 14);

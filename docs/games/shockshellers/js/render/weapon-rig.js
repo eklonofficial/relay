@@ -26,19 +26,20 @@ export class WeaponRig {
     this.lastCue = -1;
     this.sample(this.spec.short, 0);
   }
-  sample(index, progress) {
+  // Pose the rig at progress (0..1) through a clip; with blend, mix that pose with a second clip's
+  // ([index, progress, weight]: the weight the second one gets).
+  sample(index, progress, blend = null) {
     this.mixer.stopAllAction();
-    const action = this.actions[index];
-    action.reset().play();
-    action.paused = true;
-    action.time = clampProgress(progress) * this.clips[index].duration;
+    const pose = (i, f, w) => { const a = this.actions[i]; a.reset().play(); a.paused = true; a.setEffectiveWeight(w); a.time = clampProgress(f) * this.clips[i].duration; };
+    pose(index, progress, blend ? 1 - blend[2] : 1);
+    if (blend && blend[0] !== index) pose(blend[0], blend[1], blend[2]);
     this.mixer.update(0);
     this.root.updateMatrixWorld(true);
   }
   fire() {
     this.fireTime = 0;
   }
-  // state: { dt, reload: {f, long}|null, inspect: 0..1, melee: 0..1 }. cue(sample, what) is called
+  // state: { dt, reload: {f, long}|null, inspect: 0..1, melee: 0..1, aim: 0..1 }. cue(sample, what) is called
   // as the reload passes each mechanical moment (reload-cues.js).
   update(state, cue) {
     this.fireTime += state.dt;
@@ -71,11 +72,11 @@ export class WeaponRig {
       this.sample(this.spec.inspect, state.inspect);
     } else {
       this.mode = 'idle';
+      // A shot works the action through the fire clip. Aimed, only a tenth of its kick comes
+      // through (the rest of the pose stays at rest), so the gun never climbs over the sights.
       const clip = this.clips[this.spec.fire];
-      this.sample(
-        this.fireTime < clip.duration ? this.spec.fire : this.spec.short,
-        this.fireTime < clip.duration ? this.fireTime / clip.duration : 0
-      );
+      if (this.fireTime < clip.duration) this.sample(this.spec.short, 0, [this.spec.fire, this.fireTime / clip.duration, 1 - 0.9 * (state.aim || 0)]);
+      else this.sample(this.spec.short, 0);
     }
   }
   dispose() {
