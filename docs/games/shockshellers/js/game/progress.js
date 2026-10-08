@@ -1,13 +1,13 @@
 // Progress: eggs, and what they unlock. Eggs are earned by playing well (points in a match, placing,
 // winning, challenges; main.js) and are never spent, so whatever a player has unlocked stays
-// unlocked. The better weapons open up in turn, and every gun skin has a rarity that opens at an egg
+// unlocked. Every weapon is free from the start; every gun skin has a rarity that opens at an egg
 // total; colours, patterns, stamps and almost every hat are free from the start.
 import { WEAPON_ASSETS } from '../render/asset-catalog.js?v=muyxgr3o';
 import { HATS } from './cosmetics.js?v=muyxgr3o';
 import { ECONOMY } from '../sim/tuning.js?v=muyxgr3o';
 
-// Eggs needed for each weapon (the Yolk-47 and the pistol from the start).
-export const WEAPON_UNLOCK = { yolk47: 0, peck9mm: 0, beater: 250, doubleYolker: 600, triBoil: 1200, cageFree: 2000, poacher: 3500, yolkzooka: 5000 };
+// Eggs needed for each weapon: none, every weapon is open from the start (skins are what unlock).
+export const WEAPON_UNLOCK = { yolk47: 0, peck9mm: 0, beater: 0, doubleYolker: 0, triBoil: 0, cageFree: 0, poacher: 0, yolkzooka: 0 };
 // Gun skin rarities and the eggs that open each (asset-catalog.js gives every skin its rarity).
 export const TIERS = [
   { name: 'Common', eggs: 0, color: '#d6dde3' }, { name: 'Uncommon', eggs: 300, color: '#5ed37a' }, { name: 'Rare', eggs: 1000, color: '#4aa8ff' },

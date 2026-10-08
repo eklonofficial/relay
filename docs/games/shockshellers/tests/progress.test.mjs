@@ -71,11 +71,9 @@ test('eggs come from points, carried exactly across awards, doubled when doublin
   assert.ok(ECONOMY.place[0] > ECONOMY.place[1] && ECONOMY.place[1] > ECONOMY.place[2]);
 });
 
-test('unlocks: weapons open in turn, every skin has a rarity, and eggs are never taken back', () => {
+test('unlocks: every weapon is free, every skin has a rarity, and eggs are never taken back', () => {
   assert.deepEqual(Object.keys(WEAPON_UNLOCK).sort(), [...WEAPON_IDS].sort());
-  assert.equal(WEAPON_UNLOCK.yolk47, 0); assert.equal(WEAPON_UNLOCK.peck9mm, 0);
-  const ladder = PRIMARIES.map(id => WEAPON_UNLOCK[id]).sort((a, b) => a - b);
-  assert.equal(new Set(ladder).size, ladder.length, 'one weapon at a time');
+  for (const id of WEAPON_IDS) assert.equal(WEAPON_UNLOCK[id], 0, `${id} is free`);
   for (let i = 1; i < TIERS.length; i++) assert.ok(TIERS[i].eggs > TIERS[i - 1].eggs);
   for (const id of WEAPON_IDS) {
     assert.equal(skinTier(id, 0), 0, `${id}: its standard finish is free`);
@@ -84,7 +82,9 @@ test('unlocks: weapons open in turn, every skin has a rarity, and eggs are never
     assert.ok(tiers.filter(t => t === TIERS.length - 1).length >= 3, `${id} has legendary skins to earn`);
   }
   const fresh = { coins: 0, owned: [] }, rich = { coins: 1e6, owned: [] };
-  assert.equal(unlocked(fresh, 'weapon', 'yolkzooka'), false); assert.equal(unlocked(rich, 'weapon', 'yolkzooka'), true);
+  assert.equal(unlocked(fresh, 'weapon', 'yolkzooka'), true);
+  const legendary = SKIN_COUNTS.yolk47 && Array.from({ length: SKIN_COUNTS.yolk47 }, (_, i) => i).find(i => skinTier('yolk47', i) === TIERS.length - 1);
+  assert.equal(unlocked(fresh, 'skin', legendary, 'yolk47'), false); assert.equal(unlocked(rich, 'skin', legendary, 'yolk47'), true);
   assert.equal(unlocked({ coins: 0, owned: ['hat:crown'] }, 'hat', 'crown'), true, 'bought before eggs stopped being spent');
   assert.equal(eggsFor('pattern', 'camo'), 0);
 });
