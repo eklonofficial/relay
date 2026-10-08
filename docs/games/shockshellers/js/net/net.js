@@ -8,9 +8,10 @@
 //
 // Game model: the host is authoritative. Guests send their inputs; the host sends snapshots at
 // 15 Hz plus the match's events, and each guest predicts only its own egg (guest.js).
-import { hostBox, joinBox } from './box.js?v=muzsrlxh';
-import { hostRoom, joinRoom, diagnose } from './transport.js?v=muzsrlxh';
-import { SealedChannel } from './sealed.js?v=muzsrlxh';
+import { hostBox, joinBox } from './box.js?v=muzthczg';
+import { hostTunnel, joinTunnel, probeTunnel } from './tunnel.js?v=muzthczg';
+import { hostRoom, joinRoom, diagnose } from './transport.js?v=muzthczg';
+import { SealedChannel } from './sealed.js?v=muzthczg';
 
 export const MAX_HUMANS = 8;
 const PREFIX = 'shockshellers-v1-';
@@ -44,7 +45,7 @@ function loadLib() {
   if (!libPromise) {
     libPromise = new Promise((resolve, reject) => {
       const s = document.createElement('script');
-      s.src = new URL('../../vendor/peerjs.min.js?v=muzsrlxh', import.meta.url).href;
+      s.src = new URL('../../vendor/peerjs.min.js?v=muzthczg', import.meta.url).href;
       s.onload = () => resolve();
       s.onerror = () => { libPromise = null; reject(new Error('Could not load the multiplayer library. Check your connection.')); };
       document.head.appendChild(s);
@@ -55,6 +56,8 @@ function loadLib() {
 // Free hosting puts an idle relay to sleep; a request wakes it while the player is still choosing.
 export function wakeRelays() { for (const u of netConfig().wake || []) fetch(u, { mode: 'no-cors', cache: 'no-store', credentials: 'omit', referrerPolicy: 'no-referrer' }).catch(() => {}); }
 export const diagnoseNetwork = onResult => diagnose(netConfig(), onResult);
+// Can game data go through the PeerJS server itself here (tunnel.js)? true, or what went wrong.
+export const probeGameTunnel = () => probeTunnel(netConfig(), PREFIX);
 function netConfig() {
   let o = null;
   try { o = JSON.parse(localStorage.getItem('shockshellers.net')); } catch { /* none */ }
@@ -163,7 +166,8 @@ export class Net {
       ? hostRoom(code, cfg, ch => { if (!this.closed) this.onIncoming(ch); }).then(r => { if (this.closed) r.close(); else this.room = r; return r; })
       : Promise.reject(new Error('no brokers'));
     const boxP = hostBox(code, cfg, ch => { if (!this.closed) this.onIncoming(ch); }).then(r => { if (this.closed) r.close(); else this.box = r; return r; });
-    try { await Promise.any([peerP, roomP, boxP]); }
+    const tunP = cfg.peer ? hostTunnel(PREFIX, code, cfg, ch => { if (!this.closed) this.onIncoming(ch); }).then(r => { if (this.closed) r.close(); else this.tunnel = r; return r; }) : Promise.reject(new Error('no PeerJS server'));
+    try { await Promise.any([peerP, roomP, boxP, tunP]); }
     catch (e) {
       const why = e.errors ? e.errors.map(x => x && x.message).filter(Boolean).join(' / ') : e.message;
       throw new Error(`Could not open the game to friends: the multiplayer servers could not be reached. Check your internet connection. (${why})`);
@@ -171,12 +175,14 @@ export class Net {
     peerP.catch(e => console.warn('PeerJS room unavailable; using the relay servers only.', e && e.message));
     roomP.catch(e => console.warn('Relay servers unavailable; using PeerJS only.', e && e.message));
     boxP.catch(e => console.warn('Relay mailbox unavailable.', e && e.message));
+    tunP.catch(e => console.warn('PeerJS tunnel unavailable.', e && e.message));
     // Tell the host which ways in are open, once each has had its chance (friends on a locked-down
-    // network can only come in through the mailbox).
-    Promise.allSettled([peerP, roomP, boxP]).then(([p, r, b]) => {
+    // network may only get in through the tunnel or the mailbox).
+    Promise.allSettled([peerP, roomP, boxP, tunP]).then(([p, r, b, t]) => {
       if (this.closed) return;
       const mark = x => (x.status === 'fulfilled' ? 'open' : 'unavailable');
-      this.session.onChat?.(`Ways in: direct ${mark(p)}, relays ${mark(r)}, relay mailbox ${b.status === 'fulfilled' ? 'open' : '— ' + ((b.reason && b.reason.message) || 'unavailable').replace(/^Relay mailbox: /, '')}`, b.status === 'fulfilled' ? '#9fe09f' : '#ff8a80');
+      const filtered = t.status === 'fulfilled' || b.status === 'fulfilled';
+      this.session.onChat?.(`Ways in: direct ${mark(p)}, school-network tunnel ${mark(t)}, relays ${mark(r)}, relay mailbox ${mark(b)}`, filtered ? '#9fe09f' : '#ff8a80');
     });
     return code;
   }
@@ -248,15 +254,23 @@ export class Net {
     })() : Promise.reject(new Error('no brokers'));
     // The relay's plain-HTTPS mailbox: what gets through filters that break WebSockets.
     const viaBox = (async () => { const ch = await joinBox(code, cfg); claim(ch, 'relay'); })();
-    try { await Promise.any([viaPeer, viaRoom, viaBox]); }
+    // Through the PeerJS server itself (tunnel.js), for networks that block direct connections but
+    // let that server through. A direct connection is better, so it gets a few seconds' head start.
+    const viaTunnel = cfg.peer ? (async () => {
+      await Promise.race([viaPeer.catch(() => {}), new Promise(r => setTimeout(r, 6000))]);
+      if (winner) return;
+      const ch = await joinTunnel(PREFIX, code, cfg);
+      if (!claim(ch, 'relay')) return;
+    })() : Promise.reject(new Error('no PeerJS server'));
+    try { await Promise.any([viaPeer, viaRoom, viaBox, viaTunnel]); }
     catch (e) {
       // Every route's own reason, so a failure on a locked-down network says what was blocked (a
       // "no game with that code" from one route alone can hide that another was blocked).
       const errs = (e.errors || [e]).filter(Boolean);
-      throw new Error(errs.map(x => x.message).filter(Boolean).join(' — ') || 'Connection failed.');
+      throw new Error([...new Set(errs.map(x => x.message).filter(Boolean))].join(' — ') || 'Connection failed.');
     }
     // A slower path that connects later is closed by claim().
-    viaPeer.catch(() => {}); viaRoom.catch(() => {}); viaBox.catch(() => {});
+    viaPeer.catch(() => {}); viaRoom.catch(() => {}); viaBox.catch(() => {}); viaTunnel.catch(() => {});
     const link = new Link(new SealedChannel(winner.conn), HOST_PARTS);
     net.hostLink = link; net.relayed = winner.how === 'relay';
     status(net.relayed ? 'Connected through the relay servers. Joining…' : 'Joining…');
@@ -321,7 +335,7 @@ export class Net {
     else if (this.hostLink && now - this.hostLink.seen > LINK_TIMEOUT) this.onHostLost();
   }
   close() {
-    if (this.closed && !this.peer && !this.room && !this.box) return;
+    if (this.closed && !this.peer && !this.room && !this.box && !this.tunnel) return;
     this.closed = true;
     try { if (this.isHost) this.broadcast({ t: 'bye' }); } catch { /* ignore */ }
     clearInterval(this.kaTimer);
@@ -332,7 +346,8 @@ export class Net {
       if (this.peer) this.peer.destroy();
       if (this.room) this.room.close();
       if (this.box) this.box.close();
-      this.peer = null; this.room = null; this.box = null;
+      if (this.tunnel) this.tunnel.close();
+      this.peer = null; this.room = null; this.box = null; this.tunnel = null;
     }, 300);
   }
 }

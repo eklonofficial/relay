@@ -1,7 +1,7 @@
 // Procedural textures for the map's material families (maps/dsl.js MAT). Everything is drawn at
 // start-up on canvases: low-poly, bright, with visible tile seams and triangle noise (GDD §25), and
 // no image files to fetch. Each family has a base texture; maps tint them through per-cell variants.
-import * as THREE from '../../vendor/three/three.module.js?v=muzsrlxh';
+import * as THREE from '../../vendor/three/three.module.js?v=muzthczg';
 
 const S = 256;
 // Deterministic noise so every player sees the same walls.

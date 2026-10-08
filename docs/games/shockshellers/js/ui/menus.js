@@ -1,26 +1,26 @@
 // Menus and modals (GDD §16–21): home, respawn/pause screen, settings (3 tabs), play with friends,
 // custom matches, profile, shop/inventory, how to play, chat. All markup lives in index.html inside
 // the compositor; this module wires it up and keeps it current.
-import { surfaceDocument as document } from '../surface.js?v=muzsrlxh';
-import * as THREE from '../../vendor/three/three.module.js?v=muzsrlxh';
-import { ask, tell } from '../dialog.js?v=muzsrlxh';
-import { gunModel } from '../render/guns.js?v=muzsrlxh';
-import { EggAvatar } from '../render/egg.js?v=muzsrlxh';
-import { hatMesh } from '../render/hats.js?v=muzsrlxh';
-import { previewShell } from '../render/shellart.js?v=muzsrlxh';
-import { COLORS, PATTERNS, STAMPS, HATS, SKIN_COUNTS, skinName, skinOf, sanitizeCosmetics } from '../game/cosmetics.js?v=muzsrlxh';
-import { loadStamp } from '../render/stamps.js?v=muzsrlxh';
-import { TIERS, skinTier, eggsFor, unlocked } from '../game/progress.js?v=muzsrlxh';
-import { WEAPONS, PRIMARIES, MODE_NAMES, MODE_MENU, TICK } from '../sim/tuning.js?v=muzsrlxh';
-import { ACTIONS, ACTION_NAMES, keyLabel, DEFAULT_KEYS } from '../game/input.js?v=muzsrlxh';
-import { DEFAULT_SETTINGS, saveSettings, saveProfile } from '../game/store.js?v=muzsrlxh';
-import { ensureDaily, def as challengeDef, reroll, timeLeft } from '../game/challenges.js?v=muzsrlxh';
-import { MAPS, mapDef, mapsBySize, sizeOf, naturalPlayers, SIZES } from '../maps/index.js?v=muzsrlxh';
-import { playlists, playlistById, randomPlaylist } from '../maps/playlists.js?v=muzsrlxh';
-import { MAP_ASSETS } from '../maps/map-assets.js?v=muzsrlxh';
-import { fetchAssetBlob } from '../util/asset.js?v=muzsrlxh';
-import { drawHowTo } from './art.js?v=muzsrlxh';
-import { wakeRelays, diagnoseNetwork } from '../net/net.js?v=muzsrlxh';
+import { surfaceDocument as document } from '../surface.js?v=muzthczg';
+import * as THREE from '../../vendor/three/three.module.js?v=muzthczg';
+import { ask, tell } from '../dialog.js?v=muzthczg';
+import { gunModel } from '../render/guns.js?v=muzthczg';
+import { EggAvatar } from '../render/egg.js?v=muzthczg';
+import { hatMesh } from '../render/hats.js?v=muzthczg';
+import { previewShell } from '../render/shellart.js?v=muzthczg';
+import { COLORS, PATTERNS, STAMPS, HATS, SKIN_COUNTS, skinName, skinOf, sanitizeCosmetics } from '../game/cosmetics.js?v=muzthczg';
+import { loadStamp } from '../render/stamps.js?v=muzthczg';
+import { TIERS, skinTier, eggsFor, unlocked } from '../game/progress.js?v=muzthczg';
+import { WEAPONS, PRIMARIES, MODE_NAMES, MODE_MENU, TICK } from '../sim/tuning.js?v=muzthczg';
+import { ACTIONS, ACTION_NAMES, keyLabel, DEFAULT_KEYS } from '../game/input.js?v=muzthczg';
+import { DEFAULT_SETTINGS, saveSettings, saveProfile } from '../game/store.js?v=muzthczg';
+import { ensureDaily, def as challengeDef, reroll, timeLeft } from '../game/challenges.js?v=muzthczg';
+import { MAPS, mapDef, mapsBySize, sizeOf, naturalPlayers, SIZES } from '../maps/index.js?v=muzthczg';
+import { playlists, playlistById, randomPlaylist } from '../maps/playlists.js?v=muzthczg';
+import { MAP_ASSETS } from '../maps/map-assets.js?v=muzthczg';
+import { fetchAssetBlob } from '../util/asset.js?v=muzthczg';
+import { drawHowTo } from './art.js?v=muzthczg';
+import { wakeRelays, diagnoseNetwork, probeGameTunnel } from '../net/net.js?v=muzthczg';
 
 const $ = id => document.getElementById(id);
 const show = (id, on = true) => $(id).classList.toggle('hidden', !on);
@@ -455,6 +455,9 @@ export class Menus {
       const relay = results.some(r => r.ok && /^Relay/.test(r.name)), room = results.some(r => r.ok && /^Room/.test(r.name)), direct = results.some(r => r.ok && /Direct/.test(r.name));
       // The relay's mailbox, for real: a request that only the updated relay answers with JSON (a
       // filter's block page or an older relay doesn't), given time for a sleeping relay to wake.
+      // Game data through the PeerJS server itself: works wherever that server is allowed.
+      lines.push('', 'School-network tunnel (through the PeerJS server):'); paint();
+      const tun = await probeGameTunnel(); lines.push(`${tun === true ? 'OK' : 'NO'}  ${tun === true ? 'working' : tun}`); paint();
       lines.push('', 'Relay mailbox (plain HTTPS, gets past most school filters):'); paint();
       const mail = await probeMailbox(); lines.push(`${mail === true ? 'OK' : 'NO'}  ${mail === true ? 'working' : mail}`); paint();
       // Which other kinds of host this network lets through, for a fallback relay if ever needed.
@@ -464,7 +467,7 @@ export class Menus {
       // Read for real (their answers carry CORS headers): the relay's status page, Google Firebase, Ably.
       const checks = [['Relay status page', 'https://blockhaven-relay.onrender.com/health', t => t.trim() === 'ok'],
         ['Google Firebase', 'https://hacker-news.firebaseio.com/v0/maxitem.json', t => /^\d+$/.test(t.trim())],
-        ['Ably', 'https://rest.ably.io/time', t => /^\[\d+\]$/.test(t.trim())]];
+        ['Ably', 'https://rest.ably.io/time', t => /^\[\s*\d+\s*\]$/.test(t.trim())]];
       const real = await Promise.all(checks.map(([, u, ok]) => readable(u, ok)));
       checks.forEach(([n], i) => lines.push(`${real[i] === true ? 'OK' : 'NO'}  ${n}${real[i] === true ? '' : ': ' + real[i]}`));
       // (These only show that something answered: a block page counts too.)
@@ -474,9 +477,9 @@ export class Menus {
       testing = false;
       // (The PeerJS room server only finds the host; without direct connections it can't carry a
       // game, so on its own it doesn't count.)
-      const mailbox = mail === true, works = relay || mailbox || (room && direct);
+      const mailbox = mail === true, tunnel = tun === true, works = relay || mailbox || tunnel || (room && direct);
       lines.push('', works
-        ? `Multiplayer will work on this network${direct && room ? ', with direct connections (fastest)' : relay ? ', through a relay server' : ', through the relay mailbox'}.`
+        ? `Multiplayer will work on this network${direct && room ? ', with direct connections (fastest)' : tunnel ? ', through the school-network tunnel' : relay ? ', through a relay server' : ', through the relay mailbox'}.`
         : 'No way to carry a game was found on this network. If the relay mailbox says it is waking, try again in a minute.');
       out.className = `note diag ${works ? 'ok' : 'err'}`;
       paint();
