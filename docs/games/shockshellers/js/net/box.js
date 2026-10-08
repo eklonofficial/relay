@@ -8,7 +8,7 @@
 // RelayChannel: sequence numbers, acks, resends), so the rest of the networking can't tell the
 // difference. Every host listens here as well as on the other paths, and a joining guest races this
 // against them; whichever connects first is used.
-import { RelayChannel } from './transport.js?v=muzmf26a';
+import { RelayChannel } from './transport.js?v=muzsh3eg';
 
 const ROOT = 'shockshellers/box/';
 const rid = () => Math.random().toString(36).slice(2, 10) + Math.random().toString(36).slice(2, 6);
@@ -24,7 +24,7 @@ export function boxBase(cfg) {
 export class Box {
   constructor(base) {
     this.base = base; this.subs = new Map(); this.since = undefined; this.out = []; this.sending = false; this.closed = false;
-    this.poll = null; this.fails = 0; this.ok = false;
+    this.poll = null; this.fails = 0; this.ok = false; this.status = 'not tried';
   }
   subscribe(topic, fn) { this.subs.set(ROOT + topic, fn); this.restart(); }
   unsubscribe(topic) { this.subs.delete(ROOT + topic); }
@@ -35,8 +35,8 @@ export class Box {
     if (this.sending || !this.out.length || this.closed) return;
     this.sending = true;
     const batch = this.out.splice(0, 256);
-    try { const r = await fetch(this.base + '/box/send', opts({ pub: batch })); if (!r.ok) throw new Error(`relay ${r.status}`); }
-    catch { if (!this.closed) { this.out.unshift(...batch); await new Promise(r => setTimeout(r, 400)); } }
+    try { const r = await fetch(this.base + '/box/send', opts({ pub: batch })); this.status = await answer(r); if (this.status !== 'ok') throw new Error(this.status); }
+    catch (e) { if (!this.closed) { if (!(e instanceof Error && e.message === this.status)) this.status = 'blocked'; this.out.unshift(...batch); await new Promise(r => setTimeout(r, 400)); } }
     this.sending = false;
     if (this.out.length) this.flush();
   }
@@ -63,9 +63,21 @@ export class Box {
   // Can the mailbox be reached from here at all? (A quick request; a sleeping relay can take a while.)
   async reach(ms = 60000) {
     const ctl = new AbortController(), t = setTimeout(() => ctl.abort(), ms);
-    try { const r = await fetch(this.base + '/box/send', { ...opts({ pub: [] }), signal: ctl.signal }); return r.ok; } catch { return false; } finally { clearTimeout(t); }
+    try { const r = await fetch(this.base + '/box/send', { ...opts({ pub: [] }), signal: ctl.signal }); this.status = await answer(r); } catch { this.status = 'blocked'; } finally { clearTimeout(t); }
+    return this.status === 'ok';
   }
   close() { this.closed = true; if (this.poll) this.poll.abort(); }
+}
+// Whether an answer is the relay mailbox's own (JSON with its message counter): a filter's block page
+// or an out-of-date relay is not.
+async function answer(r) {
+  if (r.status === 404) return 'outdated';
+  const t = await r.text().catch(() => ''); let j = null; try { j = JSON.parse(t); } catch { /* not JSON */ }
+  return r.ok && j && typeof j.at === 'number' ? 'ok' : r.ok ? 'foreign' : `error ${r.status}`;
+}
+// Says what went wrong, for the player.
+export function boxTrouble(status) {
+  return { outdated: 'the relay is out of date and needs redeploying', foreign: 'something other than the relay answered (a network filter?)', blocked: 'blocked on this network', 'not tried': 'not reached' }[status] || `the relay answered ${status}`;
 }
 // What RelayChannel needs from its carrier.
 const mesh = box => ({ send: (topic, m) => box.publish(topic, m) });
@@ -74,7 +86,7 @@ const mesh = box => ({ send: (topic, m) => box.publish(topic, m) });
 export async function hostBox(code, cfg, onConnection) {
   const base = boxBase(cfg); if (!base) throw new Error('no mailbox');
   const box = new Box(base);
-  if (!(await box.reach())) { box.close(); throw new Error('The relay mailbox could not be reached.'); }
+  if (!(await box.reach())) { box.close(); throw new Error(`Relay mailbox: ${boxTrouble(box.status)}.`); }
   const guests = new Map(); // guest id → { hid, ch }
   box.subscribe(`r/${code}`, m => {
     if (!m || m.k !== 'knock' || typeof m.g !== 'string' || !/^[a-z0-9]{8,20}$/.test(m.g)) return;
@@ -97,7 +109,10 @@ export async function joinBox(code, cfg, waitMs = 25000) {
   const box = new Box(base), gid = rid();
   return await new Promise((resolve, reject) => {
     let ch = null;
-    const done = setTimeout(() => { clearInterval(knock); box.close(); reject(new Error('No game answered through the relay mailbox.')); }, waitMs);
+    const done = setTimeout(() => {
+      clearInterval(knock); box.close();
+      reject(new Error(box.status === 'ok' ? 'Relay mailbox: no game with that code answered (the host may need to refresh their page).' : `Relay mailbox: ${boxTrouble(box.status)}.`));
+    }, waitMs);
     box.subscribe(`c/${gid}`, m => {
       if (!ch && m.k === 'hi' && typeof m.h === 'string') {
         clearTimeout(done); clearInterval(knock);

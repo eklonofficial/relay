@@ -6,7 +6,7 @@
 // a wall stands between it and you; gunfire and explosions also feed a convolution reverb whose size
 // follows the map (a tight barn, an open quarry). Each map has a quiet synthesised bed (wind and birds,
 // crickets, the hum of space). A blast close by, or your own death, briefly dulls everything.
-import { fetchAsset } from '../util/asset.js?v=muzmf26a';
+import { fetchAsset } from '../util/asset.js?v=muzsh3eg';
 
 const SAMPLE_URLS = {}; // name → URL, filled by registerSamples() from the sound bank module
 // How much of each sound goes to the reverb.
