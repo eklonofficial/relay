@@ -13,18 +13,18 @@
 // map (the map never moves) instead of every frame, and eggs get a soft blob shadow instead; no
 // muzzle-flash or explosion lights and no sky reflections (each costs every pixel of every lit
 // surface); no bloom or multisampling; fewer particles.
-import * as THREE from '../../vendor/three/three.module.js?v=muzsrlxh';
-import { buildWorld } from './world.js?v=muzsrlxh';
-import { EggAvatar, TEAM_COLORS } from './egg.js?v=muzsrlxh';
-import { Effects } from './fx.js?v=muzsrlxh';
-import { ViewModel } from './viewmodel.js?v=muzsrlxh';
-import { gunModel } from './guns.js?v=muzsrlxh';
-import { Kit, kitMaterial } from './kit.js?v=muzsrlxh';
-import { clone, merged } from './models.js?v=muzsrlxh';
-import { noiseTexture, WIND, SKY_TINT, worldRelief } from './materials.js?v=muzsrlxh';
-import { Post } from './post.js?v=muzsrlxh';
-import { MAP_ASSETS } from '../maps/map-assets.js?v=muzsrlxh';
-import { fetchAssetBlob } from '../util/asset.js?v=muzsrlxh';
+import * as THREE from '../../vendor/three/three.module.js?v=muzthczg';
+import { buildWorld } from './world.js?v=muzthczg';
+import { EggAvatar, TEAM_COLORS } from './egg.js?v=muzthczg';
+import { Effects } from './fx.js?v=muzthczg';
+import { ViewModel } from './viewmodel.js?v=muzthczg';
+import { gunModel } from './guns.js?v=muzthczg';
+import { Kit, kitMaterial } from './kit.js?v=muzthczg';
+import { clone, merged } from './models.js?v=muzthczg';
+import { noiseTexture, WIND, SKY_TINT, worldRelief } from './materials.js?v=muzthczg';
+import { Post } from './post.js?v=muzthczg';
+import { MAP_ASSETS } from '../maps/map-assets.js?v=muzthczg';
+import { fetchAssetBlob } from '../util/asset.js?v=muzthczg';
 
 // Atmosphere, for every fogged material at once (three's fog chunks, replaced before anything
 // compiles): the map's distance haze, plus a soft height fog that pools in low ground and thickens

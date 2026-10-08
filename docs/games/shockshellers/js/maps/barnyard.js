@@ -2,7 +2,7 @@
 // (each with a hayloft reached by stairs: a covered upper lane with windows), metal silos with
 // ladders up to sniper perches, hay-bale and fence cover in the middle, a farmhouse on each flank
 // for close fights, and a dirt track around the field. Point-symmetric for team modes.
-import { Builder, MAT } from './dsl.js?v=muzsrlxh';
+import { Builder, MAT } from './dsl.js?v=muzthczg';
 
 export default function barnyard() {
   const W = 40, D = 40, b = new Builder(W, 12, D);
