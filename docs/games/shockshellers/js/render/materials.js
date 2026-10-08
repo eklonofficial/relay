@@ -1,7 +1,7 @@
 // Procedural textures for the map's material families (maps/dsl.js MAT). Everything is drawn at
 // start-up on canvases: low-poly, bright, with visible tile seams and triangle noise (GDD §25), and
 // no image files to fetch. Each family has a base texture; maps tint them through per-cell variants.
-import * as THREE from '../../vendor/three/three.module.js?v=muylpzs7';
+import * as THREE from '../../vendor/three/three.module.js?v=muymyesq';
 
 const S = 256;
 // Deterministic noise so every player sees the same walls.
@@ -78,7 +78,7 @@ function speckle(x, base, amount, seed, count = 900, size = 3) {
 
 const DRAW = {
   0: x => grain(x, 0xc9c3b6, 0.16, 11),                         // stone blocks (bevelled per cell)
-  1: x => { grain(x, 0x78ad43, 0.22, 21); speckle(x, 0x78ad43, 0.14, 23, 700, 2); speckle(x, 0x9ccc5a, 0.08, 24, 250, 3); }, // grass
+  1: x => { grain(x, 0x6c9f42, 0.22, 21); speckle(x, 0x6c9f42, 0.14, 23, 700, 2); speckle(x, 0x8fbd55, 0.08, 24, 250, 3); }, // grass
   2: x => planks(x, 0xb07a45, 31),                               // wood
   3: x => bricks(x, 0xb3593d, 0x9b8f80, 8, 4, 41, 0.07, 0.07),   // brick
   4: x => { grain(x, 0xe6d3a0, 0.12, 51); speckle(x, 0xe6d3a0, 0.08, 52, 400, 2); }, // sand
@@ -141,16 +141,28 @@ export function noiseTexture() {
 // get soft bevelled edges per cell: a light rim along top edges, a shaded lip along the bottom, and a
 // fine seam between neighbours, so a wall reads as chunky stacked blocks (no extra geometry).
 const BEVELLED = new Set([0, 3, 5, 7, 9, 11, 12, 14, 15, 18, 19]);
+// Pale materials are toned down a little (real plaster and stone reflect about half the light, not
+// nearly all of it), so the sun can't blow them out to flat white and their shading stays visible.
+const ALBEDO = { 0: 0.84, 7: 0.8, 10: 0.82, 11: 0.84, 4: 0.9 };
+// How much of the sky a surface reflects at a grazing angle (smooth panels and metal more, grass and
+// leaves hardly at all): a faint sheen towards the horizon that makes floors and walls read as
+// surfaces in light and air rather than flat colour.
+const SHEEN = { 5: 0.5, 11: 0.45, 15: 0.5, 17: 0.6, 0: 0.22, 9: 0.22, 7: 0.18, 3: 0.14, 8: 0.2, 2: 0.12, 12: 0.12, 4: 0.12, 10: 0.3, 14: 0.18, 18: 0.2, 19: 0.2 };
+// The sky's colour for that sheen (set per map by the renderer).
+export const SKY_TINT = { value: new THREE.Color(0x9cc4ee) };
 const MACRO = { 1: 0.32, 4: 0.18, 6: 0.22, 10: 0.08, 14: 0.2, 16: 0.25, 0: 0.14, 9: 0.16, 7: 0.1, 2: 0.12, 3: 0.12, 8: 0.12, 13: 0.14 };
 function shade(m, id) {
-  const bevel = BEVELLED.has(id), macro = MACRO[id] ?? 0.1, grass = id === 1 || id === 16;
+  const bevel = BEVELLED.has(id), macro = MACRO[id] ?? 0.1, grass = id === 1 || id === 16, albedo = ALBEDO[id] ?? 1, sheen = SHEEN[id] ?? 0.06;
   m.onBeforeCompile = sh => {
-    sh.uniforms.macroTex = { value: noiseTexture() };
+    sh.uniforms.macroTex = { value: noiseTexture() }; sh.uniforms.skyTint = SKY_TINT;
     sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nattribute float ao; varying float vAo; varying vec3 vWPos; varying vec3 vWNorm;')
       .replace('#include <worldpos_vertex>', '#include <worldpos_vertex>\nvAo = ao; vWPos = (modelMatrix * vec4(transformed, 1.0)).xyz; vWNorm = normalize(mat3(modelMatrix) * objectNormal);');
-    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying float vAo; varying vec3 vWPos; varying vec3 vWNorm; uniform sampler2D macroTex;')
+    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying float vAo; varying vec3 vWPos; varying vec3 vWNorm; uniform sampler2D macroTex; uniform vec3 skyTint;')
+      .replace('#include <opaque_fragment>', `float fres = pow(1.0 - clamp(dot(normalize(vWNorm), normalize(cameraPosition - vWPos)), 0.0, 1.0), 4.0);
+        outgoingLight += skyTint * fres * ${sheen.toFixed(3)} * vAo;
+        #include <opaque_fragment>`)
       .replace('#include <color_fragment>', `#include <color_fragment>
-        diffuseColor.rgb *= vAo;
+        diffuseColor.rgb *= vAo * ${albedo.toFixed(3)};
         vec3 an = abs(vWNorm);
         vec2 mp = an.y > 0.5 ? vWPos.xz : (an.x > 0.5 ? vWPos.zy : vWPos.xy);
         float m1 = texture2D(macroTex, mp * 0.031).r, m2 = texture2D(macroTex, mp * 0.137 + 0.37).r;
@@ -165,14 +177,24 @@ function shade(m, id) {
         diffuseColor.rgb *= 1.0 + rim * tone;
         diffuseColor.rgb *= mix(0.72, 1.0, smoothstep(0.004, 0.016, ce));` : ''}`);
   };
-  m.customProgramCacheKey = () => `world${bevel ? 'b' : ''}${grass ? 'g' : ''}${macro}`;
+  m.customProgramCacheKey = () => `world${bevel ? 'b' : ''}${grass ? 'g' : ''}${macro}:${albedo}:${sheen}`;
 }
+const BUMP = { 0: 1.2, 1: 1.4, 2: 1.6, 3: 2.2, 4: 0.8, 5: 1.2, 6: 1.6, 7: 0.6, 8: 2.2, 9: 1.4, 10: 0.4, 11: 1.2, 12: 1.6, 13: 1.4, 14: 1.6, 15: 0.8, 16: 1.6, 17: 0, 18: 0.6, 19: 0.6 };
 const mats = new Map();
+let relief = true;
+export function worldRelief(on) {
+  if (on === relief) return; relief = on;
+  for (const [id, m] of mats) { m.bumpMap = on && m.bumpScale > 0 ? m.map : null; m.needsUpdate = true; }
+}
 export function worldMaterial(id) {
   if (mats.has(id)) return mats.get(id);
   // (Occlusion comes in as a one-float "ao" attribute rather than three-float vertex colours: a third
   // of the data for the biggest meshes in the game.)
   const m = new THREE.MeshLambertMaterial({ map: materialTexture(id) });
+  // Relief from the texture itself (bricks stand out of their mortar, planks have grain, grass and
+  // stone are lumpy), so surfaces catch the sun instead of reading as flat colour.
+  // (Only on the medium and high rungs: each relief sample costs every pixel of the world.)
+  m.bumpScale = BUMP[id] ?? 1; if (relief && m.bumpScale > 0) m.bumpMap = m.map;
   if (id === 17) { m.transparent = true; m.opacity = 0.8; }
   shade(m, id);
   mats.set(id, m);

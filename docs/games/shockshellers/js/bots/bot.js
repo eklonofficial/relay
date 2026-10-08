@@ -7,13 +7,13 @@
 // Bots drive the match through the same input struct as humans (control bits + yaw/pitch), so the
 // simulation holds them to identical movement, fire-rate, spread and damage rules. Difficulty only
 // changes human limits (reaction, aim error, turn speed, leading, decision noise), never knowledge.
-import { CTRL, WEAPONS, PLAYER, GRENADE, PRIMARIES, TICK } from '../sim/tuning.js?v=muylpzs7';
-import { currentSpread, weaponOf, slotOf } from '../sim/combat.js?v=muylpzs7';
-import { forward } from '../sim/movement.js?v=muylpzs7';
-import { STRATEGIES, strategyProfile, choose } from './strategies.js?v=muylpzs7';
-import { EDGE } from './nav.js?v=muylpzs7';
-import { Mind, KIND, counterPick } from './mind.js?v=muylpzs7';
-import { Social, where } from './chat.js?v=muylpzs7';
+import { CTRL, WEAPONS, PLAYER, GRENADE, PRIMARIES, TICK } from '../sim/tuning.js?v=muymyesq';
+import { currentSpread, weaponOf, slotOf } from '../sim/combat.js?v=muymyesq';
+import { forward } from '../sim/movement.js?v=muymyesq';
+import { STRATEGIES, strategyProfile, choose } from './strategies.js?v=muymyesq';
+import { EDGE } from './nav.js?v=muymyesq';
+import { Mind, KIND, counterPick } from './mind.js?v=muymyesq';
+import { Social, where } from './chat.js?v=muymyesq';
 
 // Skill is a number from 0 (a first-time player) to 1 (a top player). Every trait is interpolated
 // between those two anchors; reaction time and aim error interpolate geometrically, since people are
