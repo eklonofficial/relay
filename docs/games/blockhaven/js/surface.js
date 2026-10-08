@@ -289,9 +289,13 @@ function draw(ctx, el, inherited = new DOMMatrix()) {
   }
   pseudo(ctx, el, '::after', r);
   if (el.scrollHeight > el.clientHeight && /auto|scroll/.test(s.overflowY)) {
-    const width = 6 * (px(getComputedStyle(host).getPropertyValue('--gs')) || 1), height = Math.max(12, r.height * el.clientHeight / el.scrollHeight);
-    ctx.fillStyle = '#000'; ctx.fillRect(r.right - width, r.y, width, r.height);
-    ctx.fillStyle = '#c0c0c0'; ctx.fillRect(r.right - width, r.y + (r.height - height) * el.scrollTop / (el.scrollHeight - el.clientHeight), width, height);
+    // A page can colour the scrollbar (--scroll-track, --scroll-thumb), which then draws rounded;
+    // otherwise it's the square black-and-grey one.
+    const hs = getComputedStyle(host), width = 6 * (px(hs.getPropertyValue('--gs')) || 1), height = Math.max(12, r.height * el.clientHeight / el.scrollHeight);
+    const top = r.y + (r.height - height) * el.scrollTop / (el.scrollHeight - el.clientHeight);
+    const track = hs.getPropertyValue('--scroll-track').trim(), thumb = hs.getPropertyValue('--scroll-thumb').trim(), round = track || thumb ? width / 2 : 0;
+    ctx.fillStyle = track || '#000'; ctx.beginPath(); ctx.roundRect(r.right - width, r.y, width, r.height, round); ctx.fill();
+    ctx.fillStyle = thumb || '#c0c0c0'; ctx.beginPath(); ctx.roundRect(r.right - width, top, width, height, round); ctx.fill();
   }
   ctx.restore();
   if (!clipRect) extents.set(el, ext);

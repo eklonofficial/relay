@@ -1,9 +1,9 @@
 // Chunk storage, streaming, edits and queries for one dimension.
-import { CHUNK, HEIGHT, PAD, PS, B, OPAQUE, SOLID, EMIT, ATTEN, VARIANT_MASK, SHAPE_OF, SHAPE, DIM } from '../data/blocks.js?v=muvda45h';
-import { VOLUME_SIZE } from '../mesh/mesher.js?v=muvda45h';
-import { selectionBoxes, collisionBoxes } from '../data/shapes.js?v=muvda45h';
-import { sinceOf } from '../gen/versions.js?v=muvda45h';
-import { getChunk, decodeChunk } from '../game/storage.js?v=muvda45h';
+import { CHUNK, HEIGHT, PAD, PS, B, OPAQUE, SOLID, EMIT, ATTEN, VARIANT_MASK, SHAPE_OF, SHAPE, DIM } from '../data/blocks.js?v=muziscgs';
+import { VOLUME_SIZE } from '../mesh/mesher.js?v=muziscgs';
+import { selectionBoxes, collisionBoxes } from '../data/shapes.js?v=muziscgs';
+import { sinceOf } from '../gen/versions.js?v=muziscgs';
+import { getChunk, decodeChunk } from '../game/storage.js?v=muziscgs';
 
 export const UNLOADED = 255;
 const COLLIDE_TMP = [], COLLIDE_POOL = [];
@@ -46,7 +46,7 @@ export class World {
     const count = Math.max(1, Math.min(4, (navigator.hardwareConcurrency || 4) - 1));
     this.workers = [];
     for (let i = 0; i < count; i++) {
-      const w = new Worker(new URL('../worker.js?v=muvda45h', import.meta.url), { type: 'module' });
+      const w = new Worker(new URL('../worker.js?v=muziscgs', import.meta.url), { type: 'module' });
       w.busy = 0;
       w.onmessage = e => this.onWorkerMessage(w, e.data);
       w.onerror = e => console.error('worker error', e.message);

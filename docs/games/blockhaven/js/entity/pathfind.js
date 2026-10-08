@@ -1,8 +1,8 @@
 // Grid A* for walking mobs: 8-way moves (no corner cutting), one-block step-ups, drops of up to
 // three blocks, doors for villagers, and it avoids lava, fire, cacti and deep falls. When the
 // goal can't be reached within the node budget it returns a path to the closest spot it found.
-import { B, SOLID, SHAPE_OF, SHAPE } from '../data/blocks.js?v=muvda45h';
-import { UNLOADED } from '../world/world.js?v=muvda45h';
+import { B, SOLID, SHAPE_OF, SHAPE } from '../data/blocks.js?v=muziscgs';
+import { UNLOADED } from '../world/world.js?v=muziscgs';
 
 const DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]];
 const DANGER = new Uint8Array(256);

@@ -4,7 +4,7 @@
 // never interpreted). Almost everything is free; gun skins and a few hats open up with eggs
 // (game/progress.js).
 
-import { HAT_NODES, STAMP_IDS, WEAPON_ASSETS } from '../render/asset-catalog.js?v=muziihfj';
+import { HAT_NODES, STAMP_IDS, WEAPON_ASSETS } from '../render/asset-catalog.js?v=muzischz';
 
 // Shell colours. The first fourteen keep their old numbers (saved profiles and the wire use them).
 export const COLORS = [

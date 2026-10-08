@@ -11,10 +11,10 @@
 // landings, recoil, sprinting, swaps, the jolt of each mechanical moment of a reload) runs through
 // critically damped springs, so motion never snaps. Spent brass flies out of the ejection port; the
 // muzzle flash is a star plus two crossed flames; smoke curls off the barrel.
-import * as THREE from '../../vendor/three/three.module.js?v=muziihfj';
-import { gunModel } from './guns.js?v=muziihfj';
-import { WeaponRig } from './weapon-rig.js?v=muziihfj';
-import { HIP_FOV, PROFILE } from './weapon-profile.js?v=muziihfj';
+import * as THREE from '../../vendor/three/three.module.js?v=muzischz';
+import { gunModel } from './guns.js?v=muzischz';
+import { WeaponRig } from './weapon-rig.js?v=muzischz';
+import { HIP_FOV, PROFILE } from './weapon-profile.js?v=muzischz';
 
 // Recoil per shot: [kick back (m), muzzle climb (rad), side jitter (rad), roll jitter (rad), camera punch (rad)].
 const RECOIL = {
