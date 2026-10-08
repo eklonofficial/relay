@@ -1,21 +1,21 @@
 // Menus and modals (GDD §16–21): home, respawn/pause screen, settings (3 tabs), play with friends,
 // custom matches, profile, shop/inventory, how to play, chat. All markup lives in index.html inside
 // the compositor; this module wires it up and keeps it current.
-import { surfaceDocument as document } from '../surface.js?v=muymyesq';
-import * as THREE from '../../vendor/three/three.module.js?v=muymyesq';
-import { ask, tell } from '../dialog.js?v=muymyesq';
-import { gunModel } from '../render/guns.js?v=muymyesq';
-import { EggAvatar } from '../render/egg.js?v=muymyesq';
-import { hatMesh } from '../render/hats.js?v=muymyesq';
-import { previewShell } from '../render/shellart.js?v=muymyesq';
-import { COLORS, PATTERNS, STAMPS, HATS, SKINS, sanitizeCosmetics } from '../game/cosmetics.js?v=muymyesq';
-import { WEAPONS, PRIMARIES, MODE_NAMES, MODE_MENU, TICK } from '../sim/tuning.js?v=muymyesq';
-import { ACTIONS, ACTION_NAMES, keyLabel, DEFAULT_KEYS } from '../game/input.js?v=muymyesq';
-import { DEFAULT_SETTINGS, saveSettings, saveProfile } from '../game/store.js?v=muymyesq';
-import { ensureDaily, def as challengeDef, reroll, timeLeft } from '../game/challenges.js?v=muymyesq';
-import { MAPS, mapDef } from '../maps/index.js?v=muymyesq';
-import { drawHowTo } from './art.js?v=muymyesq';
-import { wakeRelays, diagnoseNetwork } from '../net/net.js?v=muymyesq';
+import { surfaceDocument as document } from '../surface.js?v=muyu3mgb';
+import * as THREE from '../../vendor/three/three.module.js?v=muyu3mgb';
+import { ask, tell } from '../dialog.js?v=muyu3mgb';
+import { gunModel } from '../render/guns.js?v=muyu3mgb';
+import { EggAvatar } from '../render/egg.js?v=muyu3mgb';
+import { hatMesh } from '../render/hats.js?v=muyu3mgb';
+import { previewShell } from '../render/shellart.js?v=muyu3mgb';
+import { COLORS, PATTERNS, STAMPS, HATS, SKINS, sanitizeCosmetics } from '../game/cosmetics.js?v=muyu3mgb';
+import { WEAPONS, PRIMARIES, MODE_NAMES, MODE_MENU, TICK } from '../sim/tuning.js?v=muyu3mgb';
+import { ACTIONS, ACTION_NAMES, keyLabel, DEFAULT_KEYS } from '../game/input.js?v=muyu3mgb';
+import { DEFAULT_SETTINGS, saveSettings, saveProfile } from '../game/store.js?v=muyu3mgb';
+import { ensureDaily, def as challengeDef, reroll, timeLeft } from '../game/challenges.js?v=muyu3mgb';
+import { MAPS, mapDef } from '../maps/index.js?v=muyu3mgb';
+import { drawHowTo } from './art.js?v=muyu3mgb';
+import { wakeRelays, diagnoseNetwork } from '../net/net.js?v=muyu3mgb';
 
 const $ = id => document.getElementById(id);
 const show = (id, on = true) => $(id).classList.toggle('hidden', !on);
@@ -366,6 +366,15 @@ export class Menus {
     try {
       const results = await diagnoseNetwork(r => { lines.push(`${r.ok ? 'OK' : 'NO'}  ${r.name}: ${r.detail}`); paint(); });
       const relay = results.some(r => r.ok && /^Relay/.test(r.name)), room = results.some(r => r.ok && /^Room/.test(r.name)), direct = results.some(r => r.ok && /Direct/.test(r.name));
+      // Which other kinds of host this network lets through (plain HTTPS), to tell a blocked domain
+      // from blocked WebSockets and to see where a fallback relay could live on locked-down networks.
+      lines.push('', 'Other hosts (plain HTTPS):');
+      paint();
+      const reach = url => Promise.race([fetch(url, { mode: 'no-cors', cache: 'no-store', credentials: 'omit', referrerPolicy: 'no-referrer' }).then(() => true, () => false), new Promise(r => setTimeout(() => r(false), 8000))]);
+      const hosts = [['Relay over HTTPS', 'https://blockhaven-relay.onrender.com/health'], ['Google Firebase', 'https://hacker-news.firebaseio.com/v0/maxitem.json'], ['Google Apps Script', 'https://script.google.com/'],
+        ['Google APIs', 'https://www.googleapis.com/'], ['Vercel', 'https://vercel.com/'], ['Supabase', 'https://supabase.com/'], ['Ably', 'https://rest.ably.io/time']];
+      const got = await Promise.all(hosts.map(([, u]) => reach(u)));
+      hosts.forEach(([n], i) => lines.push(`${got[i] ? 'OK' : 'NO'}  ${n}`));
       testing = false;
       lines.push('', relay || room
         ? `Multiplayer will work on this network${direct ? ', with direct connections (fastest)' : ', through a relay server'}.`

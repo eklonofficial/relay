@@ -1,8 +1,8 @@
 // Keyboard, mouse and gamepad into the control bitmask (GDD §18). Mouse look: raw (unadjusted)
 // movement where the browser supports it, the event stream that loses the least movement, every
 // coalesced sample summed, spikes when the lock engages filtered out.
-import { surfaceDocument as document } from '../surface.js?v=muymyesq';
-import { CTRL } from '../sim/tuning.js?v=muymyesq';
+import { surfaceDocument as document } from '../surface.js?v=muyu3mgb';
+import { CTRL } from '../sim/tuning.js?v=muyu3mgb';
 
 // Default bindings: left Shift aims, F is melee. 'M0'/'M1'/'M2' are mouse buttons.
 export const DEFAULT_KEYS = {
