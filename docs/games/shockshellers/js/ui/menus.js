@@ -1,26 +1,26 @@
 // Menus and modals (GDD §16–21): home, respawn/pause screen, settings (3 tabs), play with friends,
 // custom matches, profile, shop/inventory, how to play, chat. All markup lives in index.html inside
 // the compositor; this module wires it up and keeps it current.
-import { surfaceDocument as document } from '../surface.js?v=muzmf26a';
-import * as THREE from '../../vendor/three/three.module.js?v=muzmf26a';
-import { ask, tell } from '../dialog.js?v=muzmf26a';
-import { gunModel } from '../render/guns.js?v=muzmf26a';
-import { EggAvatar } from '../render/egg.js?v=muzmf26a';
-import { hatMesh } from '../render/hats.js?v=muzmf26a';
-import { previewShell } from '../render/shellart.js?v=muzmf26a';
-import { COLORS, PATTERNS, STAMPS, HATS, SKIN_COUNTS, skinName, skinOf, sanitizeCosmetics } from '../game/cosmetics.js?v=muzmf26a';
-import { loadStamp } from '../render/stamps.js?v=muzmf26a';
-import { TIERS, skinTier, eggsFor, unlocked } from '../game/progress.js?v=muzmf26a';
-import { WEAPONS, PRIMARIES, MODE_NAMES, MODE_MENU, TICK } from '../sim/tuning.js?v=muzmf26a';
-import { ACTIONS, ACTION_NAMES, keyLabel, DEFAULT_KEYS } from '../game/input.js?v=muzmf26a';
-import { DEFAULT_SETTINGS, saveSettings, saveProfile } from '../game/store.js?v=muzmf26a';
-import { ensureDaily, def as challengeDef, reroll, timeLeft } from '../game/challenges.js?v=muzmf26a';
-import { MAPS, mapDef, mapsBySize, sizeOf, naturalPlayers, SIZES } from '../maps/index.js?v=muzmf26a';
-import { playlists, playlistById, randomPlaylist } from '../maps/playlists.js?v=muzmf26a';
-import { MAP_ASSETS } from '../maps/map-assets.js?v=muzmf26a';
-import { fetchAssetBlob } from '../util/asset.js?v=muzmf26a';
-import { drawHowTo } from './art.js?v=muzmf26a';
-import { wakeRelays, diagnoseNetwork } from '../net/net.js?v=muzmf26a';
+import { surfaceDocument as document } from '../surface.js?v=muzsh3eg';
+import * as THREE from '../../vendor/three/three.module.js?v=muzsh3eg';
+import { ask, tell } from '../dialog.js?v=muzsh3eg';
+import { gunModel } from '../render/guns.js?v=muzsh3eg';
+import { EggAvatar } from '../render/egg.js?v=muzsh3eg';
+import { hatMesh } from '../render/hats.js?v=muzsh3eg';
+import { previewShell } from '../render/shellart.js?v=muzsh3eg';
+import { COLORS, PATTERNS, STAMPS, HATS, SKIN_COUNTS, skinName, skinOf, sanitizeCosmetics } from '../game/cosmetics.js?v=muzsh3eg';
+import { loadStamp } from '../render/stamps.js?v=muzsh3eg';
+import { TIERS, skinTier, eggsFor, unlocked } from '../game/progress.js?v=muzsh3eg';
+import { WEAPONS, PRIMARIES, MODE_NAMES, MODE_MENU, TICK } from '../sim/tuning.js?v=muzsh3eg';
+import { ACTIONS, ACTION_NAMES, keyLabel, DEFAULT_KEYS } from '../game/input.js?v=muzsh3eg';
+import { DEFAULT_SETTINGS, saveSettings, saveProfile } from '../game/store.js?v=muzsh3eg';
+import { ensureDaily, def as challengeDef, reroll, timeLeft } from '../game/challenges.js?v=muzsh3eg';
+import { MAPS, mapDef, mapsBySize, sizeOf, naturalPlayers, SIZES } from '../maps/index.js?v=muzsh3eg';
+import { playlists, playlistById, randomPlaylist } from '../maps/playlists.js?v=muzsh3eg';
+import { MAP_ASSETS } from '../maps/map-assets.js?v=muzsh3eg';
+import { fetchAssetBlob } from '../util/asset.js?v=muzsh3eg';
+import { drawHowTo } from './art.js?v=muzsh3eg';
+import { wakeRelays, diagnoseNetwork } from '../net/net.js?v=muzsh3eg';
 
 const $ = id => document.getElementById(id);
 const show = (id, on = true) => $(id).classList.toggle('hidden', !on);
@@ -85,14 +85,31 @@ class Portraits {
 // Asks the relay's mailbox for nothing and checks the answer is the relay's own (JSON with a message
 // counter). Waits up to 65 s, since a free relay can take that long to wake.
 async function probeMailbox() {
-  const ctl = new AbortController(), t = setTimeout(() => ctl.abort(), 65000);
-  try {
-    const r = await fetch('https://blockhaven-relay.onrender.com/box/send', { method: 'POST', body: '{"pub":[]}', headers: { 'content-type': 'text/plain' }, cache: 'no-store', credentials: 'omit', referrerPolicy: 'no-referrer', signal: ctl.signal });
-    if (r.status === 404) return 'the relay is reachable but not updated yet: it needs redeploying';
-    if (!r.ok) return `the relay answered with error ${r.status}`;
-    const j = await r.json().catch(() => null);
-    return j && typeof j.at === 'number' ? true : 'something answered, but not the relay (a filter page?)';
-  } catch (e) { return e && e.name === 'AbortError' ? 'no answer after 65 seconds (asleep or blocked)' : 'blocked or down'; }
+  const until = Date.now() + 65000;
+  let last = 'no answer';
+  // (A non-relay answer can be a host's "waking up" page: try again for a while before deciding.)
+  while (Date.now() < until) {
+    const ctl = new AbortController(), t = setTimeout(() => ctl.abort(), Math.max(1000, until - Date.now()));
+    try {
+      const r = await fetch('https://blockhaven-relay.onrender.com/box/send', { method: 'POST', body: '{"pub":[]}', headers: { 'content-type': 'text/plain' }, cache: 'no-store', credentials: 'omit', referrerPolicy: 'no-referrer', signal: ctl.signal });
+      if (r.status === 404) return 'the relay is reachable but not updated yet: it needs redeploying';
+      const text = await r.text().catch(() => '');
+      let j = null; try { j = JSON.parse(text); } catch { /* not JSON */ }
+      if (r.ok && j && typeof j.at === 'number') return true;
+      // What actually answered, so a screenshot shows it (status, type, where it came from, the start of it).
+      last = `answered ${r.status} ${(r.headers.get('content-type') || '?').split(';')[0]}${r.redirected ? ' via ' + new URL(r.url).host : ''}: "${text.replace(/\s+/g, ' ').slice(0, 90)}"`;
+    } catch (e) { last = e && e.name === 'AbortError' ? 'no answer after 65 seconds (asleep or blocked)' : `blocked (${(e && e.message) || 'network error'})`; }
+    finally { clearTimeout(t); }
+    await new Promise(r => setTimeout(r, 4000));
+  }
+  return last;
+}
+// Fetches a URL that sends CORS headers and checks its content, so a filter's block page (which
+// a plain "did anything answer" check can't tell apart) doesn't count.
+async function readable(url, ok) {
+  const ctl = new AbortController(), t = setTimeout(() => ctl.abort(), 10000);
+  try { const r = await fetch(url, { cache: 'no-store', credentials: 'omit', referrerPolicy: 'no-referrer', signal: ctl.signal }); const text = await r.text(); return ok(text) ? true : `answered ${r.status}: "${text.replace(/\s+/g, ' ').slice(0, 60)}"`; }
+  catch (e) { return `blocked (${(e && e.message) || 'network error'})`; }
   finally { clearTimeout(t); }
 }
 
@@ -444,10 +461,16 @@ export class Menus {
       lines.push('', 'Other hosts (plain HTTPS):');
       paint();
       const reach = url => Promise.race([fetch(url, { mode: 'no-cors', cache: 'no-store', credentials: 'omit', referrerPolicy: 'no-referrer' }).then(() => true, () => false), new Promise(r => setTimeout(() => r(false), 8000))]);
-      const hosts = [['Google Firebase', 'https://hacker-news.firebaseio.com/v0/maxitem.json'], ['Google Apps Script', 'https://script.google.com/'],
-        ['Google APIs', 'https://www.googleapis.com/'], ['Vercel', 'https://vercel.com/'], ['Supabase', 'https://supabase.com/'], ['Ably', 'https://rest.ably.io/time']];
+      // Read for real (their answers carry CORS headers): the relay's status page, Google Firebase, Ably.
+      const checks = [['Relay status page', 'https://blockhaven-relay.onrender.com/health', t => t.trim() === 'ok'],
+        ['Google Firebase', 'https://hacker-news.firebaseio.com/v0/maxitem.json', t => /^\d+$/.test(t.trim())],
+        ['Ably', 'https://rest.ably.io/time', t => /^\[\d+\]$/.test(t.trim())]];
+      const real = await Promise.all(checks.map(([, u, ok]) => readable(u, ok)));
+      checks.forEach(([n], i) => lines.push(`${real[i] === true ? 'OK' : 'NO'}  ${n}${real[i] === true ? '' : ': ' + real[i]}`));
+      // (These only show that something answered: a block page counts too.)
+      const hosts = [['Google Apps Script', 'https://script.google.com/'], ['Google APIs', 'https://www.googleapis.com/'], ['Vercel', 'https://vercel.com/'], ['Supabase', 'https://supabase.com/']];
       const got = await Promise.all(hosts.map(([, u]) => reach(u)));
-      hosts.forEach(([n], i) => lines.push(`${got[i] ? 'OK' : 'NO'}  ${n}`));
+      hosts.forEach(([n], i) => lines.push(`${got[i] ? 'OK?' : 'NO'}  ${n}`));
       testing = false;
       // (The PeerJS room server only finds the host; without direct connections it can't carry a
       // game, so on its own it doesn't count.)

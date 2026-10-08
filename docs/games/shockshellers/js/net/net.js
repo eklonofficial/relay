@@ -8,9 +8,9 @@
 //
 // Game model: the host is authoritative. Guests send their inputs; the host sends snapshots at
 // 15 Hz plus the match's events, and each guest predicts only its own egg (guest.js).
-import { hostBox, joinBox } from './box.js?v=muzmf26a';
-import { hostRoom, joinRoom, diagnose } from './transport.js?v=muzmf26a';
-import { SealedChannel } from './sealed.js?v=muzmf26a';
+import { hostBox, joinBox } from './box.js?v=muzsh3eg';
+import { hostRoom, joinRoom, diagnose } from './transport.js?v=muzsh3eg';
+import { SealedChannel } from './sealed.js?v=muzsh3eg';
 
 export const MAX_HUMANS = 8;
 const PREFIX = 'shockshellers-v1-';
@@ -44,7 +44,7 @@ function loadLib() {
   if (!libPromise) {
     libPromise = new Promise((resolve, reject) => {
       const s = document.createElement('script');
-      s.src = new URL('../../vendor/peerjs.min.js?v=muzmf26a', import.meta.url).href;
+      s.src = new URL('../../vendor/peerjs.min.js?v=muzsh3eg', import.meta.url).href;
       s.onload = () => resolve();
       s.onerror = () => { libPromise = null; reject(new Error('Could not load the multiplayer library. Check your connection.')); };
       document.head.appendChild(s);
@@ -171,6 +171,13 @@ export class Net {
     peerP.catch(e => console.warn('PeerJS room unavailable; using the relay servers only.', e && e.message));
     roomP.catch(e => console.warn('Relay servers unavailable; using PeerJS only.', e && e.message));
     boxP.catch(e => console.warn('Relay mailbox unavailable.', e && e.message));
+    // Tell the host which ways in are open, once each has had its chance (friends on a locked-down
+    // network can only come in through the mailbox).
+    Promise.allSettled([peerP, roomP, boxP]).then(([p, r, b]) => {
+      if (this.closed) return;
+      const mark = x => (x.status === 'fulfilled' ? 'open' : 'unavailable');
+      this.session.onChat?.(`Ways in: direct ${mark(p)}, relays ${mark(r)}, relay mailbox ${b.status === 'fulfilled' ? 'open' : '— ' + ((b.reason && b.reason.message) || 'unavailable').replace(/^Relay mailbox: /, '')}`, b.status === 'fulfilled' ? '#9fe09f' : '#ff8a80');
+    });
     return code;
   }
   async registerPeer(code) {
@@ -243,9 +250,10 @@ export class Net {
     const viaBox = (async () => { const ch = await joinBox(code, cfg); claim(ch, 'relay'); })();
     try { await Promise.any([viaPeer, viaRoom, viaBox]); }
     catch (e) {
+      // Every route's own reason, so a failure on a locked-down network says what was blocked (a
+      // "no game with that code" from one route alone can hide that another was blocked).
       const errs = (e.errors || [e]).filter(Boolean);
-      const nf = errs.find(x => x.notFound);
-      throw new Error(nf ? nf.message : errs.map(x => x.message).join(' — ') || 'Connection failed.');
+      throw new Error(errs.map(x => x.message).filter(Boolean).join(' — ') || 'Connection failed.');
     }
     // A slower path that connects later is closed by claim().
     viaPeer.catch(() => {}); viaRoom.catch(() => {}); viaBox.catch(() => {});

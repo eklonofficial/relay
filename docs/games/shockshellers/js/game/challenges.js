@@ -1,6 +1,6 @@
 // Daily challenges (GDD §22): three a day from a pool, each rerollable once, replaced after 24 h.
 // Progress comes from match events; rewards are eggs (game/progress.js). Stored in the local profile.
-import { PRIMARIES, WEAPONS } from '../sim/tuning.js?v=muzmf26a';
+import { PRIMARIES, WEAPONS } from '../sim/tuning.js?v=muzsh3eg';
 
 const W = id => WEAPONS[id].name;
 // type: kills | streak | quick (kills within 60 s of spawning) | weapon | damage | condition
