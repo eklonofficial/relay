@@ -6,13 +6,13 @@
 // per material, for things whose parts never move on their own: a crate is 18 parts, and each part
 // would otherwise be its own draw call. weaponModel() hands out a weapon rig (weapon-rig.js plays
 // it). The production build ships the files content-addressed beside the bundle.
-import * as THREE from '../../vendor/three/three.module.js?v=muzk36dq';
-import { GLTFLoader } from '../../vendor/three/GLTFLoader.js?v=muzk36dq';
-import { mergeGeometries } from '../../vendor/three/BufferGeometryUtils.js?v=muzk36dq';
-import { clone as cloneSkeleton } from '../../vendor/three/SkeletonUtils.js?v=muzk36dq';
-import { ASSETS, WEAPON_ASSETS } from './asset-catalog.js?v=muzk36dq';
-import { PROFILE } from './weapon-profile.js?v=muzk36dq';
-import { fetchAsset } from '../util/asset.js?v=muzk36dq';
+import * as THREE from '../../vendor/three/three.module.js?v=muzmf26a';
+import { GLTFLoader } from '../../vendor/three/GLTFLoader.js?v=muzmf26a';
+import { mergeGeometries } from '../../vendor/three/BufferGeometryUtils.js?v=muzmf26a';
+import { clone as cloneSkeleton } from '../../vendor/three/SkeletonUtils.js?v=muzmf26a';
+import { ASSETS, WEAPON_ASSETS } from './asset-catalog.js?v=muzmf26a';
+import { PROFILE } from './weapon-profile.js?v=muzmf26a';
+import { fetchAsset } from '../util/asset.js?v=muzmf26a';
 
 const FILES = {
   props: new URL('../../assets/models/props.glb', import.meta.url).href,

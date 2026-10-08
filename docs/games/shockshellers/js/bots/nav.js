@@ -2,9 +2,9 @@
 // stand, edges for walking, stepping, ramps/stairs, drops, jump-ups, ladders and jump pads. Doubtful
 // edges are verified by running the real movement code, so a path the graph offers is one an egg can
 // actually walk. A* over a binary heap finds routes; costs prefer short, safe paths.
-import { PIECES, PIECE, ladderFacing } from '../maps/pieces.js?v=muzk36dq';
-import { makeBody, stepBody } from '../sim/movement.js?v=muzk36dq';
-import { CTRL, PLAYER } from '../sim/tuning.js?v=muzk36dq';
+import { PIECES, PIECE, ladderFacing } from '../maps/pieces.js?v=muzmf26a';
+import { makeBody, stepBody } from '../sim/movement.js?v=muzmf26a';
+import { CTRL, PLAYER } from '../sim/tuning.js?v=muzmf26a';
 
 const R = PLAYER.collideRadius;
 export const EDGE = { walk: 0, jump: 1, drop: 2, ladder: 3, pad: 4 };
@@ -69,7 +69,7 @@ export class NavGraph {
     this.analyse();
   }
   add(x, y, z, piece) {
-    const n = { id: this.nodes.length, x: x + 0.5, y, z: z + 0.5, cx: x, cz: z, edges: [], exposure: 0, ramp: !!piece.ramp, pad: piece.key === 'pad', ry: 0 };
+    const n = { id: this.nodes.length, x: x + 0.5, y, z: z + 0.5, cx: x, cz: z, edges: [], exposure: 0, ramp: !!piece.ramp, pad: piece.kind === 'pad', ry: 0 };
     n.ry = this.grid.getRot(x, Math.floor(y - 0.01), z);
     this.nodes.push(n);
     return n.id;

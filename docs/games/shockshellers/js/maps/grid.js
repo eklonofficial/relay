@@ -1,6 +1,6 @@
 // The collision world: a W×H×D grid of cells, each a piece id and rotation (pieces.js). Shared by
 // the simulation (movement, bullets, grenades), the bots (line of sight, navigation) and the renderer.
-import { PIECES, BOXES, PIECE, ladderFacing } from './pieces.js?v=muzk36dq';
+import { PIECES, PIECE, boxesOf, ladderFacing } from './pieces.js?v=muzmf26a';
 
 export class MapGrid {
   constructor(w, h, d) {
@@ -16,11 +16,11 @@ export class MapGrid {
   set(x, y, z, piece, ry = 0, tint = 0) {
     if (!this.inside(x, y, z)) return;
     const i = this.index(x, y, z);
-    this.cells[i] = typeof piece === 'string' ? PIECE[piece] : piece; this.rot[i] = ry & 3; this.tint[i] = tint;
+    this.cells[i] = typeof piece === 'string' ? PIECE[piece] : piece; this.rot[i] = ry & 63; this.tint[i] = tint;
   }
   piece(x, y, z) { return PIECES[this.get(x, y, z)]; }
   // Rotated collider boxes of one cell, in cell space.
-  boxes(x, y, z) { const i = this.inside(x, y, z) ? this.index(x, y, z) : -1; return i < 0 ? EMPTY : BOXES[this.cells[i]][this.rot[i]]; }
+  boxes(x, y, z) { const i = this.inside(x, y, z) ? this.index(x, y, z) : -1; return i < 0 ? EMPTY : boxesOf(this.cells[i], this.rot[i]); }
   // Is this cell (fully) solid for line-of-sight purposes?
   opaque(x, y, z) { const p = this.piece(x, y, z); return p.key === 'block' || p.key === 'leaves'; }
 
@@ -34,7 +34,7 @@ export class MapGrid {
       if (!this.inside(x, y, z)) continue;
       const i = this.index(x, y, z), p = PIECES[this.cells[i]];
       if (!p.blocksPlayers) continue;
-      for (const b of BOXES[p.id][this.rot[i]]) {
+      for (const b of boxesOf(p.id, this.rot[i])) {
         const bx0 = x + b[0], by0 = y + b[1], bz0 = z + b[2], bx1 = x + b[3], by1 = y + b[4], bz1 = z + b[5];
         const px = cx < bx0 ? bx0 : cx > bx1 ? bx1 : cx, py = cy < by0 ? by0 : cy > by1 ? by1 : cy, pz = cz < bz0 ? bz0 : cz > bz1 ? bz1 : cz;
         let dx = cx - px, dy = cy - py, dz = cz - pz;
@@ -74,7 +74,7 @@ export class MapGrid {
         const i = this.index(x, y, z), p = PIECES[this.cells[i]];
         if (pass ? p.blocksPlayers : p.blocksShots) {
           let best = Infinity, bn = 0;
-          for (const b of BOXES[p.id][this.rot[i]]) {
+          for (const b of boxesOf(p.id, this.rot[i])) {
             const r = slab(ox, oy, oz, dx, dy, dz, x + b[0], y + b[1], z + b[2], x + b[3], y + b[4], z + b[5]);
             if (r >= 0 && r < best) { best = r; bn = SLAB_N; }
           }
@@ -113,9 +113,11 @@ export class MapGrid {
     }
     return null;
   }
+  // Standing on a jump pad: feet within a hair of the top of a pad piece's boxes below.
   padUnder(px, py, pz) {
-    const y = Math.floor(py - 0.06);
-    return this.get(Math.floor(px), y, Math.floor(pz)) === PIECE.pad && py - y < 0.25;
+    const x = Math.floor(px), y = Math.floor(py - 0.06), z = Math.floor(pz);
+    if (PIECES[this.get(x, y, z)].kind !== 'pad') return false;
+    return this.boxes(x, y, z).some(b => Math.abs(y + b[4] - py) < 0.1);
   }
   // Height of the top walkable surface in a column at or below y (or -Infinity).
   floorBelow(x, y, z) {

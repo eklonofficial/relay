@@ -8,9 +8,9 @@
 //
 // Game model: the host is authoritative. Guests send their inputs; the host sends snapshots at
 // 15 Hz plus the match's events, and each guest predicts only its own egg (guest.js).
-import { hostBox, joinBox } from './box.js?v=muzk36dq';
-import { hostRoom, joinRoom, diagnose } from './transport.js?v=muzk36dq';
-import { SealedChannel } from './sealed.js?v=muzk36dq';
+import { hostBox, joinBox } from './box.js?v=muzmf26a';
+import { hostRoom, joinRoom, diagnose } from './transport.js?v=muzmf26a';
+import { SealedChannel } from './sealed.js?v=muzmf26a';
 
 export const MAX_HUMANS = 8;
 const PREFIX = 'shockshellers-v1-';
@@ -44,7 +44,7 @@ function loadLib() {
   if (!libPromise) {
     libPromise = new Promise((resolve, reject) => {
       const s = document.createElement('script');
-      s.src = new URL('../../vendor/peerjs.min.js?v=muzk36dq', import.meta.url).href;
+      s.src = new URL('../../vendor/peerjs.min.js?v=muzmf26a', import.meta.url).href;
       s.onload = () => resolve();
       s.onerror = () => { libPromise = null; reject(new Error('Could not load the multiplayer library. Check your connection.')); };
       document.head.appendChild(s);

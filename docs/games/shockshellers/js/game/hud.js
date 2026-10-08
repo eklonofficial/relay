@@ -8,9 +8,9 @@
 //   skipped on frames where nothing on it changed.
 // Page text is left for what is rare or needs the keyboard: chat, banners and toasts, the
 // objective bar, and the leaderboard on the respawn screen.
-import { surfaceDocument as document } from '../surface.js?v=muzk36dq';
-import { WEAPONS, GRENADE, ROOST, STREAKS } from '../sim/tuning.js?v=muzk36dq';
-import { currentSpread, weaponOf, slotOf } from '../sim/combat.js?v=muzk36dq';
+import { surfaceDocument as document } from '../surface.js?v=muzmf26a';
+import { WEAPONS, GRENADE, ROOST, STREAKS } from '../sim/tuning.js?v=muzmf26a';
+import { currentSpread, weaponOf, slotOf } from '../sim/combat.js?v=muzmf26a';
 
 const $ = id => document.getElementById(id);
 const POWER_NAMES = { hardBoiled: 'HARD BOILED!', shellBreaker: 'SHELL BREAKER!', restock: 'RESTOCK!', overheal: 'OVERHEAL!', doubleYolks: 'DOUBLE YOLKS!', quailEgg: 'QUAIL EGG!' };

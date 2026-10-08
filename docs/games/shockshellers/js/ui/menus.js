@@ -1,26 +1,26 @@
 // Menus and modals (GDD §16–21): home, respawn/pause screen, settings (3 tabs), play with friends,
 // custom matches, profile, shop/inventory, how to play, chat. All markup lives in index.html inside
 // the compositor; this module wires it up and keeps it current.
-import { surfaceDocument as document } from '../surface.js?v=muzk36dq';
-import * as THREE from '../../vendor/three/three.module.js?v=muzk36dq';
-import { ask, tell } from '../dialog.js?v=muzk36dq';
-import { gunModel } from '../render/guns.js?v=muzk36dq';
-import { EggAvatar } from '../render/egg.js?v=muzk36dq';
-import { hatMesh } from '../render/hats.js?v=muzk36dq';
-import { previewShell } from '../render/shellart.js?v=muzk36dq';
-import { COLORS, PATTERNS, STAMPS, HATS, SKIN_COUNTS, skinName, skinOf, sanitizeCosmetics } from '../game/cosmetics.js?v=muzk36dq';
-import { loadStamp } from '../render/stamps.js?v=muzk36dq';
-import { TIERS, skinTier, eggsFor, unlocked } from '../game/progress.js?v=muzk36dq';
-import { WEAPONS, PRIMARIES, MODE_NAMES, MODE_MENU, TICK } from '../sim/tuning.js?v=muzk36dq';
-import { ACTIONS, ACTION_NAMES, keyLabel, DEFAULT_KEYS } from '../game/input.js?v=muzk36dq';
-import { DEFAULT_SETTINGS, saveSettings, saveProfile } from '../game/store.js?v=muzk36dq';
-import { ensureDaily, def as challengeDef, reroll, timeLeft } from '../game/challenges.js?v=muzk36dq';
-import { MAPS, mapDef, mapsBySize, sizeOf, naturalPlayers, SIZES } from '../maps/index.js?v=muzk36dq';
-import { playlists, playlistById, randomPlaylist } from '../maps/playlists.js?v=muzk36dq';
-import { MAP_ASSETS } from '../maps/map-assets.js?v=muzk36dq';
-import { fetchAssetBlob } from '../util/asset.js?v=muzk36dq';
-import { drawHowTo } from './art.js?v=muzk36dq';
-import { wakeRelays, diagnoseNetwork } from '../net/net.js?v=muzk36dq';
+import { surfaceDocument as document } from '../surface.js?v=muzmf26a';
+import * as THREE from '../../vendor/three/three.module.js?v=muzmf26a';
+import { ask, tell } from '../dialog.js?v=muzmf26a';
+import { gunModel } from '../render/guns.js?v=muzmf26a';
+import { EggAvatar } from '../render/egg.js?v=muzmf26a';
+import { hatMesh } from '../render/hats.js?v=muzmf26a';
+import { previewShell } from '../render/shellart.js?v=muzmf26a';
+import { COLORS, PATTERNS, STAMPS, HATS, SKIN_COUNTS, skinName, skinOf, sanitizeCosmetics } from '../game/cosmetics.js?v=muzmf26a';
+import { loadStamp } from '../render/stamps.js?v=muzmf26a';
+import { TIERS, skinTier, eggsFor, unlocked } from '../game/progress.js?v=muzmf26a';
+import { WEAPONS, PRIMARIES, MODE_NAMES, MODE_MENU, TICK } from '../sim/tuning.js?v=muzmf26a';
+import { ACTIONS, ACTION_NAMES, keyLabel, DEFAULT_KEYS } from '../game/input.js?v=muzmf26a';
+import { DEFAULT_SETTINGS, saveSettings, saveProfile } from '../game/store.js?v=muzmf26a';
+import { ensureDaily, def as challengeDef, reroll, timeLeft } from '../game/challenges.js?v=muzmf26a';
+import { MAPS, mapDef, mapsBySize, sizeOf, naturalPlayers, SIZES } from '../maps/index.js?v=muzmf26a';
+import { playlists, playlistById, randomPlaylist } from '../maps/playlists.js?v=muzmf26a';
+import { MAP_ASSETS } from '../maps/map-assets.js?v=muzmf26a';
+import { fetchAssetBlob } from '../util/asset.js?v=muzmf26a';
+import { drawHowTo } from './art.js?v=muzmf26a';
+import { wakeRelays, diagnoseNetwork } from '../net/net.js?v=muzmf26a';
 
 const $ = id => document.getElementById(id);
 const show = (id, on = true) => $(id).classList.toggle('hidden', !on);

@@ -13,10 +13,21 @@ Writes, under docs/games/shockshellers:
   js/maps/map-assets.js           every file above by name (generated; the build content-addresses them)
 
 Map cells are 1x1x1 with each mesh centred in its cell, so a piece at (x, y, z) fills the game's
-grid cell (x, y, z). Collision comes from each piece's own geometry: a full block is one box, and
-anything else (ramps, stairs, slopes, props with a collision mesh as a child) becomes a small
-heightfield of boxes, so slopes walk as steps the movement code climbs. A ladder records which side
-of its cell it hangs on.
+grid cell (x, y, z). A placement turns its piece by quarter turns rx, ry, rz, applied as Euler YXZ
+(roll, then pitch, then yaw: R = Ry Rx Rz), stored as one code ry + 4 rx + 16 rz (maps/pieces.js
+orient()); the meshes are used as they are. (Checked against the maps themselves: ramps' high ends
+and off-centre pieces' heavy sides meet their neighbouring blocks under this convention and not
+under a mirrored one.)
+
+Collision follows each piece's collider (the third part of its name):
+  full          the whole cell
+  aabb / obb    the piece's collider meshes (its child boxes), each its own box; a tilted box (obb)
+                fills its 1/8-cell voxels
+  wedge, iwedge ramps and stairs (no colliders): the shape's columns, floor up to its surface (a
+                wedge) or ceiling down to it (an inverted wedge), in 1/8 steps the movement code climbs
+  ladder        no boxes; the side it hangs on
+  none          nothing
+A fourth part, soft or verysoft, lets shots (and grenades) through; INTERACTIVE.jump-pad is a pad.
 """
 import json, math, shutil, struct, sys
 from pathlib import Path
@@ -76,9 +87,8 @@ def subtree_triangles(node_index, matrix=np.eye(4)):
         tris.append(triangles(c, m)); tris.append(subtree_triangles(c, m))
     return np.concatenate(tris) if tris else np.zeros((0, 3, 3))
 
-def heightfield(tris, n):
-    """Boxes [x0, y0, z0, x1, y1, z1] (cell space, 0..1) covering the triangles' columns on an n×n grid."""
-    if not len(tris): return []
+def columns(tris, n):
+    """The highest and lowest surface over each column of an n×n grid [z, x] (cell space)."""
     t = tris + 0.5   # mesh space is centred on the cell
     top = np.full((n, n), -np.inf); bot = np.full((n, n), np.inf)
     for tri in t:
@@ -94,55 +104,156 @@ def heightfield(tris, n):
         if not len(p): continue
         i = np.clip((p[:, 0] * n).astype(int), 0, n - 1); j = np.clip((p[:, 2] * n).astype(int), 0, n - 1)
         np.maximum.at(top, (j, i), p[:, 1]); np.minimum.at(bot, (j, i), p[:, 1])
-    top = np.clip(top, 0, 1); bot = np.clip(bot, 0, 1)
-    spans = {}
+    return np.clip(top, 0, 1), np.clip(bot, 0, 1)
+
+def heightfield(tris, n, ceiling=False):
+    """Boxes [x0, y0, z0, x1, y1, z1] (cell space, 0..1) for a shape with no overhangs, column by
+    column on an n×n grid: from the floor up to its top surface, or (ceiling) from the top down to
+    its lowest surface."""
+    if not len(tris): return []
+    top, bot = columns(tris, n)
+    vox = np.zeros((n, n, n), bool)   # [x, y, z]
     for j in range(n):
         for i in range(n):
-            if not np.isfinite(top[j, i]) or top[j, i] < 0.02: continue
-            # (to 1/32: surface detail shouldn't split a slope into dozens of boxes)
-            lo, hi = math.floor(float(bot[j, i]) * 32) / 32, math.ceil(float(top[j, i]) * 32 - 1e-6) / 32
-            if hi - lo < 0.05: lo = max(0.0, round(hi - 0.05, 3))   # a thin plate still stands on something
-            spans[(i, j)] = (lo, hi)
-    # Merge runs along x, then identical runs on consecutive rows.
-    rows = []
-    for j in range(n):
-        i = 0
-        while i < n:
-            if (i, j) not in spans: i += 1; continue
-            s = spans[(i, j)]; e = i
-            while (e + 1, j) in spans and spans[(e + 1, j)] == s: e += 1
-            rows.append([i, e + 1, j, j + 1, s]); i = e + 1
-    merged = []
-    for r in rows:
-        prev = next((m for m in merged if m[0] == r[0] and m[1] == r[1] and m[3] == r[2] and m[4] == r[4]), None)
-        if prev: prev[3] = r[3]
-        else: merged.append(r)
-    return [[m[0] / n, m[4][0], m[2] / n, m[1] / n, m[4][1], m[3] / n] for m in merged]
+            if not np.isfinite(top[j, i]): continue
+            lo, hi = (bot[j, i], 1.0) if ceiling else (0.0, top[j, i])
+            k0, k1 = int(round(lo * n)), int(round(hi * n))
+            vox[i, k0:k1, j] = True
+    return merge(vox)
+
+RAMP = 16
+def wedge(tris, ceiling=False):
+    """A wedge's collision: a slope (the source game's wedge collider is a plane, whatever the mesh
+    looks like, steps or a smooth ramp), as RAMP fine steps rising the way its mesh rises."""
+    n = RAMP; top, bot = columns(tris, n)
+    h = (1 - bot) if ceiling else top                       # how far the solid reaches into the cell
+    if not np.isfinite(h).all(): return heightfield(tris, 8, ceiling)
+    u = (np.arange(n) + 0.5) / n
+    best = None
+    for axis in (0, 1):                                     # h[z, x]: along x (axis 1) or z (axis 0)
+        for sign in (1, -1):
+            along = u if sign > 0 else 1 - u
+            ideal = np.broadcast_to(along[None, :] if axis == 1 else along[:, None], (n, n))
+            err = np.abs(h - ideal).mean()
+            if best is None or err < best[0]: best = (err, axis, sign)
+    err, axis, sign = best
+    boxes = []
+    for k in range(n):
+        lo, hi = k / n, 1.0                                   # the part of the cell this layer covers...
+        if sign < 0: lo, hi = 0.0, 1 - k / n
+        y0, y1 = (1 - (k + 1) / n, 1 - k / n) if ceiling else (k / n, (k + 1) / n)
+        boxes.append([lo, y0, 0, hi, y1, 1] if axis == 1 else [0, y0, lo, 1, y1, hi])
+    return boxes
+
+def merge(vox):
+    """Greedy boxes covering a voxel grid [x, y, z] (n per side), in cell space."""
+    n = vox.shape[0]; vox = vox.copy(); boxes = []
+    for y in range(n):
+        for z in range(n):
+            for x in range(n):
+                if not vox[x, y, z]: continue
+                x1 = x
+                while x1 + 1 < n and vox[x1 + 1, y, z]: x1 += 1
+                z1 = z
+                while z1 + 1 < n and vox[x:x1 + 1, y, z1 + 1].all(): z1 += 1
+                y1 = y
+                while y1 + 1 < n and vox[x:x1 + 1, y1 + 1, z:z1 + 1].all(): y1 += 1
+                vox[x:x1 + 1, y:y1 + 1, z:z1 + 1] = False
+                boxes.append([x / n, y / n, z / n, (x1 + 1) / n, (y1 + 1) / n, (z1 + 1) / n])
+    return boxes
+
+def colliders(i, M=np.eye(4), top=True):
+    """The collider meshes under a piece: (their own-space bounds, [matrices into the piece to try]).
+    A collider nested under another takes its parents' transforms too (the glTF rule, right for most),
+    but some sit where their own transform alone puts them: both are offered."""
+    out = []
+    for c in NODES[i].get('children', []):
+        own = local_matrix(NODES[c]); m = M @ own
+        if 'mesh' in NODES[c]:
+            v = triangles(c, np.eye(4)).reshape(-1, 3)
+            if len(v): out.append((v.min(0), v.max(0), [m] if top or np.allclose(m, own) else [m, own]))
+        out += colliders(c, m, False)
+    return out
+
+def surface_points(tris, step=0.04):
+    """Points spread over triangles (every ~step), to tell where a mesh actually has surface."""
+    pts = []
+    for a, b, c in tris:
+        k = int(min(40, math.ceil(max(np.linalg.norm(b - a), np.linalg.norm(c - a), np.linalg.norm(c - b)) / step) + 1))
+        u, v = np.meshgrid(np.linspace(0, 1, k + 1), np.linspace(0, 1, k + 1)); keep = (u + v) <= 1
+        pts.append(a + np.outer(u[keep], b - a) + np.outer(v[keep], c - a))
+    return np.concatenate(pts) if pts else np.zeros((0, 3))
+
+VOX = 8
+DROPPED = []
+def collider_boxes(i, oriented):
+    """A piece's collider meshes as boxes in cell space (clipped to the cell). Each is a box; one
+    turned by other than quarter turns fills its voxels (oriented) or its bounding box (aabb)."""
+    boxes, vox = [], np.zeros((VOX, VOX, VOX), bool)
+    centres = (np.arange(VOX) + 0.5) / VOX - 0.5
+    P = np.stack(np.meshgrid(centres, centres, centres, indexing='ij'), -1).reshape(-1, 3)
+    surface = surface_points(triangles(i, np.eye(4)))
+    for lo, hi, ms in colliders(i):
+        # Where the box lies most on the visible surface; one no visible surface touches is a leftover
+        # (it would be an invisible wall).
+        def touching(m):
+            q = (np.c_[surface, np.ones(len(surface))] @ np.linalg.inv(m).T)[:, :3]
+            return int(((q >= lo - 0.03) & (q <= hi + 0.03)).all(1).sum())
+        m = max(ms, key=touching)
+        if not touching(m): DROPPED.append(NODES[i]['name']); continue
+        corners = np.array([[x, y, z, 1] for x in (lo[0], hi[0]) for y in (lo[1], hi[1]) for z in (lo[2], hi[2])]) @ m.T
+        R = m[:3, :3] / np.linalg.norm(m[:3, :3], axis=0)
+        if np.allclose(np.abs(R), np.round(np.abs(R)), atol=1e-3) or not oriented:
+            a, b = np.clip(corners[:, :3].min(0) + 0.5, 0, 1), np.clip(corners[:, :3].max(0) + 0.5, 0, 1)
+            if (b - a).min() > 1e-3: boxes.append([*a, *b])
+        else:
+            q = (np.c_[P, np.ones(len(P))] @ np.linalg.inv(m).T)[:, :3]
+            inside = ((q >= lo - 1e-6) & (q <= hi + 1e-6)).all(1)
+            vox |= inside.reshape(VOX, VOX, VOX)
+    out = []
+    for b in boxes + merge(vox):
+        if b[4] - b[1] < 0.05: b = [b[0], max(0.0, b[4] - 0.05), b[2], b[3], b[4], b[5]]
+        out.append(b)
+    return out
 
 def piece(name):
-    """A piece's collision kind and boxes (ry = 0), from its name (theme.piece.collider) and mesh."""
+    """A piece's collision kind and boxes (unturned), from its name (theme.piece.collider[.soft]) and mesh."""
     parts = name.split('.')
     collider = parts[2] if len(parts) > 2 else 'none'
+    soft = len(parts) > 3 and parts[3] in ('soft', 'verysoft')
     if parts[0] == 'SPECIAL':
         # Invisible walls: they stop players and grenades but not shots.
         return {'kind': 'pass', 'boxes': [[0, 0, 0, 1, 1, 1]], 'mesh': False} if parts[1] == 'barrier' and collider == 'full' else None
     if parts[0] == 'DYNAMIC': return None
     i = BY_NAME[name]
+    if parts[0] == 'INTERACTIVE' and parts[1] == 'jump-pad': return {'kind': 'pad', 'boxes': [[0, 0, 0, 1, 1, 1]], 'mesh': True}
     if collider == 'none': return {'kind': 'none', 'boxes': [], 'mesh': True}
-    if collider == 'full': return {'kind': 'solid', 'boxes': [[0, 0, 0, 1, 1, 1]], 'mesh': True}
     if collider == 'ladder':
         tris = triangles(i, np.eye(4)) + 0.5
         cx, cz = tris[:, :, 0].mean() - 0.5, tris[:, :, 2].mean() - 0.5
         # The side it hangs on (game ry convention: 0 +z, 1 +x, 2 -z, 3 -x).
         face = (0 if cz > 0 else 2) if abs(cz) >= abs(cx) else (1 if cx > 0 else 3)
         return {'kind': 'ladder', 'boxes': [], 'mesh': True, 'face': face}
-    # aabb / obb props collide by their collision children; wedges by their own shape.
-    tris = subtree_triangles(i) if NODES[i].get('children') else triangles(i, np.eye(4))
-    if not len(tris): tris = triangles(i, np.eye(4))
-    boxes = heightfield(tris, 8 if collider in ('wedge', 'iwedge', 'obb') else 4)
+    if collider == 'full': boxes = [[0, 0, 0, 1, 1, 1]]
+    elif collider in ('wedge', 'iwedge'): boxes = wedge(triangles(i, np.eye(4)), ceiling=collider == 'iwedge')
+    else: boxes = collider_boxes(i, oriented=collider == 'obb') or heightfield(triangles(i, np.eye(4)), VOX)
     # Slopes and stairs (bots walk up them rather than jumping).
-    ramp = collider in ('wedge', 'obb') and len({round(b[4], 2) for b in boxes}) > 2
-    return {'kind': 'solid' if boxes else 'none', 'boxes': boxes, 'mesh': True, **({'ramp': True} if ramp else {})}
+    ramp = collider == 'wedge' or (collider == 'obb' and len({round(b[4], 2) for b in boxes}) > 2)
+    kind = 'pass' if soft else 'solid'
+    return {'kind': kind if boxes else 'none', 'boxes': boxes, 'mesh': True, **({'ramp': True} if ramp else {})}
+
+# Orientation: R = Ry Rx Rz by quarter turns, as maps/pieces.js orient() (code ry + 4 rx + 16 rz).
+def orient(code):
+    ry, rx, rz = code & 3, (code >> 2) & 3, (code >> 4) & 3
+    c = [1, 0, -1, 0]; s = [0, 1, 0, -1]
+    Ry = np.array([[c[ry], 0, s[ry]], [0, 1, 0], [-s[ry], 0, c[ry]]])
+    Rx = np.array([[1, 0, 0], [0, c[rx], -s[rx]], [0, s[rx], c[rx]]])
+    Rz = np.array([[c[rz], -s[rz], 0], [s[rz], c[rz], 0], [0, 0, 1]])
+    return Ry @ Rx @ Rz
+def turn_box(b, code):
+    R = orient(code)
+    a = R @ (np.array(b[:3]) - 0.5) + 0.5; z = R @ (np.array(b[3:]) - 0.5) + 0.5
+    return [*np.minimum(a, z), *np.maximum(a, z)]
 
 # ---------------- the maps ----------------
 SKY = {'default': 'clear-day', 'moonbase': 'star-field', 'night': 'midnight', 'whimsical': 'candy-sky'}
@@ -194,15 +305,16 @@ for f in files:
     place, spawns, spatula, zone_cells, solid = [], [], [], [], {}
     for name, items in m['data'].items():
         for p in items:
-            x, y, z, ry = p['x'], p['y'], p['z'], p.get('ry', 0) & 3
+            x, y, z = p['x'], p['y'], p['z']
+            code = ((p.get('ry') or 0) & 3) | (((p.get('rx') or 0) & 3) << 2) | (((p.get('rz') or 0) & 3) << 4)
             if name in ('SPECIAL.spawn-blue.none', 'SPECIAL.spawn-red.none'):
                 spawns.append([x + 0.5, y, z + 0.5, 1 if 'blue' in name else 2]); continue
             if name == 'SPECIAL.spatula.none': spatula.append([x + 0.5, y, z + 0.5]); continue
             if name == 'DYNAMIC.capture-zone.none': zone_cells.append((x, y, z)); continue
             if name not in index: continue
             b = blocks[index[name]]
-            place += [index[name], x, y, z, ry]
-            if b['kind'] in ('solid', 'pass') and b['boxes']: solid[(x, y, z)] = max(bx[4] for bx in b['boxes'])
+            place += [index[name], x, y, z, code]
+            if b['kind'] in ('solid', 'pass', 'pad') and b['boxes']: solid[(x, y, z)] = max(turn_box(bx, code)[4] for bx in b['boxes'])
     zones = []
     for g in cluster(zone_cells):
         xs, ys, zs = [c[0] for c in g], [c[1] for c in g], [c[2] for c in g]
@@ -243,4 +355,5 @@ urls = ['pack.json', 'blocks.glb'] + [f'thumbs/{p["id"]}.webp' for p in pack if 
     '// Generated by tools/maps/import_maps.py: the imported maps\' files (the production build turns\n'
     '// each URL into a content-addressed resource).\nexport const MAP_ASSETS = {\n'
     + ''.join(f"  '{u}': new URL('../../assets/maps/{u}', import.meta.url).href,\n" for u in urls) + '};\n')
+print(f'dropped {len(DROPPED)} stray colliders from', sorted(set(DROPPED))[:12])
 print(f'{len(pack)} maps, {len(blocks)} pieces, {sum(len(p["place"]) // 5 for p in pack)} placements')

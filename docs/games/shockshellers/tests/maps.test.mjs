@@ -6,7 +6,8 @@ import { readFile } from 'node:fs/promises';
 import { load } from './load.mjs';
 const { loadMaps, MAPS, getMap, mapDef, pickPublicMap, mapsBySize, sizeOf, naturalPlayers, walkable, SIZES } = await load('maps/index.js');
 const { playlists, nextInPlaylist, randomPlaylist } = await load('maps/playlists.js');
-const { PIECES, ladderFacing } = await load('maps/pieces.js');
+const { PIECES, PIECE, ladderFacing, rotateBox, orient } = await load('maps/pieces.js');
+const { MapGrid } = await load('maps/grid.js');
 const { stepBody, makeBody } = await load('sim/movement.js');
 const { CTRL } = await load('sim/tuning.js');
 const { loadBlocks, blockMesh } = await load('render/blocks.js');
@@ -99,4 +100,53 @@ test("faces pressed against a neighbour are left out, and each chunk of columns 
   const m = blockMesh(row);
   assert.ok(tris(m) < one * 20 * 0.9, `${tris(m)} triangles for 20 (alone ${one})`);
   assert.equal(m.children.length, 3, 'three chunks of 8 columns');
+});
+
+// A floor (top at y = 1) with one imported piece at (5, 1, 5), turned by code.
+function stage(name, code = 0) {
+  const g = new MapGrid(11, 8, 11);
+  for (let x = 0; x < 11; x++) for (let z = 0; z < 11; z++) g.set(x, 0, z, PIECE.block);
+  g.set(5, 1, 5, PIECE['b:' + name], code);
+  return g;
+}
+const walk = (g, x, z, yaw, ticks) => { const b = makeBody(x, 1, z); b.yaw = yaw; let top = 1; for (let t = 0; t < ticks; t++) { stepBody(g, b, CTRL.up); top = Math.max(top, b.y); } return { b, top }; };
+
+test('orientations: quarter turns about y as before, and pieces tipped and flipped by rx and rz', () => {
+  const box = [0.1, 0, 0.2, 0.4, 0.5, 0.9];
+  // The old turn: (x0, z0, x1, z1) -> (z0, 1 - x1, z1, 1 - x0) per quarter turn about y.
+  assert.deepEqual(rotateBox(box, 1).map(v => +v.toFixed(6)), [0.2, 0, 0.6, 0.9, 0.5, 0.9]);
+  // Upside down (rz = 2): a floor slab becomes a ceiling slab; rx = rz = 2 is a half turn about y.
+  assert.deepEqual(rotateBox([0, 0, 0, 1, 0.25, 1], 2 << 4).map(v => +v.toFixed(6)), [0, 0.75, 0, 1, 1, 1]);
+  assert.deepEqual(rotateBox(box, (2 << 2) | (2 << 4)), rotateBox(box, 2));
+  // Every code is a proper rotation (no mirroring: meshes keep their winding).
+  for (let c = 0; c < 64; c++) { const R = orient(c), det = R[0][0] * (R[1][1] * R[2][2] - R[1][2] * R[2][1]) - R[0][1] * (R[1][0] * R[2][2] - R[1][2] * R[2][0]) + R[0][2] * (R[1][0] * R[2][1] - R[1][1] * R[2][0]); assert.equal(det, 1); }
+});
+
+test('a tunnel piece is walked through along its length (and walled across it)', () => {
+  const g = stage('generic.pavement-tunnel.aabb');
+  assert.ok(walk(g, 3.5, 5.5, -Math.PI / 2, 60).b.x > 6.5, 'through along x');
+  assert.ok(walk(g, 5.5, 3.5, Math.PI, 60).b.z < 4.9, 'stopped by its wall along z');
+  // Turned a quarter, it runs along z.
+  assert.ok(walk(stage('generic.pavement-tunnel.aabb', 1), 5.5, 3.5, Math.PI, 60).b.z > 6.5);
+});
+
+test('stairs and ramps are walked up from their foot, whichever way they are turned', () => {
+  for (const name of ['generic.stairs.wedge', 'castle.stairs.wedge', 'town.stairs.wedge', 'generic.metal-ramp.wedge']) {
+    for (let r = 0; r < 4; r++) {
+      const g = stage(name, r), bx = g.boxes(5, 1, 5);
+      // The high side: the edge whose column is tallest.
+      const h = (dx, dz) => Math.max(0, ...bx.filter(b => 0.5 + dx * 0.45 >= b[0] && 0.5 + dx * 0.45 <= b[3] && 0.5 + dz * 0.45 >= b[2] && 0.5 + dz * 0.45 <= b[5]).map(b => b[4]));
+      const [dx, dz] = [[1, 0], [-1, 0], [0, 1], [0, -1]].sort((a, b) => h(...b) - h(...a))[0];
+      g.set(5 + dx, 1, 5 + dz, PIECE.block);   // something to step off onto
+      const { top } = walk(g, 5.5 - dx * 1.2, 5.5 - dz * 1.2, Math.atan2(-dx, -dz), 90);
+      assert.ok(top > 1.95, `${name} turned ${r}: reached ${top.toFixed(2)}`);
+    }
+  }
+});
+
+test('an imported jump pad launches whoever stands on it', () => {
+  const g = stage('INTERACTIVE.jump-pad.full'), b = makeBody(5.5, 2.02, 5.5);
+  let launched = false, top = 0;
+  for (let t = 0; t < 60; t++) { if (stepBody(g, b, 0) === 'pad') launched = true; top = Math.max(top, b.y); }
+  assert.ok(launched && top > 4, `launched ${launched}, up to ${top.toFixed(2)}`);
 });

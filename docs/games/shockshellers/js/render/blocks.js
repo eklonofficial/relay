@@ -3,11 +3,12 @@
 // leaving out every face pressed flat against a neighbour that covers it (the insides of walls and
 // floors, most of a map's triangles). (Each piece's child meshes in the library are its collision
 // shapes, which maps/blocks.js already holds; only the piece's own mesh is drawn.)
-import * as THREE from '../../vendor/three/three.module.js?v=muzk36dq';
-import { GLTFLoader } from '../../vendor/three/GLTFLoader.js?v=muzk36dq';
-import { BLOCKS } from '../maps/blocks.js?v=muzk36dq';
-import { MAP_ASSETS } from '../maps/map-assets.js?v=muzk36dq';
-import { fetchAsset } from '../util/asset.js?v=muzk36dq';
+import * as THREE from '../../vendor/three/three.module.js?v=muzmf26a';
+import { GLTFLoader } from '../../vendor/three/GLTFLoader.js?v=muzmf26a';
+import { orient, turn } from '../maps/pieces.js?v=muzmf26a';
+import { BLOCKS } from '../maps/blocks.js?v=muzmf26a';
+import { MAP_ASSETS } from '../maps/map-assets.js?v=muzmf26a';
+import { fetchAsset } from '../util/asset.js?v=muzmf26a';
 
 const CHUNK = 8;
 // Cell sides, in a piece's own frame: +x, -x, +y, -y, +z, -z.
@@ -55,16 +56,12 @@ export async function loadBlocks() {
 }
 export const blocksReady = () => !!parts;
 
-// A side of a piece turned r quarter turns, in the world (and back): (x, z) goes to (z, -x) each turn,
-// as maps/pieces.js rotateBox turns boxes.
-const turn = (side, r) => {
-  let [x, y, z] = SIDES[side];
-  for (let i = 0; i < (r & 3); i++) [x, z] = [z, -x];
-  return sideOf(x, y, z);
-};
+// A side of a piece in the world for an orientation (and, with the transpose, back again).
+const sideTurned = (side, R) => { const [x, y, z] = turn(R, ...SIDES[side]); return sideOf(Math.round(x), Math.round(y), Math.round(z)); };
+const transpose = R => [[R[0][0], R[1][0], R[2][0]], [R[0][1], R[1][1], R[2][1]], [R[0][2], R[1][2], R[2][2]]];
 
-// Meshes for placements [block, x, y, z, ry, ...] (each piece centred in its cell, turned ry quarter
-// turns), in a group: one mesh per chunk of columns.
+// Meshes for placements [block, x, y, z, code, ...] (each piece centred in its cell, turned by its
+// orientation code: maps/pieces.js orient()), in a group: one mesh per chunk of columns.
 export function blockMesh(list) {
   // What sits in each cell, to find the faces a neighbour covers.
   const at = new Map(), key = (x, y, z) => (x * 4096 + y) * 4096 + z;
@@ -72,9 +69,8 @@ export function blockMesh(list) {
   const hidden = (i, side) => {
     const [dx, dy, dz] = SIDES[side], j = at.get(key(list[i + 1] + dx, list[i + 2] + dy, list[i + 3] + dz));
     if (j === undefined) return false;
-    // The neighbour's side facing back at us, in its own frame: turn the world side back by its ry.
-    const back = sideOf(-dx, -dy, -dz), r = list[j + 4] & 3;
-    return parts[list[j]].cover[turn(back, (4 - r) & 3)];
+    // The neighbour's side facing back at us, in its own frame.
+    return parts[list[j]].cover[sideTurned(sideOf(-dx, -dy, -dz), transpose(orient(list[j + 4] & 63)))];
   };
   const chunks = new Map();
   for (let i = 0; i < list.length; i += 5) {
@@ -88,10 +84,10 @@ export function blockMesh(list) {
   for (const items of chunks.values()) {
     // Which triangles each placement keeps.
     const keep = items.map(i => {
-      const p = parts[list[i]], r = list[i + 4] & 3, open = SIDES.map((_, s) => !hidden(i, s));
+      const p = parts[list[i]], R = orient(list[i + 4] & 63), open = SIDES.map((_, s) => !hidden(i, s));
       const tris = [];
       if (!open.some(Boolean)) return tris;   // (buried on every side: none of it shows)
-      for (let t = 0; t < p.side.length; t++) if (p.side[t] < 0 || open[turn(p.side[t], r)]) tris.push(t);
+      for (let t = 0; t < p.side.length; t++) if (p.side[t] < 0 || open[sideTurned(p.side[t], R)]) tris.push(t);
       return tris;
     });
     let verts = 0, count = 0;
@@ -101,13 +97,11 @@ export function blockMesh(list) {
     let v = 0, t = 0;
     items.forEach((i, n) => {
       const p = parts[list[i]];
-      const cx = list[i + 1] + 0.5, cy = list[i + 2] + 0.5, cz = list[i + 3] + 0.5, r = list[i + 4] & 3;
-      // A quarter turn maps (x, z) to (z, -x), as rotateBox does in cell space.
-      const c = [1, 0, -1, 0][r], s = [0, 1, 0, -1][r], nv = p.pos.length / 3;
+      const cx = list[i + 1] + 0.5, cy = list[i + 2] + 0.5, cz = list[i + 3] + 0.5, R = orient(list[i + 4] & 63), nv = p.pos.length / 3;
       for (let k = 0; k < nv; k++) {
-        const x = p.pos[k * 3], z = p.pos[k * 3 + 2], nx = p.nor[k * 3], nz = p.nor[k * 3 + 2], o = (v + k) * 3;
-        pos[o] = cx + x * c + z * s; pos[o + 1] = cy + p.pos[k * 3 + 1]; pos[o + 2] = cz - x * s + z * c;
-        nor[o] = nx * c + nz * s; nor[o + 1] = p.nor[k * 3 + 1]; nor[o + 2] = -nx * s + nz * c;
+        const o = (v + k) * 3, q = turn(R, p.pos[k * 3], p.pos[k * 3 + 1], p.pos[k * 3 + 2]), n = turn(R, p.nor[k * 3], p.nor[k * 3 + 1], p.nor[k * 3 + 2]);
+        pos[o] = cx + q[0]; pos[o + 1] = cy + q[1]; pos[o + 2] = cz + q[2];
+        nor[o] = n[0]; nor[o + 1] = n[1]; nor[o + 2] = n[2];
       }
       col.set(p.col, v * 3);
       for (const tri of keep[n]) { idx[t++] = p.idx[tri * 3] + v; idx[t++] = p.idx[tri * 3 + 1] + v; idx[t++] = p.idx[tri * 3 + 2] + v; }
