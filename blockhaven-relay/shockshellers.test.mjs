@@ -90,3 +90,29 @@ test('rounds over the relay: the guest sees the podium and follows the host to t
   assert.equal(guest.match.players.size, host.match.players.size);
   running = false; await hostLoop;
 });
+
+test('locked-down networks: with WebSockets and PeerJS blocked, a friend joins and plays through the HTTPS mailbox', async t => {
+  const url = await relay(t);
+  // No brokers (as if every WebSocket were blocked), no PeerJS in Node: only the mailbox is left.
+  globalThis.SHOCKSHELLERS_NET = { brokers: [], box: url.replace(/^ws:/, 'http:').replace(/\/mqtt$/, ''), iceServers: [], wake: [] };
+  const host = new HostSession({ map: 'omelet', mode: 'ffa', options: {}, difficulty: 'normal', name: 'Hosty', primary: 'yolk47', cosmetics: { color: 0, hat: 'none' } });
+  t.after(() => host.close());
+  const code = await deadline(host.openRoom());
+  let running = true;
+  const hostLoop = (async () => { while (running) { host.advance(1 / 30, { ctrl: 0, yaw: 0, pitch: 0 }); host.takeEvents(); await sleep(33); } })();
+  const guest = await deadline(GuestSession.join(code, { name: 'Friend', primary: 'beater', cosmetics: { color: 3, hat: 'cap' } }, () => {}), 30000);
+  t.after(() => { running = false; guest.close(); });
+  const g = host.match.players.get(guest.myId);
+  assert.equal(g.name, 'Friend');
+  guest.respawn();
+  let moved = false;
+  for (let i = 0; i < 200 && !moved; i++) {
+    guest.advance(1 / 30, { ctrl: guest.me.alive ? CTRL.up : 0, yaw: 0, pitch: 0 });
+    guest.takeEvents();
+    await sleep(33);
+    if (g.alive && Math.hypot(g.body.vx, g.body.vz) > 0.03) moved = true;
+  }
+  assert.ok(moved, 'guest inputs reach the host through the mailbox');
+  assert.equal(guest.match.players.size, host.match.players.size, 'snapshots reach the guest');
+  running = false; await hostLoop;
+});

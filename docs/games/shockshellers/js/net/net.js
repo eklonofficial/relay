@@ -8,8 +8,9 @@
 //
 // Game model: the host is authoritative. Guests send their inputs; the host sends snapshots at
 // 15 Hz plus the match's events, and each guest predicts only its own egg (guest.js).
-import { hostRoom, joinRoom, diagnose } from './transport.js?v=muymyesq';
-import { SealedChannel } from './sealed.js?v=muymyesq';
+import { hostBox, joinBox } from './box.js?v=muyu9h16';
+import { hostRoom, joinRoom, diagnose } from './transport.js?v=muyu9h16';
+import { SealedChannel } from './sealed.js?v=muyu9h16';
 
 export const MAX_HUMANS = 8;
 const PREFIX = 'shockshellers-v1-';
@@ -43,7 +44,7 @@ function loadLib() {
   if (!libPromise) {
     libPromise = new Promise((resolve, reject) => {
       const s = document.createElement('script');
-      s.src = new URL('../../vendor/peerjs.min.js?v=muymyesq', import.meta.url).href;
+      s.src = new URL('../../vendor/peerjs.min.js?v=muyu9h16', import.meta.url).href;
       s.onload = () => resolve();
       s.onerror = () => { libPromise = null; reject(new Error('Could not load the multiplayer library. Check your connection.')); };
       document.head.appendChild(s);
@@ -149,8 +150,9 @@ export class Net {
   get isHost() { return this.role === 'host'; }
 
   // ---------------- hosting ----------------
-  // Rooms are registered two independent ways at once (the PeerJS server and the MQTT brokers
-  // in transport.js); friends can join through whichever answers them.
+  // Rooms are registered three independent ways at once (the PeerJS server, the MQTT brokers in
+  // transport.js, and the relay's plain-HTTPS mailbox in box.js for networks that block the
+  // others); friends can join through whichever answers them.
   async host() {
     const cfg = netConfig();
     if (cfg.offline) throw new Error('multiplayer is switched off in this browser');
@@ -160,13 +162,15 @@ export class Net {
     const roomP = cfg.brokers && cfg.brokers.length
       ? hostRoom(code, cfg, ch => { if (!this.closed) this.onIncoming(ch); }).then(r => { if (this.closed) r.close(); else this.room = r; return r; })
       : Promise.reject(new Error('no brokers'));
-    try { await Promise.any([peerP, roomP]); }
+    const boxP = hostBox(code, cfg, ch => { if (!this.closed) this.onIncoming(ch); }).then(r => { if (this.closed) r.close(); else this.box = r; return r; });
+    try { await Promise.any([peerP, roomP, boxP]); }
     catch (e) {
       const why = e.errors ? e.errors.map(x => x && x.message).filter(Boolean).join(' / ') : e.message;
       throw new Error(`Could not open the game to friends: the multiplayer servers could not be reached. Check your internet connection. (${why})`);
     }
     peerP.catch(e => console.warn('PeerJS room unavailable; using the relay servers only.', e && e.message));
     roomP.catch(e => console.warn('Relay servers unavailable; using PeerJS only.', e && e.message));
+    boxP.catch(e => console.warn('Relay mailbox unavailable.', e && e.message));
     return code;
   }
   async registerPeer(code) {
@@ -235,14 +239,16 @@ export class Net {
       const r = await joinRoom(code, cfg, s => { if (!winner) status(s); });
       claim(r.channel, r.relayed ? 'relay' : 'direct');
     })() : Promise.reject(new Error('no brokers'));
-    try { await Promise.any([viaPeer, viaRoom]); }
+    // The relay's plain-HTTPS mailbox: what gets through filters that break WebSockets.
+    const viaBox = (async () => { const ch = await joinBox(code, cfg); claim(ch, 'relay'); })();
+    try { await Promise.any([viaPeer, viaRoom, viaBox]); }
     catch (e) {
       const errs = (e.errors || [e]).filter(Boolean);
       const nf = errs.find(x => x.notFound);
       throw new Error(nf ? nf.message : errs.map(x => x.message).join(' — ') || 'Connection failed.');
     }
     // A slower path that connects later is closed by claim().
-    viaPeer.catch(() => {}); viaRoom.catch(() => {});
+    viaPeer.catch(() => {}); viaRoom.catch(() => {}); viaBox.catch(() => {});
     const link = new Link(new SealedChannel(winner.conn), HOST_PARTS);
     net.hostLink = link; net.relayed = winner.how === 'relay';
     status(net.relayed ? 'Connected through the relay servers. Joining…' : 'Joining…');
@@ -307,7 +313,7 @@ export class Net {
     else if (this.hostLink && now - this.hostLink.seen > LINK_TIMEOUT) this.onHostLost();
   }
   close() {
-    if (this.closed && !this.peer && !this.room) return;
+    if (this.closed && !this.peer && !this.room && !this.box) return;
     this.closed = true;
     try { if (this.isHost) this.broadcast({ t: 'bye' }); } catch { /* ignore */ }
     clearInterval(this.kaTimer);
@@ -317,7 +323,8 @@ export class Net {
       if (this.hostLink) this.hostLink.close();
       if (this.peer) this.peer.destroy();
       if (this.room) this.room.close();
-      this.peer = null; this.room = null;
+      if (this.box) this.box.close();
+      this.peer = null; this.room = null; this.box = null;
     }, 300);
   }
 }
