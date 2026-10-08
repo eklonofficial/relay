@@ -1,11 +1,11 @@
 // The imported maps (assets/maps/pack.json, made by tools/maps/import_maps.py): each is a list of
 // placed pieces (blocks.js) plus spawns, spatula points, roost zones and pickups. This turns one into
 // the same map object the hand-written maps build (dsl.js finish()): a grid, metadata and markers.
-import { MapGrid } from './grid.js?v=muzischz';
-import { PIECE } from './pieces.js?v=muzischz';
-import { BLOCKS } from './blocks.js?v=muzischz';
-import { MAP_ASSETS } from './map-assets.js?v=muzischz';
-import { fetchAsset } from '../util/asset.js?v=muzischz';
+import { MapGrid } from './grid.js?v=muzk36dq';
+import { PIECE } from './pieces.js?v=muzk36dq';
+import { BLOCKS } from './blocks.js?v=muzk36dq';
+import { MAP_ASSETS } from './map-assets.js?v=muzk36dq';
+import { fetchAsset } from '../util/asset.js?v=muzk36dq';
 
 const BLOCK_PIECE = BLOCKS.map(b => PIECE['b:' + b.name]);
 // Each map's sky, and the built-in sky its lighting follows (render/renderer.js SKIES).

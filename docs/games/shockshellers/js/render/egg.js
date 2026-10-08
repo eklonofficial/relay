@@ -6,14 +6,14 @@
 // mittens are one still mesh (guns.js), the hat is one mesh, and far away the gun and mittens are too
 // small to see and aren't drawn at all. Only an egg close by gets its gun's live rig, so its reloads
 // and shots can be seen.
-import * as THREE from '../../vendor/three/three.module.js?v=muzischz';
-import { heldGeometry, muzzleOf } from './guns.js?v=muzischz';
-import { WeaponRig } from './weapon-rig.js?v=muzischz';
-import { hatMesh } from './hats.js?v=muzischz';
-import { eggGeometry, importedMaterial } from './models.js?v=muzischz';
-import { paintShell } from './shellart.js?v=muzischz';
-import { stampImage, loadStamp } from './stamps.js?v=muzischz';
-import { COLORS, sanitizeCosmetics, skinOf } from '../game/cosmetics.js?v=muzischz';
+import * as THREE from '../../vendor/three/three.module.js?v=muzk36dq';
+import { heldGeometry, muzzleOf } from './guns.js?v=muzk36dq';
+import { WeaponRig } from './weapon-rig.js?v=muzk36dq';
+import { hatMesh } from './hats.js?v=muzk36dq';
+import { eggGeometry, importedMaterial } from './models.js?v=muzk36dq';
+import { paintShell } from './shellart.js?v=muzk36dq';
+import { stampImage, loadStamp } from './stamps.js?v=muzk36dq';
+import { COLORS, sanitizeCosmetics, skinOf } from '../game/cosmetics.js?v=muzk36dq';
 
 export const SHELL_COLORS = COLORS;
 export const TEAM_COLORS = [0xbbbbbb, 0x2f86e8, 0xe8473c];

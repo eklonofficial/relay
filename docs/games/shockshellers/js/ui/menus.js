@@ -1,26 +1,26 @@
 // Menus and modals (GDD §16–21): home, respawn/pause screen, settings (3 tabs), play with friends,
 // custom matches, profile, shop/inventory, how to play, chat. All markup lives in index.html inside
 // the compositor; this module wires it up and keeps it current.
-import { surfaceDocument as document } from '../surface.js?v=muzischz';
-import * as THREE from '../../vendor/three/three.module.js?v=muzischz';
-import { ask, tell } from '../dialog.js?v=muzischz';
-import { gunModel } from '../render/guns.js?v=muzischz';
-import { EggAvatar } from '../render/egg.js?v=muzischz';
-import { hatMesh } from '../render/hats.js?v=muzischz';
-import { previewShell } from '../render/shellart.js?v=muzischz';
-import { COLORS, PATTERNS, STAMPS, HATS, SKIN_COUNTS, skinName, skinOf, sanitizeCosmetics } from '../game/cosmetics.js?v=muzischz';
-import { loadStamp } from '../render/stamps.js?v=muzischz';
-import { TIERS, skinTier, eggsFor, unlocked } from '../game/progress.js?v=muzischz';
-import { WEAPONS, PRIMARIES, MODE_NAMES, MODE_MENU, TICK } from '../sim/tuning.js?v=muzischz';
-import { ACTIONS, ACTION_NAMES, keyLabel, DEFAULT_KEYS } from '../game/input.js?v=muzischz';
-import { DEFAULT_SETTINGS, saveSettings, saveProfile } from '../game/store.js?v=muzischz';
-import { ensureDaily, def as challengeDef, reroll, timeLeft } from '../game/challenges.js?v=muzischz';
-import { MAPS, mapDef, mapsBySize, sizeOf, naturalPlayers, SIZES } from '../maps/index.js?v=muzischz';
-import { playlists, playlistById, randomPlaylist } from '../maps/playlists.js?v=muzischz';
-import { MAP_ASSETS } from '../maps/map-assets.js?v=muzischz';
-import { fetchAssetBlob } from '../util/asset.js?v=muzischz';
-import { drawHowTo } from './art.js?v=muzischz';
-import { wakeRelays, diagnoseNetwork } from '../net/net.js?v=muzischz';
+import { surfaceDocument as document } from '../surface.js?v=muzk36dq';
+import * as THREE from '../../vendor/three/three.module.js?v=muzk36dq';
+import { ask, tell } from '../dialog.js?v=muzk36dq';
+import { gunModel } from '../render/guns.js?v=muzk36dq';
+import { EggAvatar } from '../render/egg.js?v=muzk36dq';
+import { hatMesh } from '../render/hats.js?v=muzk36dq';
+import { previewShell } from '../render/shellart.js?v=muzk36dq';
+import { COLORS, PATTERNS, STAMPS, HATS, SKIN_COUNTS, skinName, skinOf, sanitizeCosmetics } from '../game/cosmetics.js?v=muzk36dq';
+import { loadStamp } from '../render/stamps.js?v=muzk36dq';
+import { TIERS, skinTier, eggsFor, unlocked } from '../game/progress.js?v=muzk36dq';
+import { WEAPONS, PRIMARIES, MODE_NAMES, MODE_MENU, TICK } from '../sim/tuning.js?v=muzk36dq';
+import { ACTIONS, ACTION_NAMES, keyLabel, DEFAULT_KEYS } from '../game/input.js?v=muzk36dq';
+import { DEFAULT_SETTINGS, saveSettings, saveProfile } from '../game/store.js?v=muzk36dq';
+import { ensureDaily, def as challengeDef, reroll, timeLeft } from '../game/challenges.js?v=muzk36dq';
+import { MAPS, mapDef, mapsBySize, sizeOf, naturalPlayers, SIZES } from '../maps/index.js?v=muzk36dq';
+import { playlists, playlistById, randomPlaylist } from '../maps/playlists.js?v=muzk36dq';
+import { MAP_ASSETS } from '../maps/map-assets.js?v=muzk36dq';
+import { fetchAssetBlob } from '../util/asset.js?v=muzk36dq';
+import { drawHowTo } from './art.js?v=muzk36dq';
+import { wakeRelays, diagnoseNetwork } from '../net/net.js?v=muzk36dq';
 
 const $ = id => document.getElementById(id);
 const show = (id, on = true) => $(id).classList.toggle('hidden', !on);
@@ -80,6 +80,20 @@ class Portraits {
     x.putImageData(img, 0, 0);
     const p = dataUrl(cv); this.cache.set(key, p); return p;
   }
+}
+
+// Asks the relay's mailbox for nothing and checks the answer is the relay's own (JSON with a message
+// counter). Waits up to 65 s, since a free relay can take that long to wake.
+async function probeMailbox() {
+  const ctl = new AbortController(), t = setTimeout(() => ctl.abort(), 65000);
+  try {
+    const r = await fetch('https://blockhaven-relay.onrender.com/box/send', { method: 'POST', body: '{"pub":[]}', headers: { 'content-type': 'text/plain' }, cache: 'no-store', credentials: 'omit', referrerPolicy: 'no-referrer', signal: ctl.signal });
+    if (r.status === 404) return 'the relay is reachable but not updated yet: it needs redeploying';
+    if (!r.ok) return `the relay answered with error ${r.status}`;
+    const j = await r.json().catch(() => null);
+    return j && typeof j.at === 'number' ? true : 'something answered, but not the relay (a filter page?)';
+  } catch (e) { return e && e.name === 'AbortError' ? 'no answer after 65 seconds (asleep or blocked)' : 'blocked or down'; }
+  finally { clearTimeout(t); }
 }
 
 export class Menus {
@@ -422,21 +436,26 @@ export class Menus {
     try {
       const results = await diagnoseNetwork(r => { lines.push(`${r.ok ? 'OK' : 'NO'}  ${r.name}: ${r.detail}`); paint(); });
       const relay = results.some(r => r.ok && /^Relay/.test(r.name)), room = results.some(r => r.ok && /^Room/.test(r.name)), direct = results.some(r => r.ok && /Direct/.test(r.name));
-      // Which other kinds of host this network lets through (plain HTTPS), to tell a blocked domain
-      // from blocked WebSockets and to see where a fallback relay could live on locked-down networks.
+      // The relay's mailbox, for real: a request that only the updated relay answers with JSON (a
+      // filter's block page or an older relay doesn't), given time for a sleeping relay to wake.
+      lines.push('', 'Relay mailbox (plain HTTPS, gets past most school filters):'); paint();
+      const mail = await probeMailbox(); lines.push(`${mail === true ? 'OK' : 'NO'}  ${mail === true ? 'working' : mail}`); paint();
+      // Which other kinds of host this network lets through, for a fallback relay if ever needed.
       lines.push('', 'Other hosts (plain HTTPS):');
       paint();
       const reach = url => Promise.race([fetch(url, { mode: 'no-cors', cache: 'no-store', credentials: 'omit', referrerPolicy: 'no-referrer' }).then(() => true, () => false), new Promise(r => setTimeout(() => r(false), 8000))]);
-      const hosts = [['Relay mailbox (plain HTTPS, gets past most school filters)', 'https://blockhaven-relay.onrender.com/health'], ['Google Firebase', 'https://hacker-news.firebaseio.com/v0/maxitem.json'], ['Google Apps Script', 'https://script.google.com/'],
+      const hosts = [['Google Firebase', 'https://hacker-news.firebaseio.com/v0/maxitem.json'], ['Google Apps Script', 'https://script.google.com/'],
         ['Google APIs', 'https://www.googleapis.com/'], ['Vercel', 'https://vercel.com/'], ['Supabase', 'https://supabase.com/'], ['Ably', 'https://rest.ably.io/time']];
       const got = await Promise.all(hosts.map(([, u]) => reach(u)));
       hosts.forEach(([n], i) => lines.push(`${got[i] ? 'OK' : 'NO'}  ${n}`));
       testing = false;
-      const mailbox = got[0];
-      lines.push('', relay || room || mailbox
-        ? `Multiplayer will work on this network${direct ? ', with direct connections (fastest)' : relay || room ? ', through a relay server' : ', through the relay mailbox'}.`
-        : 'No multiplayer server could be reached. This network may block them, or the relay is still waking: try again in a minute.');
-      out.className = `note diag ${relay || room || mailbox ? 'ok' : 'err'}`;
+      // (The PeerJS room server only finds the host; without direct connections it can't carry a
+      // game, so on its own it doesn't count.)
+      const mailbox = mail === true, works = relay || mailbox || (room && direct);
+      lines.push('', works
+        ? `Multiplayer will work on this network${direct && room ? ', with direct connections (fastest)' : relay ? ', through a relay server' : ', through the relay mailbox'}.`
+        : 'No way to carry a game was found on this network. If the relay mailbox says it is waking, try again in a minute.');
+      out.className = `note diag ${works ? 'ok' : 'err'}`;
       paint();
     } catch (e) { out.textContent = `The test failed: ${e.message}`; out.className = 'note diag err'; }
     btn.disabled = false;
