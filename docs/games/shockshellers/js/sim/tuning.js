@@ -32,7 +32,7 @@ export const DAMAGE = { angleBase: 0.2, angleExp: 4 };
 export const WEAPONS = {
   yolk47: { name: 'Yolk-47', dmg: 30, rof: 3, recoil: 7, auto: true, mag: 30, store: 240, pickup: 30, range: 20, vel: 1.5, reload: [160, 205], acc: [0.03, 0.15, 0.05, 0.025], ads: 0.5, moveMod: 1.0, tracer: 2, scope: 0.9, scoped: false,
     desc: 'Reliable full-auto rifle. Tap it at range, hose it up close.' },
-  doubleYolker: { name: 'Double Yolker', dmg: 12.5, pellets: 16, dropoff: [3, 7, 0.12], rof: 8, recoil: 10, auto: false, mag: 2, store: 24, pickup: 8, range: 12, vel: 1.1, reload: [150, 150], acc: [0.07, 0.11, 0.12, 0.02], ads: 0.6, moveMod: 0.2, vSpreadMul: 0.55, scope: 1.0, scoped: false,
+  doubleYolker: { name: 'Double Yolker', dmg: 12.5, pellets: 16, dropoff: [3, 7, 0.12], rof: 8, recoil: 10, auto: false, mag: 2, store: 24, pickup: 8, range: 12, vel: 1.1, reload: [155, 155], acc: [0.07, 0.11, 0.12, 0.02], ads: 0.6, moveMod: 0.2, vSpreadMul: 0.55, scope: 1.0, scoped: false,
     desc: 'Two barrels. Point blank, nothing hits harder; it fades fast with distance.' },
   cageFree: { name: 'Cage Free', dmg: 101, rof: 13, recoil: 13, auto: false, mag: 15, store: 60, pickup: 15, range: 50, vel: 1.75, reload: [165, 225], acc: [0.004, 0.3, 0.3, 0.025], ads: 0.5, moveMod: 1.0, scope: 0.7, scoped: true,
     desc: 'Fifteen-round marksman rifle that forgives a miss.' },
@@ -42,7 +42,7 @@ export const WEAPONS = {
   // finish with the pistol. It throws eggs it doesn't crack (knock sideways, lift up). The shooter's own
   // blast never hurts them, it launches them (a rocket jump), and firing shoves them back (recoilPush).
   yolkzooka: { name: 'Yolkzooka', dmg: 125, direct: [110, 125], rampDist: 18, splash: 1, radius: 3.25, falloff: 1.3, minRange: 0,
-    knock: 0.38, lift: 0.15, selfKnock: 0.3, selfLift: 0.06, recoilPush: 0.12, rof: 40, recoil: 60, auto: false, mag: 1, store: 4, pickup: 1, range: 45, vel: 0.8, reload: [140, 140], acc: [0.015, 0.3, 0.3, 0.02], ads: 0.5, moveMod: 1.0, absMinAcc: 0.3, scope: 0.9, scoped: true, rocket: true,
+    knock: 0.38, lift: 0.15, selfKnock: 0.3, selfLift: 0.06, recoilPush: 0.12, rof: 40, recoil: 60, auto: false, mag: 1, store: 4, pickup: 1, range: 45, vel: 0.8, reload: [170, 170], acc: [0.015, 0.3, 0.3, 0.02], ads: 0.5, moveMod: 1.0, absMinAcc: 0.3, scope: 0.9, scoped: true, rocket: true,
     desc: 'Rocket that hits harder the further it flies. Blast eggs aside, or rocket-jump off your own.' },
   beater: { name: 'Beater', dmg: 23, rof: 2, recoil: 7, auto: true, mag: 40, store: 200, pickup: 40, range: 20, vel: 1.25, reload: [190, 225], acc: [0.06, 0.19, 0.045, 0.05], ads: 0.6, moveMod: 0.7, tracer: 3, scope: 1.0, scoped: false,
     desc: 'Forty-round bullpup that never stops whisking.' },
@@ -84,7 +84,15 @@ export const STREAKS = {
 
 export const ROOST = { max: 1200, speeds: [1.2, 1.5, 2.04, 3.0, 4.8], takeover: 90, goal: 5, winBonus: 250, intermissionTicks: 300 };
 export const SPATULA = { hop: 0.05, restitution: 0.5, carryBack: 0.3, radius: 0.6 };
-export const ECONOMY = { perKill: 10, weekendMult: 2 };
+// Score: points for how well you play, not just your streak. A kill, more for keeping a streak going
+// (+streakStep per kill already in it, up to streakMax) and for a whisk kill; an assist for anyone
+// else who did at least assistMin of the damage; objective points every second carrying the spatula
+// or standing in the roost, for taking the spatula, for a kill while your team holds it, and for
+// everyone in the roost when it's captured.
+export const SCORE = { kill: 100, streakStep: 10, streakMax: 50, melee: 25, assist: 50, assistMin: 30, objPerSecond: 5, spatulaTake: 50, spatulaKill: 50, roostCapture: 150 };
+// Eggs: one per pointsPerEgg points as you score (doubled at weekends and by Double Yolks), plus a
+// bonus for placing at the end of a round (1st, 2nd, 3rd) and for being on the winning team.
+export const ECONOMY = { pointsPerEgg: 10, weekendMult: 2, place: [100, 60, 40], win: 50 };
 
 export const MODES = ['ffa', 'teams', 'spatula', 'roost'];
 export const MODE_NAMES = { ffa: 'Free For All', teams: 'Teams', spatula: 'Spatula Snatch', roost: 'Rule the Roost' };

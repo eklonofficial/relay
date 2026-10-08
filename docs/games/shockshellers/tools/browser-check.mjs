@@ -58,6 +58,8 @@ try {
     // No real servers from CI: matches stay offline; skip the first-run How to Play wait.
     localStorage.setItem('shockshellers.net', JSON.stringify({ offline: true, brokers: [] }));
     localStorage.setItem('shockshellers.settings.v1', JSON.stringify({ seenHowTo: true, autoDetail: false }));
+    // Enough eggs that every weapon is unlocked (the check picks the Beater).
+    localStorage.setItem('shockshellers.profile.v1', JSON.stringify({ coins: 100000 }));
   });
   const base = 'http://127.0.0.1:' + server.address().port + '/shockshellers';
   await page.goto(base + '/index.html', { waitUntil: 'commit' });

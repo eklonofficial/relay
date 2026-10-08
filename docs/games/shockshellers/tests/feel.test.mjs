@@ -5,10 +5,11 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { load } from './load.mjs';
 const { aimAssist, assistOn, ASSIST, ASSIST_BY_GUN } = await load('game/aim.js');
-const { COLORS, PATTERNS, STAMPS, HATS, SKINS, NATURAL, sanitizeCosmetics, botCosmetics } = await load('game/cosmetics.js');
-const { PATTERN_IDS, STAMP_IDS } = await load('render/shellart.js');
+const { COLORS, PATTERNS, STAMPS, HATS, SKIN_COUNTS, NATURAL, sanitizeCosmetics, botCosmetics } = await load('game/cosmetics.js');
+const { PATTERN_IDS } = await load('render/shellart.js');
 const { HAT_IDS } = await load('render/hats.js');
-const { SKIN_IDS, GUN_IDS, gunAnchors } = await load('render/guns.js');
+const { ASSETS, HAT_NODES, WEAPON_ASSETS } = await load('render/asset-catalog.js');
+const { WEAPON_IDS } = await load('sim/tuning.js');
 
 const cam = { x: 0, y: 1, z: 0, yaw: 0, pitch: 0 };
 const at = (d, angle, id = 1) => ({ id, x: -Math.sin(angle) * d, y: 1, z: -Math.cos(angle) * d });
@@ -58,31 +59,24 @@ test('aim assist is on for Chromebooks and gamepads by default, and the setting 
 });
 
 test('every cosmetic in the shop can be drawn, and most of it is free', () => {
-  assert.ok(COLORS.length >= 30 && PATTERNS.length >= 15 && STAMPS.length >= 15 && HATS.length >= 25 && SKINS.length >= 15);
+  assert.ok(COLORS.length >= 30 && PATTERNS.length >= 15 && STAMPS.length >= 600 && HATS.length >= 600);
   for (const p of PATTERNS) assert.ok(p.id === 'none' || PATTERN_IDS.includes(p.id), p.id);
-  for (const s of STAMPS) assert.ok(s.id === 'none' || STAMP_IDS.includes(s.id), s.id);
+  for (const s of STAMPS) assert.ok(s.id === 'none' || ASSETS[`stamps/${s.id}.webp`], s.id);
   for (const h of HATS) assert.ok(h.id === 'none' || HAT_IDS.includes(h.id), h.id);
-  for (const s of SKINS) assert.ok(SKIN_IDS.includes(s.id), s.id);
+  assert.equal(new Set(HATS.map(h => h.id)).size, HATS.length, 'hat ids are unique');
+  assert.deepEqual(new Set(HATS.filter(h => h.node !== undefined).map(h => h.node)), new Set(HAT_NODES), 'every imported hat is offered exactly once');
+  for (const id of WEAPON_IDS) assert.equal(SKIN_COUNTS[id], WEAPON_ASSETS[id].skins.length, id);
   assert.ok(HATS.filter(h => !h.price).length >= HATS.length - 3, 'only a few hats cost yolks');
 });
 
 test('cosmetics from the network: known values pass, anything else falls back', () => {
-  const ok = { color: 20, pcolor: 3, hat: 'wizard', pattern: 'camo', stamp: 'googly', skin: 'lava' };
+  const ok = { color: 20, pcolor: 3, hat: 'wizard', pattern: 'camo', stamp: 'decal_0007', skins: { yolk47: 12, peck9mm: 3 } };
   assert.deepEqual(sanitizeCosmetics(ok), ok);
-  assert.deepEqual(sanitizeCosmetics({ color: 999, pcolor: -1, hat: '<script>', pattern: 7, stamp: null, skin: 'x' }), { color: 0, pcolor: 13, hat: 'none', pattern: 'none', stamp: 'none', skin: 'factory' });
+  assert.deepEqual(sanitizeCosmetics({ color: 999, pcolor: -1, hat: '<script>', pattern: 7, stamp: null, skins: { yolk47: 9999, poacher: -2, nope: 3, beater: '4' } }), { color: 0, pcolor: 13, hat: 'none', pattern: 'none', stamp: 'none', skins: {} });
   assert.deepEqual(sanitizeCosmetics(null), sanitizeCosmetics({}));
-  assert.deepEqual(sanitizeCosmetics({ color: 3, hat: 'cap' }), { color: 3, pcolor: 13, hat: 'cap', pattern: 'none', stamp: 'none', skin: 'factory' }, 'old profiles keep their look');
+  assert.deepEqual(sanitizeCosmetics({ color: 3, hat: 'cap', skin: 'lava', stamp: 'googly' }), { color: 3, pcolor: 13, hat: 'cap', pattern: 'none', stamp: 'none', skins: {} }, 'old profiles keep what still exists');
   let s = 1; const rnd = () => (s = (s * 16807) % 2147483647) / 2147483647;
   for (let i = 0; i < 200; i++) { const c = botCosmetics(rnd); assert.deepEqual(sanitizeCosmetics(c), c); assert.ok(NATURAL.includes(c.color) && c.hat === 'none' && c.pattern === 'none' && c.stamp === 'none', 'bots are plain eggs in natural colours'); }
-});
-
-test('every gun has the attachment points the hands and camera need', () => {
-  for (const id of ['yolk47', 'doubleYolker', 'cageFree', 'yolkzooka', 'beater', 'poacher', 'triBoil', 'peck9mm']) {
-    assert.ok(GUN_IDS.includes(id), id);
-    const u = gunAnchors(id);
-    for (const k of ['muzzle', 'sight', 'grip', 'support']) assert.ok(u[k]?.isVector3, `${id}.${k}`);
-    assert.ok(u.muzzle.z < u.grip.z && u.sight.y > u.grip.y, `${id}: muzzle ahead of the grip, sights above it`);
-  }
 });
 
 test('PLAY moves around the map rotation instead of repeating the last few maps', async () => {

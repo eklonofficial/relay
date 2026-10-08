@@ -1,33 +1,36 @@
 // Shock Shellers: boot, menus, the match flow (home → respawn screen → play → death → respawn) and
 // the frame loop. The simulation runs at a fixed 30 Hz inside the session; rendering interpolates.
-import './page.js?v=muyu9h16';
-import { surfaceDocument as document } from './surface.js?v=muyu9h16';
-import { registerApp } from './veil.js?v=muyu9h16';
-import { tell } from './dialog.js?v=muyu9h16';
-import { splash } from './splash.js?v=muyu9h16';
-import * as THREE from '../vendor/three/three.module.js?v=muyu9h16';
-import { Renderer } from './render/renderer.js?v=muyu9h16';
-import { RELOAD_KIND } from './render/viewmodel.js?v=muyu9h16';
-import { EggAvatar } from './render/egg.js?v=muyu9h16';
-import { Podium } from './render/podium.js?v=muyu9h16';
-import { Recorder, planReplay, replayRate, projectileAt } from './game/replay.js?v=muyu9h16';
-import { aimAssist, assistOn } from './game/aim.js?v=muyu9h16';
-import { Input } from './game/input.js?v=muyu9h16';
-import { SOUND_FILES } from './game/soundbank.js?v=muyu9h16';
-import { Sound, registerSamples } from './game/audio.js?v=muyu9h16';
-import { Hud } from './game/hud.js?v=muyu9h16';
-import { loadSettings, saveSettings, loadProfile, saveProfile } from './game/store.js?v=muyu9h16';
-import { ensureDaily, progress as challengeProgress, claim as claimChallenges } from './game/challenges.js?v=muyu9h16';
-import { HostSession } from './game/session.js?v=muyu9h16';
-import { GuestSession } from './net/guest.js?v=muyu9h16';
-import { pickPublicMap, mapDef, MAPS } from './maps/index.js?v=muyu9h16';
-import { WEAPONS, PRIMARIES, PLAYER, MELEE, MODE_NAMES, MODE_MENU, ECONOMY, CTRL, TICK, TICK_HZ } from './sim/tuning.js?v=muyu9h16';
-import { weaponOf, slotOf } from './sim/combat.js?v=muyu9h16';
-import { eyePoint } from './sim/movement.js?v=muyu9h16';
-import { drawLogo, drawHowTo } from './ui/art.js?v=muyu9h16';
-import { loadModels } from './render/models.js?v=muyu9h16';
-import { HIT } from './maps/grid.js?v=muyu9h16';
-import { Menus } from './ui/menus.js?v=muyu9h16';
+import './page.js?v=muyxgr3o';
+import { surfaceDocument as document } from './surface.js?v=muyxgr3o';
+import { registerApp } from './veil.js?v=muyxgr3o';
+import { tell } from './dialog.js?v=muyxgr3o';
+import { splash } from './splash.js?v=muyxgr3o';
+import * as THREE from '../vendor/three/three.module.js?v=muyxgr3o';
+import { Renderer } from './render/renderer.js?v=muyxgr3o';
+import { fireSound } from './render/asset-catalog.js?v=muyxgr3o';
+import { RELOAD_CUES } from './render/reload-cues.js?v=muyxgr3o';
+import { skinOf } from './game/cosmetics.js?v=muyxgr3o';
+import { WEAPON_UNLOCK, TIERS, unlocked, eggsForPoints } from './game/progress.js?v=muyxgr3o';
+import { EggAvatar } from './render/egg.js?v=muyxgr3o';
+import { Podium } from './render/podium.js?v=muyxgr3o';
+import { Recorder, planReplay, replayRate, projectileAt } from './game/replay.js?v=muyxgr3o';
+import { aimAssist, assistOn } from './game/aim.js?v=muyxgr3o';
+import { Input } from './game/input.js?v=muyxgr3o';
+import { SOUND_FILES } from './game/soundbank.js?v=muyxgr3o';
+import { Sound, registerSamples } from './game/audio.js?v=muyxgr3o';
+import { Hud } from './game/hud.js?v=muyxgr3o';
+import { loadSettings, saveSettings, loadProfile, saveProfile } from './game/store.js?v=muyxgr3o';
+import { ensureDaily, progress as challengeProgress, claim as claimChallenges } from './game/challenges.js?v=muyxgr3o';
+import { HostSession } from './game/session.js?v=muyxgr3o';
+import { GuestSession } from './net/guest.js?v=muyxgr3o';
+import { pickPublicMap, mapDef, MAPS } from './maps/index.js?v=muyxgr3o';
+import { WEAPONS, PRIMARIES, PLAYER, MELEE, MODE_NAMES, MODE_MENU, ECONOMY, CTRL, TICK, TICK_HZ } from './sim/tuning.js?v=muyxgr3o';
+import { weaponOf, slotOf } from './sim/combat.js?v=muyxgr3o';
+import { eyePoint } from './sim/movement.js?v=muyxgr3o';
+import { drawLogo, drawHowTo } from './ui/art.js?v=muyxgr3o';
+import { loadModels } from './render/models.js?v=muyxgr3o';
+import { HIT } from './maps/grid.js?v=muyxgr3o';
+import { Menus } from './ui/menus.js?v=muyxgr3o';
 
 const $ = id => document.getElementById(id);
 const show = (id, on = true) => { $(id).classList.toggle('hidden', !on); if (id === 'respawn') $('hud').classList.toggle('menu', on); };
@@ -35,11 +38,13 @@ const show = (id, on = true) => { $(id).classList.toggle('hidden', !on); if (id 
 const STEP_SOUND = { 0: [1, 1], 1: [0.82, 0.75], 2: [1.18, 1.1], 4: [0.78, 0.7], 5: [1.4, 1.15], 6: [0.86, 0.8], 10: [0.8, 0.7], 11: [1.35, 1.1], 12: [1.15, 1.05], 13: [0.75, 0.7], 14: [0.9, 0.85], 15: [1.3, 1.1] };
 // Per map theme: reverb length (s) and level.
 const ROOMS = { farm: [1.2, 0.28], town: [1.6, 0.34], temple: [2.3, 0.45], hills: [0.9, 0.2], quarry: [2.5, 0.42], arena: [1.8, 0.38], space: [3.2, 0.22] };
-// When each reload step sounds (fraction of the reload; true: only when reloading from empty).
-const RELOAD_STEPS = {
-  mag: [[0.16, 'magOut'], [0.66, 'magIn'], [0.84, 'rack', true]], pistol: [[0.16, 'magOut'], [0.66, 'magIn'], [0.79, 'rack', true]],
-  break: [[0.04, 'breakOpen'], [0.6, 'shellIn'], [0.78, 'rack']], bolt: [[0.16, 'boltUp'], [0.68, 'boltDown']], rocket: [[0.62, 'rocketIn']],
-};
+// A player's reload as the guns' clips play it: progress 0..1 through the reload and whether it is the
+// longer one from empty, or null.
+function reloadOf(h) {
+  if (!(h.reload > 0)) return null;
+  const w = weaponOf(h), long = !!h.reloadRounds && slotOf(h).mag === 0;
+  return { f: 1 - h.reload / w.reload[long ? 1 : 0], long: long && w.reload[1] !== w.reload[0] };
+}
 // Resolves once a couple of frames have been drawn after now (or after 3 s in a background tab).
 const settled = () => new Promise(r => { let n = 3; const f = () => (--n <= 0 ? r() : requestAnimationFrame(f)); requestAnimationFrame(f); setTimeout(r, 3000); });
 const LOAD_LINES = ['Cracking eggs…', 'Whisking servers…', 'Stacking teams…', 'Greasing the pan…', 'Counting chickens…', 'Hatching plans…'];
@@ -48,6 +53,8 @@ class App {
   constructor() {
     this.settings = loadSettings();
     this.profile = loadProfile();
+    if (!unlocked(this.profile, 'weapon', this.profile.primary)) this.profile.primary = 'yolk47';
+    this.ledger = {};
     ensureDaily(this.profile);
     this.canvas = $('game');
     this.renderer = new Renderer(this.canvas);
@@ -57,6 +64,8 @@ class App {
     this.keys = this.input.keys; // veil.js clears these on quick-hide
     registerSamples(SOUND_FILES);
     this.sound = new Sound(this.settings);
+    // The held gun's reload cues (magazine out and in, bolt, slide, barrels) as its clip passes them.
+    this.renderer.view.onSound = sample => this.sound.play('mech', null, 0.9, 1, sample);
     this.hud = new Hud(this.settings);
     this.menus = new Menus(this);
     this.session = null; this.state = 'boot';
@@ -150,7 +159,7 @@ class App {
   goHome() {
     this.leaveMatch();
     this.state = 'home';
-    const got = claimChallenges(this.profile); if (got) { saveProfile(this.profile); setTimeout(() => tell(`Challenges complete! +${got} Golden Yolks`), 300); }
+    const got = claimChallenges(this.profile); if (got) { saveProfile(this.profile); setTimeout(() => tell(`Challenges complete! +${got} eggs`), 300); }
     show('home'); show('hud', false); show('respawn', false);
     this.menus.refreshHome();
     this.input.enabled = false; this.input.exitLock();
@@ -264,8 +273,9 @@ class App {
           break;
         }
         case 'fire': {
-          const w = e.w;
-          snd.play(w, mine ? null : pos(e.id), mine ? 0.7 : 1);
+          const w = e.w, shooter = m.players.get(e.id);
+          snd.play(w, mine ? null : pos(e.id), mine ? 0.7 : 1, 1, fireSound(w, skinOf(shooter?.cosmetics, w)));
+          if (!mine) R.avatars.get(e.id)?.fired();
           if (mine) {
             R.view.fire(w);
             // The mechanism cycling under the bang, and a rising tick as the magazine runs low.
@@ -316,7 +326,7 @@ class App {
           const replayed = e.id === s.myId && k && k.id !== s.myId;
           if (!replayed) {
             fx.shatter(e.x, e.y, e.z, a ? a.color : 0xfff6e5, m.grid.floorBelow(e.x, e.y + 0.3, e.z) === -Infinity ? e.y : m.grid.floorBelow(e.x, e.y + 0.3, e.z));
-            snd.play('splat', [e.x, e.y + 0.3, e.z]);
+            snd.play('splat', [e.x, e.y + 0.3, e.z]); snd.play('scream', [e.x, e.y + 0.3, e.z], 0.8);
           }
           if (v) this.hud.kill(k ? k.name : '', v.name, e.w === 'melee' ? 'whisk' : e.w, k?.team || 0, v.team, e.by === s.myId || e.id === s.myId);
           if (e.by === s.myId && e.id !== s.myId) this.onMyKill(e, v);
@@ -324,8 +334,9 @@ class App {
           break;
         }
         case 'spawn': if (mine) this.input.yaw = me.body.yaw; else fx.sparkle(e.x, e.y + 0.4, e.z, 0xfff6dc, 16); break;
-        case 'reload': snd.play('reload', mine ? null : pos(e.id), 0.8); break;
-        case 'reloaded': snd.play(e.long ? 'reloadedLong' : 'reloaded', mine ? null : pos(e.id), 0.8); break;
+        // Reloads sound through the guns' own cues (ours, and nearby eggs' live rigs); a reload further
+        // off is heard by its first cue.
+        case 'reload': { const p = m.players.get(e.id); if (!mine && p && !R.avatars.get(e.id)?.rig) snd.play('mech', pos(e.id), 0.8, 1, RELOAD_CUES[slotOf(p.hands).id]?.[0][0][1]); break; }
         case 'dry': if (mine) snd.play('dry'); break;
         case 'swap': if (mine) snd.play('swap'); break;
         case 'swing': snd.play('melee', mine ? null : pos(e.id)); break;
@@ -354,10 +365,11 @@ class App {
         case 'shieldBreak': if (mine) snd.play('powerdown'); break;
         case 'spatula': if (e.k === 'take') { snd.play('bawk'); this.hud.banner(`${e.team === 1 ? 'BLUE' : 'RED'} TEAM HAS THE SPATULA!`, 2); } else if (e.k === 'drop') snd.play('drop'); break;
         case 'score': snd.play('score'); break;
+        case 'points': if (mine) this.earn(e); break;
         case 'roost': if (e.k === 'move') { snd.play('zone'); R.setRoostZone(m.map.roostZones[e.zone]); } else if (e.k === 'score') snd.play('score'); break;
         case 'win': {
           snd.play('win'); this.hud.banner(`${e.team === 1 ? 'BLUE' : 'RED'} TEAM WINS!`, 4);
-          if (e.bonus?.includes(s.myId)) { this.profile.coins += 250; this.profile.stats.roostWins++; saveProfile(this.profile); this.hud.toast('+250 Golden Yolks for the win!'); }
+          if (e.bonus?.includes(s.myId)) { this.profile.stats.roostWins++; this.addEggs(ECONOMY.win); this.hud.toast(`+${ECONOMY.win} eggs for the win!`); }
           break;
         }
         case 'team': if (mine) this.hud.toast(`You joined the ${e.team === 1 ? 'Blue' : 'Red'} team`); break;
@@ -400,7 +412,7 @@ class App {
   }
   // ---------------- rounds ----------------
   // The round is over: the podium takes the screen until the host starts the next round. Placing
-  // earns Golden Yolks (150 / 100 / 60), and so does being on the winning team (100).
+  // earns eggs (ECONOMY.place), and so does being on the winning team (ECONOMY.win).
   startPodium(e) {
     const s = this.session; if (!s) return;
     this.replay = null; this.hud.replay = null; this.hud.death = null;
@@ -414,9 +426,9 @@ class App {
     this.hud.set('objective', 'objOn', false, (el, v) => el.classList.toggle('hidden', !v));   // (the podium says who won)
     this.sound.play('win');
     const place = e.podium.indexOf(s.myId), me = byId.get(s.myId);
-    let yolks = place >= 0 ? [150, 100, 60][place] : 0;
-    if (e.team && me && me.team === e.team) { yolks += 100; if (e.mode === 'roost') this.profile.stats.roostWins++; }
-    if (yolks) { this.profile.coins += yolks; saveProfile(this.profile); this.hud.toast(`+${yolks} Golden Yolks${place >= 0 ? ` for ${['1st', '2nd', '3rd'][place]} place` : ' for the win'}!`, 5); }
+    let eggs = place >= 0 ? ECONOMY.place[place] : 0;
+    if (e.team && me && me.team === e.team) { eggs += ECONOMY.win; if (e.mode === 'roost') this.profile.stats.roostWins++; }
+    if (eggs) { this.addEggs(eggs); this.hud.toast(`+${eggs} eggs${place >= 0 ? ` for ${['1st', '2nd', '3rd'][place]} place` : ' for the win'}!`, 5); }
   }
   drawPodium(dt) {
     const s = this.session, pod = this.podiumScene, w = innerWidth, h = innerHeight;
@@ -434,13 +446,27 @@ class App {
     this.enter(session);
     this.hud.chat(`Round ${session.round || ''}: ${session.map.meta.name}`.replace('Round : ', ''), '#ffd23f');
   }
+  // Points we scored (match.js award): shown as they come (objective time ticks up quietly), and
+  // turned into eggs, doubled at weekends and by Double Yolks.
+  earn(e) {
+    if (e.why !== 'objective') this.hud.popups.push({ text: `+${e.n}`, t: 0 });
+    const mult = ([0, 6].includes(new Date().getDay()) ? ECONOMY.weekendMult : 1) * (this.session.me.power.doubleYolks > 0 ? 2 : 1);
+    const eggs = eggsForPoints(this.ledger, e.n, mult);
+    if (eggs) this.addEggs(eggs);
+  }
+  // Eggs in, and anything they unlock announced.
+  addEggs(n) {
+    const p = this.profile, before = p.coins;
+    p.coins += n; saveProfile(p);
+    const crossed = need => before < need && p.coins >= need;
+    for (const [id, need] of Object.entries(WEAPON_UNLOCK)) if (crossed(need)) this.hud.toast(`Unlocked: the ${WEAPONS[id].name}!`, 5);
+    for (const t of TIERS) if (crossed(t.eggs)) this.hud.toast(`${t.name} gun skins unlocked!`, 5);
+  }
   onMyKill(e, victim) {
     const me = this.session.me;
     this.lifeKills++;
-    const yolks = ECONOMY.perKill * ([0, 6].includes(new Date().getDay()) ? ECONOMY.weekendMult : 1) * (me.power.doubleYolks > 0 ? 2 : 1);
-    this.profile.coins += yolks;
     const shown = victim && this.settings.safeNames ? 'Egg' + victim.id : victim?.name || '';
-    this.hud.confirmKill(shown, me.streak, yolks, this.renderer.avatars.get(e.id)?.color);
+    this.hud.confirmKill(shown, me.streak, this.renderer.avatars.get(e.id)?.color);
     this.marked.delete(e.id);
     const st = this.profile.stats;
     st.kills++; st.bestStreak = Math.max(st.bestStreak, me.streak);
@@ -644,6 +670,7 @@ class App {
       const fl = m.grid.floorBelow(P[0], P[1] + 0.3, P[2]);
       if (fl > -Infinity && P[1] - fl < 3) { const k = p.power.quailEgg > 0 ? 0.5 : 1, hgt = P[1] - fl; blobs.push([P[0], fl, P[2], 0.62 * k * (1 + hgt * 0.15), Math.max(0.2, 1 - hgt / 3)]); }
       a.setWeapon(slotOf(p.hands).id); a.setHp(p.hp);
+      if (a.rig) { const at = [P[0], P[1] + 0.3, P[2]]; a.animate({ dt, reload: reloadOf(p.hands) }, sample => this.sound.play('mech', at, 0.7, 1, sample)); }
       a.pose(P[0], P[1], P[2], p.body.yaw, p.body.pitch, { scale: p.power.quailEgg > 0 ? 0.5 : 1, shield: p.shield > 0 || p.spawnShield > 0, breaker: p.power.shellBreaker > 0, bob: this.t * 10 * Math.min(1, Math.hypot(p.body.vx, p.body.vz) * 25), vx: p.body.vx * 30, vy: p.body.onGround > 0 ? 0 : p.body.vy * 30, vz: p.body.vz * 30 });
     }
     for (const id of [...R.avatars.keys()]) if (!m.players.has(id)) R.dropAvatar(id);
@@ -725,18 +752,16 @@ class App {
     const ks = Math.min(1, dt * 22), idt = dt > 0 ? 1 / dt : 0;
     this.swayX = (this.swayX || 0) + (rdx * idt - (this.swayX || 0)) * ks; this.swayY = (this.swayY || 0) + (rdy * idt - (this.swayY || 0)) * ks;
     const mdx = this.swayX / 60, mdy = this.swayY / 60;
-    R.view.setWeapon(slotOf(h).id, this.profile.equip.skin);
-    if (this.input.inspectPressed) { this.input.inspectPressed = false; if (h.reload === 0 && h.swap === 0) h.inspect = 45; }
-    const rel = h.reload > 0 ? { f: 1 - h.reload / (h.reloadRounds && slotOf(h).mag === 0 ? w.reload[1] : w.reload[0]), long: w.reload[1] !== w.reload[0] && slotOf(h).mag === 0 } : null;
-    // Reload steps you can hear: the magazine out and in, the bolt, the slide, the barrels.
-    if (rel && me.alive) { for (const [at, name, longOnly] of RELOAD_STEPS[RELOAD_KIND[slotOf(h).id]] || []) if ((this.lastRf ?? 1) < at && rel.f >= at && (!longOnly || rel.long)) this.sound.play(name, null, 0.9); this.lastRf = rel.f; }
-    else this.lastRf = 0;
+    R.view.setWeapon(slotOf(h).id, skinOf(this.profile.equip, slotOf(h).id));
+    // Inspecting lasts as long as the gun's inspect clip.
+    if (this.input.inspectPressed) { this.input.inspectPressed = false; if (h.reload === 0 && h.swap === 0) h.inspect = this.inspectTicks = Math.round(R.view.rig.clips[R.view.rig.spec.inspect].duration * TICK_HZ); }
+    const rel = reloadOf(h);
     R.view.update({
       dt, visible: me.alive && this.state === 'play', speed: Math.hypot(me.body.vx, me.body.vz) * 30, strafe, vy: me.body.vy * 30, air: me.body.onGround === 0, climbing: !!me.body.climbing,
       ads: h.ads, scoped: w.scoped, mouseDX: mdx, mouseDY: mdy,
       reload: rel,
       swap: h.swap > 0 ? 1 - h.swap / (PLAYER.swapStowTicks + PLAYER.swapEquipTicks) : 0, melee: h.melee > 0 ? 1 - h.melee / MELEE.lock : 0, charge: h.charging ? h.power : null,
-      inspect: h.inspect > 0 ? 1 - h.inspect / 45 : 0, shield: me.spawnShield > 0, empty: slotOf(h).mag === 0,
+      inspect: h.inspect > 0 ? 1 - h.inspect / (this.inspectTicks || 45) : 0, shield: me.spawnShield > 0, empty: slotOf(h).mag === 0,
       sprint: !!(me.body.prevCtrl & CTRL.sprint) && Math.hypot(me.body.vx, me.body.vz) * 30 > 1.45 && !h.ads,
     });
     this.fallSpeed = Math.max(0, -me.body.vy * 30);

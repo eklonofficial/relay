@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Viewmodel review</title>
+<style>html,body{margin:0;height:100%;overflow:hidden;background:#5d8fb0}canvas{display:block}</style></head>
+<body><script type="module">
+// Development review page: renders one deterministic viewmodel or avatar frame from URL parameters.
+// ?weapon=yolk47&f=0.5&long=1&aim=1&skin=3&view=eggs. Sets document.title to "ready" once drawn.
+// Import under the game's current cache stamp so this page shares module instances with the game code.
+const stamp = (await (await fetch('../index.html')).text()).match(/js\/main\.js\?v=(\w+)/)[1];
+const load = path => import(`../${path}?v=${stamp}`);
+const THREE = await load('vendor/three/three.module.js');
+const { loadModels } = await load('js/render/models.js'), { ViewModel } = await load('js/render/viewmodel.js'), { EggAvatar } = await load('js/render/egg.js');
+const q = new URLSearchParams(location.search), weapon = q.get('weapon') || 'yolk47';
+const gl = new THREE.WebGLRenderer({ antialias: true });
+gl.setSize(innerWidth, innerHeight); gl.outputColorSpace = THREE.SRGBColorSpace;
+gl.toneMapping = THREE.NeutralToneMapping; gl.toneMappingExposure = 1.05; gl.setClearColor(0x5d8fb0);
+document.body.append(gl.domElement);
+await loadModels();
+if (q.get('view') === 'eggs') {
+  const scene = new THREE.Scene(), cam = new THREE.PerspectiveCamera(35, innerWidth / innerHeight, 0.01, 20);
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x667788, 2));
+  const sun = new THREE.DirectionalLight(0xffeedc, 2); sun.position.set(-2, 3, 4); scene.add(sun);
+  cam.position.set(0, 0.6, 2.6); cam.lookAt(0, 0.35, 0);
+  [100, 50, 10].forEach((hp, i) => {
+    const egg = new EggAvatar({ local: true, look: { color: [0, 9, 20][i], pattern: ['none', 'none', 'spots'][i], pcolor: 13, hat: ['cap', 'crown', 'chef'][i], stamp: i === 1 ? 'decal_0001' : 'none' }, weapon });
+    egg.group.position.x = (i - 1) * 0.8; egg.body.rotation.y = Math.PI + 0.5; egg.setHp(hp); scene.add(egg.group);
+  });
+  for (let i = 0; i < 20 && !document.hidden; i++) await new Promise(r => setTimeout(r, 100));
+  gl.render(scene, cam);
+} else {
+  const view = new ViewModel(); view.resize(innerWidth / innerHeight); view.setWeapon(weapon, Number(q.get('skin') || 0));
+  const f = q.has('f') ? Number(q.get('f')) : null, state = {
+    visible: true, speed: 0, mouseDX: 0, mouseDY: 0, ads: q.get('aim') === '1', inspect: Number(q.get('inspect') || 0),
+    charge: q.has('charge') ? Number(q.get('charge')) : null, melee: Number(q.get('melee') || 0), sprint: q.get('sprint') === '1', strafe: 0, vy: 0, reload: f === null ? null : { f, long: q.get('long') === '1' }
+  };
+  // Settle the aim blend, then sample the requested frame.
+  for (let i = 0; i < 90; i++) view.update({ ...state, dt: 1 / 60 });
+  gl.clear(); gl.render(view.scene, view.camera);
+}
+document.title = 'ready';
+</script></body></html>

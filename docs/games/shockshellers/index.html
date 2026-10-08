@@ -230,6 +230,14 @@
   .item-card .st { font-size: calc(var(--u)*9); opacity: .85; }
   .item-card .sw { width: calc(var(--u)*34); height: calc(var(--u)*42); border-radius: 50% 50% 46% 46% / 58% 58% 42% 42%; border: calc(var(--u)*3) solid var(--blue-e); }
   .item-card.on { --c: var(--orange); --e: var(--orange-e); }
+  .item-card { position: relative; }
+  .item-card.locked img, .item-card.locked .sw { opacity: .4; filter: grayscale(.6); }
+  .item-card .tier { font-size: calc(var(--u)*9); letter-spacing: calc(var(--u)*0.4); text-transform: uppercase; }
+  .item-card svg.lock { position: absolute; top: calc(var(--u)*6); right: calc(var(--u)*6); width: calc(var(--u)*16); height: calc(var(--u)*16); }
+  .wbtn { position: relative; }
+  .wbtn.locked img { opacity: .35; }
+  .wbtn .lk { position: absolute; inset: auto 0 calc(var(--u)*3) 0; display: flex; align-items: center; justify-content: center; gap: calc(var(--u)*2); font-family: "n", sans-serif; font-weight: 900; font-size: calc(var(--u)*10); text-shadow: none; }
+  .wbtn .lk svg { width: calc(var(--u)*11); height: calc(var(--u)*11); }
   #stats { font-size: calc(var(--u)*15); color: var(--ink); border-collapse: collapse; width: 100%; }
   #stats td.v { padding-right: calc(var(--u)*28); text-align: right; }
   #stats td { padding: calc(var(--u)*3) calc(var(--u)*12); border-bottom: calc(var(--u)*2) solid rgba(11,91,125,.2); }
@@ -238,7 +246,7 @@
 </head>
 <body>
 <div id="boot"><canvas id="boot-canvas"></canvas></div>
-<script type="module" id="boot-script" src="js/splash.js?v=muyu9h16" data-modules="65"></script>
+<script type="module" id="boot-script" src="js/splash.js?v=muyxgr3o" data-modules="72"></script>
 <canvas id="game" tabindex="-1"></canvas>
 
 <div class="screen hidden" id="loading">
@@ -386,7 +394,7 @@
   </div>
 </div>
 
-<script defer src="net-config.js?v=muyu9h16"></script>
-<script type="module" src="js/main.js?v=muyu9h16"></script>
+<script defer src="net-config.js?v=muyxgr3o"></script>
+<script type="module" src="js/main.js?v=muyxgr3o"></script>
 </body>
 </html>

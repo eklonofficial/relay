@@ -22,14 +22,27 @@ const markup = page.match(/<body>([\s\S]*?)<\/body>/)[1].replace(/<script\b[^>]*
 const binary = (name, type) => `data:${type};base64,${readFileSync(join(root, name)).toString('base64')}`;
 const compiled = async (entry, plugin) => (await build({ entryPoints: [join(root, entry)], bundle: true, minify: true, format: 'esm', target: 'es2022', write: false, sourcemap: false, legalComments: 'none', plugins: plugin ? [plugin] : [] })).outputFiles[0].text;
 const lib = read('vendor/peerjs.min.js');
+// Large assets ship beside the bundle as content-addressed files, gzipped when that saves a tenth or
+// more (js/util/asset.js recognises the gzip header and inflates them).
+const resource = file => {
+  const raw = readFileSync(join(root, file)), packed = gzipSync(raw, { level: 9 });
+  const bytes = packed.length < raw.length * 0.9 ? packed : raw;
+  const name = createHash('sha256').update(bytes).digest('hex').slice(0, 24) + '.bin';
+  writeFileSync(join(out, name), bytes);
+  return `new URL('./${name}', document.baseURI).href`;
+};
 const replacements = {
   name: 'local-resources',
   setup(api) {
     api.onResolve({ filter: /\.js\?v=/ }, args => ({ path: resolve(args.resolveDir, args.path.split('?')[0]) }));
     api.onLoad({ filter: /[\\/]page\.js$/ }, () => ({ contents: `import {mount} from './surface.js';mount(${JSON.stringify(markup)},${JSON.stringify(css)});`, loader: 'js' }));
-    // The sound bank: each recorded effect becomes a data: URL inside the bundle.
-    api.onLoad({ filter: /[\\/]models\.js$/ }, args => ({ loader: 'js', contents: readFileSync(args.path, 'utf8').replace(/new URL\('\.\.\/\.\.\/(assets\/models\/[\w]+\.glb)', import\.meta\.url\)\.href/g, (_, file) => JSON.stringify(binary(file, 'model/gltf-binary'))) }));
-    api.onLoad({ filter: /[\\/]soundbank\.js$/ }, args => ({ loader: 'js', contents: readFileSync(args.path, 'utf8').replace(/new URL\('\.\.\/\.\.\/(assets\/sounds\/[\w]+\.mp3)', import\.meta\.url\)\.href/g, (_, file) => JSON.stringify(binary(file, 'audio/mpeg'))) }));
+    api.onLoad({ filter: /[\\/](?:models|soundbank|asset-catalog)\.js$/ }, args => ({
+      loader: 'js',
+      contents: readFileSync(args.path, 'utf8').replace(
+        /new URL\(\s*(['"])\.\.\/\.\.\/(assets\/(?:models|sounds|imported)\/[^'"]+)\1\s*,\s*import\.meta\.url\s*\)\.href/g,
+        (_, quote, file) => resource(file)
+      )
+    }));
     api.onLoad({ filter: /[\\/](?:main|net)\.js$/ }, args => {
       let source = readFileSync(args.path, 'utf8');
       if (args.path.endsWith(join('net', 'net.js'))) {
@@ -60,4 +73,4 @@ writeFileSync(join(out, 'index.html'), `<!doctype html><html lang="en"><head><me
 writeFileSync(join(out, 'third-party-notices.txt'), ['fonts/LICENSE-sigmar-one.txt', 'fonts/LICENSE-nunito.txt', 'vendor/LICENSE-peerjs.txt', 'vendor/three/LICENSE-three.txt', 'assets/sounds/LICENSE-sounds.txt'].map(n => `${n}\n${read(n)}`).join('\n\n'));
 // Remove only our known temporary entry file, never a computed output tree.
 unlinkSync(entry);
-console.log(`built ${out}: ${payload.length} bytes, one packed resource`);
+console.log(`built ${out}: ${payload.length} bytes of application code plus content-addressed assets`);

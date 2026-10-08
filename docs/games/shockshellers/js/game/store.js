@@ -1,6 +1,6 @@
 // Saved settings and the local profile (GDD §20–22). Everything lives in this browser only, under
 // keys namespaced to the game; every access is wrapped because storage can throw or come back empty.
-import { DEFAULT_KEYS } from './input.js?v=muyu9h16';
+import { DEFAULT_KEYS } from './input.js?v=muyxgr3o';
 
 export const SETTINGS_KEY = 'shockshellers.settings.v1';
 export const PROFILE_KEY = 'shockshellers.profile.v1';
@@ -45,7 +45,7 @@ export function loadProfile() {
     primary: p.primary || 'yolk47', mode: p.mode || 'ffa',
     coins: Number.isFinite(p.coins) ? p.coins : 0,
     owned: Array.isArray(p.owned) ? p.owned : [],
-    equip: { color: 0, hat: 'none', pattern: 'none', pcolor: 13, stamp: 'none', skin: 'factory', ...(p.equip || {}) },
+    equip: { color: 0, hat: 'none', pattern: 'none', pcolor: 13, stamp: 'none', skins: {}, ...(p.equip || {}) },
     stats: { ...emptyStats(), ...(p.stats || {}) },
     challenges: p.challenges || null,
     recentMaps: Array.isArray(p.recentMaps) ? p.recentMaps.filter(id => typeof id === 'string').slice(-6) : [],

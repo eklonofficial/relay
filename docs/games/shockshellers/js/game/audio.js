@@ -6,16 +6,20 @@
 // a wall stands between it and you; gunfire and explosions also feed a convolution reverb whose size
 // follows the map (a tight barn, an open quarry). Each map has a quiet synthesised bed (wind and birds,
 // crickets, the hum of space). A blast close by, or your own death, briefly dulls everything.
+import { fetchAsset } from '../util/asset.js?v=muyxgr3o';
+
 const SAMPLE_URLS = {}; // name → URL, filled by registerSamples() from the sound bank module
 // How much of each sound goes to the reverb.
 const SEND = { explode: 0.55, yolkzooka: 0.45, poacher: 0.45, cageFree: 0.38, doubleYolker: 0.38, yolk47: 0.3, triBoil: 0.3, beater: 0.26, peck9mm: 0.26, crackBig: 0.25, splat: 0.2, squawk: 0.25, bounce: 0.15, melee: 0.15, step: 0.08, land: 0.1 };
 // Voice budget and what gives way first; what earns HRTF panning when close.
 const VOICES = 24, MINOR = new Set(['step', 'bounce', 'land', 'jump', 'impact', 'mech', 'whiz', 'dust']);
 const LOUD = new Set(['yolk47', 'beater', 'triBoil', 'peck9mm', 'cageFree', 'poacher', 'doubleYolker', 'yolkzooka', 'explode', 'whiz', 'crackBig', 'squawk']);
+// Samples decoded only when first needed (many gun skins have their own shot).
+const ON_DEMAND = /^skin_/;
 const UI = new Set(['uiHover', 'uiClick', 'pop', 'click', 'challenge', 'hitmark', 'hitBody', 'killConfirm', 'heartbeat', 'death', 'lowAmmo']);
 
 export class Sound {
-  constructor(settings) { this.settings = settings; this.ctx = null; this.buffers = new Map(); this.loops = new Map(); this.lx = 0; this.ly = 0; this.lz = 0; this.occluded = null; this.ambient = []; }
+  constructor(settings) { this.settings = settings; this.ctx = null; this.buffers = new Map(); this.decoding = new Map(); this.loops = new Map(); this.lx = 0; this.ly = 0; this.lz = 0; this.occluded = null; this.ambient = []; }
   unlock() {
     if (this.ctx) { if (this.ctx.state === 'suspended') this.ctx.resume(); return; }
     try { this.ctx = new AudioContext({ latencyHint: 'interactive' }); } catch { return; }
@@ -37,7 +41,7 @@ export class Sound {
     this.noise = buf;
     this.variants = new Map();
     for (const [name, url] of Object.entries(SAMPLE_URLS)) {
-      this.load(name, url);
+      if (!ON_DEMAND.test(name)) this.load(name, url);
       const base = name.replace(/\d+$/, '');
       if (base !== name) { if (!this.variants.has(base)) this.variants.set(base, []); this.variants.get(base).push(name); }
     }
@@ -62,8 +66,13 @@ export class Sound {
     f.cancelScheduledValues(t); f.setValueAtTime(Math.min(f.value, freq), t); f.exponentialRampToValueAtTime(20000, t + time);
   }
   async load(name, url) {
-    try { const r = await fetch(url); const a = await r.arrayBuffer(); this.buffers.set(name, await this.ctx.decodeAudioData(a)); } catch { /* synthesised instead */ }
+    try {
+      if (!this.decoding.has(url)) this.decoding.set(url, fetchAsset(url).then(a => this.ctx.decodeAudioData(a)));
+      this.buffers.set(name, await this.decoding.get(url));
+    } catch { /* synthesised instead */ }
   }
+  // Start decoding a sample that loads on demand (a gun skin's shot), so it is ready when needed.
+  warm(name) { if (this.ctx && !this.buffers.has(name) && SAMPLE_URLS[name]) this.load(name, SAMPLE_URLS[name]); }
   listener(x, y, z, yaw) {
     this.lx = x; this.ly = y; this.lz = z; this.lyaw = yaw;
     const L = this.ctx?.listener; if (!L) return;
@@ -90,14 +99,17 @@ export class Sound {
     }
     return g;
   }
-  play(name, pos = null, gain = 1, rate = 1) {
+  // name decides the mix (reverb, loudness, voice priority); sample, when given, is the recording to
+  // play in its place (a gun skin's own shot, a reload's mechanical cue).
+  play(name, pos = null, gain = 1, rate = 1, sample = name) {
     if (!this.ctx || this.ctx.state !== 'running') return;
     if (pos && Math.hypot(pos[0] - this.lx, pos[1] - this.ly, pos[2] - this.lz) > 90) return;
     // A busy fight can ask for dozens of sounds at once: past the voice budget, the small ones
     // (footsteps, bounces) give way.
     if (this.voices >= VOICES && MINOR.has(name)) return;
     const out = this.out(pos, gain, SEND[name] || 0, UI.has(name), LOUD.has(name));
-    const b = this.pick(name);
+    if (sample !== name) this.warm(sample);
+    const b = this.pick(sample) || (sample !== name ? this.pick(name) : null);
     this.voices = (this.voices || 0) + 1;
     const done = () => { this.voices--; };
     if (b) { const s = this.ctx.createBufferSource(); s.buffer = b; s.playbackRate.value = rate * (0.96 + Math.random() * 0.08); s.connect(out); s.onended = done; s.start(); return; }

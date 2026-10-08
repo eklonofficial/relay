@@ -118,7 +118,7 @@ def export(name, roots):
         for c in r.children_recursive: c.select_set(True)
     path = os.path.join(OUT, name + '.glb')
     bpy.ops.export_scene.gltf(filepath=path, export_format='GLB', use_selection=True, export_apply=True, export_yup=True,
-                              export_extras=False, export_cameras=False, export_lights=False, export_texcoords=(name == 'eggs'), export_normals=True)  # only the shell takes a texture (cracks)
+                              export_extras=False, export_cameras=False, export_lights=False, export_texcoords=False, export_normals=True)
     print('wrote', name, os.path.getsize(path) // 1024, 'KB')
 
 # ---------------- guns ----------------
@@ -304,100 +304,6 @@ def cluck_bomb():
     cyl('pin', 0.016, 0.004, (-0.04, 0, 0.1), M('brass'), r, axis='X', verts=16)
     return r
 
-# ---------------- egg, gloves, hats ----------------
-def egg():
-    r = root('egg')
-    # Turned profile: 0.62 tall, widest a little below the middle.
-    bm = bmesh.new(); H, W = 0.62, 0.28; rings, seg = 28, 40
-    verts = []
-    for i in range(rings + 1):
-        t = i / rings * math.pi
-        z = H / 2 * (1 - math.cos(t)); rad = W * math.sin(t) * (1 + 0.1 * math.cos(t))
-        row = []
-        for j in range(seg):
-            a = j / seg * math.pi * 2
-            row.append(bm.verts.new((rad * math.cos(a), rad * math.sin(a), z)))
-        verts.append(row)
-    for i in range(rings):
-        for j in range(seg):
-            a, b, c, d = verts[i][j], verts[i][(j + 1) % seg], verts[i + 1][(j + 1) % seg], verts[i + 1][j]
-            try: bm.faces.new((a, b, c, d))
-            except ValueError: pass
-    bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=1e-5)
-    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
-    # UVs for the shell/crack texture: u around, v up.
-    uv = bm.loops.layers.uv.new()
-    for f in bm.faces:
-        us = [(math.atan2(l.vert.co.y, l.vert.co.x) / (2 * math.pi)) % 1.0 for l in f.loops]
-        for l, u in zip(f.loops, us):
-            # The last column of faces wraps from u≈0.97 back to 0: give those corners u+1 (no seam smear).
-            if max(us) - u > 0.5: u += 1.0
-            l[uv].uv = (u, l.vert.co.z / H)
-    o = mesh_obj('shell', bm, M('shell'), r)
-    for p in o.data.polygons: p.use_smooth = True
-    return r
-
-def dome(name, r, loc, material, parent=None, scale=(1, 1, 1), seg=32, rings=16):
-    """The top half of a sphere (hats sit on the egg; a full ball would poke through it)."""
-    bm = bmesh.new(); bmesh.ops.create_uvsphere(bm, u_segments=seg, v_segments=rings, radius=r)
-    bmesh.ops.delete(bm, geom=[v for v in bm.verts if v.co.z < -1e-4], context='VERTS')
-    o = mesh_obj(name, bm, material, parent); o.location = loc; o.scale = scale
-    for p in o.data.polygons: p.use_smooth = True
-    return o
-
-def glove(name='glove'):
-    """A puffy cartoon mitten made of metaballs (palm, fingers, a chunky thumb), meshed, plus a rolled cuff."""
-    r = root(name)
-    mb = bpy.data.metaballs.new('mitt'); mb.resolution = 0.006; mb.render_resolution = 0.006; mb.threshold = 0.6
-    # Palm, fingers (a bit flatter and wider), a chunky thumb off the side, and the wrist.
-    for (x, y, z, sx, sy, sz, rad) in [(0, 0, 0, 1.0, 1.2, 0.8, 0.075), (0, 0.055, -0.006, 1.05, 0.9, 0.72, 0.07), (-0.058, 0.012, 0.012, 0.6, 1.1, 0.62, 0.05), (0, -0.06, 0, 0.9, 0.8, 0.9, 0.06)]:
-        e = mb.elements.new(); e.type = 'ELLIPSOID'; e.co = (x, y, z); e.radius = rad; e.stiffness = 2.0; e.size_x, e.size_y, e.size_z = sx, sy, sz
-    o = bpy.data.objects.new('mitt', mb); bpy.context.collection.objects.link(o)
-    bpy.ops.object.select_all(action='DESELECT'); o.select_set(True); bpy.context.view_layer.objects.active = o
-    bpy.ops.object.convert(target='MESH')
-    m = bpy.context.view_layer.objects.active; m.name = 'mitt'; m.data.materials.clear(); m.data.materials.append(M('white')); m.parent = r
-    for p in m.data.polygons: p.use_smooth = True
-    bm = bmesh.new(); bmesh.ops.create_cone(bm, cap_ends=False, segments=24, radius1=0.04, radius2=0.044, depth=0.024)
-    cuff = mesh_obj('cuff', bm, M('white'), r); cuff.location = (0, -0.1, 0); cuff.rotation_euler = (math.radians(90), 0, 0)
-    sol = cuff.modifiers.new('thick', 'SOLIDIFY'); sol.thickness = 0.01
-    for p in cuff.data.polygons: p.use_smooth = True
-    return r
-
-def hats():
-    out = []
-    c = root('hat_cap')
-    dome('dome', 0.165, (0, 0, 0), M('red'), c, scale=(1, 1, 0.75))
-    brim = cyl('brim', 0.11, 0.014, (0, 0.14, 0.006), M('red'), c, axis='Z', verts=24); brim.scale = (1, 0.8, 1)
-    sphere('button', 0.018, (0, 0, 0.095), M('white'), c)
-    out.append(c)
-    b = root('hat_beanie')
-    dome('knit', 0.168, (0, 0, 0.0), M('blue'), b, scale=(1, 1, 0.95))
-    cyl('fold', 0.172, 0.05, (0, 0, -0.01), M('blue'), b, axis='Z', verts=32)
-    sphere('pom', 0.05, (0, 0, 0.17), M('white'), b)
-    out.append(b)
-    ch = root('hat_chef')
-    cyl('band', 0.15, 0.08, (0, 0, 0.04), M('white'), ch, axis='Z', verts=32)
-    for i in range(6):
-        a = i / 6 * math.pi * 2
-        sphere('puff', 0.09, (math.cos(a) * 0.08, math.sin(a) * 0.08, 0.14), M('white'), ch)
-    sphere('top', 0.1, (0, 0, 0.18), M('white'), ch)
-    out.append(ch)
-    t = root('hat_tophat')
-    cyl('brim', 0.2, 0.016, (0, 0, 0.008), M('black'), t, axis='Z', verts=32)
-    cyl('crown', 0.115, 0.22, (0, 0, 0.12), M('black'), t, axis='Z', verts=32, r2=0.12)
-    cyl('band', 0.122, 0.035, (0, 0, 0.035), M('red'), t, axis='Z', verts=32)
-    out.append(t)
-    k = root('hat_crown')
-    bm = bmesh.new(); bmesh.ops.create_cone(bm, cap_ends=False, segments=32, radius1=0.13, radius2=0.12, depth=0.07)
-    ring = mesh_obj('ring', bm, M('gold'), k); ring.location = (0, 0, 0.035)
-    sol = ring.modifiers.new('thick', 'SOLIDIFY'); sol.thickness = 0.012
-    for i in range(5):
-        a = i / 5 * math.pi * 2
-        cyl('spike', 0.03, 0.08, (math.cos(a) * 0.12, math.sin(a) * 0.12, 0.1), M('gold'), k, axis='Z', verts=4, r2=0.0)
-        sphere('gem', 0.012, (math.cos(a) * 0.128, math.sin(a) * 0.128, 0.04), M('red'), k)
-    out.append(k)
-    return out
-
 # ---------------- props ----------------
 def crate():
     r = root('crate')
@@ -463,6 +369,5 @@ reset()
 # (The guns, whisk and Cluck Bomb are now modelled in code: js/render/guns.js. The builders above are
 # kept for reference; guns.glb is no longer exported or shipped.)
 reset(); MATS.clear()
-export('eggs', [egg(), glove('glove'), *hats()])
 reset(); MATS.clear()
 export('props', [crate(), barrel(), ammo_carton(), spatula(), tree(), bush()])

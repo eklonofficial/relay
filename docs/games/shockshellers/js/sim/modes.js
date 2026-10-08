@@ -1,7 +1,7 @@
 // Game modes (GDD §14): Free For All, Teams, Spatula Snatch, Rule the Roost. Each mode answers the
 // match's questions (teams, spawns, scoring) and keeps its own objective state, which the HUD and the
 // network read through state().
-import { ROOST, SPATULA, PLAYER } from './tuning.js?v=muyu9h16';
+import { ROOST, SPATULA, PLAYER, SCORE, TICK_HZ } from './tuning.js?v=muyxgr3o';
 
 export const TEAM_NAMES = ['', 'Blue', 'Red'];
 
@@ -63,7 +63,7 @@ class Spatula extends Teams {
   onKill(killer, victim) {
     if (this.spat.carrier === victim.id) this.drop(victim);
     if (this.spat.held && this.spat.held === killer.team) {
-      this.score[killer.team]++;
+      this.score[killer.team]++; this.m.award(killer, SCORE.spatulaKill, 'objective');
       this.m.emit({ t: 'score', team: killer.team, s: this.score[killer.team] });
       const limit = this.m.options.scoreLimit;
       if (limit && this.score[killer.team] >= limit) { this.m.emit({ t: 'win', team: killer.team }); this.score = [0, 0, 0]; this.respawn(); }
@@ -75,6 +75,7 @@ class Spatula extends Teams {
       const p = m.players.get(s.carrier);
       if (!p || !p.alive) { if (p) this.drop(p); else { s.carrier = -1; s.held = 0; } return; }
       p.obj = (p.obj || 0) + 1;
+      if (p.obj % TICK_HZ === 0) this.m.award(p, SCORE.objPerSecond, 'objective');
       // Rides 0.3 behind the carrier, following their yaw.
       s.x = p.body.x + Math.sin(p.body.yaw) * SPATULA.carryBack; s.y = p.body.y + 0.45; s.z = p.body.z + Math.cos(p.body.yaw) * SPATULA.carryBack;
       return;
@@ -97,6 +98,7 @@ class Spatula extends Teams {
       if ((p.body.x - s.x) ** 2 + (p.body.z - s.z) ** 2 > SPATULA.radius ** 2 || Math.abs(p.body.y + 0.3 - s.y) > 0.9) continue;
       // Taking it from the other team resets your team's score; re-taking your own drop keeps it.
       if (s.last && s.last !== p.team) { this.score[p.team] = 0; }
+      if (s.held !== p.team) m.award(p, SCORE.spatulaTake, 'objective');
       s.carrier = p.id; s.held = p.team; s.last = p.team; s.rest = false;
       m.emit({ t: 'spatula', k: 'take', id: p.id, team: p.team });
       break;
@@ -128,7 +130,7 @@ class Roost extends Teams {
     const c = this.counts();
     if (!c[1] || !c[2]) { this.st = 'waiting'; return; }
     const inside = [0, 0, 0];
-    for (const p of m.players.values()) if (p.alive && p.pausedAt < 0 && this.inZone(p)) { inside[p.team]++; p.obj = (p.obj || 0) + 1; }
+    for (const p of m.players.values()) if (p.alive && p.pausedAt < 0 && this.inZone(p)) { inside[p.team]++; p.obj = (p.obj || 0) + 1; if (p.obj % TICK_HZ === 0) m.award(p, SCORE.objPerSecond, 'objective'); }
     if (inside[1] && inside[2]) { this.st = 'contested'; return; }
     const t = inside[1] ? 1 : inside[2] ? 2 : 0;
     if (!t) {
@@ -148,6 +150,7 @@ class Roost extends Teams {
   capture(t) {
     const m = this.m;
     this.score[t]++; m.emit({ t: 'roost', k: 'score', team: t, s: this.score[t] });
+    for (const p of m.players.values()) if (p.alive && p.team === t && this.inZone(p)) m.award(p, SCORE.roostCapture, 'objective');
     // In a game with rounds, the fifth capture wins the round outright (the podium follows).
     if (this.score[t] >= ROOST.goal && m.roundEnds) { m.endRound(t); return; }
     if (this.score[t] >= ROOST.goal) {

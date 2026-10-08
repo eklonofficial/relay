@@ -115,12 +115,12 @@ export class Social {
   ambient() {
     const m = this.m, ps = [...m.players.values()];
     if (!ps.length) return;
-    const top = ps.slice().sort((a, b) => b.score - a.score)[0];
+    const top = ps.slice().sort((a, b) => b.score - a.score)[0];   // (the leader by points)
     const r = this.rnd();
     if (m.mode.teams && r < 0.35) {
       const s = m.mode.score; const bot = [...this.mgr.bots.values()][Math.floor(this.rnd() * this.mgr.bots.size)];
       if (bot && s) { const mine = s[bot.p.team], theirs = s[bot.p.team === 1 ? 2 : 1]; if (mine !== theirs) this.say(bot.p.id, mine > theirs ? 'winning' : 'losing'); }
-    } else if (r < 0.7 && top && top.score >= 5) {
+    } else if (r < 0.7 && top && top.kills >= 5) {
       const ids = [...this.mgr.bots.keys()].filter(id => id !== top.id);
       if (ids.length) this.say(ids[Math.floor(this.rnd() * ids.length)], 'leader', top.id);
     } else this.anyone('idle');

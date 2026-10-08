@@ -1,66 +1,40 @@
-// The egg: a smooth ovoid shell (painted with its colour, pattern and stamp; cracks grow at
-// 80/60/40/20 HP, GDD §5), two floating cartoon mittens holding the gun, an optional hat, a team
-// ring for teammates and a name tag. Third-person only; the first-person hands are viewmodel.js.
+// The egg: the shell (painted with its colour, pattern and stamp; the cracks in its mesh show as it
+// loses health, GDD §5), the mittens holding the gun, an optional hat, a team ring for teammates and
+// a name tag. Third-person only; the first-person hands are viewmodel.js.
 //
 // Other eggs are drawn cheaply, since a full lobby puts eighteen of them on screen: the gun and both
-// mittens are one mesh, the hat is one mesh, and the shell has three levels of detail picked by
-// distance (lod()); far away, the gun and mittens are too small to see and aren't drawn at all.
-import * as THREE from '../../vendor/three/three.module.js?v=muyu9h16';
-import { gunModel, heldGeometry, gunAnchors } from './guns.js?v=muyu9h16';
-import { kitMaterial } from './kit.js?v=muyu9h16';
-import { hatMesh } from './hats.js?v=muyu9h16';
-import { merged } from './models.js?v=muyu9h16';
-import { paintShell, paintCracks } from './shellart.js?v=muyu9h16';
-import { COLORS, sanitizeCosmetics } from '../game/cosmetics.js?v=muyu9h16';
+// mittens are one still mesh (guns.js), the hat is one mesh, and far away the gun and mittens are too
+// small to see and aren't drawn at all. Only an egg close by gets its gun's live rig, so its reloads
+// and shots can be seen.
+import * as THREE from '../../vendor/three/three.module.js?v=muyxgr3o';
+import { heldGeometry, muzzleOf } from './guns.js?v=muyxgr3o';
+import { WeaponRig } from './weapon-rig.js?v=muyxgr3o';
+import { hatMesh } from './hats.js?v=muyxgr3o';
+import { eggGeometry, importedMaterial } from './models.js?v=muyxgr3o';
+import { paintShell } from './shellart.js?v=muyxgr3o';
+import { stampImage, loadStamp } from './stamps.js?v=muyxgr3o';
+import { COLORS, sanitizeCosmetics, skinOf } from '../game/cosmetics.js?v=muyxgr3o';
 
 export const SHELL_COLORS = COLORS;
 export const TEAM_COLORS = [0xbbbbbb, 0x2f86e8, 0xe8473c];
 
-// Egg profile: 0.62 tall, 0.56 wide, a touch wider below the middle. u runs once around (the front,
-// -z, is u = 0.5), v is height over the egg's height (as the texture is painted).
-const H = 0.62, W = 0.28;
-const LODS = [[32, 22], [18, 12], [11, 8]], LOD_FAR = [9, 24], HELD_FAR = 30, TAG_FAR = 34;
-const shellGeos = [];
-export function shellGeometry(level = 0) {
-  if (shellGeos[level]) return shellGeos[level];
-  const [seg, rings] = LODS[level], pos = [], nor = [], uv = [], idx = [];
-  for (let i = 0; i <= rings; i++) {
-    const t = i / rings * Math.PI, y = H / 2 * (1 - Math.cos(t)), r = W * Math.sin(t) * (1 + 0.1 * Math.cos(t));
-    // The outward normal: perpendicular to the profile's tangent (dr, dy).
-    const dy = H / 2 * Math.sin(t), dr = W * (Math.cos(t) * (1 + 0.1 * Math.cos(t)) - 0.1 * Math.sin(t) ** 2);
-    let nr = dy, ny = -dr; const l = Math.hypot(nr, ny) || 1; nr /= l; ny /= l;
-    if (i === 0) { nr = 0; ny = -1; } else if (i === rings) { nr = 0; ny = 1; }
-    for (let j = 0; j <= seg; j++) {
-      const a = j / seg * Math.PI * 2, sa = Math.sin(a), ca = Math.cos(a);
-      pos.push(r * sa, y, r * ca); nor.push(nr * sa, ny, nr * ca); uv.push(j / seg, y / H);
-    }
-  }
-  for (let i = 0; i < rings; i++) for (let j = 0; j < seg; j++) {
-    const a = i * (seg + 1) + j, b = a + seg + 1, c = b + 1, d = a + 1;
-    idx.push(a, d, b, d, c, b);
-  }
-  const g = new THREE.BufferGeometry();
-  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
-  g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.setIndex(idx); g.computeBoundingSphere();
-  return (shellGeos[level] = g);
-}
-export const eggGeometry = () => shellGeometry(0);
+// Distances (units) inside which an egg's gun is live, drawn at all, and its name tag shown.
+const RIG_NEAR = 9, RIG_FAR = 11, HELD_FAR = 30, TAG_FAR = 34;
+// Where the gun hangs: the head pivot, turned a little inwards (as the first-person view).
+const HEAD_Y = 0.3, HOLD_PITCH = 0.035, HOLD_YAW = 0.14;
 
-// Shell textures: the painted shell (cached per look and size), then a copy per crack stage.
-const painted = new Map(), shellTex = new Map();
-function lookKey(look) { return `${look.color}|${look.pattern}|${look.pcolor}|${look.stamp}`; }
-function shellTexture(look, stage, S) {
-  const key = lookKey(look) + '|' + stage + '|' + S;
-  if (shellTex.has(key)) return shellTex.get(key);
-  const pk = lookKey(look) + '|' + S;
-  if (!painted.has(pk)) { const b = new OffscreenCanvas(S, S); paintShell(b.getContext('2d'), S, look); painted.set(pk, b); }
-  const c = new OffscreenCanvas(S, S), x = c.getContext('2d');
-  x.drawImage(painted.get(pk), 0, 0); paintCracks(x, S, stage);
+// Shell textures, painted once per look and size.
+const painted = new Map();
+const lookKey = look => `${look.color}|${look.pattern}|${look.pcolor}|${look.stamp}`;
+function shellTexture(look, S) {
+  const key = lookKey(look) + '|' + S + '|' + (stampImage(look.stamp) ? 1 : 0);
+  if (painted.has(key)) return painted.get(key);
+  const c = new OffscreenCanvas(S, S);
+  paintShell(c.getContext('2d'), S, look, stampImage(look.stamp));
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.wrapS = THREE.RepeatWrapping; t.anisotropy = 4;
-  shellTex.set(key, t);
+  painted.set(key, t);
   return t;
 }
-export function crackStage(hp) { return hp >= 80 ? 0 : hp >= 60 ? 1 : hp >= 40 ? 2 : hp >= 20 ? 3 : 4; }
 
 function nameSprite(text, color) {
   const c = new OffscreenCanvas(256, 64), x = c.getContext('2d');
@@ -73,39 +47,41 @@ function nameSprite(text, color) {
   return s;
 }
 
-// The modelled mitten for the close-up egg (the home screen), or a simple ball before models load.
-function bigMitten() {
-  const m = merged('glove');
-  if (m) { m.scale.setScalar(0.75); return m; }
-  const g = new THREE.SphereGeometry(0.06, 12, 10); g.scale(1, 0.85, 1.15);
-  return new THREE.Mesh(g, new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.7 }));
-}
-const GUN_AT = [0.27, -0.02, -0.2];
+const holder = () => { const g = new THREE.Group(); g.rotation.set(HOLD_PITCH, HOLD_YAW, 0, 'YXZ'); return g; };
 
 export class EggAvatar {
-  // look: { color, pattern, pcolor, stamp, hat, skin } (cosmetics.js); local: the close-up egg of
-  // the home screen or the player's own (full detail, no name tag).
+  // look: { color, pattern, pcolor, stamp, hat, skins } (cosmetics.js); local: the close-up egg of
+  // the home screen or the player's own (full detail, live gun, no name tag).
   constructor({ name = '', look = null, color, hat, team = 0, weapon = 'yolk47', friendly = false, local = false }) {
     const c = sanitizeCosmetics(look || { color, hat });
     this.look = { color: COLORS[c.color], pattern: c.pattern, pcolor: COLORS[c.pcolor], stamp: c.stamp };
-    this.skin = c.skin; this.local = local; this.texSize = local ? 512 : 256;
+    this.cosmetics = c; this.local = local; this.texSize = local ? 512 : 256;
     this.group = new THREE.Group();
-    this.stage = -1; this.level = -1;
-    // A glossy shell: it catches the sky in a soft highlight like a real egg.
-    this.shellMat = new THREE.MeshStandardMaterial({ roughness: 0.34, metalness: 0.0, envMapIntensity: 0.85 });
-    // A warm rim of light around the silhouette (stylised, like a back light on a character), so an
-    // egg always separates from the walls and floor behind it.
+    this.level = -1; this.near = local;
+    // A glossy shell: it catches the sky in a soft highlight like a real egg. Its vertex colours hold
+    // the crack pattern: health uncovers it (the darker a vertex's mark, the earlier it cracks).
+    this.health = { value: 1 };
+    this.shellMat = new THREE.MeshStandardMaterial({ roughness: 0.34, metalness: 0.0, envMapIntensity: 0.85, vertexColors: true });
+    // ...and a warm rim of light around the silhouette (stylised, like a back light on a character),
+    // so an egg always separates from the walls and floor behind it.
     this.shellMat.onBeforeCompile = sh => {
-      sh.fragmentShader = sh.fragmentShader.replace('#include <opaque_fragment>', `float rimK = pow(1.0 - clamp(dot(normal, normalize(vViewPosition)), 0.0, 1.0), 3.0);
+      sh.uniforms.shellHealth = this.health;
+      sh.fragmentShader = 'uniform float shellHealth;\n' + sh.fragmentShader
+        .replace('#include <color_fragment>', `#ifdef USE_COLOR
+        diffuseColor.rgb *= sqrt(clamp(6.0 * (vColor.rgb + vec3(0.16470588235 * shellHealth)), 0.0, 1.0));
+        #endif`)
+        .replace('#include <opaque_fragment>', `float rimK = pow(1.0 - clamp(dot(normal, normalize(vViewPosition)), 0.0, 1.0), 3.0);
         outgoingLight += vec3(1.0, 0.93, 0.8) * rimK * 0.32;
         #include <opaque_fragment>`);
     };
-    this.shellMat.customProgramCacheKey = () => 'eggRim';
-    this.shell = new THREE.Mesh(shellGeometry(0), this.shellMat); this.shell.castShadow = true; this.shell.receiveShadow = true;
+    this.shellMat.customProgramCacheKey = () => 'eggShell';
+    this.shell = new THREE.Mesh(eggGeometry(), this.shellMat); this.shell.castShadow = true; this.shell.receiveShadow = true;
     this.body = new THREE.Group(); this.body.add(this.shell); this.group.add(this.body);
-    this.hat = hatMesh(c.hat); if (this.hat) { this.hat.position.y = H - 0.04; this.body.add(this.hat); }
-    // Hands + gun pivot at chest height, pitched with the view.
-    this.arms = new THREE.Group(); this.arms.position.set(0, 0.32, 0); this.body.add(this.arms);
+    this.paint();
+    if (c.stamp !== 'none' && !stampImage(c.stamp)) loadStamp(c.stamp).then(() => { if (!this.disposed) this.paint(); });
+    this.hat = hatMesh(c.hat); if (this.hat) this.body.add(this.hat);
+    // Hands + gun pivot at the head, pitched with the view.
+    this.arms = new THREE.Group(); this.arms.position.set(0, HEAD_Y, 0); this.body.add(this.arms);
     this.setWeapon(weapon);
     this.team = team; this.friendly = friendly;
     if (friendly) {
@@ -118,51 +94,48 @@ export class EggAvatar {
     this.tag = local ? null : nameSprite(name, team ? '#' + TEAM_COLORS[team].toString(16).padStart(6, '0') : '#e8e8e8');
     if (this.tag) this.group.add(this.tag);
     this.setHp(100);
-    this.lod(0);
+    this.lod(local ? 0 : Infinity);
     this.sparkle = 0; this.flash = 0; this.squash = 0; this.lean = 0; this.side = 0; this.last = performance.now();
   }
+  paint() { this.shellMat.map = shellTexture(this.look, this.texSize); this.shellMat.needsUpdate = true; }
   // Struck: the shell flashes white for a moment.
   hit(kill) { this.flash = kill ? 1.4 : 1; }
   get color() { return this.look.color; }
   // Where the muzzle is in the world (for the muzzle flash others see).
   muzzleWorld(out) {
-    if (this.gun) return this.gun.localToWorld(out.copy(this.gun.userData.muzzle));
-    const s = this.weaponId === 'peck9mm' ? 0.75 : 0.55;
-    out.copy(gunAnchors(this.weaponId).muzzle).multiplyScalar(s); out.x += GUN_AT[0]; out.y += GUN_AT[1]; out.z += GUN_AT[2];
-    return this.arms.localToWorld(out);
+    out.copy(muzzleOf(this.weaponId));
+    return (this.rig ? this.rig.root : this.held).localToWorld(out);
   }
   setWeapon(id) {
     if (this.weaponId === id) return;
-    this.weaponId = id;
-    if (!this.local) {
-      // Gun and mittens in one mesh, in the arms' space.
-      if (!this.held) { this.held = new THREE.Mesh(heldGeometry(id, this.skin, GUN_AT), kitMaterial()); this.held.castShadow = false; this.held.receiveShadow = true; this.arms.add(this.held); }
-      else this.held.geometry = heldGeometry(id, this.skin, GUN_AT);
-      return;
-    }
-    if (this.gun) this.arms.remove(this.gun);
-    this.gloveR ??= bigMitten(); this.gloveL ??= bigMitten(); this.arms.add(this.gloveR, this.gloveL);
-    this.gun = gunModel(id, false, this.skin);
-    const scale = id === 'peck9mm' ? 0.75 : 0.55;
-    // Gloves and gun float clearly outside the shell, to the egg's right, as the reference style does.
-    this.gun.scale.setScalar(scale); this.gun.position.set(...GUN_AT);
-    this.arms.add(this.gun);
-    const u = this.gun.userData, s2 = scale;
-    const g = u.grip ? u.grip.clone().multiplyScalar(s2).add(this.gun.position) : new THREE.Vector3(0.27, -0.07, -0.16);
-    const sp = u.support ? u.support.clone().multiplyScalar(s2).add(this.gun.position) : new THREE.Vector3(0.2, -0.03, -0.34);
-    this.gloveR.position.copy(g); this.gloveL.position.copy(id === 'peck9mm' ? g.clone().add(new THREE.Vector3(-0.05, 0, 0)) : sp);
-    if (u.mag && ['doubleYolker', 'poacher', 'yolkzooka'].includes(id)) u.mag.visible = false;
+    this.weaponId = id; this.skin = skinOf(this.cosmetics, id);
+    this.dropRig();
+    // The still gun and mittens (one mesh), shown whenever the live rig isn't.
+    if (!this.held) { this.held = new THREE.Mesh(heldGeometry(id, this.skin), importedMaterial); this.held.rotation.set(HOLD_PITCH, HOLD_YAW, 0, 'YXZ'); this.held.castShadow = false; this.held.receiveShadow = true; this.arms.add(this.held); }
+    else this.held.geometry = heldGeometry(id, this.skin);
+    if (this.near) this.makeRig();
   }
-  setHp(hp) {
-    const st = crackStage(hp);
-    if (st === this.stage) return;
-    this.stage = st; this.shellMat.map = shellTexture(this.look, st, this.texSize); this.shellMat.needsUpdate = true;
+  makeRig() {
+    if (this.rig) return;
+    this.rig = new WeaponRig(this.weaponId, this.skin, true);
+    this.rig.root.rotation.set(HOLD_PITCH, HOLD_YAW, 0, 'YXZ');
+    if (!this.local) this.rig.root.traverse(o => { if (o.isMesh) o.castShadow = false; });
+    this.arms.add(this.rig.root); this.held.visible = false;
   }
-  // Detail for this distance from the camera: the shell's mesh, and whether the gun and mittens show.
+  dropRig() { if (!this.rig) return; this.arms.remove(this.rig.root); this.rig.dispose(); this.rig = null; }
+  // The live gun's clip this frame: { dt, reload: {f, long}|null }. cue(sample) for its sounds.
+  animate(state, cue) { this.rig?.update({ inspect: 0, melee: 0, ...state }, cue); }
+  // A shot: the live gun works its action.
+  fired() { this.rig?.fire(); }
+  setHp(hp) { this.health.value = Math.max(0, Math.min(1, hp / 100)); }
+  // Detail for this distance from the camera: whether the gun is live, drawn still, or not at all.
   lod(dist) {
-    const level = this.local ? 0 : dist < LOD_FAR[0] ? 0 : dist < LOD_FAR[1] ? 1 : 2;
-    if (level !== this.level) { this.level = level; this.shell.geometry = shellGeometry(level); }
-    if (this.held) this.held.visible = dist < HELD_FAR;
+    if (!this.local) {
+      const near = this.rig ? dist < RIG_FAR : dist < RIG_NEAR;
+      if (near && !this.rig) this.makeRig(); else if (!near && this.rig) { this.dropRig(); this.held.visible = true; }
+      this.near = near;
+    }
+    this.held.visible = !this.rig && dist < HELD_FAR;
     if (this.tag) this.tag.visible = dist < TAG_FAR;   // (unreadable further out; one draw call each)
   }
   // Pose for this frame: position (feet), yaw, pitch, scale (Quail Egg), effects. vx/vz/vy (units per
@@ -190,5 +163,5 @@ export class EggAvatar {
     else this.shellMat.emissive.setHex(breaker ? 0x661100 : shield ? 0x113355 : 0x000000);
     if (this.tag) this.tag.position.y = 0.95 * scale;
   }
-  dispose() { this.shellMat.dispose(); this.tag?.material.map.dispose(); this.tag?.material.dispose(); }
+  dispose() { this.disposed = true; this.dropRig(); this.shellMat.dispose(); this.tag?.material.map.dispose(); this.tag?.material.dispose(); this.ring?.geometry.dispose(); this.ring?.material.dispose(); }
 }

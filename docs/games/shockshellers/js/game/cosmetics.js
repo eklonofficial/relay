@@ -1,7 +1,10 @@
 // The cosmetic catalogue (GDD §22): shell colours, shell patterns and their colour, stamps (a
-// decal on the front of the shell), hats and gun skins. Pure data, shared by the shop, the renderer,
-// the bots and the host's check of what guests send (cosmetics are only ever drawn, never
-// interpreted). Almost everything is free; a few hats are earned with yolks.
+// decal on the front of the shell), hats and per-weapon gun skins. Pure data, shared by the shop,
+// the renderer, the bots and the host's check of what guests send (cosmetics are only ever drawn,
+// never interpreted). Almost everything is free; gun skins and a few hats open up with eggs
+// (game/progress.js).
+
+import { HAT_NODES, STAMP_IDS, WEAPON_ASSETS } from '../render/asset-catalog.js?v=muyxgr3o';
 
 // Shell colours. The first fourteen keep their old numbers (saved profiles and the wire use them).
 export const COLORS = [
@@ -16,50 +19,54 @@ export const PATTERNS = [
   { id: 'flames', name: 'Flames' }, { id: 'bolts', name: 'Lightning' }, { id: 'scales', name: 'Scales' }, { id: 'swirl', name: 'Swirl' },
   { id: 'tiger', name: 'Tiger' }, { id: 'galaxy', name: 'Galaxy' },
 ];
-export const STAMPS = [
-  { id: 'none', name: 'None' }, { id: 'smile', name: 'Smile' }, { id: 'googly', name: 'Googly Eyes' }, { id: 'shades', name: 'Shades' },
-  { id: 'mustache', name: 'Mustache' }, { id: 'angry', name: 'Grumpy' }, { id: 'blush', name: 'Blush' }, { id: 'star', name: 'Star' },
-  { id: 'heart', name: 'Heart' }, { id: 'bolt', name: 'Bolt' }, { id: 'flame', name: 'Flame' }, { id: 'paw', name: 'Paw' },
-  { id: 'yolk', name: 'Sunny Side' }, { id: 'clover', name: 'Clover' }, { id: 'target', name: 'Target' }, { id: 'number', name: 'Lucky 7' },
-  { id: 'skull', name: 'Skull' }, { id: 'patch', name: 'Eye Patch' },
+// Stamps: the imported decals, drawn on the front of the shell.
+export const STAMPS = [{ id: 'none', name: 'None' }, ...STAMP_IDS.map((id, i) => ({ id, name: `Stamp ${i + 1}` }))];
+// Hats: the imported hats and accessories. The named ones keep the ids saved profiles use (and the
+// prices of the rare few); the rest follow, numbered. node: the hat's mesh in the character bundle.
+const NAMED_HATS = [
+  ['cap', 'Ball Cap', 537], ['beanie', 'Beanie', 528], ['chef', 'Chef', 476], ['cowboy', 'Cowboy', 521], ['viking', 'Viking', 237],
+  ['wizard', 'Wizard', 478], ['party', 'Party', 458], ['headphones', 'Headphones', 512], ['bunny', 'Bunny Ears', 498], ['pirate', 'Pirate', 508],
+  ['sombrero', 'Sombrero', 625], ['beret', 'Beret', 312], ['bucket', 'Bucket Hat', 212], ['antenna', 'Antennae', 21], ['horns', 'Devil Horns', 491],
+  ['santa', 'Santa', 454], ['bow', 'Bow', 525], ['fez', 'Fez', 470], ['mohawk', 'Mohawk', 511],
+  ['tophat', 'Top Hat', 502, 6000], ['halo', 'Halo', 494, 12000], ['crown', 'Crown', 520, 25000],
 ];
-// price 0 = free.
+const named = new Set(NAMED_HATS.map(h => h[2]));
 export const HATS = [
-  { id: 'none', name: 'No Hat', price: 0 }, { id: 'cap', name: 'Ball Cap', price: 0 }, { id: 'beanie', name: 'Beanie', price: 0 },
-  { id: 'chef', name: 'Chef', price: 0 }, { id: 'cowboy', name: 'Cowboy', price: 0 }, { id: 'viking', name: 'Viking', price: 0 },
-  { id: 'wizard', name: 'Wizard', price: 0 }, { id: 'party', name: 'Party', price: 0 }, { id: 'propeller', name: 'Propeller', price: 0 },
-  { id: 'headphones', name: 'Headphones', price: 0 }, { id: 'bunny', name: 'Bunny Ears', price: 0 }, { id: 'pirate', name: 'Pirate', price: 0 },
-  { id: 'sombrero', name: 'Sombrero', price: 0 }, { id: 'beret', name: 'Beret', price: 0 }, { id: 'bucket', name: 'Bucket Hat', price: 0 },
-  { id: 'flower', name: 'Flower', price: 0 }, { id: 'antenna', name: 'Antennae', price: 0 }, { id: 'horns', name: 'Devil Horns', price: 0 },
-  { id: 'santa', name: 'Santa', price: 0 }, { id: 'hardhat', name: 'Hard Hat', price: 0 }, { id: 'bow', name: 'Bow', price: 0 },
-  { id: 'fez', name: 'Fez', price: 0 }, { id: 'grad', name: 'Graduate', price: 0 }, { id: 'mohawk', name: 'Mohawk', price: 0 },
-  { id: 'chick', name: 'Baby Chick', price: 0 }, { id: 'sprout', name: 'Sprout', price: 0 },
-  { id: 'tophat', name: 'Top Hat', price: 6000 }, { id: 'halo', name: 'Halo', price: 12000 }, { id: 'crown', name: 'Crown', price: 25000 },
+  { id: 'none', name: 'No Hat', price: 0 },
+  ...NAMED_HATS.map(([id, name, node, price = 0]) => ({ id, name, node, price })),
+  ...HAT_NODES.filter(n => !named.has(n)).map((node, i) => ({ id: `h${node}`, name: `Hat ${i + 1}`, node, price: 0 })),
 ];
-// Gun skins (palettes in render/guns.js).
-export const SKINS = [
-  { id: 'factory', name: 'Factory' }, { id: 'arctic', name: 'Arctic' }, { id: 'midnight', name: 'Midnight' }, { id: 'gold', name: 'Gold Rush' },
-  { id: 'candy', name: 'Candy' }, { id: 'toxic', name: 'Toxic' }, { id: 'lava', name: 'Lava' }, { id: 'ocean', name: 'Ocean' },
-  { id: 'sunset', name: 'Sunset' }, { id: 'bubblegum', name: 'Bubblegum' }, { id: 'chrome', name: 'Chrome' }, { id: 'tiger', name: 'Tiger' },
-  { id: 'mint', name: 'Mint' }, { id: 'royal', name: 'Royal' }, { id: 'ghost', name: 'Ghost' }, { id: 'zebra', name: 'Zebra' },
-];
+// Gun skins: each weapon has its own set (skin 0 is its standard finish). A look keeps one per weapon.
+export const SKIN_COUNTS = Object.fromEntries(Object.entries(WEAPON_ASSETS).map(([id, w]) => [id, w.skins.length]));
+export const skinName = i => i === 0 ? 'Standard' : `Skin ${i}`;
 const ids = list => new Set(list.map(x => x.id));
-const PATTERN_IDS = ids(PATTERNS), STAMP_IDS = ids(STAMPS), HAT_IDS = ids(HATS), SKIN_IDS = ids(SKINS);
-export const DEFAULT_LOOK = { color: 0, hat: 'none', pattern: 'none', pcolor: 13, stamp: 'none', skin: 'factory' };
+const PATTERN_IDS = ids(PATTERNS), STAMP_SET = ids(STAMPS), HAT_SET = ids(HATS);
+export const DEFAULT_LOOK = { color: 0, hat: 'none', pattern: 'none', pcolor: 13, stamp: 'none', skins: {} };
+// A look's skin for one weapon.
+export const skinOf = (look, weapon) => look?.skins?.[weapon] ?? 0;
 
 // Only known values (anything else falls back to the default).
 export function sanitizeCosmetics(c) {
   const idx = v => Number.isInteger(v) && v >= 0 && v < COLORS.length;
   return {
     color: idx(c?.color) ? c.color : 0, pcolor: idx(c?.pcolor) ? c.pcolor : DEFAULT_LOOK.pcolor,
-    hat: HAT_IDS.has(c?.hat) ? c.hat : 'none', pattern: PATTERN_IDS.has(c?.pattern) ? c.pattern : 'none',
-    stamp: STAMP_IDS.has(c?.stamp) ? c.stamp : 'none', skin: SKIN_IDS.has(c?.skin) ? c.skin : 'factory',
+    hat: HAT_SET.has(c?.hat) ? c.hat : 'none', pattern: PATTERN_IDS.has(c?.pattern) ? c.pattern : 'none',
+    stamp: STAMP_SET.has(c?.stamp) ? c.stamp : 'none', skins: sanitizeSkins(c?.skins),
   };
 }
 
+function sanitizeSkins(skins) {
+  const out = {};
+  if (skins && typeof skins === 'object') for (const [id, n] of Object.entries(SKIN_COUNTS)) {
+    const v = skins[id];
+    if (Number.isInteger(v) && v > 0 && v < n) out[id] = v;
+  }
+  return out;
+}
+
 // A bot's look: a plain egg in a natural shell colour (white, cream, tan, the browns), with no
-// pattern, stamp or hat and a factory gun, so real players (who dress up) stand out from bots.
+// pattern, stamp or hat and standard guns, so real players (who dress up) stand out from bots.
 export const NATURAL = [14, 0, 1, 2, 3, 4];
 export function botCosmetics(rnd = Math.random) {
-  return { color: NATURAL[Math.floor(rnd() * NATURAL.length)], pcolor: 13, hat: 'none', pattern: 'none', stamp: 'none', skin: 'factory' };
+  return { color: NATURAL[Math.floor(rnd() * NATURAL.length)], pcolor: 13, hat: 'none', pattern: 'none', stamp: 'none', skins: {} };
 }

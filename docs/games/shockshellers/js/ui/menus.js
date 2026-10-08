@@ -1,21 +1,23 @@
 // Menus and modals (GDD §16–21): home, respawn/pause screen, settings (3 tabs), play with friends,
 // custom matches, profile, shop/inventory, how to play, chat. All markup lives in index.html inside
 // the compositor; this module wires it up and keeps it current.
-import { surfaceDocument as document } from '../surface.js?v=muyu9h16';
-import * as THREE from '../../vendor/three/three.module.js?v=muyu9h16';
-import { ask, tell } from '../dialog.js?v=muyu9h16';
-import { gunModel } from '../render/guns.js?v=muyu9h16';
-import { EggAvatar } from '../render/egg.js?v=muyu9h16';
-import { hatMesh } from '../render/hats.js?v=muyu9h16';
-import { previewShell } from '../render/shellart.js?v=muyu9h16';
-import { COLORS, PATTERNS, STAMPS, HATS, SKINS, sanitizeCosmetics } from '../game/cosmetics.js?v=muyu9h16';
-import { WEAPONS, PRIMARIES, MODE_NAMES, MODE_MENU, TICK } from '../sim/tuning.js?v=muyu9h16';
-import { ACTIONS, ACTION_NAMES, keyLabel, DEFAULT_KEYS } from '../game/input.js?v=muyu9h16';
-import { DEFAULT_SETTINGS, saveSettings, saveProfile } from '../game/store.js?v=muyu9h16';
-import { ensureDaily, def as challengeDef, reroll, timeLeft } from '../game/challenges.js?v=muyu9h16';
-import { MAPS, mapDef } from '../maps/index.js?v=muyu9h16';
-import { drawHowTo } from './art.js?v=muyu9h16';
-import { wakeRelays, diagnoseNetwork } from '../net/net.js?v=muyu9h16';
+import { surfaceDocument as document } from '../surface.js?v=muyxgr3o';
+import * as THREE from '../../vendor/three/three.module.js?v=muyxgr3o';
+import { ask, tell } from '../dialog.js?v=muyxgr3o';
+import { gunModel } from '../render/guns.js?v=muyxgr3o';
+import { EggAvatar } from '../render/egg.js?v=muyxgr3o';
+import { hatMesh } from '../render/hats.js?v=muyxgr3o';
+import { previewShell } from '../render/shellart.js?v=muyxgr3o';
+import { COLORS, PATTERNS, STAMPS, HATS, SKIN_COUNTS, skinName, skinOf, sanitizeCosmetics } from '../game/cosmetics.js?v=muyxgr3o';
+import { loadStamp } from '../render/stamps.js?v=muyxgr3o';
+import { TIERS, skinTier, eggsFor, unlocked } from '../game/progress.js?v=muyxgr3o';
+import { WEAPONS, PRIMARIES, MODE_NAMES, MODE_MENU, TICK } from '../sim/tuning.js?v=muyxgr3o';
+import { ACTIONS, ACTION_NAMES, keyLabel, DEFAULT_KEYS } from '../game/input.js?v=muyxgr3o';
+import { DEFAULT_SETTINGS, saveSettings, saveProfile } from '../game/store.js?v=muyxgr3o';
+import { ensureDaily, def as challengeDef, reroll, timeLeft } from '../game/challenges.js?v=muyxgr3o';
+import { MAPS, mapDef } from '../maps/index.js?v=muyxgr3o';
+import { drawHowTo } from './art.js?v=muyxgr3o';
+import { wakeRelays, diagnoseNetwork } from '../net/net.js?v=muyxgr3o';
 
 const $ = id => document.getElementById(id);
 const show = (id, on = true) => $(id).classList.toggle('hidden', !on);
@@ -28,12 +30,16 @@ const REROLL = '<path d="M20 12a8 8 0 1 1-2.3-5.7M20 4v5h-5" fill="none" stroke=
 const CLOCK = '<circle cx="12" cy="12" r="9" fill="none" stroke="#ffd23f" stroke-width="3"/><path d="M12 7v5l3 3" fill="none" stroke="#ffd23f" stroke-width="3" stroke-linecap="round"/>';
 const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; };
 
-// The shop's tabs (cosmetics.js): everything is free but a few hats.
+// The shop's tabs (cosmetics.js): everything is free but a few hats. Gun skins are listed per weapon.
 const swatches = () => COLORS.map((c, i) => ({ id: i, name: '', price: 0 }));
 export const SHOP = {
   color: swatches(), pattern: PATTERNS.map(x => ({ ...x, price: 0 })), pcolor: swatches(), stamp: STAMPS.map(x => ({ ...x, price: 0 })),
-  hat: HATS, skin: SKINS.map(x => ({ ...x, price: 0 })),
+  hat: HATS,
 };
+// A weapon's skins, commonest first so the rarer ones are the ones to work towards.
+const skinItems = weapon => Array.from({ length: SKIN_COUNTS[weapon] }, (_, i) => ({ id: i, name: skinName(i), tier: skinTier(weapon, i) })).sort((a, b) => a.tier - b.tier || a.id - b.id);
+const LOCK = '<path d="M7 10V7a5 5 0 0 1 10 0v3" fill="none" stroke="#fff" stroke-width="2.6"/><rect x="4.5" y="10" width="15" height="11" rx="2.5" fill="#fff"/>';
+const PER_PAGE = 24;
 const SHOP_TABS = [['color', 'Colors'], ['pattern', 'Patterns'], ['pcolor', 'Pattern Color'], ['stamp', 'Stamps'], ['hat', 'Hats'], ['skin', 'Gun Skins']];
 const hex = c => '#' + c.toString(16).padStart(6, '0');
 // An image (2D canvas) as a data: URL (img-src allows data:/blob: only).
@@ -108,10 +114,15 @@ export class Menus {
   weaponRow(container, onPick, current) {
     container.replaceChildren();
     for (const id of PRIMARIES) {
-      const b = el('button', 'wbtn' + (id === current ? ' on' : '')), img = el('img');
+      const p = this.app.profile, open = unlocked(p, 'weapon', id), need = eggsFor('weapon', id);
+      const b = el('button', 'wbtn' + (id === current ? ' on' : '') + (open ? '' : ' locked')), img = el('img');
       img.dataset.w = id; img.alt = ''; if (this.icons[id]) img.src = this.icons[id];
-      b.append(img); b.title = WEAPONS[id].name;
-      b.onclick = () => { this.app.sound.play('pop'); onPick(id); };
+      b.append(img); b.title = open ? WEAPONS[id].name : `${WEAPONS[id].name}: unlocks at ${need.toLocaleString()} eggs`;
+      if (!open) { const lk = el('div', 'lk'); lk.append(svg(LOCK), el('span', '', need.toLocaleString())); b.append(lk); }
+      b.onclick = () => {
+        if (!open) { tell(`The ${WEAPONS[id].name} unlocks at ${need.toLocaleString()} eggs (you have ${p.coins.toLocaleString()}). Win eggs by playing well: kills, assists, the objective, and placing in a round.`); return; }
+        this.app.sound.play('pop'); onPick(id);
+      };
       container.append(b);
     }
   }
@@ -433,30 +444,38 @@ export class Menus {
     show('profile'); this.app.input.exitLock();
   }
   // The shop: a portrait of your egg as it looks now, tabs of cosmetics with previews of each.
-  openShop(tab = this.shopTab || 'color') {
-    this.shopTab = tab;
+  // (A tab of hundreds is shown a page at a time; the skins tab picks whose skins it lists.)
+  openShop(tab = this.shopTab || 'color', page = this.shopPages?.[tab] || 0) {
+    this.shopTab = tab; this.shopPages ??= {};
     const app = this.app, p = app.profile, tabs = $('sh-tabs'); tabs.replaceChildren();
     this.portraits ??= new Portraits(app.renderer);
     for (const [k, label] of SHOP_TABS) { const b = el('button', k === tab ? 'on' : '', label); b.onclick = () => this.openShop(k); tabs.append(b); }
-    const look = sanitizeCosmetics(p.equip);
+    const look = sanitizeCosmetics(p.equip), gun = this.skinGun ??= p.primary;
+    if (tab === 'skin') for (const w of [...PRIMARIES, 'peck9mm']) { const b = el('button', 'small' + (w === gun ? ' on' : ''), WEAPONS[w].name); b.onclick = () => { this.skinGun = w; this.shopPages.skin = 0; this.openShop('skin', 0); }; tabs.append(b); }
+    const all = tab === 'skin' ? skinItems(gun) : SHOP[tab], pages = Math.ceil(all.length / PER_PAGE);
+    page = this.shopPages[tab] = Math.max(0, Math.min(pages - 1, page));
+    if (pages > 1) for (const [label, to] of [['‹', page - 1], [`${page + 1} / ${pages}`, page], ['›', page + 1]]) {
+      const b = el('button', 'small', label); b.disabled = to < 0 || to >= pages || to === page; b.onclick = () => this.openShop(tab, to); tabs.append(b);
+    }
+    const equipped = id => tab === 'skin' ? skinOf(look, gun) === id : look[tab] === id;
     const grid = $('shop-grid'); grid.replaceChildren(); grid.className = 'tab-' + tab;
-    for (const item of SHOP[tab]) {
-      const price = item.price || 0, owned = price === 0 || p.owned.includes(tab + ':' + item.id), on = look[tab] === item.id;
-      const card = el('button', 'item-card' + (on ? ' on' : ''));
+    for (const item of all.slice(page * PER_PAGE, (page + 1) * PER_PAGE)) {
+      const kind = tab === 'skin' ? 'skin' : tab, open = unlocked(p, kind, item.id, gun), need = eggsFor(kind, item.id, gun), on = equipped(item.id);
+      const card = el('button', 'item-card' + (on ? ' on' : '') + (open ? '' : ' locked'));
       if (tab === 'color' || tab === 'pcolor') { const sw = el('div', 'sw'); sw.style.background = hex(COLORS[item.id]); card.append(sw); }
       else {
         const img = el('img'); img.alt = ''; card.append(img);
         this.preview(tab, item.id, look).then(src => { if (src) img.src = src; });
       }
       if (item.name) card.append(el('div', 'nm', item.name));
-      if (!owned || on) card.append(el('div', 'st', owned ? 'EQUIPPED' : `${price.toLocaleString()} yolks`));
-      card.onclick = async () => {
-        if (!owned) {
-          if (p.coins < price) { tell('Not enough Golden Yolks yet. Kills and challenges earn more.'); return; }
-          if (!(await ask(`Buy this for ${price.toLocaleString()} Golden Yolks?`))) return;
-          p.coins -= price; p.owned.push(tab + ':' + item.id); app.sound.play('powerup');
-        }
-        p.equip[tab] = item.id; saveProfile(p); app.sound.play('click'); this.openShop(tab); app.refreshHomeEgg();
+      if (tab === 'skin') { const t = TIERS[item.tier], r = el('div', 'tier', t.name); r.style.color = t.color; card.append(r); }
+      if (!open || on) card.append(el('div', 'st', open ? 'EQUIPPED' : `${need.toLocaleString()} eggs`));
+      if (!open) card.append(svg(LOCK, '0 0 24 24', 'lock'));
+      card.onclick = () => {
+        if (!open) { tell(`Unlocks at ${need.toLocaleString()} eggs (you have ${p.coins.toLocaleString()}). Win eggs by playing well: kills, assists, the objective, and placing in a round.`); return; }
+        if (tab === 'skin') p.equip.skins = { ...look.skins, [gun]: item.id };
+        else p.equip[tab] = item.id;
+        saveProfile(p); app.sound.play('click'); this.openShop(tab, page); app.refreshHomeEgg();
       };
       grid.append(card);
     }
@@ -469,19 +488,20 @@ export class Menus {
     show('shop'); app.input.exitLock();
   }
   // A card's picture: a flat shell for patterns and stamps, an egg in the hat, the gun in the skin.
-  preview(tab, id, look) {
+  async preview(tab, id, look) {
     if (tab === 'pattern' || tab === 'stamp') {
-      const l = { color: COLORS[look.color], pcolor: COLORS[look.pcolor], pattern: tab === 'pattern' ? id : look.pattern, stamp: tab === 'stamp' ? id : 'none' };
-      const key = JSON.stringify(l); this.flat ??= new Map();
-      if (!this.flat.has(key)) { const cv = new OffscreenCanvas(96, 112); previewShell(cv.getContext('2d'), 96, 112, l); this.flat.set(key, dataUrl(cv)); }
+      const l = { color: COLORS[look.color], pcolor: COLORS[look.pcolor], pattern: tab === 'pattern' ? id : look.pattern };
+      const stamp = tab === 'stamp' && id !== 'none' ? await loadStamp(id) : null;
+      const key = JSON.stringify(l) + (tab === 'stamp' ? id : ''); this.flat ??= new Map();
+      if (!this.flat.has(key)) { const cv = new OffscreenCanvas(96, 112); previewShell(cv.getContext('2d'), 96, 112, l, stamp); this.flat.set(key, dataUrl(cv)); }
       return this.flat.get(key);
     }
     if (tab === 'hat') {
       const g = new THREE.Group(), egg = new EggAvatar({ look: { color: look.color }, weapon: 'peck9mm', local: true });
-      egg.arms.visible = false; g.add(egg.group); const h = hatMesh(id); if (h) { h.position.y = 0.58; egg.body.add(h); }
+      egg.arms.visible = false; g.add(egg.group); const h = hatMesh(id); if (h) egg.body.add(h);
       return this.portraits.shot(`hat:${id}:${look.color}`, g, [0.45, 0.35, -1]).then(src => { egg.dispose(); return src; });
     }
-    if (tab === 'skin') return this.portraits.shot(`skin:${id}:${this.app.profile.primary}`, gunModel(this.app.profile.primary, false, id), [1, 0.25, -0.15]);
-    return Promise.resolve(null);
+    if (tab === 'skin') return this.portraits.shot(`skin:${id}:${this.skinGun}`, gunModel(this.skinGun, id), [1, 0.25, -0.15]);
+    return null;
   }
 }

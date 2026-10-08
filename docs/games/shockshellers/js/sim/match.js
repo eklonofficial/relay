@@ -4,11 +4,11 @@
 //
 // Players are humans or bots alike: each tick every player supplies { ctrl, yaw, pitch } (bots
 // through the same input struct, so they obey identical movement, fire-rate and spread rules).
-import { PLAYER, WEAPONS, MELEE, GRENADE, PICKUPS, STREAKS, DAMAGE, DEFAULT_OPTIONS, PRIMARIES, CTRL, TICK_HZ, ROUND } from './tuning.js?v=muyu9h16';
-import { makeBody, stepBody, movementInput, forward } from './movement.js?v=muyu9h16';
-import { makeHands, stepHands, readyHands, refill, HandEvents, weaponOf, slotOf, grenadeLaunch, lcg } from './combat.js?v=muyu9h16';
-import { makeMode } from './modes.js?v=muyu9h16';
-import { HIT } from '../maps/grid.js?v=muyu9h16';
+import { PLAYER, WEAPONS, MELEE, GRENADE, PICKUPS, STREAKS, SCORE, DAMAGE, DEFAULT_OPTIONS, PRIMARIES, CTRL, TICK_HZ, ROUND } from './tuning.js?v=muyxgr3o';
+import { makeBody, stepBody, movementInput, forward } from './movement.js?v=muyxgr3o';
+import { makeHands, stepHands, readyHands, refill, HandEvents, weaponOf, slotOf, grenadeLaunch, lcg } from './combat.js?v=muyxgr3o';
+import { makeMode } from './modes.js?v=muyxgr3o';
+import { HIT } from '../maps/grid.js?v=muyxgr3o';
 
 const HISTORY = 256;
 // Hit-angle damage (GDD §8.2): s = 0.2 + 0.8·dot(−d, n); mult = s^(4 + s^4).
@@ -62,11 +62,12 @@ export class Match {
       body: makeBody(), hands: null, alive: false, joined: this.tick,
       hp: PLAYER.maxHp, shield: 0, overheal: 0, lastHurt: -999, spawnShield: 0,
       respawnAt: this.tick, pausedAt: -1, pauseCooldownUntil: 0,
-      kills: 0, deaths: 0, streak: 0, bestStreak: 0, score: 0, teamSwitches: 0,
+      kills: 0, deaths: 0, assists: 0, streak: 0, bestStreak: 0, score: 0, teamSwitches: 0,
       power: { shellBreaker: 0, doubleYolks: 0, quailEgg: 0 },
       input: { ctrl: 0, yaw: 0, pitch: 0 }, prevCtrl: 0, lag: 0,
       hist: new Float32Array(HISTORY * 4), // x, y, z, alive per tick
       killedBy: null, deadAt: -1, obj: 0,
+      hurtBy: new Map(),   // damage taken this life, by who (for assists)
     };
     p.hands = makeHands(primary, (this.seed + id * 7919) % 233280, this.options.disabled);
     if (!team) p.team = this.mode.assignTeam(p);
@@ -165,7 +166,7 @@ export class Match {
   // objective (carrying the spatula, standing in the roost).
   roundResults(team = 0) {
     const mode = this.mode;
-    const rows = [...this.players.values()].map(p => ({ id: p.id, name: p.name, team: p.team, bot: !!p.bot, score: p.score, kills: p.kills, deaths: p.deaths, best: p.bestStreak, obj: Math.round((p.obj || 0) / TICK_HZ), look: p.cosmetics || null, primary: p.primary }));
+    const rows = [...this.players.values()].map(p => ({ id: p.id, name: p.name, team: p.team, bot: !!p.bot, score: p.score, kills: p.kills, deaths: p.deaths, assists: p.assists, best: p.bestStreak, obj: Math.round((p.obj || 0) / TICK_HZ), look: p.cosmetics || null, primary: p.primary }));
     rows.sort((a, b) => b.score - a.score || b.kills - a.kills || a.deaths - b.deaths || a.id - b.id);
     let scores = null;
     if (mode.teams) {
@@ -432,7 +433,7 @@ export class Match {
     const before = q.hp;
     q.hp = Math.max(0, Math.floor(q.hp - left));
     this.emit({ t: 'hit', id: q.id, by: from ? from.id : -1, w: weapon, dmg: amount, hp: q.hp, x: at.x, y: at.y, z: at.z, dx: at.dx, dy: at.dy, dz: at.dz });
-    if (from && from !== q) this.mode.onDamage?.(from, q, Math.min(before, left));
+    if (from && from !== q) { this.mode.onDamage?.(from, q, Math.min(before, left)); q.hurtBy.set(from.id, (q.hurtBy.get(from.id) || 0) + Math.min(before, left)); }
     if (q.hp <= 0) this.kill(q, from, weapon);
   }
   kill(q, from, weapon) {
@@ -445,13 +446,20 @@ export class Match {
     this.emit({ t: 'kill', id: q.id, by: suicide ? -1 : from.id, w: weapon, x: q.body.x, y: q.body.y, z: q.body.z, streak: q.streak });
     q.streak = 0;
     if (!suicide) {
-      from.kills++; from.streak++; from.bestStreak = Math.max(from.bestStreak, from.streak); from.score = from.streak;
+      from.kills++; from.streak++; from.bestStreak = Math.max(from.bestStreak, from.streak);
+      this.award(from, SCORE.kill + Math.min(SCORE.streakMax, (from.streak - 1) * SCORE.streakStep) + (weapon === 'melee' ? SCORE.melee : 0), 'kill');
+      for (const [id, dmg] of q.hurtBy) {
+        const helper = this.players.get(id);
+        if (helper && helper !== from && dmg >= SCORE.assistMin) { helper.assists++; this.award(helper, SCORE.assist, 'assist'); }
+      }
       if (from.power.shellBreaker > 0) from.power.shellBreaker = Math.min(STREAKS.shellBreaker.cap, from.power.shellBreaker + STREAKS.shellBreaker.perKill);
       if (from.streak % STREAKS.every === 0) this.grantPower(from);
       this.mode.onKill(from, q, weapon);
     }
-    q.score = 0;
+    q.hurtBy.clear();
   }
+  // Points for how a player is doing (tuning.js SCORE): they rank the round, and earn eggs.
+  award(p, n, why) { p.score += n; this.emit({ t: 'points', id: p.id, n, why }); }
   grantPower(p) {
     const n = p.streak / STREAKS.every, list = STREAKS.order;
     const k = n <= list.length ? list[n - 1] : list[Math.floor(this.rnd() * list.length)];

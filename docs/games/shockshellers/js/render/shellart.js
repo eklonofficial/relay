@@ -1,5 +1,5 @@
-// What is painted on a shell: its colour with a few speckles, a pattern in a second colour, a stamp
-// on the front, and the cracks that grow as it takes damage (GDD §5). Drawn with the 2D canvas into
+// What is painted on a shell: its colour with a few speckles, a pattern in a second colour, and a
+// stamp on the front (the cracks that grow with damage are the egg mesh's own: egg.js). Drawn with the 2D canvas into
 // the shell's texture (u wraps once around the egg, v runs from the bottom up), and into the shop's
 // little previews, so this module has no 3D in it.
 //
@@ -91,39 +91,11 @@ const PATTERN = {
   },
 };
 
-// Stamps, drawn on the front of the shell (in units, centred on the face, +y down).
-const INK = '#1b1b1f';
-const STAMP = {
-  smile(x) { x.fillStyle = INK; x.beginPath(); x.ellipse(-0.7, -0.6, 0.22, 0.32, 0, 0, 7); x.ellipse(0.7, -0.6, 0.22, 0.32, 0, 0, 7); x.fill(); x.lineWidth = 0.22; x.lineCap = 'round'; x.strokeStyle = INK; x.beginPath(); x.arc(0, -0.2, 0.95, 0.35, Math.PI - 0.35); x.stroke(); },
-  googly(x) { for (const s of [-1, 1]) { x.fillStyle = '#fff'; x.strokeStyle = INK; x.lineWidth = 0.12; x.beginPath(); x.arc(s * 0.62, -0.6, 0.55, 0, 7); x.fill(); x.stroke(); x.fillStyle = INK; x.beginPath(); x.arc(s * 0.62 + 0.15 * s, -0.42, 0.26, 0, 7); x.fill(); x.fillStyle = '#fff'; x.beginPath(); x.arc(s * 0.62 + 0.22 * s, -0.5, 0.07, 0, 7); x.fill(); } },
-  shades(x) {
-    x.fillStyle = INK; for (const s of [-1, 1]) { x.beginPath(); x.roundRect(s * 0.75 - 0.6, -0.95, 1.2, 0.7, [0.1, 0.1, 0.35, 0.35]); x.fill(); }
-    x.fillRect(-0.2, -0.85, 0.4, 0.14); x.fillRect(-2.2, -0.9, 0.8, 0.12); x.fillRect(1.4, -0.9, 0.8, 0.12);
-    x.fillStyle = 'rgba(255,255,255,.55)'; for (const s of [-1, 1]) { x.beginPath(); x.moveTo(s * 0.75 - 0.4, -0.85); x.lineTo(s * 0.75 - 0.15, -0.85); x.lineTo(s * 0.75 - 0.45, -0.45); x.lineTo(s * 0.75 - 0.55, -0.6); x.fill(); }
-  },
-  mustache(x) {
-    x.fillStyle = '#3a2416'; for (const s of [-1, 1]) { x.beginPath(); x.moveTo(0, 0.0); x.bezierCurveTo(s * 0.5, -0.45, s * 1.1, -0.25, s * 1.3, -0.05); x.bezierCurveTo(s * 1.6, 0.15, s * 1.75, -0.2, s * 1.6, -0.35); x.bezierCurveTo(s * 1.9, -0.1, s * 1.6, 0.45, s * 1.1, 0.3); x.bezierCurveTo(s * 0.7, 0.2, s * 0.3, 0.25, 0, 0.15); x.fill(); }
-    x.fillStyle = INK; x.beginPath(); x.ellipse(-0.6, -1.0, 0.18, 0.26, 0, 0, 7); x.ellipse(0.6, -1.0, 0.18, 0.26, 0, 0, 7); x.fill();
-  },
-  angry(x) { x.fillStyle = INK; x.beginPath(); x.ellipse(-0.65, -0.5, 0.2, 0.28, 0, 0, 7); x.ellipse(0.65, -0.5, 0.2, 0.28, 0, 0, 7); x.fill(); x.lineWidth = 0.22; x.lineCap = 'round'; x.strokeStyle = INK; x.beginPath(); x.moveTo(-1.05, -1.15); x.lineTo(-0.3, -0.85); x.moveTo(1.05, -1.15); x.lineTo(0.3, -0.85); x.stroke(); x.beginPath(); x.arc(0, 0.75, 0.6, Math.PI + 0.5, -0.5); x.stroke(); },
-  blush(x) { x.fillStyle = 'rgba(255,110,140,.6)'; x.beginPath(); x.ellipse(-1.1, 0.05, 0.45, 0.25, 0, 0, 7); x.ellipse(1.1, 0.05, 0.45, 0.25, 0, 0, 7); x.fill(); x.lineWidth = 0.16; x.lineCap = 'round'; x.strokeStyle = INK; x.beginPath(); x.moveTo(-0.9, -0.5); x.lineTo(-0.6, -0.75); x.lineTo(-0.3, -0.5); x.moveTo(0.3, -0.5); x.lineTo(0.6, -0.75); x.lineTo(0.9, -0.5); x.stroke(); x.beginPath(); x.arc(0, -0.05, 0.25, 0.2, Math.PI - 0.2); x.stroke(); },
-  star(x) { star(x, 0, -0.2, 1.2, 0.5); x.fillStyle = '#ffd23f'; x.fill(); x.lineWidth = 0.14; x.strokeStyle = '#8a5a00'; x.stroke(); },
-  heart(x) { heart(x, 0, -0.2, 1.0); x.fillStyle = '#ff3b5c'; x.fill(); x.lineWidth = 0.12; x.strokeStyle = '#7a0f22'; x.stroke(); },
-  bolt(x) { bolt(x, 0, -0.2, 1.3); x.fillStyle = '#ffd23f'; x.fill(); x.lineWidth = 0.12; x.strokeStyle = '#8a5a00'; x.stroke(); },
-  flame(x) { flame(x, 0, -0.1, 1.2); x.fillStyle = '#ff6a1f'; x.fill(); flame(x, 0.05, 0.15, 0.65); x.fillStyle = '#ffd23f'; x.fill(); },
-  paw(x) { x.fillStyle = INK; x.beginPath(); x.ellipse(0, 0.1, 0.62, 0.5, 0, 0, 7); x.fill(); for (const [px, py] of [[-0.75, -0.55], [-0.27, -0.95], [0.27, -0.95], [0.75, -0.55]]) { x.beginPath(); x.ellipse(px, py, 0.22, 0.28, 0, 0, 7); x.fill(); } },
-  yolk(x) { x.fillStyle = '#fff'; x.strokeStyle = 'rgba(0,0,0,.25)'; x.lineWidth = 0.08; x.beginPath(); for (let i = 0; i <= 16; i++) { const a = i / 16 * Math.PI * 2, r = 1.1 + Math.sin(i * 2.7) * 0.18; x.lineTo(Math.cos(a) * r, -0.2 + Math.sin(a) * r * 0.85); } x.fill(); x.stroke(); x.fillStyle = '#ffb21f'; x.beginPath(); x.arc(0.1, -0.25, 0.45, 0, 7); x.fill(); x.fillStyle = 'rgba(255,255,255,.7)'; x.beginPath(); x.arc(0, -0.38, 0.12, 0, 7); x.fill(); },
-  clover(x) { x.fillStyle = '#3ccf7a'; for (let i = 0; i < 4; i++) { const a = i * Math.PI / 2 + Math.PI / 4; heart(x, Math.cos(a) * 0.5, -0.2 + Math.sin(a) * 0.5, 0.5); x.fill(); } x.strokeStyle = '#2a8a50'; x.lineWidth = 0.14; x.beginPath(); x.moveTo(0, -0.2); x.quadraticCurveTo(0.2, 0.6, 0.5, 0.9); x.stroke(); },
-  target(x) { for (const [r, c] of [[1.2, '#ff3b2a'], [0.9, '#fff'], [0.6, '#ff3b2a'], [0.3, '#fff']]) { x.fillStyle = c; x.beginPath(); x.arc(0, -0.2, r, 0, 7); x.fill(); } },
-  number(x) { x.fillStyle = '#fff'; x.strokeStyle = INK; x.lineWidth = 0.14; x.beginPath(); x.arc(0, -0.2, 1.1, 0, 7); x.fill(); x.stroke(); x.fillStyle = INK; x.font = '900 1.5px n, sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText('7', 0, -0.12); },
-  skull(x) { x.fillStyle = '#f6f4ee'; x.strokeStyle = INK; x.lineWidth = 0.1; x.beginPath(); x.arc(0, -0.45, 0.85, Math.PI * 0.85, Math.PI * 0.15); x.lineTo(0.5, 0.45); x.lineTo(-0.5, 0.45); x.closePath(); x.fill(); x.stroke(); x.fillStyle = INK; x.beginPath(); x.ellipse(-0.35, -0.4, 0.22, 0.25, 0, 0, 7); x.ellipse(0.35, -0.4, 0.22, 0.25, 0, 0, 7); x.fill(); x.beginPath(); x.moveTo(0, -0.1); x.lineTo(-0.1, 0.08); x.lineTo(0.1, 0.08); x.fill(); for (const d of [-0.25, 0, 0.25]) x.fillRect(d - 0.04, 0.2, 0.08, 0.25); },
-  patch(x) { x.strokeStyle = INK; x.lineWidth = 0.14; x.beginPath(); x.moveTo(-2.4, -1.6); x.lineTo(2.4, 0.2); x.stroke(); x.fillStyle = INK; x.beginPath(); x.ellipse(0.65, -0.55, 0.45, 0.4, 0.3, 0, 7); x.fill(); x.beginPath(); x.ellipse(-0.65, -0.55, 0.2, 0.28, 0, 0, 7); x.fill(); x.lineWidth = 0.16; x.lineCap = 'round'; x.beginPath(); x.moveTo(-0.4, 0.3); x.quadraticCurveTo(0, 0.5, 0.4, 0.25); x.stroke(); },
-};
-export const PATTERN_IDS = Object.keys(PATTERN), STAMP_IDS = Object.keys(STAMP);
+export const PATTERN_IDS = Object.keys(PATTERN);
 
-// The undamaged shell: base colour, speckles, pattern, stamp. look: { color, pattern, pcolor, stamp }
-// as hex colours and ids.
-export function paintShell(x, S, look) {
+// The shell: base colour, speckles, pattern, stamp. look: { color, pattern, pcolor } as hex colours
+// and ids, stamp: the stamp's image (or none), drawn on the front.
+export function paintShell(x, S, look, stamp = null) {
   const c = look.color, pc = look.pcolor ?? 0x2e2e34;
   x.fillStyle = hex(c); x.fillRect(0, 0, S, S);
   const r = rng(7 + c % 97);
@@ -131,60 +103,13 @@ export function paintShell(x, S, look) {
   for (let i = 0; i < 120; i++) { x.beginPath(); x.arc(r() * S, r() * S, (2 + r() * 4) * S / 512, 0, 7); x.fill(); }
   const pat = PATTERN[look.pattern];
   if (pat) { x.save(); pat(x, S, hex(c), hex(pc), rng(1234 + (look.pattern || '').length * 77), pc); x.restore(); }
-  const st = STAMP[look.stamp];
-  if (st) { x.save(); x.lineJoin = 'round'; at(x, S, AROUND / 2, 6.0, 1.7, () => st(x)); x.restore(); }
-}
-
-// Cracks (they grow at 80/60/40/20 HP): jagged, branching lines from seeds spread evenly around the
-// shell, drawn as a dark groove with a pale lip beside it so they read at a distance. Later stages
-// add seeds and lengthen the old ones; at the last stage flakes of shell are chipped out. Fixed seeds
-// keep the cracks the same from stage to stage.
-export function paintCracks(x, S, stage) {
-  if (stage <= 0) return;
-  const k = S / 512, paths = [];
-  let s = 1;
-  const r = () => (s = (s * 16807) % 2147483647) / 2147483647;
-  for (let n = 0; n < 2 + stage * 2; n++) {
-    s = 1000 + n * 7919;
-    const Y = 2.8, pts = [[((n * 0.382) % 1) * S, S * (0.25 + ((n * 0.618) % 1) * 0.5)]];
-    let a = r() * Math.PI * 2;
-    const len = 4 + stage * 3;
-    for (let j = 0; j < len; j++) {
-      a += (r() - 0.5) * 1.6;
-      const [px, py] = pts[pts.length - 1], d = (14 + r() * 16) * k;
-      pts.push([px + Math.cos(a) * d * 0.7, py + Math.sin(a) * d * Y * 0.7]);
-      if (r() < 0.35) { const b = a + (r() < 0.5 ? 1 : -1) * (0.7 + r() * 0.6), bd = (10 + r() * 18) * k; paths.push([[px, py], [px + Math.cos(b) * bd * 0.7, py + Math.sin(b) * bd * Y * 0.7], [px + Math.cos(b + 0.4) * bd * 1.2, py + Math.sin(b + 0.4) * bd * Y * 1.2]]); }
-    }
-    paths.unshift(pts);
-  }
-  const stroke = (style, w, dx, dy) => {
-    x.strokeStyle = style; x.lineWidth = w * k;
-    for (const off of [-S, 0, S]) for (const pts of paths) {
-      x.beginPath(); x.moveTo(pts[0][0] + off + dx * k, pts[0][1] + dy * k);
-      for (let i = 1; i < pts.length; i++) x.lineTo(pts[i][0] + off + dx * k, pts[i][1] + dy * k);
-      x.stroke();
-    }
-  };
-  x.lineCap = 'round'; x.lineJoin = 'round';
-  stroke('rgba(255,255,255,0.45)', 5, 1.5, 2);
-  stroke('rgba(45,28,16,0.9)', 4.5, 0, 0);
-  stroke('rgba(20,12,6,0.95)', 1.6, 0, 0);
-  if (stage >= 4) {
-    s = 4242;
-    for (let i = 0; i < 6; i++) {
-      const cx = r() * S, cy = S * (0.3 + r() * 0.45), n = 6 + Math.floor(r() * 3), R = (8 + r() * 10) * k;
-      x.beginPath();
-      for (let j = 0; j < n; j++) { const a = j / n * Math.PI * 2, rr = R * (0.6 + r() * 0.6); x.lineTo(cx + Math.cos(a) * rr * 0.6, cy + Math.sin(a) * rr * 1.7); }
-      x.closePath(); x.fillStyle = 'rgba(255,214,60,0.95)'; x.fill();
-      x.strokeStyle = 'rgba(45,28,16,0.9)'; x.lineWidth = 2.5 * k; x.stroke();
-    }
-  }
+  if (stamp) at(x, S, AROUND / 2, 5.6, 1, () => x.drawImage(stamp, -1.9, -1.9, 3.8, 3.8));
 }
 
 // A flat preview of a shell look (for the shop): the egg's front half unrolled into an egg shape.
-export function previewShell(x, w, h, look) {
+export function previewShell(x, w, h, look, stamp = null) {
   const S = 256, c = new OffscreenCanvas(S, S), cx = c.getContext('2d');
-  paintShell(cx, S, look);
+  paintShell(cx, S, look, stamp);
   x.save(); x.beginPath(); x.ellipse(w / 2, h * 0.54, w * 0.36, h * 0.44, 0, 0, Math.PI * 2); x.clip();
   // The middle half of the texture (the side facing us), stretched to the egg's outline.
   x.drawImage(c, S * 0.25, 0, S * 0.5, S, w * 0.14, h * 0.1, w * 0.72, h * 0.88);

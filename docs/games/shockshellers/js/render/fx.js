@@ -8,9 +8,9 @@
 // is flying: one per particle blend mode, one per shard shape, one each for streaks, chips and the
 // three kinds of decal. Lights never come and go during play (that would recompile every material);
 // two point lights stay in the scene and are just turned up and down. Nothing allocates per frame.
-import * as THREE from '../../vendor/three/three.module.js?v=muyu9h16';
-import { gunModel } from './guns.js?v=muyu9h16';
-import { TEAM_COLORS } from './egg.js?v=muyu9h16';
+import * as THREE from '../../vendor/three/three.module.js?v=muyxgr3o';
+import { gunModel } from './guns.js?v=muyxgr3o';
+import { TEAM_COLORS } from './egg.js?v=muyxgr3o';
 const _axis = new THREE.Vector3(), _quat = new THREE.Quaternion();
 
 const rnd = () => Math.random() * 2 - 1;
@@ -408,10 +408,8 @@ export class Effects {
   rocket(id, x, y, z, dx, dy, dz) {
     let m = this.objects.get('r' + id);
     if (!m) {
-      m = new THREE.Group();
-      const body = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.3, 10).rotateX(Math.PI / 2), new THREE.MeshStandardMaterial({ color: 0xffc531, roughness: 0.4 }));
-      const tip = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.12, 10).rotateX(-Math.PI / 2), new THREE.MeshStandardMaterial({ color: 0xd8452f })); tip.position.z = -0.21;
-      m.add(body, tip); this.scene.add(m); this.objects.set('r' + id, m);
+      // (Drawn larger than it is so it reads in flight.)
+      m = gunModel('rocket'); m.scale.setScalar(2.2); this.scene.add(m); this.objects.set('r' + id, m);
     }
     m.position.set(x, y, z); m.lookAt(x + dx, y + dy, z + dz); m.rotateY(Math.PI);
     this.soft.emit(x - dx * 0.2, y - dy * 0.2, z - dz * 0.2, rnd() * 0.15, 0.15, rnd() * 0.15, { size: 0.14, grow: 0.55, life: 1.3, color: 0xeeeeee, alpha: 0.8, drag: 1.5, fadeIn: 0.05 });

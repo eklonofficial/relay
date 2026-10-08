@@ -1,16 +1,16 @@
 // The in-game HUD (GDD §19.6). During play almost all of it is drawn into two offscreen canvases
 // that the renderer lays over the 3D frame itself (any change to the page's text makes the
 // compositor repaint the whole page, which a Chromebook feels as a stutter):
-// - the panel: what changes now and then (leaderboard and best streak, yolks, kill feed, ammo,
+// - the panel: what changes now and then (leaderboard and best streak, eggs, kill feed, ammo,
 //   frame rate and ping), redrawn and re-uploaded only when one of them changes;
 // - the live layer: what moves (crosshair, health ring, hit markers and damage numbers, the kill
 //   banner, enemy health bars, damage arcs, grenade charge, scope, markers, the death recap),
 //   skipped on frames where nothing on it changed.
 // Page text is left for what is rare or needs the keyboard: chat, banners and toasts, the
 // objective bar, and the leaderboard on the respawn screen.
-import { surfaceDocument as document } from '../surface.js?v=muyu9h16';
-import { WEAPONS, GRENADE, ROOST, STREAKS } from '../sim/tuning.js?v=muyu9h16';
-import { currentSpread, weaponOf, slotOf } from '../sim/combat.js?v=muyu9h16';
+import { surfaceDocument as document } from '../surface.js?v=muyxgr3o';
+import { WEAPONS, GRENADE, ROOST, STREAKS } from '../sim/tuning.js?v=muyxgr3o';
+import { currentSpread, weaponOf, slotOf } from '../sim/combat.js?v=muyxgr3o';
 
 const $ = id => document.getElementById(id);
 const POWER_NAMES = { hardBoiled: 'HARD BOILED!', shellBreaker: 'SHELL BREAKER!', restock: 'RESTOCK!', overheal: 'OVERHEAL!', doubleYolks: 'DOUBLE YOLKS!', quailEgg: 'QUAIL EGG!' };
@@ -38,9 +38,9 @@ export class Hud {
   }
   // We cracked someone: a banner under the crosshair names them (in their shell colour), with the
   // streak and the reward.
-  confirmKill(name, streak, yolks, color = 0xfff6e5) {
-    this.kills = [{ name, streak, yolks, color: '#' + color.toString(16).padStart(6, '0'), t: 0 }];
-    if (yolks) this.popups.push({ text: '+' + yolks, t: 0 });
+  // (the points it scored pop up with the points event: main.js earn())
+  confirmKill(name, streak, color = 0xfff6e5) {
+    this.kills = [{ name, streak, color: '#' + color.toString(16).padStart(6, '0'), t: 0 }];
   }
   // Damage we dealt, floating up from where it landed; quick hits on the same egg add up in one number.
   damageNumber(id, x, y, z, dmg, kill) {
@@ -258,7 +258,7 @@ export class Hud {
     c.font = '400 13px s, sans-serif'; c.fillStyle = '#0b4560'; c.fillText('BEST', 225 + sw, 23); c.fillText('STREAK', 225 + sw, 36);
     c.fillStyle = '#fff'; c.fillText('BEST', 224 + sw, 21); c.fillText('STREAK', 224 + sw, 34);
   }
-  // Golden Yolks (top right).
+  // Eggs (top right).
   drawCoins(c, w) {
     c.font = '900 24px n, sans-serif'; c.textAlign = 'right'; c.textBaseline = 'middle';
     const s = String(this.coins), tw = c.measureText(s).width, x = w - 12, y = 19;
@@ -309,7 +309,7 @@ export class Hud {
     }
     c.restore();
   }
-  // Frame rate and ping, top right under the yolks.
+  // Frame rate and ping, top right under the eggs.
   drawPerf(c, w) {
     c.save();
     c.font = '800 12px n, sans-serif'; c.textAlign = 'right'; c.textBaseline = 'top'; c.lineJoin = 'round';
