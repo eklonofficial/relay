@@ -13,7 +13,7 @@ export const PLAYER = {
   moveAccel: 0.025, friction: 0.64, adsMoveMult: 0.5, sprintMult: 1.4,
   gravity: 0.012, terminalFall: 0.29, maxStep: 0.29,
   jumpVel: 0.13, adsJumpMult: 0.66, coyoteTicks: 4, jumpBufferTicks: 10,
-  ladderAccel: 0.028, ladderJumpOff: 0.065, jumpPadVel: 0.27,
+  climbSpeed: 0.08, climbEase: 0.45, ladderJumpOff: 0.065, jumpPadVel: 0.27,
   collideRadius: 0.31, hitRadius: 0.30, hitCenterY: 0.30,
   // The head pivots at +0.30 (pitch turns it); the eye, and the point every shot leaves from, sits
   // 0.10 up the head's own up axis [REF]. eyeY is that height when looking level.

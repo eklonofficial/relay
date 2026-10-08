@@ -1,36 +1,38 @@
 // Shock Shellers: boot, menus, the match flow (home → respawn screen → play → death → respawn) and
 // the frame loop. The simulation runs at a fixed 30 Hz inside the session; rendering interpolates.
-import './page.js?v=muyxgr3o';
-import { surfaceDocument as document } from './surface.js?v=muyxgr3o';
-import { registerApp } from './veil.js?v=muyxgr3o';
-import { tell } from './dialog.js?v=muyxgr3o';
-import { splash } from './splash.js?v=muyxgr3o';
-import * as THREE from '../vendor/three/three.module.js?v=muyxgr3o';
-import { Renderer } from './render/renderer.js?v=muyxgr3o';
-import { fireSound } from './render/asset-catalog.js?v=muyxgr3o';
-import { RELOAD_CUES } from './render/reload-cues.js?v=muyxgr3o';
-import { skinOf } from './game/cosmetics.js?v=muyxgr3o';
-import { WEAPON_UNLOCK, TIERS, unlocked, eggsForPoints } from './game/progress.js?v=muyxgr3o';
-import { EggAvatar } from './render/egg.js?v=muyxgr3o';
-import { Podium } from './render/podium.js?v=muyxgr3o';
-import { Recorder, planReplay, replayRate, projectileAt } from './game/replay.js?v=muyxgr3o';
-import { aimAssist, assistOn } from './game/aim.js?v=muyxgr3o';
-import { Input } from './game/input.js?v=muyxgr3o';
-import { SOUND_FILES } from './game/soundbank.js?v=muyxgr3o';
-import { Sound, registerSamples } from './game/audio.js?v=muyxgr3o';
-import { Hud } from './game/hud.js?v=muyxgr3o';
-import { loadSettings, saveSettings, loadProfile, saveProfile } from './game/store.js?v=muyxgr3o';
-import { ensureDaily, progress as challengeProgress, claim as claimChallenges } from './game/challenges.js?v=muyxgr3o';
-import { HostSession } from './game/session.js?v=muyxgr3o';
-import { GuestSession } from './net/guest.js?v=muyxgr3o';
-import { pickPublicMap, mapDef, MAPS } from './maps/index.js?v=muyxgr3o';
-import { WEAPONS, PRIMARIES, PLAYER, MELEE, MODE_NAMES, MODE_MENU, ECONOMY, CTRL, TICK, TICK_HZ } from './sim/tuning.js?v=muyxgr3o';
-import { weaponOf, slotOf } from './sim/combat.js?v=muyxgr3o';
-import { eyePoint } from './sim/movement.js?v=muyxgr3o';
-import { drawLogo, drawHowTo } from './ui/art.js?v=muyxgr3o';
-import { loadModels } from './render/models.js?v=muyxgr3o';
-import { HIT } from './maps/grid.js?v=muyxgr3o';
-import { Menus } from './ui/menus.js?v=muyxgr3o';
+import './page.js?v=muzi7z97';
+import { surfaceDocument as document } from './surface.js?v=muzi7z97';
+import { registerApp } from './veil.js?v=muzi7z97';
+import { tell } from './dialog.js?v=muzi7z97';
+import { splash } from './splash.js?v=muzi7z97';
+import * as THREE from '../vendor/three/three.module.js?v=muzi7z97';
+import { Renderer } from './render/renderer.js?v=muzi7z97';
+import { fireSound } from './render/asset-catalog.js?v=muzi7z97';
+import { RELOAD_CUES } from './render/reload-cues.js?v=muzi7z97';
+import { skinOf } from './game/cosmetics.js?v=muzi7z97';
+import { WEAPON_UNLOCK, TIERS, unlocked, eggsForPoints } from './game/progress.js?v=muzi7z97';
+import { EggAvatar } from './render/egg.js?v=muzi7z97';
+import { Podium } from './render/podium.js?v=muzi7z97';
+import { Recorder, planReplay, replayRate, projectileAt } from './game/replay.js?v=muzi7z97';
+import { aimAssist, assistOn } from './game/aim.js?v=muzi7z97';
+import { Input } from './game/input.js?v=muzi7z97';
+import { SOUND_FILES } from './game/soundbank.js?v=muzi7z97';
+import { Sound, registerSamples } from './game/audio.js?v=muzi7z97';
+import { Hud } from './game/hud.js?v=muzi7z97';
+import { loadSettings, saveSettings, loadProfile, saveProfile } from './game/store.js?v=muzi7z97';
+import { ensureDaily, progress as challengeProgress, claim as claimChallenges } from './game/challenges.js?v=muzi7z97';
+import { HostSession } from './game/session.js?v=muzi7z97';
+import { GuestSession } from './net/guest.js?v=muzi7z97';
+import { pickPublicMap, mapDef, MAPS, loadMaps } from './maps/index.js?v=muzi7z97';
+import { playlistById, randomPlaylist, nextInPlaylist } from './maps/playlists.js?v=muzi7z97';
+import { loadBlocks } from './render/blocks.js?v=muzi7z97';
+import { WEAPONS, PRIMARIES, PLAYER, MELEE, MODE_NAMES, MODE_MENU, ECONOMY, CTRL, TICK, TICK_HZ } from './sim/tuning.js?v=muzi7z97';
+import { weaponOf, slotOf } from './sim/combat.js?v=muzi7z97';
+import { eyePoint } from './sim/movement.js?v=muzi7z97';
+import { drawLogo, drawHowTo } from './ui/art.js?v=muzi7z97';
+import { loadModels } from './render/models.js?v=muzi7z97';
+import { HIT } from './maps/grid.js?v=muzi7z97';
+import { Menus } from './ui/menus.js?v=muzi7z97';
 
 const $ = id => document.getElementById(id);
 const show = (id, on = true) => { $(id).classList.toggle('hidden', !on); if (id === 'respawn') $('hud').classList.toggle('menu', on); };
@@ -99,7 +101,7 @@ class App {
     const bar = $('load-bar');
     const step = async (p, fn) => { fn?.(); bar.style.width = Math.round(p * 100) + '%'; splash.progress(0.3 + p * 0.7); await new Promise(r => setTimeout(r, 0)); };
     await step(0.1);
-    await loadModels().catch(e => console.warn('models', e));
+    await Promise.all([loadModels(), loadMaps(), loadBlocks()]).catch(e => console.warn('models', e));
     await step(0.2, () => this.buildHome());
     await step(0.5, () => this.menus.weaponIcons());
     await step(0.8, () => this.menus.build());
@@ -166,14 +168,16 @@ class App {
   }
 
   // ---------------- matches ----------------
-  // PLAY: host a fresh bot-filled public-style room on a random map for the chosen mode.
+  // PLAY: host a fresh bot-filled public-style room for the chosen mode, on the next map of your
+  // playlist (rounds then carry on through it) or on the one map you chose.
   play() {
-    const mode = this.profile.mode;
-    // (The last four maps are skipped, so PLAY moves around the rotation.)
-    const recent = Array.isArray(this.profile.recentMaps) ? this.profile.recentMaps : [];
-    const map = pickPublicMap(mode, Math.random, recent.slice(-4));
-    this.profile.recentMaps = [...recent.filter(id => id !== map), map].slice(-6);
-    this.startMatch({ map, mode, options: {}, bots: undefined, difficulty: 'public', private: false });
+    const p = this.profile, mode = p.mode, chosen = p.pickMap && MAPS.find(m => m.id === p.pickMap);
+    if (chosen) { this.startMatch({ map: chosen.id, mode, options: {}, bots: 'natural', difficulty: 'public', private: false, stay: true }); return; }
+    if (!playlistById(p.playlist)) p.playlist = randomPlaylist();
+    const map = nextInPlaylist(p.playlist, p.playlistAt[p.playlist], mode) || pickPublicMap(mode, Math.random, p.recentMaps.slice(-4));
+    p.playlistAt[p.playlist] = map;
+    p.recentMaps = [...p.recentMaps.filter(id => id !== map), map].slice(-6);
+    this.startMatch({ map, mode, options: {}, bots: 'natural', difficulty: 'public', private: false, playlist: p.playlist });
   }
   startMatch(cfg) {
     this.sound.unlock();
@@ -420,7 +424,8 @@ class App {
     show('respawn', false); show('vote', false);
     const pod = this.podiumScene || (this.podiumScene = new Podium(this.renderer));
     const byId = new Map(e.rows.map(r => [r.id, r]));
-    pod.set(e.podium.map(id => byId.get(id)).filter(Boolean).map(r => ({ look: r.look, primary: r.primary, team: r.team })));
+    const sky = this.renderer.scene.background?.isCubeTexture ? this.renderer.scene.background : null;
+    pod.set(e.podium.map(id => byId.get(id)).filter(Boolean).map(r => ({ look: r.look, primary: r.primary, team: r.team })), sky);
     this.podium = { r: e, until: e.until };
     this.hud.podium = e;
     this.hud.set('objective', 'objOn', false, (el, v) => el.classList.toggle('hidden', !v));   // (the podium says who won)
@@ -444,6 +449,8 @@ class App {
     for (const id of [...this.renderer.avatars.keys()]) this.renderer.dropAvatar(id);
     this.sound.stopAll();
     this.enter(session);
+    const pl = session.cfg?.playlist;
+    if (pl && this.profile.playlistAt) { this.profile.playlistAt[pl] = session.mapId; saveProfile(this.profile); }
     this.hud.chat(`Round ${session.round || ''}: ${session.map.meta.name}`.replace('Round : ', ''), '#ffd23f');
   }
   // Points we scored (match.js award): shown as they come (objective time ticks up quietly), and

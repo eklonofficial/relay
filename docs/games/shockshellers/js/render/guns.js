@@ -2,12 +2,12 @@
 // animates; everything else gets a still copy: the rig at rest, skinned once on the CPU and baked
 // into one vertex-coloured mesh (one draw call), for other eggs' guns, the weapon icons and the shop.
 // The Cluck Bomb and rocket are plain imported meshes.
-import * as THREE from '../../vendor/three/three.module.js?v=muyxgr3o';
-import { mergeGeometries } from '../../vendor/three/BufferGeometryUtils.js?v=muyxgr3o';
-import { clone, importedMaterial } from './models.js?v=muyxgr3o';
-import { WeaponRig } from './weapon-rig.js?v=muyxgr3o';
-import { WEAPON_ASSETS } from './asset-catalog.js?v=muyxgr3o';
-import { PROFILE } from './weapon-profile.js?v=muyxgr3o';
+import * as THREE from '../../vendor/three/three.module.js?v=muzi7z97';
+import { mergeGeometries } from '../../vendor/three/BufferGeometryUtils.js?v=muzi7z97';
+import { clone, importedMaterial } from './models.js?v=muzi7z97';
+import { WeaponRig } from './weapon-rig.js?v=muzi7z97';
+import { WEAPON_ASSETS } from './asset-catalog.js?v=muzi7z97';
+import { PROFILE } from './weapon-profile.js?v=muzi7z97';
 
 export const GUN_IDS = Object.keys(WEAPON_ASSETS);
 

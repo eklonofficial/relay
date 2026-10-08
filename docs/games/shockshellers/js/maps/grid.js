@@ -1,6 +1,6 @@
 // The collision world: a W×H×D grid of cells, each a piece id and rotation (pieces.js). Shared by
 // the simulation (movement, bullets, grenades), the bots (line of sight, navigation) and the renderer.
-import { PIECES, BOXES, PIECE, facing } from './pieces.js?v=muyxgr3o';
+import { PIECES, BOXES, PIECE, ladderFacing } from './pieces.js?v=muzi7z97';
 
 export class MapGrid {
   constructor(w, h, d) {
@@ -101,12 +101,14 @@ export class MapGrid {
   // ---- features ----
   // The ladder cell the sphere touches (with its wall direction), or null.
   ladderAt(cx, cy, cz, r) {
-    for (let y = Math.floor(cy - 0.9); y <= Math.floor(cy + 0.9); y++) for (let z = Math.floor(cz - r); z <= Math.floor(cz + r); z++) for (let x = Math.floor(cx - r); x <= Math.floor(cx + r); x++) {
-      if (this.get(x, y, z) !== PIECE.ladder) continue;
-      const [fx, fz] = facing(this.getRot(x, y, z));
+    const reach = r + 0.02;   // (a hair past touching: an egg held off by something at the foot still grabs on)
+    for (let y = Math.floor(cy - 0.9); y <= Math.floor(cy + 0.9); y++) for (let z = Math.floor(cz - reach); z <= Math.floor(cz + reach); z++) for (let x = Math.floor(cx - reach); x <= Math.floor(cx + reach); x++) {
+      const p = PIECES[this.get(x, y, z)];
+      if (p.kind !== 'ladder') continue;
+      const [fx, fz] = ladderFacing(p, this.getRot(x, y, z));
       // The rung face sits against the wall side; the sphere must reach into the cell.
       const nx = Math.max(x, Math.min(x + 1, cx)), nz = Math.max(z, Math.min(z + 1, cz));
-      if ((cx - nx) ** 2 + (cz - nz) ** 2 > (r + 0.02) ** 2) continue;
+      if ((cx - nx) ** 2 + (cz - nz) ** 2 > reach ** 2) continue;
       return { x, y, z, fx, fz };
     }
     return null;

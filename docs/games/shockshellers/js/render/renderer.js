@@ -13,16 +13,18 @@
 // map (the map never moves) instead of every frame, and eggs get a soft blob shadow instead; no
 // muzzle-flash or explosion lights and no sky reflections (each costs every pixel of every lit
 // surface); no bloom or multisampling; fewer particles.
-import * as THREE from '../../vendor/three/three.module.js?v=muyxgr3o';
-import { buildWorld } from './world.js?v=muyxgr3o';
-import { EggAvatar, TEAM_COLORS } from './egg.js?v=muyxgr3o';
-import { Effects } from './fx.js?v=muyxgr3o';
-import { ViewModel } from './viewmodel.js?v=muyxgr3o';
-import { gunModel } from './guns.js?v=muyxgr3o';
-import { Kit, kitMaterial } from './kit.js?v=muyxgr3o';
-import { clone, merged } from './models.js?v=muyxgr3o';
-import { noiseTexture, WIND, SKY_TINT, worldRelief } from './materials.js?v=muyxgr3o';
-import { Post } from './post.js?v=muyxgr3o';
+import * as THREE from '../../vendor/three/three.module.js?v=muzi7z97';
+import { buildWorld } from './world.js?v=muzi7z97';
+import { EggAvatar, TEAM_COLORS } from './egg.js?v=muzi7z97';
+import { Effects } from './fx.js?v=muzi7z97';
+import { ViewModel } from './viewmodel.js?v=muzi7z97';
+import { gunModel } from './guns.js?v=muzi7z97';
+import { Kit, kitMaterial } from './kit.js?v=muzi7z97';
+import { clone, merged } from './models.js?v=muzi7z97';
+import { noiseTexture, WIND, SKY_TINT, worldRelief } from './materials.js?v=muzi7z97';
+import { Post } from './post.js?v=muzi7z97';
+import { MAP_ASSETS } from '../maps/map-assets.js?v=muzi7z97';
+import { fetchAssetBlob } from '../util/asset.js?v=muzi7z97';
 
 // Atmosphere, for every fogged material at once (three's fog chunks, replaced before anything
 // compiles): the map's distance haze, plus a soft height fog that pools in low ground and thickens
@@ -204,6 +206,18 @@ function blobTexture() {
 
 const _m = new THREE.Matrix4(), _e = new THREE.Euler(), _v = new THREE.Vector3(), _c = new THREE.Color(), _q = new THREE.Quaternion(), _s = new THREE.Vector3();
 const _warm = new THREE.Color();
+// A skybox (six images in assets/maps/sky/<name>/), loaded once.
+const skyboxes = new Map();
+function skybox(name) {
+  if (!skyboxes.has(name)) {
+    const faces = ['px', 'nx', 'py', 'ny', 'pz', 'nz'].map(f => MAP_ASSETS[`sky/${name}/${f}.jpg`]);
+    skyboxes.set(name, faces.every(Boolean) ? Promise.all(faces.map(u => fetchAssetBlob(u, 'image/jpeg').then(b => createImageBitmap(b)))).then(images => {
+      const t = new THREE.CubeTexture(images); t.colorSpace = THREE.SRGBColorSpace; t.needsUpdate = true; return t;
+    }).catch(() => null) : Promise.resolve(null));
+  }
+  return skyboxes.get(name);
+}
+
 export class Renderer {
   constructor(canvas) {
     this.canvas = canvas;
@@ -350,6 +364,10 @@ export class Renderer {
     this.sky = new THREE.Mesh(new THREE.SphereGeometry(400, 32, 16), skyMaterial(kind, fog.color, d, sun.color));
     this.sky.renderOrder = -1; this.sky.frustumCulled = false; this.sky.material.uniforms.clouds.value = this.q.clouds ? 1 : 0;
     this.scene.add(this.sky);
+    // A map with its own skybox shows it once loaded (lighting and reflections still follow the sky
+    // kind above, which matches it).
+    this.scene.background = null;
+    if (meta.skybox) skybox(meta.skybox).then(cube => { if (this.map === map && cube) { this.scene.background = cube; this.sky.visible = false; } });
     // Haze starts a little nearer than the map asks, so depth reads (aerial perspective).
     this.scene.fog = new THREE.Fog(fog.color, fog.near * 0.85, fog.far);
     const c = new THREE.Vector3(g.w / 2, 0, g.d / 2), R = Math.hypot(g.w, g.d, g.h) / 2 + 2;

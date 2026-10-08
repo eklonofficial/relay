@@ -1,6 +1,6 @@
 // Saved settings and the local profile (GDD §20–22). Everything lives in this browser only, under
 // keys namespaced to the game; every access is wrapped because storage can throw or come back empty.
-import { DEFAULT_KEYS } from './input.js?v=muyxgr3o';
+import { DEFAULT_KEYS } from './input.js?v=muzi7z97';
 
 export const SETTINGS_KEY = 'shockshellers.settings.v1';
 export const PROFILE_KEY = 'shockshellers.profile.v1';
@@ -48,6 +48,11 @@ export function loadProfile() {
     equip: { color: 0, hat: 'none', pattern: 'none', pcolor: 13, stamp: 'none', skins: {}, ...(p.equip || {}) },
     stats: { ...emptyStats(), ...(p.stats || {}) },
     challenges: p.challenges || null,
+    // PLAY's map choice: a playlist (picked at random the first time) or one chosen map; and the last
+    // map played on each playlist, so PLAY carries on from there.
+    playlist: typeof p.playlist === 'string' ? p.playlist : null,
+    pickMap: typeof p.pickMap === 'string' ? p.pickMap : null,
+    playlistAt: p.playlistAt && typeof p.playlistAt === 'object' ? p.playlistAt : {},
     recentMaps: Array.isArray(p.recentMaps) ? p.recentMaps.filter(id => typeof id === 'string').slice(-6) : [],
   };
 }

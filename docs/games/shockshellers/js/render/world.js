@@ -1,12 +1,13 @@
 // Turns a map grid into a few merged meshes (one per material family). Faces hidden against full
 // blocks are dropped, and every vertex gets baked ambient occlusion from the cells around it, which
 // gives the soft, lightmapped look of the reference maps without shipping any lightmap.
-import * as THREE from '../../vendor/three/three.module.js?v=muyxgr3o';
-import { PIECES, BOXES, facing } from '../maps/pieces.js?v=muyxgr3o';
-import { worldMaterial, TEX_SCALE, sway } from './materials.js?v=muyxgr3o';
-import { clone, modelParts } from './models.js?v=muyxgr3o';
-import { propParts } from './props.js?v=muyxgr3o';
-import { mergeGeometries } from '../../vendor/three/BufferGeometryUtils.js?v=muyxgr3o';
+import * as THREE from '../../vendor/three/three.module.js?v=muzi7z97';
+import { PIECES, BOXES, facing } from '../maps/pieces.js?v=muzi7z97';
+import { worldMaterial, TEX_SCALE, sway } from './materials.js?v=muzi7z97';
+import { clone, modelParts } from './models.js?v=muzi7z97';
+import { propParts } from './props.js?v=muzi7z97';
+import { mergeGeometries } from '../../vendor/three/BufferGeometryUtils.js?v=muzi7z97';
+import { blockMesh } from './blocks.js?v=muzi7z97';
 
 class Bucket {
   constructor(mat) { this.mat = mat; this.p = []; this.n = []; this.u = []; this.c = []; this.i = []; this.v = 0; this.s = TEX_SCALE[mat] ?? 0.5; }
@@ -94,13 +95,14 @@ export function buildWorld(map) {
   const N6 = [[-1, 0, 0], [1, 0, 0], [0, -1, 0], [0, 1, 0], [0, 0, -1], [0, 0, 1]];
   // Rotate a point in cell space by ry quarter turns, like pieces.rotateBox.
   const rot = (px, pz, ry) => { for (let i = 0; i < ry; i++) [px, pz] = [pz, 1 - px]; return [px, pz]; };
-  const extras = [];
+  const extras = [], imported = [];
 
   for (let y = 0; y < grid.h; y++) for (let z = 0; z < grid.d; z++) for (let x = 0; x < grid.w; x++) {
     const i = grid.index(x, y, z), id = grid.cells[i];
     if (!id) continue;
     const p = PIECES[id], ry = grid.rot[i], mat = grid.tint[i], B = bucket(mat);
     switch (p.shape) {
+      case 'imported': if (p.draw) imported.push(p.block, x, y, z, ry); break;
       case 'block': case 'leaves':
         box(B, x, y, z, x + 1, y + 1, z + 1, f => { const [nx, ny, nz] = N6[f]; return full(x + nx, y + ny, z + nz); });
         break;
@@ -191,6 +193,8 @@ export function buildWorld(map) {
   // Modelled props are baked into the world too: one mesh per material for every crate, barrel, tree
   // and bush on the map together (a crate alone is 18 parts).
   for (const m of bakeProps(extras.filter(e => e.kind === 'model'))) group.add(m);
+  // Imported map pieces: their own meshes, the whole map's in one.
+  if (imported.length) group.add(blockMesh(imported));
   group.userData.pulses = [];
   for (const e of extras) if (e.kind !== 'model') { const o = buildExtra(e); if (o.userData.pulse) group.userData.pulses.push(o); group.add(o); }
   return group;

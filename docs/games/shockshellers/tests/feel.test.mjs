@@ -79,20 +79,6 @@ test('cosmetics from the network: known values pass, anything else falls back', 
   for (let i = 0; i < 200; i++) { const c = botCosmetics(rnd); assert.deepEqual(sanitizeCosmetics(c), c); assert.ok(NATURAL.includes(c.color) && c.hat === 'none' && c.pattern === 'none' && c.stamp === 'none', 'bots are plain eggs in natural colours'); }
 });
 
-test('PLAY moves around the map rotation instead of repeating the last few maps', async () => {
-  const { pickPublicMap, MAPS } = await load('maps/index.js');
-  let s = 3; const rnd = () => (s = (s * 16807) % 2147483647) / 2147483647;
-  const recent = [];
-  for (let i = 0; i < 60; i++) {
-    const id = pickPublicMap('ffa', rnd, recent.slice(-4));
-    assert.ok(!recent.slice(-4).includes(id), `${id} came up again within four plays`);
-    recent.push(id);
-  }
-  assert.ok(new Set(recent).size >= 6, 'most of the rotation shows up');
-  const roost = MAPS.filter(m => m.public && m.modes.includes('roost')).map(m => m.id);
-  assert.ok(roost.includes(pickPublicMap('roost', rnd, roost.slice(0, -1))), 'with every map recent, it still picks one');
-});
-
 test('the kill replay finds the shot that cracked you and plays its flight in slow motion', async () => {
   const { Recorder, planReplay, replayRate, projectileAt } = await load('game/replay.js');
   const rec = new Recorder(), players = new Map([[1, { body: { x: 0, y: 1, z: 0, yaw: 0, pitch: 0 }, alive: true }], [2, { body: { x: 0, y: 1, z: -6, yaw: Math.PI, pitch: 0 }, alive: true }]]);

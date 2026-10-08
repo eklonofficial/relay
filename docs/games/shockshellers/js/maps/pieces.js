@@ -9,6 +9,10 @@
 //   none    decoration only
 // Stairs and ramps collide as 0.25-high steps, so the movement code's +0.26 step-up walks them, as
 // the GDD describes; they render as proper stairs or smooth wedges. Stairs/ramps rise towards +z.
+//
+// After the hand-made pieces come the imported map pieces (blocks.js: shape 'imported', drawn from
+// their own meshes by render/blocks.js, colliding as their own boxes).
+import { BLOCKS } from './blocks.js?v=muzi7z97';
 const step4 = [[0, 0, 0, 1, 0.25, 1], [0, 0.25, 0.25, 1, 0.5, 1], [0, 0.5, 0.5, 1, 0.75, 1], [0, 0.75, 0.75, 1, 1, 1]];
 const ramp8 = Array.from({ length: 8 }, (_, i) => [0, i / 8, i / 8, 1, (i + 1) / 8, 1]);
 const halfRamp4 = Array.from({ length: 4 }, (_, i) => [0, i / 8, i / 4, 1, (i + 1) / 8, 1]);
@@ -43,6 +47,7 @@ const DEFS = [
   { key: 'decor', kind: 'none', shape: 'decor', boxes: [] },
   { key: 'rampOuter', kind: 'solid', shape: 'rampOuter', boxes: outer8, ramp: true },
   { key: 'rampInner', kind: 'solid', shape: 'rampInner', boxes: inner8, ramp: true },
+  ...BLOCKS.map((b, block) => ({ key: 'b:' + b.name, kind: b.kind, shape: 'imported', boxes: b.boxes, ramp: !!b.ramp, face: b.face ?? 0, block, draw: b.mesh })),
 ];
 
 export const PIECES = DEFS.map((d, id) => ({ id, blocksShots: d.kind === 'solid' || d.kind === 'pad', blocksPlayers: d.kind === 'solid' || d.kind === 'pass' || d.kind === 'pad', ...d }));
@@ -55,5 +60,7 @@ export function rotateBox([x0, y0, z0, x1, y1, z1], ry) {
 }
 // Unit direction a ry-rotated "+z" faces (stairs rise that way; a ladder's wall is that way).
 export function facing(ry) { return [[0, 1], [1, 0], [0, -1], [-1, 0]][ry & 3]; }
+// The wall a ladder piece placed at rotation ry hangs on (an imported ladder records its own side).
+export const ladderFacing = (piece, ry) => facing((piece.face || 0) + ry);
 // Precomputed rotated boxes per piece and rotation.
 export const BOXES = PIECES.map(p => [0, 1, 2, 3].map(r => p.boxes.map(b => rotateBox(b, r))));

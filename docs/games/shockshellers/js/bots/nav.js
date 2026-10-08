@@ -2,9 +2,9 @@
 // stand, edges for walking, stepping, ramps/stairs, drops, jump-ups, ladders and jump pads. Doubtful
 // edges are verified by running the real movement code, so a path the graph offers is one an egg can
 // actually walk. A* over a binary heap finds routes; costs prefer short, safe paths.
-import { PIECES, PIECE, facing } from '../maps/pieces.js?v=muyxgr3o';
-import { makeBody, stepBody } from '../sim/movement.js?v=muyxgr3o';
-import { CTRL, PLAYER } from '../sim/tuning.js?v=muyxgr3o';
+import { PIECES, PIECE, ladderFacing } from '../maps/pieces.js?v=muzi7z97';
+import { makeBody, stepBody } from '../sim/movement.js?v=muzi7z97';
+import { CTRL, PLAYER } from '../sim/tuning.js?v=muzi7z97';
 
 const R = PLAYER.collideRadius;
 export const EDGE = { walk: 0, jump: 1, drop: 2, ladder: 3, pad: 4 };
@@ -42,9 +42,10 @@ export class NavGraph {
     }
     // Ladders: from the floor in front of the bottom rung to the top of the wall it hangs on.
     for (let z = 0; z < g.d; z++) for (let x = 0; x < g.w; x++) for (let y = 0; y < g.h; y++) {
-      if (g.get(x, y, z) !== PIECE.ladder || g.get(x, y - 1, z) === PIECE.ladder) continue;
-      let top = y; while (g.get(x, top + 1, z) === PIECE.ladder) top++;
-      const [fx, fz] = facing(g.getRot(x, y, z));
+      const ladder = (cx, cy, cz) => PIECES[g.get(cx, cy, cz)].kind === 'ladder';
+      if (!ladder(x, y, z) || ladder(x, y - 1, z)) continue;
+      let top = y; while (ladder(x, top + 1, z)) top++;
+      const [fx, fz] = ladderFacing(PIECES[g.get(x, y, z)], g.getRot(x, y, z));
       const foot = this.at(x, y, z, 0.6) ?? this.at(x - fx, y, z - fz, 0.6);
       const head = this.at(x + fx, top + 1, z + fz, 0.6) ?? this.at(x, top + 1, z, 0.6);
       if (foot != null && head != null) {

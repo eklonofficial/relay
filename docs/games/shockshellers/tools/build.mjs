@@ -36,10 +36,10 @@ const replacements = {
   setup(api) {
     api.onResolve({ filter: /\.js\?v=/ }, args => ({ path: resolve(args.resolveDir, args.path.split('?')[0]) }));
     api.onLoad({ filter: /[\\/]page\.js$/ }, () => ({ contents: `import {mount} from './surface.js';mount(${JSON.stringify(markup)},${JSON.stringify(css)});`, loader: 'js' }));
-    api.onLoad({ filter: /[\\/](?:models|soundbank|asset-catalog)\.js$/ }, args => ({
+    api.onLoad({ filter: /[\\/](?:models|soundbank|asset-catalog|map-assets)\.js$/ }, args => ({
       loader: 'js',
       contents: readFileSync(args.path, 'utf8').replace(
-        /new URL\(\s*(['"])\.\.\/\.\.\/(assets\/(?:models|sounds|imported)\/[^'"]+)\1\s*,\s*import\.meta\.url\s*\)\.href/g,
+        /new URL\(\s*(['"])\.\.\/\.\.\/(assets\/(?:models|sounds|imported|maps)\/[^'"]+)\1\s*,\s*import\.meta\.url\s*\)\.href/g,
         (_, quote, file) => resource(file)
       )
     }));

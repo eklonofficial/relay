@@ -8,9 +8,9 @@
 //   skipped on frames where nothing on it changed.
 // Page text is left for what is rare or needs the keyboard: chat, banners and toasts, the
 // objective bar, and the leaderboard on the respawn screen.
-import { surfaceDocument as document } from '../surface.js?v=muyxgr3o';
-import { WEAPONS, GRENADE, ROOST, STREAKS } from '../sim/tuning.js?v=muyxgr3o';
-import { currentSpread, weaponOf, slotOf } from '../sim/combat.js?v=muyxgr3o';
+import { surfaceDocument as document } from '../surface.js?v=muzi7z97';
+import { WEAPONS, GRENADE, ROOST, STREAKS } from '../sim/tuning.js?v=muzi7z97';
+import { currentSpread, weaponOf, slotOf } from '../sim/combat.js?v=muzi7z97';
 
 const $ = id => document.getElementById(id);
 const POWER_NAMES = { hardBoiled: 'HARD BOILED!', shellBreaker: 'SHELL BREAKER!', restock: 'RESTOCK!', overheal: 'OVERHEAL!', doubleYolks: 'DOUBLE YOLKS!', quailEgg: 'QUAIL EGG!' };
@@ -346,8 +346,10 @@ export class Hud {
     for (const l of v.labels) {
       const row = byId.get(r.podium[l.place]); if (!row) continue;
       const ly = Math.max(l.y, (r.scores ? 150 : 124) * u);   // (never up into the title)
+      c.globalAlpha = l.a ?? 1;
       text(`${l.place + 1}. ${row.name}`, l.x, ly - 26 * u, 22, row.id === v.myId ? '#ff9a3c' : medal[l.place], 'center', 'n');
-      text(`${row.score} pts · ${row.kills} cracks`, l.x, ly - 4 * u, 15, '#fff', 'center', 'n');
+      text(`${row.score} pts · ${row.kills} crack${row.kills === 1 ? "" : "s"}`, l.x, ly - 4 * u, 15, '#fff', 'center', 'n');
+      c.globalAlpha = 1;
     }
     // The table: the top seven, plus our own row if we're further down.
     let rows = r.rows.slice(0, 7); const mine = r.rows.findIndex(x => x.id === v.myId);

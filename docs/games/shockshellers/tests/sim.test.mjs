@@ -61,9 +61,16 @@ test('stairs and slabs are walked up without jumping; a ladder climbs a wall', (
   const b = makeBody(10.5, 1, 8.5); b.yaw = Math.PI; // facing +z
   run(grid, b, CTRL.up, 120);
   assert.ok(b.y > 3.9, `climbed stairs to ${b.y}`);
+  // Four rungs at climbSpeed (2.4 units a second, quicker than walking): well under two seconds.
   const l = makeBody(21.5, 1, 8.2); l.yaw = Math.PI;
-  run(grid, l, CTRL.up, 200);
+  let t = 0; while (l.y < 4.9 && t < 200) { stepBody(grid, l, CTRL.up); t++; }
   assert.ok(l.y > 4.9, `climbed ladder to ${l.y}`);
+  assert.ok(t < 60, `four rungs took ${t} ticks`);
+  // Let go of the keys halfway and the egg holds on; jump and it hops off.
+  const h = makeBody(21.5, 1, 8.2); h.yaw = Math.PI;
+  run(grid, h, CTRL.up, 25); const y = h.y; run(grid, h, 0, 30);
+  assert.ok(h.climbing && Math.abs(h.y - y) < 0.15, `held on at ${h.y} (from ${y})`);
+  run(grid, h, CTRL.jump, 2); assert.equal(h.climbing, null);
 });
 
 test('coyote time and the jump buffer', () => {

@@ -8,9 +8,9 @@
 // is flying: one per particle blend mode, one per shard shape, one each for streaks, chips and the
 // three kinds of decal. Lights never come and go during play (that would recompile every material);
 // two point lights stay in the scene and are just turned up and down. Nothing allocates per frame.
-import * as THREE from '../../vendor/three/three.module.js?v=muyxgr3o';
-import { gunModel } from './guns.js?v=muyxgr3o';
-import { TEAM_COLORS } from './egg.js?v=muyxgr3o';
+import * as THREE from '../../vendor/three/three.module.js?v=muzi7z97';
+import { gunModel } from './guns.js?v=muzi7z97';
+import { TEAM_COLORS } from './egg.js?v=muzi7z97';
 const _axis = new THREE.Vector3(), _quat = new THREE.Quaternion();
 
 const rnd = () => Math.random() * 2 - 1;

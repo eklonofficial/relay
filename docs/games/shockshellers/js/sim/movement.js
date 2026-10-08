@@ -3,7 +3,7 @@
 //
 // Conventions: position is the egg's feet origin; its collision sphere (r 0.31) is centred 0.31 above.
 // Yaw 0 looks towards -z, positive yaw turns left (three.js camera convention); pitch > 0 looks up.
-import { PLAYER, CTRL } from './tuning.js?v=muyxgr3o';
+import { PLAYER, CTRL } from './tuning.js?v=muzi7z97';
 
 const R = PLAYER.collideRadius;
 
@@ -102,10 +102,13 @@ export function stepBody(grid, b, ctrl, opts = {}) {
       else if (b.vy > 0) { b.vx += b.climbing.fx * 0.06; b.vz += b.climbing.fz * 0.06; b.vy = Math.max(b.vy, 0.04); }
       b.climbing = null;
     } else {
+      // Up and down the rungs at climbSpeed (2.4 units a second, quicker than walking), easing in
+      // and out over a few ticks; let go of the keys and the egg holds on where it is.
       const climb = (ctrl & CTRL.up) ? 1 : (ctrl & CTRL.down) ? -1 : 0;
-      b.vy += climb * PLAYER.ladderAccel; b.vy *= 0.5;
-      // Sideways input still works (and backing off at the bottom detaches).
-      const side = ix; b.vx += side * cy * accel * 0.5; b.vz += -side * sy * accel * 0.5;
+      b.vy += (climb * PLAYER.climbSpeed - b.vy) * PLAYER.climbEase;
+      // Held against the rungs (no sliding off the side), with sideways input to shuffle along; backing
+      // off at the bottom detaches.
+      const side = ix; b.vx += side * cy * accel * 0.5 + ladder.fx * 0.012; b.vz += -side * sy * accel * 0.5 + ladder.fz * 0.012;
       if (b.onGround > 0 && climb < 0) b.climbing = null;
     }
   }
@@ -145,7 +148,6 @@ export function stepBody(grid, b, ctrl, opts = {}) {
     b.vx *= k; b.vz *= k;
   }
   b.vx *= PLAYER.friction; b.vz *= PLAYER.friction;
-  if (b.climbing) b.vy *= PLAYER.friction;
 
   if (ground) { if (!wasGround && event !== 'jump') event = 'land'; b.onGround = PLAYER.coyoteTicks; if (b.vy < 0) b.vy = 0; }
   else if (b.onGround > 0) b.onGround--;

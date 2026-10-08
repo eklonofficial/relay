@@ -111,12 +111,17 @@
   #btn-play { width: calc(var(--u)*200); font-size: calc(var(--u)*40); display: flex; align-items: center; justify-content: center; gap: calc(var(--u)*10); }
   #btn-play svg { width: calc(var(--u)*30); height: calc(var(--u)*34); }
   .dropup { position: relative; }
-  #mode-btn { width: calc(var(--u)*200); height: 100%; text-align: left; display: flex; flex-direction: column; justify-content: center; padding: calc(var(--u)*4) calc(var(--u)*40) calc(var(--u)*4) calc(var(--u)*16); }
-  #mode-btn .k { font-family: "s", sans-serif; font-size: calc(var(--u)*17); color: var(--blue-e); }
-  #mode-btn .v { font-family: "n", sans-serif; font-weight: 800; font-size: calc(var(--u)*13); color: var(--ink); letter-spacing: 0; }
-  #mode-btn svg { position: absolute; right: calc(var(--u)*12); top: 50%; margin-top: calc(var(--u)*-8); width: calc(var(--u)*20); height: calc(var(--u)*16); }
+  #map-btn, #mode-btn { width: calc(var(--u)*200); height: 100%; text-align: left; display: flex; flex-direction: column; justify-content: center; padding: calc(var(--u)*4) calc(var(--u)*40) calc(var(--u)*4) calc(var(--u)*16); }
+  #map-btn .k, #mode-btn .k { font-family: "s", sans-serif; font-size: calc(var(--u)*17); color: var(--blue-e); }
+  #map-btn .v, #mode-btn .v { font-family: "n", sans-serif; font-weight: 800; font-size: calc(var(--u)*13); color: var(--ink); letter-spacing: 0; }
+  #map-btn svg, #mode-btn svg { position: absolute; right: calc(var(--u)*12); top: 50%; margin-top: calc(var(--u)*-8); width: calc(var(--u)*20); height: calc(var(--u)*16); }
   .dropup .list { position: absolute; bottom: calc(100% + var(--u)*10); left: 0; right: 0; }
   .dropup .list > .body { display: flex; flex-direction: column; gap: calc(var(--u)*6); padding: calc(var(--u)*8); }
+  #map-btn .v { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #map-list-wrap { width: calc(var(--u)*340); left: auto; right: 0; }
+  #map-list { max-height: calc(var(--u)*430); overflow-y: auto; }
+  #map-list .size-h { font-family: "s", sans-serif; font-size: calc(var(--u)*14); color: var(--blue-e); margin: calc(var(--u)*6) 0 0; }
+  #map-list .sub { font-family: "n", sans-serif; font-size: calc(var(--u)*11); font-weight: 700; opacity: 0.75; text-align: right; max-width: 60%; }
   .dropup .list button { font-size: calc(var(--u)*15); text-align: left; display: flex; justify-content: space-between; align-items: center; }
   .dropup .list button svg { width: calc(var(--u)*18); height: calc(var(--u)*18); }
   #footer { position: absolute; left: 0; right: 0; bottom: calc(var(--u)*8); text-align: center; font-size: calc(var(--u)*13); color: var(--blue-e); font-weight: 700; }
@@ -211,6 +216,10 @@
   .chips { display: flex; flex-wrap: wrap; gap: calc(var(--u)*6); }
   .chips button { font-size: calc(var(--u)*14); padding: calc(var(--u)*4) calc(var(--u)*10); }
   .chips button.on { --c: var(--orange); --e: var(--orange-e); }
+  #cu-sets { margin-bottom: calc(var(--u)*6); }
+  /* The map list scrolls in its own box, so the bots and rules below it stay in view. */
+  #cu-maps { max-height: calc(var(--u)*190); overflow-y: auto; padding: calc(var(--u)*4) calc(var(--u)*6) calc(var(--u)*6) 0; align-content: flex-start; }
+  #cu-maps .size-h { flex-basis: 100%; font-family: "s", sans-serif; font-size: calc(var(--u)*13); letter-spacing: calc(var(--u)*0.6); margin-top: calc(var(--u)*6); opacity: .9; }
   .section { font-family: "s", sans-serif; font-weight: 400; color: var(--blue-e); font-size: calc(var(--u)*17); margin: calc(var(--u)*6) 0 calc(var(--u)*4); }
   #code-input { width: calc(var(--u)*190); text-transform: uppercase; letter-spacing: calc(var(--u)*5); text-align: center; font-size: calc(var(--u)*28); font-weight: 900; }
   .note { font-size: calc(var(--u)*14); color: var(--ink); font-weight: 700; }
@@ -246,7 +255,7 @@
 </head>
 <body>
 <div id="boot"><canvas id="boot-canvas"></canvas></div>
-<script type="module" id="boot-script" src="js/splash.js?v=muyxgr3o" data-modules="72"></script>
+<script type="module" id="boot-script" src="js/splash.js?v=muzi7z97" data-modules="77"></script>
 <canvas id="game" tabindex="-1"></canvas>
 
 <div class="screen hidden" id="loading">
@@ -288,6 +297,7 @@
     <div class="play-row">
       <button class="cyan" id="btn-friends">PLAY WITH FRIENDS!</button>
       <button class="green" id="btn-play"><svg viewBox="0 0 20 24"><path d="M2 2 18 12 2 22z" fill="#fff" stroke="#1b7a2c" stroke-width="2.4" stroke-linejoin="round"/></svg>PLAY</button>
+      <div class="dropup"><div class="list panel hidden" id="map-list-wrap"><div class="body" id="map-list"></div></div><button class="pale" id="map-btn"><span class="k">MAP</span><span class="v" id="map-val">PLAYLIST</span><svg viewBox="0 0 20 16"><path d="M2 14 10 3l8 11z" fill="#0b5b7d"/></svg></button></div>
       <div class="dropup"><div class="list panel hidden" id="mode-list-wrap"><div class="body" id="mode-list"></div></div><button class="pale" id="mode-btn"><span class="k">GAME MODE</span><span class="v" id="mode-val">FREE FOR ALL</span><svg viewBox="0 0 20 16"><path d="M2 14 10 3l8 11z" fill="#0b5b7d"/></svg></button></div>
     </div>
   </div>
@@ -363,6 +373,7 @@
     <div class="body">
       <div class="section">Mode</div><div class="chips" id="cu-modes"></div>
       <div class="section" style="display:flex;justify-content:space-between;align-items:center">Map <input type="text" id="cu-search" placeholder="Search maps" spellcheck="false" autocomplete="off" style="width:calc(var(--u)*200);font-size:calc(var(--u)*15)"></div>
+      <div class="chips" id="cu-sets"></div>
       <div class="chips" id="cu-maps"></div>
       <div class="section">Bots</div><div class="chips" id="cu-bots"></div>
       <div class="section">Bot skill</div><div class="chips" id="cu-skill"></div>
@@ -394,7 +405,7 @@
   </div>
 </div>
 
-<script defer src="net-config.js?v=muyxgr3o"></script>
-<script type="module" src="js/main.js?v=muyxgr3o"></script>
+<script defer src="net-config.js?v=muzi7z97"></script>
+<script type="module" src="js/main.js?v=muzi7z97"></script>
 </body>
 </html>

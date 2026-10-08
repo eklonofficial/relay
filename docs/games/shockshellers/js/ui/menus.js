@@ -1,23 +1,24 @@
 // Menus and modals (GDD §16–21): home, respawn/pause screen, settings (3 tabs), play with friends,
 // custom matches, profile, shop/inventory, how to play, chat. All markup lives in index.html inside
 // the compositor; this module wires it up and keeps it current.
-import { surfaceDocument as document } from '../surface.js?v=muyxgr3o';
-import * as THREE from '../../vendor/three/three.module.js?v=muyxgr3o';
-import { ask, tell } from '../dialog.js?v=muyxgr3o';
-import { gunModel } from '../render/guns.js?v=muyxgr3o';
-import { EggAvatar } from '../render/egg.js?v=muyxgr3o';
-import { hatMesh } from '../render/hats.js?v=muyxgr3o';
-import { previewShell } from '../render/shellart.js?v=muyxgr3o';
-import { COLORS, PATTERNS, STAMPS, HATS, SKIN_COUNTS, skinName, skinOf, sanitizeCosmetics } from '../game/cosmetics.js?v=muyxgr3o';
-import { loadStamp } from '../render/stamps.js?v=muyxgr3o';
-import { TIERS, skinTier, eggsFor, unlocked } from '../game/progress.js?v=muyxgr3o';
-import { WEAPONS, PRIMARIES, MODE_NAMES, MODE_MENU, TICK } from '../sim/tuning.js?v=muyxgr3o';
-import { ACTIONS, ACTION_NAMES, keyLabel, DEFAULT_KEYS } from '../game/input.js?v=muyxgr3o';
-import { DEFAULT_SETTINGS, saveSettings, saveProfile } from '../game/store.js?v=muyxgr3o';
-import { ensureDaily, def as challengeDef, reroll, timeLeft } from '../game/challenges.js?v=muyxgr3o';
-import { MAPS, mapDef } from '../maps/index.js?v=muyxgr3o';
-import { drawHowTo } from './art.js?v=muyxgr3o';
-import { wakeRelays, diagnoseNetwork } from '../net/net.js?v=muyxgr3o';
+import { surfaceDocument as document } from '../surface.js?v=muzi7z97';
+import * as THREE from '../../vendor/three/three.module.js?v=muzi7z97';
+import { ask, tell } from '../dialog.js?v=muzi7z97';
+import { gunModel } from '../render/guns.js?v=muzi7z97';
+import { EggAvatar } from '../render/egg.js?v=muzi7z97';
+import { hatMesh } from '../render/hats.js?v=muzi7z97';
+import { previewShell } from '../render/shellart.js?v=muzi7z97';
+import { COLORS, PATTERNS, STAMPS, HATS, SKIN_COUNTS, skinName, skinOf, sanitizeCosmetics } from '../game/cosmetics.js?v=muzi7z97';
+import { loadStamp } from '../render/stamps.js?v=muzi7z97';
+import { TIERS, skinTier, eggsFor, unlocked } from '../game/progress.js?v=muzi7z97';
+import { WEAPONS, PRIMARIES, MODE_NAMES, MODE_MENU, TICK } from '../sim/tuning.js?v=muzi7z97';
+import { ACTIONS, ACTION_NAMES, keyLabel, DEFAULT_KEYS } from '../game/input.js?v=muzi7z97';
+import { DEFAULT_SETTINGS, saveSettings, saveProfile } from '../game/store.js?v=muzi7z97';
+import { ensureDaily, def as challengeDef, reroll, timeLeft } from '../game/challenges.js?v=muzi7z97';
+import { MAPS, mapDef, mapsBySize, sizeOf, naturalPlayers, SIZES } from '../maps/index.js?v=muzi7z97';
+import { playlists, playlistById, randomPlaylist } from '../maps/playlists.js?v=muzi7z97';
+import { drawHowTo } from './art.js?v=muzi7z97';
+import { wakeRelays, diagnoseNetwork } from '../net/net.js?v=muzi7z97';
 
 const $ = id => document.getElementById(id);
 const show = (id, on = true) => $(id).classList.toggle('hidden', !on);
@@ -79,7 +80,7 @@ class Portraits {
 }
 
 export class Menus {
-  constructor(app) { this.app = app; this.icons = {}; this.customCfg = { mode: 'ffa', map: 'omelet', bots: 6, difficulty: 'normal', gravity: 1, damage: 1, regen: 1, disabled: [], locked: false, noTeamChange: false, noTeamShuffle: false, botChat: true }; }
+  constructor(app) { this.app = app; this.icons = {}; this.customCfg = { set: 'new', mode: 'ffa', map: null, bots: 6, difficulty: 'normal', gravity: 1, damage: 1, regen: 1, disabled: [], locked: false, noTeamChange: false, noTeamShuffle: false, botChat: true }; }
 
   // White silhouettes of the guns, rendered once from the real models.
   weaponIcons() {
@@ -141,9 +142,16 @@ export class Menus {
     $('btn-join').onclick = () => this.join();
     $('code-input').addEventListener('keydown', e => { if (e.key === 'Enter') this.join(); });
     $('btn-create').onclick = () => { show('friends', false); this.openCustom(); };
-    $('btn-1v1').onclick = () => { show('friends', false); app.startMatch({ map: 'omelet', mode: 'ffa', options: {}, bots: 1, slots: 2, difficulty: 'hard', private: true }); };
+    // Quick 1v1: one of the new 1v1-sized maps.
+    $('btn-1v1').onclick = () => {
+      show('friends', false);
+      const duels = mapsBySize('new').filter(m => sizeOf(m).id === 'duel' && m.modes.includes('ffa')), pick = duels[Math.floor(Math.random() * duels.length)];
+      app.startMatch({ map: pick ? pick.id : 'omelet', mode: 'ffa', options: {}, bots: 1, slots: 2, difficulty: 'hard', private: true });
+    };
     // Game mode dropup (opens upward with a check on the current mode).
-    $('mode-btn').onclick = () => { app.sound.play('pop'); $('mode-list-wrap').classList.toggle('hidden'); this.modeList(); };
+    $('mode-btn').onclick = () => { app.sound.play('pop'); show('map-list-wrap', false); $('mode-list-wrap').classList.toggle('hidden'); this.modeList(); };
+    // Map dropup: your playlist, a different random one, any playlist by name, or one map.
+    $('map-btn').onclick = () => { app.sound.play('pop'); show('mode-list-wrap', false); $('map-list-wrap').classList.toggle('hidden'); this.mapList(); };
     $('btn-settings').onclick = $('btn-rs-settings').onclick = () => this.openSettings();
     $('btn-full').onclick = $('btn-rs-full').onclick = () => { const d = globalThis.document; if (d.fullscreenElement) d.exitFullscreen(); else d.documentElement.requestFullscreen?.().catch(() => {}); };
     $('tab-profile').onclick = $('btn-rs-profile').onclick = () => this.openProfile();
@@ -184,8 +192,38 @@ export class Menus {
     $('weapon-name').textContent = WEAPONS[p.primary].name.toUpperCase();
     $('weapon-desc').textContent = WEAPONS[p.primary].desc;
     $('mode-val').textContent = MODE_NAMES[p.mode].toUpperCase();
+    const chosen = p.pickMap && mapDef(p.pickMap), list = playlistById(p.playlist);
+    $('map-val').textContent = (chosen ? chosen.name : list ? list.name + ' playlist' : 'Random playlist').toUpperCase();
+    show('map-list-wrap', false);
     $('coins').textContent = p.coins.toLocaleString();
     show('mode-list-wrap', false);
+  }
+  mapList() {
+    const l = $('map-list'), p = this.app.profile; l.replaceChildren();
+    const tick = () => svg('<path d="M3 12l6 6L21 5" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>');
+    const pick = (playlist, map) => { p.playlist = playlist ?? p.playlist; p.pickMap = map; saveProfile(p); this.refreshHome(); };
+    const shuffle = el('button', 'green', '🔀 RANDOM PLAYLIST');
+    shuffle.onclick = () => pick(randomPlaylist(Math.random, p.playlist), null);
+    l.append(shuffle, el('div', 'size-h', 'PLAYLISTS'));
+    for (const pl of playlists()) {
+      const on = !p.pickMap && pl.id === p.playlist, b = el('button', on ? 'orange' : 'pale', pl.name.toUpperCase());
+      b.title = pl.maps.map(id => mapDef(id).name).join(', ');
+      b.append(on ? tick() : el('span', 'sub', pl.maps.map(id => mapDef(id).name).slice(0, 3).join(' · ') + '…'));
+      b.onclick = () => pick(pl.id, null);
+      l.append(b);
+    }
+    // One map, largest first under size headings (only those with the current mode).
+    for (const size of SIZES) {
+      const maps = mapsBySize('new').filter(m => sizeOf(m) === size && m.modes.includes(p.mode));
+      if (!maps.length) continue;
+      l.append(el('div', 'size-h', size.name.toUpperCase() + ' MAPS'));
+      for (const m of maps) {
+        const on = p.pickMap === m.id, b = el('button', on ? 'orange' : 'pale', m.name.toUpperCase());
+        if (on) b.append(tick());
+        b.onclick = () => pick(null, m.id);
+        l.append(b);
+      }
+    }
   }
   modeList() {
     const l = $('mode-list'), p = this.app.profile; l.replaceChildren();
@@ -414,10 +452,21 @@ export class Menus {
   }
   fillCustom() {
     const c = this.customCfg, chips = (id, items, isOn, pick) => { const box = $(id); box.replaceChildren(); for (const [k, label] of items) { const b = el('button', isOn(k) ? 'on' : '', label); b.onclick = () => { pick(k); this.fillCustom(); }; box.append(b); } };
+    // Picking a map: its own natural number of players, and a mode it has.
+    const choose = id => { c.map = id; const d = mapDef(id); c.bots = naturalPlayers(d) - 1; if (!d.modes.includes(c.mode)) c.mode = d.modes[0]; };
+    const inSet = mapsBySize(c.set);
+    if (!inSet.some(m => m.id === c.map)) choose((inSet.find(m => m.modes.includes(c.mode)) || inSet[0]).id);
     const map = mapDef(c.map);
-    chips('cu-modes', MODE_MENU.map(m => [m, MODE_NAMES[m]]), m => m === c.mode, m => { c.mode = m; if (!mapDef(c.map).modes.includes(m)) c.map = (MAPS.find(x => x.modes.includes(m)) || MAPS[0]).id; });
-    const q = $('cu-search').value.toLowerCase();
-    chips('cu-maps', MAPS.filter(m => m.name.toLowerCase().includes(q)).map(m => [m.id, `${m.name} (${m.maxPlayers})`]), m => m === c.map, m => { c.map = m; c.bots = Math.min(c.bots, mapDef(m).maxPlayers - 1); if (!mapDef(m).modes.includes(c.mode)) c.mode = mapDef(m).modes[0]; });
+    chips('cu-modes', MODE_MENU.map(m => [m, MODE_NAMES[m]]), m => m === c.mode, m => { c.mode = m; if (!mapDef(c.map).modes.includes(m)) choose((inSet.find(x => x.modes.includes(m)) || inSet[0]).id); });
+    chips('cu-sets', [['new', 'New maps'], ['legacy', 'Legacy maps']], s => s === c.set, s => { c.set = s; });
+    // The set's maps under their sizes, largest first (each with its natural number of players).
+    const q = $('cu-search').value.toLowerCase(), box = $('cu-maps'); box.replaceChildren();
+    for (const size of SIZES) {
+      const list = inSet.filter(m => sizeOf(m) === size && m.name.toLowerCase().includes(q));
+      if (!list.length) continue;
+      box.append(el('div', 'size-h', size.name));
+      for (const m of list) { const b = el('button', m.id === c.map ? 'on' : '', `${m.name} · ${naturalPlayers(m)}`); b.title = `${m.name}: best with ${naturalPlayers(m)} players (holds ${m.maxPlayers})`; b.onclick = () => { choose(m.id); this.fillCustom(); }; box.append(b); }
+    }
     chips('cu-bots', Array.from({ length: map.maxPlayers }, (_, i) => [i, i ? String(i) : 'None']), n => n === c.bots, n => { c.bots = n; });
     chips('cu-skill', [['easy', 'Easy'], ['normal', 'Normal'], ['hard', 'Hard'], ['expert', 'Expert'], ['mixed', 'Mixed']], d => d === c.difficulty, d => { c.difficulty = d; });
     const sl = $('cu-sliders'); sl.replaceChildren();

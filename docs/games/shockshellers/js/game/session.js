@@ -1,21 +1,24 @@
 // A match as this browser sees it. The host's session owns the real Match (and its bots); a guest's
 // session mirrors the host's snapshots and predicts only its own egg (net/guest.js). Either way the
 // view reads players, objects and events from here.
-import { Match } from '../sim/match.js?v=muyxgr3o';
-import { NavGraph } from '../bots/nav.js?v=muyxgr3o';
-import { BotManager, BOT_NAMES } from '../bots/bot.js?v=muyxgr3o';
-import { getMap, mapDef, pickPublicMap } from '../maps/index.js?v=muyxgr3o';
-import { TICK, TICK_HZ, PRIMARIES, ROUND } from '../sim/tuning.js?v=muyxgr3o';
-import { Net, cleanName } from '../net/net.js?v=muyxgr3o';
-import { encodePlayer, ownState, rosterEntry, sendable, trimEvent } from '../net/protocol.js?v=muyxgr3o';
-import { sanitizeCosmetics, botCosmetics } from './cosmetics.js?v=muyxgr3o';
+import { Match } from '../sim/match.js?v=muzi7z97';
+import { NavGraph } from '../bots/nav.js?v=muzi7z97';
+import { BotManager, BOT_NAMES } from '../bots/bot.js?v=muzi7z97';
+import { getMap, mapDef, pickPublicMap, naturalPlayers } from '../maps/index.js?v=muzi7z97';
+import { nextInPlaylist } from '../maps/playlists.js?v=muzi7z97';
+import { TICK, TICK_HZ, PRIMARIES, ROUND } from '../sim/tuning.js?v=muzi7z97';
+import { Net, cleanName } from '../net/net.js?v=muzi7z97';
+import { encodePlayer, ownState, rosterEntry, sendable, trimEvent } from '../net/protocol.js?v=muzi7z97';
+import { sanitizeCosmetics, botCosmetics } from './cosmetics.js?v=muzi7z97';
 export { sanitizeCosmetics };
 
 const navCache = new Map();
 export function navFor(mapId, map) { if (!navCache.has(mapId)) navCache.set(mapId, new NavGraph(map.grid, map.meta.gravity || 1)); return navCache.get(mapId); }
 
 export class HostSession {
-  // cfg: { map, mode, options, bots (target total players), difficulty, name, primary, cosmetics, private }
+  // cfg: { map, mode, options, bots (target total players, or 'natural': each map's own natural number),
+  //        difficulty, name, primary, cosmetics, private, playlist (a playlist id the rounds follow),
+  //        stay (keep playing this map) }
   constructor(cfg) {
     this.cfg = cfg; this.host = true;
     this.mapId = cfg.map; this.map = getMap(cfg.map); this.recent = [cfg.map]; this.round = 1;
@@ -37,11 +40,17 @@ export class HostSession {
     this.bots = new BotManager(this.match, this.nav, seed ^ 0x5bd1e995);
     this.bots.onChat = (id, msg) => { const p = this.match.players.get(id); if (!p) return; this.onChat?.(`${p.name}: ${msg}`, '#fff'); this.net?.broadcast({ t: 'chat', id, msg }); };
   }
+  // The map after this one: the same map when one was chosen, the next on the playlist, or else a
+  // random public map that wasn't played lately.
+  upNext(mode) {
+    if (this.cfg.stay) return this.mapId;
+    return (this.cfg.playlist && nextInPlaylist(this.cfg.playlist, this.mapId, mode)) || pickPublicMap(mode, Math.random, this.recent.slice(-4));
+  }
   // The podium is over: the next round on the map picked when the last one ended. Everyone carries
   // over (scores reset; teams kept, bots keep their names and skill); guests are told to load it.
   nextRound() {
     const old = this.match, oldBots = this.bots;
-    this.mapId = this.nextMap || pickPublicMap(old.modeId, Math.random, this.recent.slice(-4));
+    this.mapId = this.nextMap || this.upNext(old.modeId);
     this.recent = [...this.recent.filter(id => id !== this.mapId), this.mapId].slice(-6);
     this.map = getMap(this.mapId); this.nextMap = null; this.round++; this.vote = null;
     const { ...options } = old.options;
@@ -54,6 +63,10 @@ export class HostSession {
       const ob = oldBots.bots.get(p.id), nb = this.bots.add(q, ob?.skill ?? (this.cfg.difficulty || 'normal'), ob ? { ...ob.per, free: true } : {});
       if (ob) { nb.mind = ob.mind.carry(); nb.voice = ob.voice; }
     }
+    // A smaller map sends the extra bots home (the lowest scorers); a bigger one gets more.
+    const extra = [...this.match.players.values()].filter(p => p.bot).sort((a, b) => (old.players.get(a.id)?.score ?? 0) - (old.players.get(b.id)?.score ?? 0));
+    while (this.match.players.size > this.target && extra.length) this.removeBot(extra.shift().id);
+    this.fillBots();
     this.me = this.match.players.get(this.myId);
     this.prev.clear(); this.acc = 0; this.evSeen = 0; this.outbox.length = 0;
     for (const g of this.guests.values()) g.queue.length = 0;
@@ -184,10 +197,8 @@ export class HostSession {
   get capacity() { return this.cfg.slots || this.map.meta.maxPlayers; }
   botCount() { let n = 0; for (const p of this.match.players.values()) if (p.bot) n++; return n; }
   // Keep the room at its target size with bots (GDD: bots fill empty lobbies).
-  fillBots() {
-    const target = Math.min(this.capacity, this.cfg.bots ?? this.capacity);
-    while (this.match.players.size < target) this.addBot();
-  }
+  get target() { return Math.min(this.capacity, this.cfg.bots === 'natural' ? naturalPlayers(mapDef(this.mapId)) : this.cfg.bots ?? this.capacity); }
+  fillBots() { while (this.match.players.size < this.target) this.addBot(); }
   addBot(team = 0) {
     const names = BOT_NAMES.filter(n => !this.usedNames.has(n.toLowerCase()));
     const name = names[Math.floor(Math.random() * names.length)] || 'Bot' + this.nextId;
@@ -231,7 +242,7 @@ export class HostSession {
       // Everything since the last tick, including joins/leaves that happened between ticks.
       const fresh = this.match.events.slice(this.evSeen || 0); this.evSeen = this.match.events.length;
       // A round just ended: pick the next map now, so the podium can say where we're going.
-      for (const e of fresh) if (e.t === 'roundEnd') { this.nextMap = pickPublicMap(this.match.modeId, Math.random, this.recent.slice(-4)); e.next = this.nextMap; e.nextName = mapDef(this.nextMap).name; }
+      for (const e of fresh) if (e.t === 'roundEnd') { this.nextMap = this.upNext(this.match.modeId); e.next = this.nextMap; e.nextName = mapDef(this.nextMap).name; }
       this.bots.events(fresh);
       if (this.net) this.outbox.push(...fresh);
       if (++this.snapT >= 2) { this.snapT = 0; this.snapshot(); }
