@@ -3,8 +3,8 @@
 // their blocks third to first, the winner hops for joy and shows off its gun, and confetti falls.
 // Its own little scene, drawn through the same pipeline as the home screen; the names and the
 // results table are the HUD's.
-import * as THREE from '../../vendor/three/three.module.js?v=muzischz';
-import { EggAvatar } from './egg.js?v=muzischz';
+import * as THREE from '../../vendor/three/three.module.js?v=muzk36dq';
+import { EggAvatar } from './egg.js?v=muzk36dq';
 
 // Places, left to right on screen: second, first, third. [x, block height, colour]
 const SPOTS = [[-1.05, 0.42, 0xc9d1d9], [0, 0.66, 0xffc83a], [1.05, 0.28, 0xd08a4e]];

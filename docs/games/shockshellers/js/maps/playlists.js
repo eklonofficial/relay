@@ -2,7 +2,7 @@
 // about six: shuffled once with a fixed seed, then dealt a size class at a time, so each playlist
 // mixes big and small maps that have nothing else in common, and is the same list every time. A
 // match on a playlist moves through it in order, round after round.
-import { MAPS, mapsBySize, sizeOf } from './index.js?v=muzischz';
+import { MAPS, mapsBySize, sizeOf } from './index.js?v=muzk36dq';
 
 const NAMES = ['Sunny Side Up', 'Scrambled', 'Over Easy', 'Hard Boiled', 'Poached', 'Benedict', 'Deviled', 'Soft Boiled',
   'Omelette', 'Frittata', 'Shakshuka', 'Quiche', 'Soufflé', 'Custard', 'Meringue', 'Eggnog', 'Carbonara', 'Huevos Rancheros'];
