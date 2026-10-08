@@ -1,7 +1,7 @@
 // Stamp images (the imported decals), decoded once each. stampImage() answers at once with the image
 // or null while it loads; loadStamp() resolves when it is ready, so a shell can be repainted then.
-import { ASSETS } from './asset-catalog.js?v=muzi7z97';
-import { fetchAssetBlob } from '../util/asset.js?v=muzi7z97';
+import { ASSETS } from './asset-catalog.js?v=muziihfj';
+import { fetchAssetBlob } from '../util/asset.js?v=muziihfj';
 
 const images = new Map(), pending = new Map();
 export const stampImage = id => images.get(id) || null;

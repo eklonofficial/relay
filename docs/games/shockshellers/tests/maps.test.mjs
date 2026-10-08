@@ -88,6 +88,15 @@ test("the new maps' ladders climb: walk up to one holding forward and come off t
 });
 
 test('every imported piece with a mesh has one to draw', () => {
-  const missing = BLOCKS.flatMap((b, i) => b.mesh && !blockMesh([i, 0, 0, 0, 0]).geometry.attributes.position.count ? [b.name] : []);
+  const missing = BLOCKS.flatMap((b, i) => b.mesh && !blockMesh([i, 0, 0, 0, 0]).children[0]?.geometry.index.count ? [b.name] : []);
   assert.deepEqual(missing, []);
+});
+
+test("faces pressed against a neighbour are left out, and each chunk of columns is its own mesh", () => {
+  const cube = BLOCKS.findIndex(b => b.name === 'scifi.ground.full'), tris = m => m.children.reduce((n, c) => n + c.geometry.index.count / 3, 0);
+  const one = tris(blockMesh([cube, 0, 0, 0, 0])), row = [];
+  for (let x = 0; x < 20; x++) row.push(cube, x, 0, 0, x & 3);
+  const m = blockMesh(row);
+  assert.ok(tris(m) < one * 20 * 0.9, `${tris(m)} triangles for 20 (alone ${one})`);
+  assert.equal(m.children.length, 3, 'three chunks of 8 columns');
 });

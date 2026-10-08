@@ -110,8 +110,12 @@ try {
   await page.waitForFunction(() => !window.testRoot.getElementById('home').classList.contains('hidden'));
   await click('btn-friends'); await click('btn-create');
   await page.waitForFunction(() => !window.testRoot.getElementById('custom').classList.contains('hidden'));
-  await page.evaluate(() => { [...window.testRoot.querySelectorAll('#cu-bots button')].find(b => b.textContent === 'None').id = 'test-nobots'; });
-  await click('test-nobots');
+  // On the small walled legacy arena: the movement check below holds W for a while, and many of the
+  // new maps have open edges to walk off.
+  const tag = (sel, match, id) => page.evaluate(([sel, match, id]) => { [...window.testRoot.querySelectorAll(sel)].find(b => b.textContent.startsWith(match)).id = id; }, [sel, match, id]);
+  await tag('#cu-sets button', 'Legacy', 'test-legacy'); await click('test-legacy');
+  await tag('#cu-maps button', 'Omelet Arena', 'test-map'); await click('test-map');
+  await tag('#cu-bots button', 'None', 'test-nobots'); await click('test-nobots');
   await page.screenshot({ path: resolve(captures, 'custom.png') });
   await click('cu-start');
   await page.waitForFunction(() => !window.testRoot.getElementById('respawn').classList.contains('hidden') && window.testRoot.querySelectorAll('#board-list .lb').length === 1, null, { polling: 100 });

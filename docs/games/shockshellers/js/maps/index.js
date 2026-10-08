@@ -2,16 +2,16 @@
 // maps, imported (imported.js; loaded at start-up by loadMaps()). PLAY and the next rounds draw only
 // from the new ones; a custom match can use either. Every map has a size class, from its walkable
 // floor, and a natural number of players for that floor (what PLAY fills with bots). Builds are cached.
-import barnyard from './barnyard.js?v=muzi7z97';
-import yolkQuarry from './yolk-quarry.js?v=muzi7z97';
-import henHouse from './hen-house.js?v=muzi7z97';
-import sunnySide from './sunny-side.js?v=muzi7z97';
-import coopVille from './coop-ville.js?v=muzi7z97';
-import moonHatch from './moon-hatch.js?v=muzi7z97';
-import eggTemple from './egg-temple.js?v=muzi7z97';
-import omeletArena from './omelet-arena.js?v=muzi7z97';
-import { loadPack, packMaps, buildImported } from './imported.js?v=muzi7z97';
-import { PIECES } from './pieces.js?v=muzi7z97';
+import barnyard from './barnyard.js?v=muziihfj';
+import yolkQuarry from './yolk-quarry.js?v=muziihfj';
+import henHouse from './hen-house.js?v=muziihfj';
+import sunnySide from './sunny-side.js?v=muziihfj';
+import coopVille from './coop-ville.js?v=muziihfj';
+import moonHatch from './moon-hatch.js?v=muziihfj';
+import eggTemple from './egg-temple.js?v=muziihfj';
+import omeletArena from './omelet-arena.js?v=muziihfj';
+import { loadPack, packMaps, buildImported } from './imported.js?v=muziihfj';
+import { PIECES } from './pieces.js?v=muziihfj';
 
 export const MAPS = [
   { id: 'barnyard', name: 'Barnyard', build: barnyard, maxPlayers: 18, modes: ['ffa', 'teams', 'spatula', 'roost'], public: false, set: 'legacy' },

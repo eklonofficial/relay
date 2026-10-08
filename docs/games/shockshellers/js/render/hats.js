@@ -1,7 +1,7 @@
 // Hats: the imported hats and accessories (cosmetics.js names them and gives each its mesh in the
 // character bundle). Each is one mesh, placed where it sits on the egg.
-import { HATS } from '../game/cosmetics.js?v=muzi7z97';
-import { hatModel } from './models.js?v=muzi7z97';
+import { HATS } from '../game/cosmetics.js?v=muziihfj';
+import { hatModel } from './models.js?v=muziihfj';
 
 const NODE = new Map(HATS.filter(h => h.node !== undefined).map(h => [h.id, h.node]));
 export const HAT_IDS = [...NODE.keys()];

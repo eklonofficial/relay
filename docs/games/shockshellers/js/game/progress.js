@@ -2,9 +2,9 @@
 // winning, challenges; main.js) and are never spent, so whatever a player has unlocked stays
 // unlocked. Every weapon is free from the start; every gun skin has a rarity that opens at an egg
 // total; colours, patterns, stamps and almost every hat are free from the start.
-import { WEAPON_ASSETS } from '../render/asset-catalog.js?v=muzi7z97';
-import { HATS } from './cosmetics.js?v=muzi7z97';
-import { ECONOMY } from '../sim/tuning.js?v=muzi7z97';
+import { WEAPON_ASSETS } from '../render/asset-catalog.js?v=muziihfj';
+import { HATS } from './cosmetics.js?v=muziihfj';
+import { ECONOMY } from '../sim/tuning.js?v=muziihfj';
 
 // Eggs needed for each weapon: none, every weapon is open from the start (skins are what unlock).
 export const WEAPON_UNLOCK = { yolk47: 0, peck9mm: 0, beater: 0, doubleYolker: 0, triBoil: 0, cageFree: 0, poacher: 0, yolkzooka: 0 };
