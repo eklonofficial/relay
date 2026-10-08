@@ -8,7 +8,7 @@
 // RelayChannel: sequence numbers, acks, resends), so the rest of the networking can't tell the
 // difference. Every host listens here as well as on the other paths, and a joining guest races this
 // against them; whichever connects first is used.
-import { RelayChannel } from './transport.js?v=muzthczg';
+import { RelayChannel } from './transport.js?v=muztsdw7';
 
 const ROOT = 'shockshellers/box/';
 const rid = () => Math.random().toString(36).slice(2, 10) + Math.random().toString(36).slice(2, 6);

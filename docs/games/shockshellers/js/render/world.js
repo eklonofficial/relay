@@ -1,13 +1,13 @@
 // Turns a map grid into a few merged meshes (one per material family). Faces hidden against full
 // blocks are dropped, and every vertex gets baked ambient occlusion from the cells around it, which
 // gives the soft, lightmapped look of the reference maps without shipping any lightmap.
-import * as THREE from '../../vendor/three/three.module.js?v=muzthczg';
-import { PIECES, boxesOf, facing } from '../maps/pieces.js?v=muzthczg';
-import { worldMaterial, TEX_SCALE, sway } from './materials.js?v=muzthczg';
-import { clone, modelParts } from './models.js?v=muzthczg';
-import { propParts } from './props.js?v=muzthczg';
-import { mergeGeometries } from '../../vendor/three/BufferGeometryUtils.js?v=muzthczg';
-import { blockMesh } from './blocks.js?v=muzthczg';
+import * as THREE from '../../vendor/three/three.module.js?v=muztsdw7';
+import { PIECES, boxesOf, facing } from '../maps/pieces.js?v=muztsdw7';
+import { worldMaterial, TEX_SCALE, sway } from './materials.js?v=muztsdw7';
+import { clone, modelParts } from './models.js?v=muztsdw7';
+import { propParts } from './props.js?v=muztsdw7';
+import { mergeGeometries } from '../../vendor/three/BufferGeometryUtils.js?v=muztsdw7';
+import { blockMesh } from './blocks.js?v=muztsdw7';
 
 class Bucket {
   constructor(mat) { this.mat = mat; this.p = []; this.n = []; this.u = []; this.c = []; this.i = []; this.v = 0; this.s = TEX_SCALE[mat] ?? 0.5; }

@@ -1,6 +1,6 @@
 // The collision world: a W×H×D grid of cells, each a piece id and rotation (pieces.js). Shared by
 // the simulation (movement, bullets, grenades), the bots (line of sight, navigation) and the renderer.
-import { PIECES, PIECE, boxesOf, ladderFacing } from './pieces.js?v=muzthczg';
+import { PIECES, PIECE, boxesOf, ladderFacing } from './pieces.js?v=muztsdw7';
 
 export class MapGrid {
   constructor(w, h, d) {
