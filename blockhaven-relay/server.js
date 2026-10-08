@@ -7,6 +7,7 @@
 //
 //   GET /health   -> 200 "ok" (also wakes a sleeping free instance)
 //   WS  /mqtt     -> MQTT over WebSocket (subprotocol "mqtt")
+//   POST /box/*   -> the same idea over plain HTTPS long polling, for networks that break WebSockets
 //
 // Limits: only "blockhaven/" topics, 64 KB packets, 400 packets/s per client, 2000 clients.
 const http = require('http');
@@ -18,10 +19,74 @@ const MAX_PACKET = 64 * 1024, MAX_RATE = 400, MAX_CLIENTS = Number(process.env.M
 const allowed = topic => PREFIXES.some(p => topic.startsWith(p));
 const ORIGINS = (process.env.ALLOWED_ORIGINS || '').split(',').map(s => s.trim()).filter(Boolean);
 
+// ---- The mailbox: the same publish/subscribe over plain HTTPS requests (long polling) ----
+// For networks whose filters break WebSockets but still pass ordinary HTTPS (school proxies that
+// decrypt and inspect traffic, for example). POST /box/send {pub: [[topic, message], ...]} publishes;
+// POST /box/recv {sub: [topics], since} answers with everything published to those topics after
+// `since` (holding the request up to 20 s until something arrives). Bodies are sent as text/plain,
+// so browsers need no CORS preflight. Only Shock Shellers' mailbox topics; messages live 30 s.
+const BOX_PREFIX = 'shockshellers/box/', BOX_TTL = 30000, BOX_KEEP = 512, BOX_WAIT = 20000;
+const box = new Map(); // topic -> [{ i, m, t }]
+const waiting = new Set(); // { topics: Set, since, res, timer }
+let boxSeq = 0;
+const httpRate = new Map(); // ip -> { n, start }
+function boxPublish(topic, m) {
+  let log = box.get(topic); if (!log) box.set(topic, log = []);
+  log.push({ i: ++boxSeq, m, t: Date.now() }); if (log.length > BOX_KEEP) log.shift();
+  for (const w of [...waiting]) if (w.topics.has(topic)) boxAnswer(w);
+}
+function boxCollect(topics, since) {
+  const out = [];
+  for (const t of topics) for (const e of box.get(t) || []) if (e.i > since) out.push([t, e.m, e.i]);
+  return out.sort((a, b) => a[2] - b[2]).map(([t, m]) => [t, m]);
+}
+function boxAnswer(w) {
+  if (!waiting.delete(w)) return;
+  clearTimeout(w.timer);
+  json(w.res, 200, { at: boxSeq, msgs: boxCollect(w.topics, w.since) });
+}
+function json(res, code, body) {
+  res.writeHead(code, { 'content-type': 'application/json', 'access-control-allow-origin': '*', 'cache-control': 'no-store' });
+  res.end(JSON.stringify(body));
+}
+setInterval(() => { const old = Date.now() - BOX_TTL; for (const [t, log] of box) { while (log.length && log[0].t < old) log.shift(); if (!log.length) box.delete(t); } httpRate.clear(); }, 10000).unref();
+
 const server = http.createServer((req, res) => {
   if (req.url === '/health' || req.url === '/') {
     res.writeHead(200, { 'content-type': 'text/plain', 'access-control-allow-origin': '*', 'cache-control': 'no-store' });
     res.end('ok');
+    return;
+  }
+  if (req.method === 'OPTIONS' && req.url.startsWith('/box/')) {
+    res.writeHead(204, { 'access-control-allow-origin': '*', 'access-control-allow-methods': 'POST', 'access-control-allow-headers': 'content-type', 'access-control-max-age': '86400' });
+    res.end(); return;
+  }
+  if (req.method === 'POST' && (req.url === '/box/send' || req.url === '/box/recv')) {
+    if (ORIGINS.length && !ORIGINS.includes(req.headers.origin || '')) { json(res, 403, { error: 'origin' }); return; }
+    const ip = String(req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').split(',')[0];
+    const r = httpRate.get(ip) || { n: 0 }; r.n++; httpRate.set(ip, r);
+    if (r.n > 1500) { json(res, 429, { error: 'slow down' }); return; } // per 10 s
+    let body = '', size = 0;
+    req.on('data', d => { size += d.length; if (size > MAX_PACKET * 2) { req.destroy(); return; } body += d; });
+    req.on('end', () => {
+      let q; try { q = JSON.parse(body); } catch { json(res, 400, { error: 'bad json' }); return; }
+      if (req.url === '/box/send') {
+        for (const p of Array.isArray(q.pub) ? q.pub.slice(0, 256) : []) {
+          if (Array.isArray(p) && typeof p[0] === 'string' && p[0].startsWith(BOX_PREFIX) && p[0].length < 200 && typeof p[1] === 'string' && p[1].length <= MAX_PACKET) boxPublish(p[0], p[1]);
+        }
+        json(res, 200, { at: boxSeq });
+        return;
+      }
+      const topics = new Set((Array.isArray(q.sub) ? q.sub.slice(0, 64) : []).filter(t => typeof t === 'string' && t.startsWith(BOX_PREFIX) && t.length < 200));
+      // A first request (no `since`) starts from now; a client that fell further behind than the
+      // log reaches just gets what is left.
+      const since = Number.isFinite(q.since) ? Math.max(0, q.since) : boxSeq;
+      const w = { topics, since, res, timer: null };
+      if (boxCollect(topics, since).length || !topics.size) { waiting.add(w); boxAnswer(w); return; }
+      w.timer = setTimeout(() => boxAnswer(w), BOX_WAIT);
+      waiting.add(w);
+      res.on('close', () => { waiting.delete(w); clearTimeout(w.timer); });
+    });
     return;
   }
   res.writeHead(404); res.end();

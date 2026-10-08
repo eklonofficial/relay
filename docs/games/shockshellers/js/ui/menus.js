@@ -1,21 +1,21 @@
 // Menus and modals (GDD §16–21): home, respawn/pause screen, settings (3 tabs), play with friends,
 // custom matches, profile, shop/inventory, how to play, chat. All markup lives in index.html inside
 // the compositor; this module wires it up and keeps it current.
-import { surfaceDocument as document } from '../surface.js?v=muyu3mgb';
-import * as THREE from '../../vendor/three/three.module.js?v=muyu3mgb';
-import { ask, tell } from '../dialog.js?v=muyu3mgb';
-import { gunModel } from '../render/guns.js?v=muyu3mgb';
-import { EggAvatar } from '../render/egg.js?v=muyu3mgb';
-import { hatMesh } from '../render/hats.js?v=muyu3mgb';
-import { previewShell } from '../render/shellart.js?v=muyu3mgb';
-import { COLORS, PATTERNS, STAMPS, HATS, SKINS, sanitizeCosmetics } from '../game/cosmetics.js?v=muyu3mgb';
-import { WEAPONS, PRIMARIES, MODE_NAMES, MODE_MENU, TICK } from '../sim/tuning.js?v=muyu3mgb';
-import { ACTIONS, ACTION_NAMES, keyLabel, DEFAULT_KEYS } from '../game/input.js?v=muyu3mgb';
-import { DEFAULT_SETTINGS, saveSettings, saveProfile } from '../game/store.js?v=muyu3mgb';
-import { ensureDaily, def as challengeDef, reroll, timeLeft } from '../game/challenges.js?v=muyu3mgb';
-import { MAPS, mapDef } from '../maps/index.js?v=muyu3mgb';
-import { drawHowTo } from './art.js?v=muyu3mgb';
-import { wakeRelays, diagnoseNetwork } from '../net/net.js?v=muyu3mgb';
+import { surfaceDocument as document } from '../surface.js?v=muyu9h16';
+import * as THREE from '../../vendor/three/three.module.js?v=muyu9h16';
+import { ask, tell } from '../dialog.js?v=muyu9h16';
+import { gunModel } from '../render/guns.js?v=muyu9h16';
+import { EggAvatar } from '../render/egg.js?v=muyu9h16';
+import { hatMesh } from '../render/hats.js?v=muyu9h16';
+import { previewShell } from '../render/shellart.js?v=muyu9h16';
+import { COLORS, PATTERNS, STAMPS, HATS, SKINS, sanitizeCosmetics } from '../game/cosmetics.js?v=muyu9h16';
+import { WEAPONS, PRIMARIES, MODE_NAMES, MODE_MENU, TICK } from '../sim/tuning.js?v=muyu9h16';
+import { ACTIONS, ACTION_NAMES, keyLabel, DEFAULT_KEYS } from '../game/input.js?v=muyu9h16';
+import { DEFAULT_SETTINGS, saveSettings, saveProfile } from '../game/store.js?v=muyu9h16';
+import { ensureDaily, def as challengeDef, reroll, timeLeft } from '../game/challenges.js?v=muyu9h16';
+import { MAPS, mapDef } from '../maps/index.js?v=muyu9h16';
+import { drawHowTo } from './art.js?v=muyu9h16';
+import { wakeRelays, diagnoseNetwork } from '../net/net.js?v=muyu9h16';
 
 const $ = id => document.getElementById(id);
 const show = (id, on = true) => $(id).classList.toggle('hidden', !on);
@@ -371,15 +371,16 @@ export class Menus {
       lines.push('', 'Other hosts (plain HTTPS):');
       paint();
       const reach = url => Promise.race([fetch(url, { mode: 'no-cors', cache: 'no-store', credentials: 'omit', referrerPolicy: 'no-referrer' }).then(() => true, () => false), new Promise(r => setTimeout(() => r(false), 8000))]);
-      const hosts = [['Relay over HTTPS', 'https://blockhaven-relay.onrender.com/health'], ['Google Firebase', 'https://hacker-news.firebaseio.com/v0/maxitem.json'], ['Google Apps Script', 'https://script.google.com/'],
+      const hosts = [['Relay mailbox (plain HTTPS, gets past most school filters)', 'https://blockhaven-relay.onrender.com/health'], ['Google Firebase', 'https://hacker-news.firebaseio.com/v0/maxitem.json'], ['Google Apps Script', 'https://script.google.com/'],
         ['Google APIs', 'https://www.googleapis.com/'], ['Vercel', 'https://vercel.com/'], ['Supabase', 'https://supabase.com/'], ['Ably', 'https://rest.ably.io/time']];
       const got = await Promise.all(hosts.map(([, u]) => reach(u)));
       hosts.forEach(([n], i) => lines.push(`${got[i] ? 'OK' : 'NO'}  ${n}`));
       testing = false;
-      lines.push('', relay || room
-        ? `Multiplayer will work on this network${direct ? ', with direct connections (fastest)' : ', through a relay server'}.`
+      const mailbox = got[0];
+      lines.push('', relay || room || mailbox
+        ? `Multiplayer will work on this network${direct ? ', with direct connections (fastest)' : relay || room ? ', through a relay server' : ', through the relay mailbox'}.`
         : 'No multiplayer server could be reached. This network may block them, or the relay is still waking: try again in a minute.');
-      out.className = `note diag ${relay || room ? 'ok' : 'err'}`;
+      out.className = `note diag ${relay || room || mailbox ? 'ok' : 'err'}`;
       paint();
     } catch (e) { out.textContent = `The test failed: ${e.message}`; out.className = 'note diag err'; }
     btn.disabled = false;
