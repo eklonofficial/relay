@@ -7,13 +7,13 @@
 // Bots drive the match through the same input struct as humans (control bits + yaw/pitch), so the
 // simulation holds them to identical movement, fire-rate, spread and damage rules. Difficulty only
 // changes human limits (reaction, aim error, turn speed, leading, decision noise), never knowledge.
-import { CTRL, WEAPONS, PLAYER, GRENADE, PRIMARIES, TICK } from '../sim/tuning.js?v=muzsh3eg';
-import { currentSpread, weaponOf, slotOf } from '../sim/combat.js?v=muzsh3eg';
-import { forward } from '../sim/movement.js?v=muzsh3eg';
-import { STRATEGIES, strategyProfile, choose } from './strategies.js?v=muzsh3eg';
-import { EDGE } from './nav.js?v=muzsh3eg';
-import { Mind, KIND, counterPick } from './mind.js?v=muzsh3eg';
-import { Social, where } from './chat.js?v=muzsh3eg';
+import { CTRL, WEAPONS, PLAYER, GRENADE, PRIMARIES, TICK } from '../sim/tuning.js?v=muzsrlxh';
+import { currentSpread, weaponOf, slotOf } from '../sim/combat.js?v=muzsrlxh';
+import { forward } from '../sim/movement.js?v=muzsrlxh';
+import { STRATEGIES, strategyProfile, choose } from './strategies.js?v=muzsrlxh';
+import { EDGE } from './nav.js?v=muzsrlxh';
+import { Mind, KIND, counterPick } from './mind.js?v=muzsrlxh';
+import { Social, where } from './chat.js?v=muzsrlxh';
 
 // Skill is a number from 0 (a first-time player) to 1 (a top player). Every trait is interpolated
 // between those two anchors; reaction time and aim error interpolate geometrically, since people are
@@ -46,7 +46,7 @@ export function traits(skill, rnd = Math.random, spread = 0.16) {
   return out;
 }
 // Where each weapon likes to fight from (units).
-const RANGE = { yolk47: [4, 12], doubleYolker: [0, 4.5], cageFree: [10, 30], yolkzooka: [5, 16], beater: [0, 8], poacher: [14, 45], triBoil: [5, 14], peck9mm: [0, 10] };
+const RANGE = { yolk47: [4, 12], doubleYolker: [0, 3.5], cageFree: [10, 30], yolkzooka: [5, 16], beater: [0, 8], poacher: [14, 45], triBoil: [5, 14], peck9mm: [0, 10] };
 // Goals that mean playing the mode (moving onto a zone, a spatula, a carrier).
 const OBJECTIVE_GOALS = new Set(['zone', 'spatula', 'carry', 'hunt', 'escort']);
 
@@ -418,7 +418,7 @@ export class Bot {
   tick() {
     const m = this.m, me = this.p;
     if (!me.alive) {
-      this.path = null; this.goal = null; this.target = null; this.mem.clear();
+      this.path = null; this.goal = null; this.target = null; this.mem.clear(); this.hopping = false; this.hopT = 0;
       if (m.canRespawn(me)) {
         if (this.spawnDelay <= 0) this.spawnDelay = Math.round((0.3 + this.rnd() * 1.2) / TICK);
         else if (--this.spawnDelay <= 0) { this.choosePrimary(); m.requestRespawn(me.id); this.yaw = me.body.yaw; this.pitch = 0; }
@@ -662,7 +662,7 @@ export class Bot {
     // Aim down sights at range with scoped/precise weapons.
     const ads = (w.scoped && !w.rocket && (dist > 7 || (this.tactic?.ads && dist > 3))) || (dist > far * 0.8 && w.ads < 0.7);
     if (ads) c |= CTRL.scope;
-    if (s.id === 'doubleYolker' && dist > 6.5) { return c; }
+    if (s.id === 'doubleYolker' && dist > 5.5) { return c; }
     if (w.rocket && dist < w.minRange + 0.6) { return (h.slots.length > 1 && h.swap === 0) ? CTRL.swap : c; }
     if (dist > w.range * 0.98) { return c; }
     if (ads && h.ads === false && w.scoped) { return c; } // wait for the scope to settle

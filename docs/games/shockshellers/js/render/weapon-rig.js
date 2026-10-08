@@ -1,7 +1,7 @@
-import * as THREE from '../../vendor/three/three.module.js?v=muzsh3eg';
-import { weaponModel } from './models.js?v=muzsh3eg';
-import { WEAPONS } from '../sim/tuning.js?v=muzsh3eg';
-import { RELOAD_CUES } from './reload-cues.js?v=muzsh3eg';
+import * as THREE from '../../vendor/three/three.module.js?v=muzsrlxh';
+import { weaponModel } from './models.js?v=muzsrlxh';
+import { WEAPONS } from '../sim/tuning.js?v=muzsrlxh';
+import { RELOAD_CUES } from './reload-cues.js?v=muzsrlxh';
 export const clampProgress = (value) => Math.max(0, Math.min(1, value));
 // A weapon's imported rig and its clips (fire, inspect, the short reload and the reload from empty,
 // the whisk's swing). Nothing here keeps its own time for a reload: each frame samples the clip at the

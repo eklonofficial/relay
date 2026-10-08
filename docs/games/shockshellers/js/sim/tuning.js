@@ -32,26 +32,26 @@ export const DAMAGE = { angleBase: 0.2, angleExp: 4 };
 export const WEAPONS = {
   yolk47: { name: 'Yolk-47', dmg: 30, rof: 3, recoil: 7, auto: true, mag: 30, store: 240, pickup: 30, range: 20, vel: 1.5, reload: [160, 205], acc: [0.03, 0.15, 0.05, 0.025], ads: 0.5, moveMod: 1.0, tracer: 2, scope: 0.9, scoped: false,
     desc: 'Reliable full-auto rifle. Tap it at range, hose it up close.' },
-  doubleYolker: { name: 'Double Yolker', dmg: 12.5, pellets: 16, dropoff: [3, 7, 0.12], rof: 8, recoil: 10, auto: false, mag: 2, store: 24, pickup: 8, range: 12, vel: 1.1, reload: [155, 155], acc: [0.07, 0.11, 0.12, 0.02], ads: 0.6, moveMod: 0.2, vSpreadMul: 0.55, scope: 1.0, scoped: false,
-    desc: 'Two barrels. Point blank, nothing hits harder; it fades fast with distance.' },
+  doubleYolker: { name: 'Double Yolker', dmg: 7.5, pellets: 20, rof: 8, recoil: 10, auto: false, mag: 2, store: 24, pickup: 8, range: 8, vel: 1.0, reload: [155, 155], acc: [0.14, 0.17, 0.17, 0.02], ads: 0.6, moveMod: 0.2, vSpreadMul: 0.6, scope: 1.0, scoped: false,
+    desc: "Two barrels. Point-blank, it's breakfast." },
   cageFree: { name: 'Cage Free', dmg: 101, rof: 13, recoil: 13, auto: false, mag: 15, store: 60, pickup: 15, range: 50, vel: 1.75, reload: [165, 225], acc: [0.004, 0.3, 0.3, 0.025], ads: 0.5, moveMod: 1.0, scope: 0.7, scoped: true,
     desc: 'Fifteen-round marksman rifle that forgives a miss.' },
-  // Yolkzooka: the blast does `direct` at its centre (from [close, far], growing over the rocket's first
-  // rampDist units of flight), falling off with distance (falloff > 1 keeps more of it further out): a
-  // hit on an egg or right beside one cracks it; a little further out it takes a big chunk, enough to
-  // finish with the pistol. It throws eggs it doesn't crack (knock sideways, lift up). The shooter's own
-  // blast never hurts them, it launches them (a rocket jump), and firing shoves them back (recoilPush).
-  yolkzooka: { name: 'Yolkzooka', dmg: 125, direct: [110, 125], rampDist: 18, splash: 1, radius: 3.25, falloff: 1.3, minRange: 0,
-    knock: 0.38, lift: 0.15, selfKnock: 0.3, selfLift: 0.06, recoilPush: 0.12, rof: 40, recoil: 60, auto: false, mag: 1, store: 4, pickup: 1, range: 45, vel: 0.8, reload: [170, 170], acc: [0.015, 0.3, 0.3, 0.02], ads: 0.5, moveMod: 1.0, absMinAcc: 0.3, scope: 0.9, scoped: true, rocket: true,
-    desc: 'Rocket that hits harder the further it flies. Blast eggs aside, or rocket-jump off your own.' },
+  // Yolkzooka, as in Shell Shockers: a slow rocket; a direct hit does `direct` (from [close, far],
+  // growing over the rocket's first rampDist units of flight; equal here, so flat), the blast `direct` ×
+  // `splash` at its centre falling off linearly (falloff 1) to nothing at `radius`. On top of that it
+  // throws eggs it doesn't crack (knock sideways, lift up); the shooter's own blast never hurts them, it
+  // launches them (a rocket jump), and firing shoves them back (recoilPush).
+  yolkzooka: { name: 'Yolkzooka', dmg: 140, direct: [200, 200], rampDist: 1, splash: 0.7, radius: 2.75, falloff: 1, minRange: 0,
+    knock: 0.38, lift: 0.15, selfKnock: 0.3, selfLift: 0.06, recoilPush: 0.12, rof: 40, recoil: 60, auto: false, mag: 1, store: 3, pickup: 1, range: 45, vel: 0.4, reload: [170, 170], acc: [0.015, 0.3, 0.3, 0.02], ads: 0.5, moveMod: 1.0, absMinAcc: 0.3, scope: 0.9, scoped: true, rocket: true,
+    desc: 'Slow rocket, big boom. Blast eggs aside, or rocket-jump off your own.' },
   beater: { name: 'Beater', dmg: 23, rof: 2, recoil: 7, auto: true, mag: 40, store: 200, pickup: 40, range: 20, vel: 1.25, reload: [190, 225], acc: [0.06, 0.19, 0.045, 0.05], ads: 0.6, moveMod: 0.7, tracer: 3, scope: 1.0, scoped: false,
     desc: 'Forty-round bullpup that never stops whisking.' },
   poacher: { name: 'Poacher', dmg: 180, rof: 15, recoil: 20, auto: false, mag: 1, store: 12, pickup: 4, range: 120, vel: 17, reload: [144, 144], acc: [0.0, 0.35, 0.1, 0.023], ads: 0.5, moveMod: 0.85, reloadBloom: false, scope: 0.3, scoped: true,
     desc: 'One round. One egg. Make it count.' },
   triBoil: { name: 'Tri-Boil', dmg: 35, burst: 3, burstGap: 3, rof: 15, recoil: 18, auto: false, mag: 24, store: 150, pickup: 24, range: 20, vel: 1.5, reload: [160, 205], acc: [0.03, 0.15, 0.04, 0.03], ads: 0.6, moveMod: 0.8, scope: 0.7, scoped: false,
     desc: 'Three-round burst for disciplined mid-range.' },
-  peck9mm: { name: 'Peck 9mm', dmg: 28, rof: 4, recoil: 6, auto: false, mag: 15, store: 60, pickup: 15, range: 60, vel: 1.6, reload: [160, 195], acc: [0.008, 0.15, 0.06, 0.08], angleMin: 0.75, ads: 0.8, moveMod: 0.6, scope: 1.1, scoped: false,
-    desc: 'Backup pistol: four or five hits crack an egg at any range.' },
+  peck9mm: { name: 'Peck 9mm', dmg: 26, rof: 4, recoil: 6, auto: false, mag: 15, store: 60, pickup: 15, range: 15, vel: 1.0, reload: [160, 195], acc: [0.035, 0.15, 0.09, 0.08], ads: 0.8, moveMod: 0.6, scope: 1.1, scoped: false,
+    desc: 'Backup pistol. Finish what your primary started.' },
 };
 // Home-screen order of the primaries (and their index on the wire).
 export const PRIMARIES = ['yolk47', 'doubleYolker', 'cageFree', 'yolkzooka', 'beater', 'poacher', 'triBoil'];
